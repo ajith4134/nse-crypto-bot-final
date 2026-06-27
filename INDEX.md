@@ -546,7 +546,7 @@ _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 ## `run_multi.py`
 _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 - **classes:** _MetaView
-- **functions:** `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_split_dataset(ds, cap, train_frac)`; `_load_external(source)`; `main(arg, n, pool) -> dict`
+- **functions:** `_load_dotenv() -> None`; `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_split_dataset(ds, cap, train_frac)`; `_load_external(source)`; `main(arg, n, pool) -> dict`
 - **imports:** __future__, core, core.heads, data.benchmarks, eval.golden, json, nodes, numpy, os, sys, time, warnings
 
 ## `run_noise_router.py`

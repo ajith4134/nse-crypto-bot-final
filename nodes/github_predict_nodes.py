@@ -208,8 +208,11 @@ class NGBoostNode(_DirectNode):
 
     def _make_classifier(self, n_classes: int):
         from ngboost import NGBClassifier
-        return NGBClassifier(n_estimators=self.n_estimators, verbose=False,
-                             random_state=1)
+        kw = dict(n_estimators=self.n_estimators, verbose=False, random_state=1)
+        if n_classes > 2:                                 # default Dist is binary (k=2)
+            from ngboost.distns import k_categorical
+            kw["Dist"] = k_categorical(n_classes)
+        return NGBClassifier(**kw)
 
     def _make_regressor(self):
         from ngboost import NGBRegressor

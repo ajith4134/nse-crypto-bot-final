@@ -47,6 +47,21 @@ from nodes import oss_nodes as O
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 N = 1500
 
+
+def _load_dotenv() -> None:
+    """Load gitignored .env (e.g. TABPFN_TOKEN) into the environment if present."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(path):
+        return
+    for line in open(path):
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
+
+
+_load_dotenv()
+
 SYNTH_HEADS = [
     OutputHead("direction", "binary", 2, "next-step direction (up/down)"),
     OutputHead("regime", "multiclass", 3, "next-step regime (down/flat/up)"),
