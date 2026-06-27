@@ -1,0 +1,24 @@
+{
+  "name": "ml-network-brain-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Ultra-visual animated dashboard (React + Three.js + D3) for the ML Network Brain.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
+    "d3": "^7.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.10"
+  }
+}

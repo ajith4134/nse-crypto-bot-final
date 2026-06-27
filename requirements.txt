@@ -1,0 +1,29 @@
+# ML Network Brain — OSS stack (CPU-only). Install into the project venv:
+#   python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+#
+# The hand-rolled stdlib nodes still work with zero deps; these are the
+# reuse-first production backends now wired in behind the SAME NodeProtocol.
+
+# --- core scientific / tabular node layer ---
+numpy
+pandas
+scipy
+scikit-learn        # LogReg/KNN/Tree/MLP/NB/RF/GBDT/SVM/StackingClassifier nodes
+xgboost             # gradient-boosted-tree node
+lightgbm            # gradient-boosted-tree node
+
+# --- specialized node families ---
+reservoirpy         # echo-state / reservoir nodes (chaotic series)
+hmmlearn            # Gaussian-HMM latent-regime gating node
+nolds               # nonlinear-dynamics (chaos/noise) feature node
+ruptures            # change-point detection (regime family)
+
+# --- production / discovery nodes ---
+autogluon.tabular   # multi-layer stacked ensemble (production reference node)
+pysr                # symbolic regression / equation discovery (Phase 5); pulls Julia on first fit
+
+# --- Phase 4 brain/memory upgrade (installed when Area 4 lands) ---
+#   qdrant-client chromadb   # vector memory
+#   mem0ai                   # agent memory
+#   graphiti-core neo4j      # temporal knowledge graph
+#   crawl4ai                 # web/PDF/news ingestion

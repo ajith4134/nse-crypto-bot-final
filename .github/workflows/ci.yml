@@ -1,0 +1,52 @@
+name: CI
+
+# Phase-0 discipline: every push / PR builds a CPU-only venv, runs the stdlib
+# unittest suite, and enforces the accuracy gate (tests/test_robust.py — the
+# router-grown brain must beat the naive baseline).
+#
+# Heavy / slow optional backends (autogluon, pysr+Julia) are SKIPPED in CI via
+# ML_NETWORK_SKIP_HEAVY=1. Those node `fit()` methods import their backend
+# lazily, so the suite stays green without them. A lighter CPU subset of the
+# OSS node layer is installed explicitly below.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Tests / nodes check this to skip autogluon + pysr (Julia) in CI.
+      ML_NETWORK_SKIP_HEAVY: "1"
+      CI: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Create venv and install CPU node layer (skip autogluon/pysr)
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          # Lighter CPU-only subset of requirements.txt. Heavy backends
+          # (autogluon.tabular, pysr) are intentionally omitted in CI.
+          pip install \
+            numpy pandas scipy scikit-learn xgboost lightgbm \
+            reservoirpy hmmlearn nolds ruptures
+
+      - name: Run acceptance test suite (stdlib unittest)
+        run: |
+          . .venv/bin/activate
+          python -m unittest discover -s tests -v
+
+      - name: Accuracy gate (router-grown brain beats baseline)
+        run: |
+          . .venv/bin/activate
+          python -m unittest -v tests.test_robust

@@ -1,0 +1,91 @@
+:root {
+  --bg: #05070f;
+  --bg2: #0a0f1f;
+  --panel: rgba(18, 26, 48, 0.72);
+  --panel-brd: rgba(99, 179, 255, 0.18);
+  --txt: #e7edf7;
+  --muted: #8ea0c0;
+  --accent: #5cc8ff;
+  --accent2: #b98cff;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --base: #fb7185;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: radial-gradient(1200px 700px at 70% -10%, #14213d 0%, var(--bg) 55%) fixed;
+  color: var(--txt);
+  overflow-x: hidden;
+}
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* header */
+.top {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 16px 26px; border-bottom: 1px solid var(--panel-brd);
+  background: linear-gradient(180deg, rgba(12,18,38,.9), rgba(8,12,28,.55));
+  position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand .dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--good); box-shadow: 0 0 14px 3px var(--good);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:.55; transform:scale(.85)} 50%{opacity:1; transform:scale(1.15)} }
+.brand h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
+.brand small { color: var(--muted); font-size: 12px; }
+.chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.chip {
+  font-size: 11px; padding: 4px 9px; border-radius: 20px;
+  background: rgba(92,200,255,.1); border: 1px solid rgba(92,200,255,.25);
+  color: var(--accent);
+}
+.spacer { flex: 1; }
+.gen { color: var(--muted); font-size: 12px; text-align: right; }
+
+/* kpi row */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px; padding: 18px 26px 6px; }
+.kpi {
+  background: var(--panel); border: 1px solid var(--panel-brd); border-radius: 14px;
+  padding: 14px 16px; position: relative; overflow: hidden;
+}
+.kpi .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+.kpi .val { font-size: 30px; font-weight: 700; margin-top: 4px; }
+.kpi .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.kpi .bar { position:absolute; left:0; bottom:0; height:3px; background: linear-gradient(90deg,var(--accent),var(--accent2)); }
+
+/* layout */
+.grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; padding: 12px 26px 30px; }
+@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+.card {
+  background: var(--panel); border: 1px solid var(--panel-brd); border-radius: 16px;
+  padding: 14px 16px; box-shadow: 0 12px 40px rgba(0,0,0,.35);
+}
+.card h2 { font-size: 14px; margin: 2px 0 10px; color: #cfe0ff; letter-spacing:.4px; }
+.card .hint { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.graphwrap { height: 560px; padding: 0; overflow: hidden; position: relative; }
+.legend { position: absolute; left: 14px; bottom: 12px; display:flex; gap:12px; flex-wrap:wrap;
+  font-size: 11px; color: var(--muted); z-index: 5; }
+.legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+.detail { position:absolute; right:14px; top:14px; width: 230px; background: rgba(8,12,28,.85);
+  border:1px solid var(--panel-brd); border-radius:12px; padding:12px; font-size:12px; z-index:6; }
+.detail b { color: var(--accent); }
+.detail .k { color: var(--muted); }
+
+.bars { display:flex; flex-direction:column; gap:6px; }
+.row { display:flex; align-items:center; gap:8px; font-size:12px; }
+.row .nm { width: 120px; color: var(--txt); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row .track { flex:1; height:14px; background: rgba(255,255,255,.05); border-radius:7px; overflow:hidden; }
+.row .fill { height:100%; border-radius:7px; background: linear-gradient(90deg,var(--accent),var(--accent2)); }
+.row .pc { width: 44px; text-align:right; color: var(--muted); }
+.baseline-note { font-size:11px; color: var(--base); margin-top:8px; }
+
+.loading { display:grid; place-items:center; height: 100vh; color: var(--muted); font-size: 14px; }
+svg text { fill: var(--muted); font-size: 10px; }
+.footer { color: var(--muted); font-size: 11px; text-align:center; padding: 6px 0 22px; }
+a { color: var(--accent); }

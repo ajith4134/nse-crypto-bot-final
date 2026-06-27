@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Knowledge Brain — Memory Graph</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  body{margin:0;background:#05070f;color:#cfe3ff;font-family:ui-monospace,Menlo,Consolas,monospace;}
+  .top{padding:12px 20px;border-bottom:1px solid #1d2b4a;background:#0a1020;}
+  .top a{color:#39d0ff;text-decoration:none;font-size:12px;}
+  h1{margin:0;font-size:17px;} h1 b{color:#ff5cf0;}
+  #stats{font-size:12px;color:#9fc0ff;margin-top:5px;}
+  svg{width:100vw;height:calc(100vh - 70px);}
+  .legend{font-size:11px;color:#7d96c4;}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>🧠 KNOWLEDGE <b>BRAIN</b> — memory graph (docs ↔ concepts)</h1>
+  <div id="stats">loading…</div>
+  <div class="legend">● document &nbsp; ◆ concept &nbsp; — bigger concept = shared by more docs &nbsp; · <a href="/">live dashboard</a> · <a href="/architecture">architecture</a></div>
+</div>
+<svg id="g"></svg>
+<script>
+async function load(){
+  const d = await (await fetch('/api/knowledge')).json();
+  const s = d.stats||{};
+  document.getElementById('stats').textContent =
+    `${s.docs||0} docs · ${s.chunks||0} chunks · ${s.concepts? s.concepts : (s.by_type? s.by_type.concept:0)||0} concepts · vocab ${s.vocab||0} · recalls ${s.recalls||0}`;
+  const svg=d3.select('#g'); svg.selectAll('*').remove();
+  const W=svg.node().clientWidth, H=svg.node().clientHeight;
+  const nodes=(d.nodes||[]).map(n=>Object.assign({},n));
+  const links=(d.edges||[]).map(e=>Object.assign({},e));
+  const link=svg.append('g').selectAll('line').data(links).enter().append('line')
+     .attr('stroke','#23406e').attr('stroke-width',1);
+  const g=svg.append('g').selectAll('g').data(nodes).enter().append('g');
+  g.append((d)=> document.createElementNS('http://www.w3.org/2000/svg', d.type==='doc'?'circle':'rect'));
+  g.select('circle').attr('r',7).attr('fill','#39d0ff');
+  g.select('rect').attr('width',d=>8+Math.min(18,(d.count||1)*3)).attr('height',d=>8+Math.min(18,(d.count||1)*3))
+     .attr('fill','#ff5cf0').attr('transform','rotate(45)');
+  g.append('text').text(d=>d.label).attr('x',10).attr('y',4).attr('font-size',10)
+     .attr('fill',d=>d.type==='doc'?'#9fe0ff':'#ffb0f0');
+  const sim=d3.forceSimulation(nodes)
+     .force('link',d3.forceLink(links).id(d=>d.id).distance(60))
+     .force('charge',d3.forceManyBody().strength(-120))
+     .force('center',d3.forceCenter(W/2,H/2))
+     .on('tick',()=>{
+       link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+       g.attr('transform',d=>`translate(${d.x},${d.y})`);
+     });
+}
+load();
+</script>
+</body>
+</html>
