@@ -137,7 +137,8 @@ register(id="wittgenstein_ripper", import_path="wittgenstein.RIPPER", tasks=froz
 register(id="tabpfn", import_path="tabpfn.TabPFNClassifier", tasks=_CLS, kind="ml",
          summary="TabPFN — tabular foundation model (in-context).",
          requires_env="TABPFN_TOKEN",  # weights need 1-time license accept + token (non-commercial)
-         fixed_args={}, license="non-commercial-weights")
+         fixed_args={"ignore_pretraining_limits": True},  # allow >1000 training rows on CPU
+         license="non-commercial-weights")
 register(id="pyoperon_sr", import_path="pyoperon.sklearn.SymbolicRegressor", tasks=_REG,
          kind="symbolic", summary="Operon GP symbolic regression (SRBench leader).", license="MIT")
 register(id="nearest_centroid", import_path="sklearn.neighbors.NearestCentroid", tasks=_CLS,
