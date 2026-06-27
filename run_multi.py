@@ -300,6 +300,9 @@ def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
         ytr, yte = head_targets[h.name]
         items = domain_pool() if pool == "rich" else (
             reg_pool() if h.task == TASK_REGRESSION else cls_pool())
+        if pool == "rich":                              # + declarative algorithm registry
+            from nodes.universal_node import build_nodes
+            items = items + build_nodes(h.task)
         base_names, base_outs = [], []
         for base_name, factory in items:
             try:                                          # one bad node can't kill the run

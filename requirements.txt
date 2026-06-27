@@ -162,3 +162,22 @@ scikit-image            # TV / wavelet denoising (denoise_tv_chambolle, denoise_
 #   Gottwald-Melbourne 0-1 chaos test, NCD via stdlib lzma, stochastic-resonance Langevin,
 #   recurring-state (ruptures+KMeans, claspy substitute). scikit-rmt value covered by the
 #   existing numpy Marchenko-Pastur node.
+
+# --- Ultra-advanced ML via declarative registry (core/algo_registry.py + nodes/universal_node.py) ---
+imodels                 # RuleFit/FIGS/GOSDT interpretable suite
+quantile-forest         # quantile regression forests (distributional)
+xgboostlss              # XGBoost distributional boosting (LSS)
+lightgbmlss             # LightGBM distributional boosting (LSS)
+wittgenstein            # RIPPER rule induction
+metric-learn            # LMNN/NCA metric learning (+ kNN)
+hyppo                   # MMD / kernel two-sample tests (MMDFeature)
+mljar-supervised        # AutoML stacked ensemble node
+pyoperon                # Operon C++ GP symbolic regression
+tabpfn                  # tabular foundation model — GATED behind TABPFN_TOKEN (non-commercial weights, 1-time license)
+stochtree               # BART / XBART (Bayesian additive regression trees)
+pymc-bart               # BART via PyMC
+scikit-survival         # Random Survival Forest (GPL-3.0)
+pymfe                   # dataset meta-features (for algorithm-selecting brain)
+# FAILED on py3.13 (not GPU; value covered): deep-forest->stacked RF, lcensemble->RF+XGB,
+#   tmu(Tsetlin)->future, lightautoml->mljar/autogluon.
+# ENV moved by this batch: scikit-learn 1.8.0 (gplearn satisfied), scipy 1.16.3, numpy 2.3.5 — suite green.

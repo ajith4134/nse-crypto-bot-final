@@ -223,6 +223,12 @@ _config.py — central, safe secrets/config loader._
 ## `core/__init__.py`
 _(no summary)_
 
+## `core/algo_registry.py`
+_Declarative algorithm registry — the scalable 'way' to add ANY ML algorithm._
+- **classes:** AlgoSpec
+- **functions:** `register() -> AlgoSpec`; `import_obj(path)`; `spec_importable(spec) -> bool`
+- **imports:** __future__, dataclasses, importlib
+
 ## `core/brain.py`
 _GrowingBrain — grows the network by keeping only nodes that help._
 - **classes:** GrowingBrain
@@ -331,6 +337,12 @@ _ctypes wrapper for native hot kernels, with pure-Python fallback._
 
 ## `nodes/__init__.py`
 _(no summary)_
+
+## `nodes/advanced_ml_nodes.py`
+_Sklearn-style estimator wrappers for advanced ML libraries that are NOT_
+- **classes:** BayesianGMMClassifier, SurvivalForestClassifier, XGBoostLSSRegressor, XGBoostLSSClassifier, LightGBMLSSRegressor, MetricLearnKNN, BARTRegressor, BARTClassifier, MMDFeature
+- **functions:** `_Xf(X) -> np.ndarray`; `_xgblss_train(Xa, ya, n_estimators, eta, seed)`
+- **imports:** __future__, numpy, warnings
 
 ## `nodes/advanced_nodes.py`
 _Advanced / newly-researched node families behind the project NodeProtocol._
@@ -494,6 +506,12 @@ _Structure / graph / topology nodes — visibility graphs, multifractal spectrum
 _PySRNode — the plan's Phase-5 equation-discovery node._
 - **classes:** PySRNode
 - **imports:** __future__, core.node_protocol, numpy
+
+## `nodes/universal_node.py`
+_UniversalNode — builds a NodeProtocol node from any AlgoSpec (core/algo_registry)._
+- **classes:** UniversalNode
+- **functions:** `build_nodes(task) -> list`
+- **imports:** __future__, core.algo_registry, core.node_protocol, numpy, os, warnings
 
 ## `run_brain.py`
 _run_brain.py — Step 1: let the brain GROW the network from a candidate pool._
