@@ -28,8 +28,10 @@ export function useNetworkState(intervalMs = 4000) {
 // Color per node-family kind — keep in sync with the legend in App.jsx.
 export const KIND_COLOR = {
   base: '#5cc8ff',
+  regressor: '#36e0c8',
   ensemble: '#b98cff',
   meta: '#b98cff',
+  output: '#4ade80',
   automl: '#f0a14b',
   symbolic: '#4ade80',
   regime: '#fbbf24',
