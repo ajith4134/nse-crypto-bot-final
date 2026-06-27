@@ -91,6 +91,25 @@ A one-line banner of the active rules is shown at the top of every reply:
 - Every user prompt is rated 1–10; missing info is gathered to reach a 10/10
   before execution. (Enforced by a UserPromptSubmit hook.)
 
+## 11. Verify-first (never trust unverified reports)
+- **NEVER trust a report — from a subagent, a tool summary, or my own earlier
+  claim — until I have checked it MYSELF against the real code / real error /
+  real command output.** A subagent saying "tests pass" or "no secrets tracked"
+  is a hypothesis, not a fact, until I re-run the check and see it.
+- Concretely: re-run the test, read the actual file, `grep` the real tracked
+  list, hit the live endpoint, look at the real screenshot. Relay results only
+  after first-hand confirmation; if I relayed something unverified, say so.
+- Applies doubly to claims of success ("it works", "all green", "fixed") and to
+  anything safety-relevant (secrets, deletions, accuracy gates).
+
+## 12. Error-research (online + in-project) before fixing
+- On ANY error or inconsistency: don't guess a fix. First (a) **scan THIS project
+  and its git history** for where a similar problem was already solved (reuse the
+  proven pattern), and (b) **search online** for the error / library behaviour to
+  find the established solution. Then apply the evidence-based fix.
+- Prefer a fix already used elsewhere in the repo (consistency) over a novel one.
+  Record the root cause, not just the patch.
+
 ---
 
 ### Definition of Done for any coding task
@@ -99,5 +118,6 @@ A one-line banner of the active rules is shown at the top of every reply:
 3. New node/component conforms to `NodeProtocol` + registered (§3).
 4. Reused OSS where possible; new-from-scratch justified (§4).
 5. No dead code / orphans (§5 passes CI).
-6. Dashboard view registered for any new node/feature (§6).
+6. Dashboard view registered for any new node/feature (§6); wiring is real (honest, §6).
 7. No secrets touched tracked files (§7).
+8. Every "it works / passes / fixed" claim was VERIFIED first-hand (§11), not taken on trust.
