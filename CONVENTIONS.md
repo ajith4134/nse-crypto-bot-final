@@ -86,6 +86,13 @@ A one-line banner of the active rules is shown at the top of every reply:
   and the size/cost if notable. The user runs the install (or approves it).
 - This refines §4: reuse-first means *use the best mature OSS* — and if it needs
   installing, request the install instead of building a workaround.
+- **NEVER-SKIP rule (load-bearing).** The ONLY acceptable reason to skip a model,
+  feature, node, or library is that it **requires a GPU** (no CPU path). Nothing
+  else justifies skipping: if a node needs **extra data, DOWNLOAD it** (free/no-key
+  sources first; ask for a key only if unavoidable); slowness, heaviness, copyleft
+  license, or a different paradigm (e.g. RL) are NOT reasons to skip — build it
+  (slow/standalone is fine, just keep it off the fast hot-path). When something is
+  GPU-only, say so explicitly and note any CPU alternative.
 
 ## 8. Prompt-quality protocol (workflow rule)
 - Every user prompt is rated 1–10; missing info is gathered to reach a 10/10
