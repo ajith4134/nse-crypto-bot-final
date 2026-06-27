@@ -49,6 +49,8 @@ class NodeInfo:
     trained: bool = False
     metrics: dict = field(default_factory=dict)
     upstream: list[str] = field(default_factory=list)
+    task: str = "binary"          # binary | multiclass | regression
+    head: str = "y"               # the OutputHead this node predicts
 
     def to_json(self) -> dict:
         return {
@@ -56,6 +58,7 @@ class NodeInfo:
             "input_dim": self.schema.input_dim, "input_desc": self.schema.input_desc,
             "output_desc": self.schema.output_desc, "trained": self.trained,
             "metrics": self.metrics, "upstream": self.upstream,
+            "task": self.task, "head": self.head,
         }
 
 

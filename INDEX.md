@@ -407,6 +407,12 @@ _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 - **functions:** `_wiki(title) -> str | None`; `main() -> dict`
 - **imports:** __future__, json, memory.brain, os, urllib.request
 
+## `run_multi.py`
+_run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
+- **classes:** _MetaView
+- **functions:** `cls_pool()`; `reg_pool()`; `_combine(outputs, task)`; `main(benchmark) -> dict`
+- **imports:** __future__, core, core.heads, data.benchmarks, data.dataset, eval.golden, json, nodes, numpy, os, sys, time, warnings
+
 ## `run_noise_router.py`
 _(ii) Demonstrate the noise-regime router beating either single expert._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`

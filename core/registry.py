@@ -24,6 +24,7 @@ def register(node: BaseNode, summary: str | None = None,
         name=node.name, kind=node.kind,
         summary=summary or getattr(node, "summary", ""),
         schema=node.schema, upstream=upstream or [],
+        task=getattr(node, "task", "binary"), head=getattr(node, "head", "y"),
     )
 
 
@@ -41,7 +42,7 @@ def reset() -> None:
 
 def snapshot() -> dict:
     """Nodes + derived edges (upstream -> node) for the dashboard."""
-    edges = [{"source": up, "target": info.name}
+    edges = [{"source": up, "target": info.name, "head": info.head}
              for info in _NODES.values() for up in info.upstream]
     return {
         "nodes": [info.to_json() for info in _NODES.values()],
