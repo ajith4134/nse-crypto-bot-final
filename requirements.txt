@@ -90,3 +90,21 @@ QuantLib                # Black-Scholes/Heston option analytics (Deribit snapsho
 #          Prophet + Darts + statsforecast already cover decomposable forecasting).
 # Standalone-only (built but kept off the fast pool — slow, not GPU): stumpy, pyextremes,
 # umap-learn(manifold), GaussianProcess, tsfresh, tensor_decomp, bayesian(pymc).
+
+# --- 3rd wave: more families + CPU deep learning + multi-dataset inputs (INSTALLED) ---
+tick                    # Hawkes / temporal point processes (event clustering)
+pyEDM                   # empirical dynamic modeling (Simplex/S-map, CCM causality)
+minisom                 # self-organizing maps (regime/anomaly)
+pyoselm                 # extreme learning machines (closed-form, fast)
+pyvinecopulib           # vine-copula tail dependence
+aeon                    # ROCKET/MiniRocket random-conv features
+# (iisignature failed to build -> SignatureNode uses a numpy depth-2 signature)
+pytorch-lightning>=2.0  # required by darts torch models (was 1.9.5 -> upgraded)
+tensorboardx            # darts-torch dependency
+# deep-learning nodes use darts (already listed) on CPU torch: N-HiTS/TCN/N-BEATS/TSMixer/GRU+AE
+# multi-dataset inputs:
+yfinance                # crypto + Indian equities (daily & intraday MTF) + others
+wfdb                    # PhysioNet ECG
+meteostat               # weather (Open-Meteo used as primary, no key)
+# Order book: Binance public depth (no key, live snapshots — no free historical L2).
+# NSE has NO free L2 order book -> order-book input is crypto-only; MTF candles work for both.

@@ -86,6 +86,8 @@ def domain_pool():
     signal-processing/control) — every node is task-aware so it serves any head.
     Deliberately EXCLUDES the slow ones (STUMPY ~26s, EVT ~20s, GaussianProcess
     ~12s) which stay importable standalone but off the hot path."""
+    from nodes import advanced_nodes as A
+    from nodes import dl_nodes as DL
     from nodes import dynamics_nodes as D
     from nodes import frontier_nodes as F
     from nodes import ml_nodes as M
@@ -119,6 +121,13 @@ def domain_pool():
         # frontier: quantum / RL / options
         ("quantum", F.quantum_kernel_node), ("rl_policy", F.rl_policy_node),
         ("option_iv", F.option_iv_node),
+        # newly-researched families
+        ("hawkes", A.hawkes_node), ("nvar", A.nvar_node), ("signature", A.signature_node),
+        ("edm", A.edm_node), ("som", A.som_node), ("elm", A.elm_node),
+        ("copula", A.copula_node), ("rocket", A.rocket_node), ("nystroem", A.nystroem_node),
+        # deep learning (CPU) — TCN/N-BEATS/TSMixer/GRU/AE fast; N-HiTS heavier
+        ("tcn", DL.tcn_node), ("nbeats", DL.nbeats_node), ("tsmixer", DL.tsmixer_node),
+        ("gru", DL.gru_node), ("ae_anomaly", DL.ae_anomaly_node), ("nhits", DL.nhits_node),
     ]
 
 
@@ -201,13 +210,11 @@ def _load_crypto(train_frac: float = 0.7):
             CRYPTO_HEADS, len(Xtr) + len(Xte))
 
 
-def _load_external(source: str, cap: int = 2500, train_frac: float = 0.7):
-    """Real non-crypto dataset (Indian equities / sunspots / weather / energy /
-    ECG) → multi-head targets; capped to the most recent `cap` rows for speed."""
-    from data.external import make_external_dataset
-    ds = make_external_dataset(source)
-    X, feat = ds["X"], ds["feature_names"]
-    tg = ds["targets"]
+def _split_dataset(ds: dict, cap: int = 2500, train_frac: float = 0.7):
+    """Chronological train/test split of a dataset dict {X, targets, feature_names,
+    name} into the (name, feat, Xtr, Xte, head_targets, heads, n) tuple the runner
+    expects. Capped to the most recent `cap` rows for tractability."""
+    X, feat, tg = ds["X"], ds["feature_names"], ds["targets"]
     if len(X) > cap:
         X = X[-cap:]
         tg = {k: v[-cap:] for k, v in tg.items()}
@@ -215,6 +222,11 @@ def _load_external(source: str, cap: int = 2500, train_frac: float = 0.7):
     Xtr, Xte = X[:cut], X[cut:]
     ht = {h.name: (tg[h.name][:cut], tg[h.name][cut:]) for h in SYNTH_HEADS}
     return ds["name"], feat, Xtr, Xte, ht, SYNTH_HEADS, len(X)
+
+
+def _load_external(source: str):
+    from data.external import make_external_dataset
+    return _split_dataset(make_external_dataset(source))
 
 
 def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
@@ -225,6 +237,18 @@ def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
     elif arg in EXTERNAL_SOURCES:
         name, feat, Xtr, Xte, head_targets, heads, n = _load_external(arg)
         source = arg
+    elif arg == "mtf":
+        from data.binance import make_mtf_dataset
+        name, feat, Xtr, Xte, head_targets, heads, n = _split_dataset(make_mtf_dataset())
+        source = "mtf"
+    elif arg == "orderbook":
+        from data.orderbook import make_orderbook_dataset
+        name, feat, Xtr, Xte, head_targets, heads, n = _split_dataset(make_orderbook_dataset())
+        source = "orderbook"
+    elif arg == "mtf_indian":
+        from data.external import make_mtf_indian
+        name, feat, Xtr, Xte, head_targets, heads, n = _split_dataset(make_mtf_indian())
+        source = "mtf_indian"
     else:
         name, feat, Xtr, Xte, head_targets, heads, n = _load_synthetic(arg, n)
         source = "synthetic"

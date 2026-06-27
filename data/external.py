@@ -46,6 +46,31 @@ def load_indian_equity(symbol: str = "RELIANCE.NS", period: str = "8y") -> list[
     return [(dates[i], float(close[i]), float(vol[i]) or 1.0) for i in range(len(close))]
 
 
+def load_klines_yf(symbol: str = "RELIANCE.NS", interval: str = "5m",
+                   period: str = "60d") -> list[tuple]:
+    """Intraday OHLCV for any yfinance symbol (Indian equities use .NS/.BO).
+    Returns (open_ms, close, volume). yfinance caps intraday history at ~60d."""
+    import yfinance as yf
+    df = yf.download(symbol, period=period, interval=interval,
+                     progress=False, auto_adjust=True)
+    if df is None or len(df) == 0:
+        raise RuntimeError(f"yfinance returned no intraday data for {symbol} {interval}")
+    close = df["Close"].to_numpy().reshape(-1)
+    vol = df["Volume"].to_numpy().reshape(-1) if "Volume" in df else [1.0] * len(close)
+    ts = [int(t.timestamp() * 1000) for t in df.index]
+    return [(ts[i], float(close[i]), float(vol[i]) or 1.0)
+            for i in range(len(close)) if close[i] == close[i]]  # drop NaN
+
+
+def make_mtf_indian(symbol: str = "RELIANCE.NS") -> dict:
+    """Multi-timeframe (5m base + 15m/30m/1h context) for an Indian equity —
+    same recipe as crypto MTF, via yfinance intraday. (NSE has no free L2 order
+    book, so order-book input stays crypto-only; MTF candles work for both.)"""
+    from data.binance import make_mtf_dataset
+    return make_mtf_dataset(symbol, base="5m", context=("15m", "30m", "60m"),
+                            loader=load_klines_yf)
+
+
 def load_sunspots() -> list[tuple]:
     url = "https://www.sidc.be/SILSO/INFO/sndtotcsv.php"
     path = os.path.join(CACHE, "silso_sunspots_daily.csv")

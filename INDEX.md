@@ -264,7 +264,7 @@ _Synthetic benchmark datasets with KNOWN generating processes (stdlib only)._
 
 ## `data/binance.py`
 _Binance public market data (no key): intraday klines + order-book snapshots._
-- **functions:** `_get(url, timeout)`; `fetch_klines(symbol, interval, total) -> str`; `load_klines(symbol, interval) -> list[tuple]`; `_multi_horizon_dir(closes, n_rows, horizons) -> tuple[dict, int]`; `make_kline_dataset(symbol, interval, target) -> dict`
+- **functions:** `_get(url, timeout)`; `fetch_klines(symbol, interval, total) -> str`; `load_klines(symbol, interval) -> list[tuple]`; `_multi_horizon_dir(closes, n_rows, horizons) -> tuple[dict, int]`; `make_kline_dataset(symbol, interval, target) -> dict`; `_interval_ms(interval) -> int`; `_latest_completed_idx(open_times, t, interval_ms) -> int`; `make_mtf_dataset(symbol, base, context, target, loader, label) -> dict`
 - **imports:** __future__, data, data.dataset, data.sources, json, os, urllib.request
 
 ## `data/dataset.py`
@@ -274,13 +274,18 @@ _Assemble per-node golden datasets from cached crypto data._
 
 ## `data/external.py`
 _External real-world datasets — multi-dataset evaluation (CONVENTIONS §14)._
-- **functions:** `_rows_from_values(dates, values) -> list[tuple]`; `load_indian_equity(symbol, period) -> list[tuple]`; `load_sunspots() -> list[tuple]`; `load_weather(lat, lon, start, end) -> list[tuple]`; `load_energy() -> list[tuple]`; `load_ecg(record, n, every) -> list[tuple]`; `make_external_dataset(source) -> dict`
+- **functions:** `_rows_from_values(dates, values) -> list[tuple]`; `load_indian_equity(symbol, period) -> list[tuple]`; `load_klines_yf(symbol, interval, period) -> list[tuple]`; `make_mtf_indian(symbol) -> dict`; `load_sunspots() -> list[tuple]`; `load_weather(lat, lon, start, end) -> list[tuple]`; `load_energy() -> list[tuple]`; `load_ecg(record, n, every) -> list[tuple]`; `make_external_dataset(source) -> dict`
 - **imports:** __future__, csv, data, io, os, urllib.request
 
 ## `data/features.py`
 _Feature & target engineering for crypto price series (pure stdlib)._
 - **functions:** `_returns(closes) -> list[float]`; `_sma(closes, i, n) -> float`; `_std(xs) -> float`; `_rsi(closes, i, n) -> float`; `build(rows) -> dict`
 - **imports:** __future__
+
+## `data/orderbook.py`
+_Order-book (L2) microstructure input — the project's stated path to real edge._
+- **functions:** `snapshot(symbol, levels) -> dict`; `collect(symbol, n, every) -> str`; `_targets_from_mid(mids) -> dict`; `make_orderbook_dataset(symbol) -> dict`
+- **imports:** __future__, data.sources, json, os, time, urllib.request
 
 ## `data/sources.py`
 _Crypto data sources (stdlib HTTP only)._
@@ -327,6 +332,12 @@ _ctypes wrapper for native hot kernels, with pure-Python fallback._
 ## `nodes/__init__.py`
 _(no summary)_
 
+## `nodes/advanced_nodes.py`
+_Advanced / newly-researched node families behind the project NodeProtocol._
+- **classes:** HawkesNode, NVARNode, SignatureNode, EDMNode, SOMNode, ELMNode, CopulaNode, RocketNode, NystroemNode
+- **functions:** `hawkes_node(name)`; `nvar_node(name)`; `signature_node(name)`; `edm_node(name)`; `som_node(name)`; `elm_node(name)`; `copula_node(name)`; `rocket_node(name)`; `nystroem_node(name)`
+- **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, warnings
+
 ## `nodes/automl_node.py`
 _AutoGluonNode — the plan's Phase-1 *production* stacked-ensemble node._
 - **classes:** AutoGluonNode
@@ -342,6 +353,12 @@ _Base prediction nodes (pure-Python, CPU-only, zero deps)._
 _Step 3: chaos / nonlinear-dynamics node families (pure-Python)._
 - **classes:** RecurrenceNode, ChaosFeatureNode
 - **imports:** __future__, core.node_protocol, native, nodes.base_learners
+
+## `nodes/dl_nodes.py`
+_CPU-practical deep-learning / transformer time-series PREDICTOR nodes._
+- **classes:** _ARFallback, _DLForecastBase, NHiTSNode, TCNNode, NBEATSNode, TSMixerNode, GRUNode, AEAnomalyNode
+- **functions:** `_silence()`; `_timeseries(y)`; `nhits_node(name)`; `tcn_node(name)`; `nbeats_node(name)`; `tsmixer_node(name)`; `gru_node(name)`; `ae_anomaly_node(name)`
+- **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, time, warnings
 
 ## `nodes/dynamics_nodes.py`
 _Nonlinear-dynamics / chaos / physics nodes — the reuse-first dynamics layer._
@@ -469,7 +486,7 @@ _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 ## `run_multi.py`
 _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 - **classes:** _MetaView
-- **functions:** `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_load_external(source, cap, train_frac)`; `main(arg, n, pool) -> dict`
+- **functions:** `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_split_dataset(ds, cap, train_frac)`; `_load_external(source)`; `main(arg, n, pool) -> dict`
 - **imports:** __future__, core, core.heads, data.benchmarks, eval.golden, json, nodes, numpy, os, sys, time, warnings
 
 ## `run_noise_router.py`
