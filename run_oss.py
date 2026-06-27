@@ -60,7 +60,11 @@ def main(benchmark: str = "mackey_glass", with_autogluon: bool = True) -> dict:
         try:
             from nodes.automl_node import AutoGluonNode
             ag = AutoGluonNode(time_limit=25, name="autogluon").fit(Xtr, ytr)
-            registry.register(ag, upstream=base_names)
+            # HONEST WIRING: AutoGluon is an INDEPENDENT predictor on the raw
+            # feature vector — it does NOT consume the base nodes' outputs (only
+            # sk_stacking does). upstream=[] so the dashboard draws input->autogluon,
+            # not a fake base->autogluon edge. (See CONVENTIONS "honest wiring".)
+            registry.register(ag, upstream=[])
             ag_acc = accuracy(ag.predict(Xte), yte)
             registry.set_metrics(ag.name, {"test_accuracy": round(ag_acc, 4)})
         except Exception as e:                       # AutoGluon optional/heavy

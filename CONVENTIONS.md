@@ -51,6 +51,16 @@ A one-line banner of the active rules is shown at the top of every reply:
 - Dashboard stack: **Web — React + D3/Three.js** (3D node graph, real-time data
   flows, animated learning/accuracy metrics). New additions auto-reflect via a
   registry the dashboard reads.
+- **HONEST WIRING (no fake) — load-bearing.** Every node, edge, input, output and
+  data-flow shown on the dashboard MUST reflect the REAL architecture, derived
+  only from the live registry/`state.json` (real `feature_names`, real per-node
+  `input_dim`/`upstream`, real terminal predictors). NEVER fabricate nodes, edges,
+  inputs, outputs or flows just to look like a diagram. If a connection is drawn,
+  it must be a true data dependency in the project (e.g. feature→node only when
+  the node consumes that feature; node→meta only from the real `upstream`;
+  node→output only for real terminal predictors). A pretty-but-false graph is
+  worse than an ugly-but-true one. Visual layout (layering/animation) is free to
+  arrange; the *connectivity it depicts* is not.
 
 ## 7. Secrets-safe
 - Real API keys live ONLY in a gitignored `.env` (template: `.env.example`),

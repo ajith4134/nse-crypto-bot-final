@@ -66,7 +66,7 @@ export default function App() {
 
       <section className="grid">
         <div className="card graphwrap-card" style={{ padding: 0 }}>
-          <Graph3D nodes={nodes} edges={edges} />
+          <Graph3D nodes={nodes} edges={edges} dataset={state.dataset} />
           <div className="legend">
             {Object.entries(KIND_COLOR).filter(([k]) => nodes.some((n) => n.kind === k)).map(([k, c]) => (
               <span key={k}><i style={{ background: c }} />{k}</span>
