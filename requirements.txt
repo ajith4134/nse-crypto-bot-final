@@ -181,3 +181,13 @@ pymfe                   # dataset meta-features (for algorithm-selecting brain)
 # FAILED on py3.13 (not GPU; value covered): deep-forest->stacked RF, lcensemble->RF+XGB,
 #   tmu(Tsetlin)->future, lightautoml->mljar/autogluon.
 # ENV moved by this batch: scikit-learn 1.8.0 (gplearn satisfied), scipy 1.16.3, numpy 2.3.5 — suite green.
+
+# --- Quant-finance nodes (see ml-network-quant-finance-nodes.md) ---
+empyrical-reloaded      # rolling Sharpe/Sortino/VaR/maxDD risk features
+skfolio                 # HRP + min-CVaR portfolio allocation (cross-sectional nodes)
+alphalens-reloaded      # factor IC scorer (offline eval utility, not a node — forward-return based)
+# SELF-IMPLEMENTED (pip failed py3.13, not GPU): meta-labeling + triple-barrier (vs commercial
+#   mlfinlab), Alpha158 close-subset (59 factors, no pyqlib), WorldQuant TS-alphas, TSMOM,
+#   OU/Bollinger mean-reversion, market-factor/betting-against-beta (FF replacement from panel).
+# Black-Litterman NOT built: needs subjective investor views (not price-derivable). alphalens
+#   used as offline scorer only (forward-return based -> would leak as a node feature).

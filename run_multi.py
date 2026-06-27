@@ -104,6 +104,8 @@ def domain_pool():
     from nodes import advanced_nodes as A
     from nodes import denoise_nodes as DN
     from nodes import detect_nodes as DT
+    from nodes import quant_factor_nodes as QF
+    from nodes import quant_signal_nodes as QS
     from nodes import dl_nodes as DL
     from nodes import github_feature_nodes as GF
     from nodes import github_predict_nodes as GP
@@ -169,6 +171,12 @@ def domain_pool():
         # online / incremental learning (River) — the growing-brain fit
         ("river_linear", ON.river_logreg_node), ("river_hoeffding", ON.river_hoeffding_node),
         ("river_arf", ON.river_arf_node),
+        # quant-finance: single-series factors + signals/labeling
+        ("alpha158", QF.alpha158_node), ("wq_ts_alpha", QF.wq_timeseries_alpha_node),
+        ("empyrical_risk", QF.empyrical_risk_node),
+        ("tsmom", QS.tsmom_node), ("ou_meanrev", QS.ou_meanrev_node),
+        ("bollinger_z", QS.bollinger_z_node), ("meta_labeling", QS.meta_labeling_node),
+        ("triple_barrier", QS.triple_barrier_node),
         # pattern-in-noise: separation / denoising
         ("robust_pca", DN.robust_pca_node), ("signal_decomp", DN.signal_decomp_node),
         ("picard_ica", DN.picard_ica_node), ("vmd", DN.vmd_node), ("ewt", DN.ewt_node),
@@ -282,6 +290,55 @@ def _load_external(source: str):
     return _split_dataset(make_external_dataset(source))
 
 
+_PANEL = None   # current universe panel (for cross-sectional nodes)
+
+
+def _load_panel(source: str, cap: int = 2000, train_frac: float = 0.7):
+    """Multi-asset PANEL: target asset's heads are predicted from its own causal
+    features, while cross-sectional nodes see the whole universe. Panel is capped
+    up-front so the universe rows align 1:1 with the target's dataset rows."""
+    global _PANEL
+    from data.panel import make_panel
+    src = "crypto" if source == "panel_crypto" else "indian"
+    panel = make_panel(src)
+    close = np.asarray(panel["close"], dtype=float)
+    if len(close) > cap + 1:                                   # cap first → clean alignment
+        close = close[-(cap + 1):]
+        panel["close"] = close
+        panel["volume"] = np.asarray(panel["volume"], dtype=float)[-(cap + 1):]
+        panel["returns"] = np.diff(np.log(np.clip(close, 1e-9, None)), axis=0)
+    R = panel["returns"]                                       # [T, N]
+    tgt = panel["target"]
+    rets = R[:, tgt]
+    cl = close[:, tgt]
+    T = len(rets)
+    X = []
+    dir_y, mag_y = [], []
+    for t in range(T - 1):                                     # row t predicts return t+1
+        w = rets[max(0, t - 20):t + 1]
+        X.append([float(rets[t]), float(np.mean(w)),
+                  float(np.std(w)) if len(w) > 1 else 0.0,
+                  float(np.sum(rets[max(0, t - 4):t + 1])),
+                  float(np.sum(rets[max(0, t - 9):t + 1])),
+                  float(cl[t + 1] / cl[t] - 1) if cl[t] > 0 else 0.0,
+                  float(np.max(w)), float(np.min(w))])
+        nxt = rets[t + 1]
+        dir_y.append(1 if nxt > 0 else 0)
+        mag_y.append(float(nxt))
+    arr = np.asarray(mag_y)
+    lo, hi = np.quantile(arr, [0.34, 0.66]) if len(arr) else (0.0, 0.0)
+    regime_y = [0 if v < lo else (2 if v > hi else 1) for v in mag_y]
+    _PANEL = panel                                            # used by cross-sectional nodes
+    feat = ["ret", "mean20", "std20", "sum5", "sum10", "px_chg", "max20", "min20"]
+    cut = int(len(X) * train_frac)
+    ht = {"direction": (dir_y[:cut], dir_y[cut:]),
+          "regime": (regime_y[:cut], regime_y[cut:]),
+          "magnitude": (mag_y[:cut], mag_y[cut:])}
+    name = (f"PANEL {src} universe ({len(panel['symbols'])} assets) — "
+            f"target {panel['symbols'][tgt]}")
+    return name, feat, X[:cut], X[cut:], ht, SYNTH_HEADS, len(X)
+
+
 def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
     from data.external import EXTERNAL_SOURCES
     if arg == "crypto":
@@ -302,6 +359,9 @@ def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
         from data.external import make_mtf_indian
         name, feat, Xtr, Xte, head_targets, heads, n = _split_dataset(make_mtf_indian())
         source = "mtf_indian"
+    elif arg in ("panel_crypto", "panel_indian"):
+        name, feat, Xtr, Xte, head_targets, heads, n = _load_panel(arg)
+        source = arg
     else:
         name, feat, Xtr, Xte, head_targets, heads, n = _load_synthetic(arg, n)
         source = "synthetic"
@@ -318,6 +378,9 @@ def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
         if pool == "rich":                              # + declarative algorithm registry
             from nodes.universal_node import build_nodes
             items = items + build_nodes(h.task)
+        if source in ("panel_crypto", "panel_indian") and _PANEL is not None:
+            from nodes.cross_sectional_nodes import build_cross_sectional_nodes
+            items = items + build_cross_sectional_nodes(_PANEL)   # universe-wide nodes
         base_names, base_outs = [], []
         for base_name, factory in items:
             try:                                          # one bad node can't kill the run

@@ -293,6 +293,11 @@ _Order-book (L2) microstructure input — the project's stated path to real edge
 - **functions:** `snapshot(symbol, levels) -> dict`; `collect(symbol, n, every) -> str`; `_targets_from_mid(mids) -> dict`; `make_orderbook_dataset(symbol) -> dict`
 - **imports:** __future__, data.sources, json, os, time, urllib.request
 
+## `data/panel.py`
+_Multi-asset PANEL data — a universe of timestamp-aligned series._
+- **functions:** `_load_one(symbol, source)`; `make_panel(source, target) -> dict`
+- **imports:** __future__, numpy
+
 ## `data/sources.py`
 _Crypto data sources (stdlib HTTP only)._
 - **functions:** `_get_json(url, headers, timeout) -> dict`; `_write_csv(rows, path, header) -> None`; `coingecko_daily(coin, days, vs) -> list[tuple]`; `fetch_coin(coin, days) -> tuple[str, int]`; `load_coin(coin) -> list[tuple]`; `etherscan_gas_oracle() -> dict`; `coinalyze_funding(symbol) -> dict`
@@ -365,6 +370,12 @@ _Base prediction nodes (pure-Python, CPU-only, zero deps)._
 _Step 3: chaos / nonlinear-dynamics node families (pure-Python)._
 - **classes:** RecurrenceNode, ChaosFeatureNode
 - **imports:** __future__, core.node_protocol, native, nodes.base_learners
+
+## `nodes/cross_sectional_nodes.py`
+_Cross-sectional / portfolio nodes — operate ACROSS a multi-asset panel._
+- **classes:** _PanelNode, CrossSectionalRankNode, CrossSectionalZScoreNode, WorldQuant101CSNode, MarketFactorBetaNode, HRPWeightNode, MinCVaRWeightNode
+- **functions:** `_readout(task)`; `_xs_rank(value, row) -> float`; `_xs_z(value, row) -> float`; `_mom(R, t, k) -> np.ndarray`; `_vol(R, t, k) -> np.ndarray`; `build_cross_sectional_nodes(panel) -> list`
+- **imports:** __future__, core.node_protocol, numpy, warnings
 
 ## `nodes/denoise_nodes.py`
 _Signal-from-noise separation / denoising nodes (behind the project_
@@ -466,11 +477,23 @@ _Uncertainty / probabilistic / symbolic / fuzzy / survival nodes._
 - **functions:** `_readout(task)`; `_base_matrix(X) -> np.ndarray`; `conformal_node()`; `prophet_node()`; `gplearn_symbolic_node()`; `fuzzy_ts_node()`; `bayesian_node()`; `survival_hazard_node()`
 - **imports:** __future__, core.node_protocol, logging, numpy, os, time, warnings
 
+## `nodes/quant_factor_nodes.py`
+_Quant-finance FACTOR feature nodes — single-series (price/return) factor_
+- **classes:** Alpha158Node, WQTimeSeriesAlphaNode, EmpyricalRiskNode
+- **functions:** `_quiet()`; `_fin(v) -> float`; `alpha158_node() -> Alpha158Node`; `wq_timeseries_alpha_node() -> WQTimeSeriesAlphaNode`; `empyrical_risk_node() -> EmpyricalRiskNode`
+- **imports:** __future__, contextlib, core.node_protocol, nodes.quant_nodes, numpy, warnings
+
 ## `nodes/quant_nodes.py`
 _Quant / finance / math-structure nodes — OSS time-series & extreme-value_
 - **classes:** _QBase, _FeatNode, _PredNode, GarchVolNode, EVTTailNode, StateSpaceNode, StatsForecastNode, ADFStationarityNode, CointSpreadNode, _HeadBase, _WindowFeat, EWMAVolNode
 - **functions:** `_quiet()`; `garch_vol_node(col, win, name) -> GarchVolNode`; `evt_tail_node(col, win, name) -> EVTTailNode`; `state_space_node(col, win, name) -> StateSpaceNode`; `statsforecast_node(col, win, name) -> StatsForecastNode`; `adf_stationarity_node(col, win, name) -> ADFStationarityNode`; `coint_spread_node(col0, col1, win, name) -> CointSpreadNode`; `_compat_readout(task)`; `ewma_vol_node(name)`
 - **imports:** __future__, contextlib, core.node_protocol, numpy, warnings
+
+## `nodes/quant_signal_nodes.py`
+_Quant-finance SIGNAL + LABELING nodes behind the project NodeProtocol._
+- **classes:** TSMOMNode, OUMeanReversionNode, BollingerZNode, MetaLabelingNode, TripleBarrierNode
+- **functions:** `_log_returns(win) -> np.ndarray`; `_realized_vol(win) -> float`; `tsmom_node() -> TSMOMNode`; `ou_meanrev_node() -> OUMeanReversionNode`; `bollinger_z_node() -> BollingerZNode`; `meta_labeling_node() -> MetaLabelingNode`; `triple_barrier_node() -> TripleBarrierNode`
+- **imports:** __future__, nodes.quant_nodes, numpy, warnings
 
 ## `nodes/router_node.py`
 _LearnedRouterNode — Phase 3: dynamic routing between full-model nodes._
@@ -546,7 +569,7 @@ _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 ## `run_multi.py`
 _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 - **classes:** _MetaView
-- **functions:** `_load_dotenv() -> None`; `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_split_dataset(ds, cap, train_frac)`; `_load_external(source)`; `main(arg, n, pool) -> dict`
+- **functions:** `_load_dotenv() -> None`; `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_split_dataset(ds, cap, train_frac)`; `_load_external(source)`; `_load_panel(source, cap, train_frac)`; `main(arg, n, pool) -> dict`
 - **imports:** __future__, core, core.heads, data.benchmarks, eval.golden, json, nodes, numpy, os, sys, time, warnings
 
 ## `run_noise_router.py`

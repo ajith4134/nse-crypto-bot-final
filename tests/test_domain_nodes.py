@@ -56,7 +56,9 @@ class TestDomainNodes(unittest.TestCase):
                   __import__("nodes.github_t2_feature", fromlist=["ta_node"]).ta_node,
                   __import__("nodes.online_nodes", fromlist=["river_logreg_node"]).river_logreg_node,
                   __import__("nodes.denoise_nodes", fromlist=["robust_pca_node"]).robust_pca_node,
-                  __import__("nodes.detect_nodes", fromlist=["zero_one_chaos_node"]).zero_one_chaos_node):
+                  __import__("nodes.detect_nodes", fromlist=["zero_one_chaos_node"]).zero_one_chaos_node,
+                  __import__("nodes.quant_factor_nodes", fromlist=["alpha158_node"]).alpha158_node,
+                  __import__("nodes.quant_signal_nodes", fromlist=["meta_labeling_node"]).meta_labeling_node):
             with self.subTest(node=f.__name__):
                 self._check(f)
 
