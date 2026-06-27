@@ -60,10 +60,53 @@ def load_klines(symbol="BTCUSDT", interval="1h") -> list[tuple]:
     return rows
 
 
+# Intraday direction horizons (in klines): next 1, 4, and 24 candles ahead.
+KLINE_HORIZONS = (1, 4, 24)
+
+
+def _multi_horizon_dir(closes: list[float], n_rows: int,
+                       horizons=KLINE_HORIZONS) -> tuple[dict, int]:
+    """Build {"dir_h": [...]} direction targets for several look-aheads.
+
+    F.build emits one X row per close index in range(START, len-1), so X row j
+    maps to close index START+j. For each horizon h, target = 1 if the close h
+    candles ahead is higher (causal: uses only closes[i+h]). The tail rows whose
+    h-ahead future is missing are dropped; we return the common valid length so
+    callers can keep every target dict aligned 1:1 with the (trimmed) X rows.
+    """
+    longest = max(horizons)
+    valid = 0
+    for j in range(n_rows):                       # furthest in-range row for all horizons
+        if F.START + j + longest <= len(closes) - 1:
+            valid = j + 1
+        else:
+            break
+    targets = {}
+    for h in horizons:
+        targets[f"dir_{h}"] = [
+            1 if closes[F.START + j + h] > closes[F.START + j] else 0
+            for j in range(valid)
+        ]
+    return targets, valid
+
+
 def make_kline_dataset(symbol="BTCUSDT", interval="1h", target="volatility") -> dict:
-    built = F.build(load_klines(symbol, interval))
+    rows = load_klines(symbol, interval)
+    built = F.build(rows)
     if target not in TARGETS:
         raise ValueError(f"unknown target '{target}'")
+    closes = [r[1] for r in rows]
+    dir_targets, valid = _multi_horizon_dir(closes, len(built["X"]))
+    # Trim X / single-target y to the multi-horizon valid length so every target
+    # stays aligned 1:1 with the X rows (no look-ahead in the dropped tail).
+    X = built["X"][:valid]
+    y = built[TARGETS[target]][:valid]
+    targets = {
+        "direction": built["y_direction"][:valid],
+        "magnitude": built["y_return"][:valid],
+        "volatility": built["y_vol_high"][:valid],
+        **dir_targets,                            # dir_1 / dir_4 / dir_24
+    }
     return {"symbol": symbol, "interval": interval, "target": target,
             "feature_names": built["feature_names"],
-            "X": built["X"], "y": built[TARGETS[target]]}
+            "X": X, "y": y, "targets": targets}

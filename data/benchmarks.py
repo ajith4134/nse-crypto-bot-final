@@ -80,6 +80,25 @@ _GEN = {"mackey_glass": mackey_glass, "logistic_map": logistic_map,
         "noisy_xor": noisy_xor_series}
 
 
+def _tercile_regime(deltas: list[float]) -> list[int]:
+    """Label each next-step change by terciles: 0=down, 1=flat, 2=up.
+
+    Ranks the deltas and splits into three equal-size buckets, so the lowest
+    third (most negative changes) -> 0, middle -> 1, highest third -> 2. This
+    matches the 'regime' head (multiclass, 3 classes) in core/heads.py and is
+    aligned 1:1 with the input rows it was computed from.
+    """
+    n = len(deltas)
+    regime = [1] * n
+    if n == 0:
+        return regime
+    order = sorted(range(n), key=lambda k: deltas[k])
+    third = max(1, n // 3)
+    for rank, idx in enumerate(order):
+        regime[idx] = 0 if rank < third else (2 if rank >= 2 * third else 1)
+    return regime
+
+
 def make_benchmark_dataset(name: str = "mackey_glass", n: int = 1500,
                            noise: float = 0.0) -> dict:
     if name not in _GEN:
@@ -88,9 +107,19 @@ def make_benchmark_dataset(name: str = "mackey_glass", n: int = 1500,
         else _GEN[name](n=n, noise=noise)
     rows = [(f"t{i}", float(v), 0.0) for i, v in enumerate(series)]
     built = F.build(rows)
+    y_dir = built["y_direction"]
+    y_delta = built["y_return"]               # next-step change (magnitude head)
+    # Multi-output targets, each aligned 1:1 with the X rows. 'y' below is kept
+    # exactly as before (== direction) for single-target back-compat.
+    targets = {
+        "direction": y_dir,                   # binary: sign of next step
+        "magnitude": y_delta,                 # regression: next-step change
+        "regime": _tercile_regime(y_delta),   # 3-class: down/flat/up terciles
+    }
     return {
         "name": name, "n": len(built["X"]),
         "feature_names": built["feature_names"],
-        "X": built["X"], "y": built["y_direction"],
-        "y_return": built["y_return"],
+        "X": built["X"], "y": y_dir,
+        "y_return": y_delta,
+        "targets": targets,
     }

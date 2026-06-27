@@ -32,10 +32,22 @@ from core.node_protocol import BaseNode, IOSchema, Labels, Matrix, Vector
 #  Generic scikit-learn / estimator adapter
 # --------------------------------------------------------------------------- #
 class SklearnNode(BaseNode):
-    """Wraps any estimator exposing fit + predict_proba behind NodeProtocol.
+    """Wraps any classifier exposing fit + predict_proba behind NodeProtocol.
+
+    Generalized to both the BINARY and the MULTICLASS output heads (see
+    core/heads.py) while keeping binary behaviour byte-for-byte identical so the
+    existing factories and pool are unchanged:
+
+      * fit sees 2 classes -> task="binary"; predict_proba returns p(class=1),
+        predict_output returns [p0, p1], predict thresholds at 0.5 (BaseNode).
+      * fit sees >2 classes -> task="multiclass", n_classes=K; predict_output
+        returns the full per-row class-probability matrix with columns remapped
+        to label order 0..K-1, predict returns argmax labels, and predict_proba
+        returns the winning-class confidence (max row prob) so the node still
+        satisfies the Vector-returning NodeProtocol.
 
     Handles the degenerate single-class training split (returns the constant
-    class) and always reports the probability of class 1 regardless of the
+    class) and always reports probabilities in label order regardless of the
     estimator's internal class ordering.
     """
 
@@ -46,15 +58,26 @@ class SklearnNode(BaseNode):
         self.summary = summary
         self._est = estimator
         self._classes: list[int] = []
+        self.task = "binary"
+        self.n_classes = 2
         self.schema = IOSchema(0, "features", "p(class=1)")
 
     def fit(self, X: Matrix, y: Labels) -> "SklearnNode":
         Xa = np.asarray(X, dtype=float)
         ya = np.asarray(y, dtype=int)
         d = Xa.shape[1]
-        self.schema = IOSchema(d, f"{d} numeric features", "p(class=1)")
         self._classes = sorted(set(int(v) for v in ya))
-        if len(self._classes) < 2:                       # only one class present
+        k = len(self._classes)
+        if k > 2:                                        # multiclass head
+            self.task = "multiclass"
+            self.n_classes = k
+            self.schema = IOSchema(d, f"{d} numeric features",
+                                   f"p(class) over {k} classes")
+        else:                                            # binary head (unchanged)
+            self.task = "binary"
+            self.n_classes = 2
+            self.schema = IOSchema(d, f"{d} numeric features", "p(class=1)")
+        if k < 2:                                        # only one class present
             return self
         self._est.fit(Xa, ya)
         return self
@@ -64,9 +87,36 @@ class SklearnNode(BaseNode):
             return [float(self._classes[0] if self._classes else 0.0)] * len(X)
         Xa = np.asarray(X, dtype=float)
         proba = self._est.predict_proba(Xa)
+        if self.task == "multiclass":
+            # no single "positive" class exists; report the winning-class
+            # confidence so the Vector contract still holds (use predict_output
+            # for the full per-class matrix).
+            return [float(row.max()) for row in proba]
         cols = list(self._est.classes_)
         j = cols.index(1) if 1 in cols else len(cols) - 1
         return [float(v) for v in proba[:, j]]
+
+    def predict_output(self, X: Matrix) -> list[list[float]]:
+        """Full per-row class-probability matrix.
+
+        binary -> [p0, p1] rows (BaseNode default, from predict_proba);
+        multiclass -> length-K rows, columns ordered by ascending class label
+        (0..K-1) regardless of the estimator's internal `classes_` order.
+        """
+        if self.task != "multiclass":
+            return super().predict_output(X)
+        if len(self._classes) < 2:                       # degenerate single class
+            return [[1.0]] * len(X)
+        proba = self._est.predict_proba(np.asarray(X, dtype=float))
+        cols = list(self._est.classes_)
+        order = [cols.index(c) for c in self._classes]   # est col per sorted label
+        return [[float(row[o]) for o in order] for row in proba]
+
+    def predict(self, X: Matrix) -> Labels:
+        if self.task == "multiclass":
+            return [self._classes[int(np.argmax(row))]
+                    for row in self.predict_output(X)]
+        return super().predict(X)                        # binary: threshold at 0.5
 
 
 # --------------------------------------------------------------------------- #
@@ -155,6 +205,121 @@ def lightgbm_node(n_trees: int = 200, leaves: int = 31, name: str = "lightgbm") 
     est = LGBMClassifier(n_estimators=n_trees, num_leaves=leaves, learning_rate=0.1,
                          n_jobs=-1, random_state=1, verbose=-1)
     return SklearnNode(est, name, f"LightGBM leaf-wise boosted trees ({n_trees}, {leaves} leaves).")
+
+
+# --------------------------------------------------------------------------- #
+#  Multiclass classifier factories (generalized SklearnNode; n_classes>2)
+# --------------------------------------------------------------------------- #
+def rf_multiclass_node(n_trees: int = 100, depth: int | None = None,
+                       name: str = "sk_rf_mc") -> SklearnNode:
+    from sklearn.ensemble import RandomForestClassifier
+    return SklearnNode(
+        RandomForestClassifier(n_estimators=n_trees, max_depth=depth,
+                               n_jobs=-1, random_state=1),
+        name, f"scikit-learn random forest, multiclass-capable ({n_trees} trees).")
+
+
+def logreg_multiclass_node(name: str = "sk_logreg_mc") -> SklearnNode:
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+    est = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+    return SklearnNode(est, name,
+                       "scikit-learn logistic regression, multiclass-capable (standardized).")
+
+
+# --------------------------------------------------------------------------- #
+#  Regression node + factories (the magnitude / regression output head)
+# --------------------------------------------------------------------------- #
+class SklearnRegressorNode(BaseNode):
+    """Wraps any regressor exposing fit + predict behind NodeProtocol, serving
+    the regression output head (see core/heads.py).
+
+    `predict(X)` returns the raw predicted values and `predict_output(X)` returns
+    length-1 [value] rows. To stay a valid NodeProtocol member (so the registry
+    accepts it) `predict_proba` is kept present and returns a MIN-MAX NORMALIZED
+    pseudo-probability in [0, 1] (the value rescaled by the train-time target
+    range) — it is a monotone confidence proxy, NOT a calibrated class
+    probability. The degenerate constant-target case is handled by predicting
+    that constant (pseudo-proba 0.5).
+    """
+
+    kind = "regressor"
+
+    def __init__(self, estimator, name: str, summary: str):
+        self.name = name
+        self.summary = summary
+        self._est = estimator
+        self.task = "regression"
+        self.n_classes = 1
+        self._constant: float | None = None
+        self._ymin = 0.0
+        self._ymax = 1.0
+        self.schema = IOSchema(0, "features", "predicted value")
+
+    def fit(self, X: Matrix, y: Labels) -> "SklearnRegressorNode":
+        Xa = np.asarray(X, dtype=float)
+        ya = np.asarray(y, dtype=float)
+        d = Xa.shape[1]
+        self.schema = IOSchema(d, f"{d} numeric features", "predicted value")
+        self._ymin = float(ya.min()) if len(ya) else 0.0
+        self._ymax = float(ya.max()) if len(ya) else 1.0
+        if self._ymax <= self._ymin:                     # degenerate constant y
+            self._constant = float(ya[0]) if len(ya) else 0.0
+            return self
+        self._constant = None
+        self._est.fit(Xa, ya)
+        return self
+
+    def predict(self, X: Matrix) -> Labels:
+        if self._constant is not None:
+            return [self._constant] * len(X)
+        return [float(v) for v in self._est.predict(np.asarray(X, dtype=float))]
+
+    def predict_output(self, X: Matrix) -> list[list[float]]:
+        return [[v] for v in self.predict(X)]
+
+    def predict_proba(self, X: Matrix) -> Vector:
+        # min-max-normalized pseudo-probability (monotone confidence proxy).
+        vals = self.predict(X)
+        span = self._ymax - self._ymin
+        if span <= 0.0:
+            return [0.5] * len(vals)
+        return [min(1.0, max(0.0, (v - self._ymin) / span)) for v in vals]
+
+
+def ridge_reg_node(alpha: float = 1.0, name: str = "sk_ridge_reg") -> SklearnRegressorNode:
+    from sklearn.linear_model import Ridge
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+    est = make_pipeline(StandardScaler(), Ridge(alpha=alpha))
+    return SklearnRegressorNode(est, name,
+                                f"scikit-learn Ridge regression (alpha={alpha}, standardized).")
+
+
+def rf_reg_node(n_trees: int = 100, depth: int | None = None,
+                name: str | None = None) -> SklearnRegressorNode:
+    from sklearn.ensemble import RandomForestRegressor
+    name = name or f"sk_rf_reg{n_trees}"
+    return SklearnRegressorNode(
+        RandomForestRegressor(n_estimators=n_trees, max_depth=depth,
+                              n_jobs=-1, random_state=1),
+        name, f"scikit-learn random forest regressor ({n_trees} trees).")
+
+
+def gbdt_reg_node(n_trees: int = 100, name: str = "sk_gbdt_reg") -> SklearnRegressorNode:
+    from sklearn.ensemble import GradientBoostingRegressor
+    return SklearnRegressorNode(
+        GradientBoostingRegressor(n_estimators=n_trees, random_state=1),
+        name, f"scikit-learn gradient boosting regressor ({n_trees} trees).")
+
+
+def xgb_reg_node(n_trees: int = 200, depth: int = 4, name: str = "xgboost_reg") -> SklearnRegressorNode:
+    from xgboost import XGBRegressor
+    est = XGBRegressor(n_estimators=n_trees, max_depth=depth, learning_rate=0.1,
+                       tree_method="hist", n_jobs=-1, verbosity=0, random_state=1)
+    return SklearnRegressorNode(est, name,
+                                f"XGBoost gradient-boosted regression trees ({n_trees}x d{depth}).")
 
 
 # --------------------------------------------------------------------------- #

@@ -34,12 +34,15 @@ def make_combined(coins: list[str] | None = None, target: str = "direction",
     coins = coins or MAJORS
     got = ensure(coins, days)
     X, y, tags = [], [], []
+    targets = {"direction": [], "magnitude": [], "volatility": []}
     for c in [c for c in coins if c in got]:
         d = make_dataset(c, target)
         X += d["X"]; y += d["y"]; tags += [c] * len(d["X"])
+        for head, vals in d["targets"].items():
+            targets[head] += vals             # concatenate in the same X order
         feats = d["feature_names"]
     return {"X": X, "y": y, "coin_tags": tags, "coins": list(got),
-            "feature_names": feats, "n": len(X)}
+            "feature_names": feats, "n": len(X), "targets": targets}
 
 
 def make_dataset(coin: str = "bitcoin", target: str = "direction") -> dict:
@@ -47,12 +50,21 @@ def make_dataset(coin: str = "bitcoin", target: str = "direction") -> dict:
     built = F.build(rows)
     if target not in TARGETS:
         raise ValueError(f"unknown classification target '{target}'")
+    # Multi-output targets, each aligned 1:1 with the X rows, so an output layer
+    # of several heads can train on the same data. 'y' is kept as the single
+    # selected `target` for back-compat with existing runners/tests.
+    targets = {
+        "direction": built["y_direction"],   # binary: next-step up/down
+        "magnitude": built["y_return"],       # regression: next-step return
+        "volatility": built["y_vol_high"],    # binary: big move next step?
+    }
     return {
         "coin": coin, "target": target,
         "feature_names": built["feature_names"],
         "dates": built["dates"],
         "X": built["X"], "y": built[TARGETS[target]],
         "y_return": built["y_return"],
+        "targets": targets,
     }
 
 
