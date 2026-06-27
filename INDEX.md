@@ -354,6 +354,18 @@ _Step 3: chaos / nonlinear-dynamics node families (pure-Python)._
 - **classes:** RecurrenceNode, ChaosFeatureNode
 - **imports:** __future__, core.node_protocol, native, nodes.base_learners
 
+## `nodes/denoise_nodes.py`
+_Signal-from-noise separation / denoising nodes (behind the project_
+- **classes:** _DenoiseFeat, RobustPCANode, SignalDecompNode, PicardICANode, VMDNode, EWTNode, FastICANode, DictLearnNode, SVDDenoiseNode, SavgolDenoiseNode, TVWaveletDenoiseNode
+- **functions:** `_energy(x) -> float`; `_hankel(w, rows) -> np.ndarray`; `robust_pca_node() -> RobustPCANode`; `signal_decomp_node() -> SignalDecompNode`; `picard_ica_node() -> PicardICANode`; `vmd_node() -> VMDNode`; `ewt_node() -> EWTNode`; `fast_ica_node() -> FastICANode`; `dict_learn_node() -> DictLearnNode`; `svd_denoise_node() -> SVDDenoiseNode`; `savgol_denoise_node() -> SavgolDenoiseNode`; `tv_wavelet_denoise_node() -> TVWaveletDenoiseNode`
+- **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, warnings
+
+## `nodes/detect_nodes.py`
+_Detection / discovery nodes — "is the structure real, weak, or random?"._
+- **classes:** SurrogateTestNode, MultitaperFtestNode, LombScargleFAPNode, MatchedFilterNode, BOCPDNode, ZeroOneChaosNode, NCDNode, StochResonanceNode, TslearnSAXNode, TslearnShapeletNode, RecurringStateNode
+- **functions:** `_quiet()`; `_clean(vals, n) -> list[float]`; `_z(w) -> np.ndarray`; `surrogate_test_node() -> SurrogateTestNode`; `multitaper_ftest_node() -> MultitaperFtestNode`; `lombscargle_fap_node() -> LombScargleFAPNode`; `matched_filter_node() -> MatchedFilterNode`; `bocpd_node() -> BOCPDNode`; `zero_one_chaos_node() -> ZeroOneChaosNode`; `ncd_node() -> NCDNode`; `stoch_resonance_node() -> StochResonanceNode`; `tslearn_sax_node() -> TslearnSAXNode`; `tslearn_shapelet_node() -> TslearnShapeletNode`; `recurring_state_node() -> RecurringStateNode`
+- **imports:** __future__, contextlib, core.node_protocol, nodes.quant_nodes, numpy, warnings
+
 ## `nodes/dl_nodes.py`
 _CPU-practical deep-learning / transformer time-series PREDICTOR nodes._
 - **classes:** _ARFallback, _DLForecastBase, NHiTSNode, TCNNode, NBEATSNode, TSMixerNode, GRUNode, AEAnomalyNode

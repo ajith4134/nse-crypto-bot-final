@@ -87,6 +87,8 @@ def domain_pool():
     Deliberately EXCLUDES the slow ones (STUMPY ~26s, EVT ~20s, GaussianProcess
     ~12s) which stay importable standalone but off the hot path."""
     from nodes import advanced_nodes as A
+    from nodes import denoise_nodes as DN
+    from nodes import detect_nodes as DT
     from nodes import dl_nodes as DL
     from nodes import github_feature_nodes as GF
     from nodes import github_predict_nodes as GP
@@ -152,6 +154,18 @@ def domain_pool():
         # online / incremental learning (River) — the growing-brain fit
         ("river_linear", ON.river_logreg_node), ("river_hoeffding", ON.river_hoeffding_node),
         ("river_arf", ON.river_arf_node),
+        # pattern-in-noise: separation / denoising
+        ("robust_pca", DN.robust_pca_node), ("signal_decomp", DN.signal_decomp_node),
+        ("picard_ica", DN.picard_ica_node), ("vmd", DN.vmd_node), ("ewt", DN.ewt_node),
+        ("fast_ica", DN.fast_ica_node), ("dict_learn", DN.dict_learn_node),
+        ("svd_denoise", DN.svd_denoise_node), ("savgol", DN.savgol_denoise_node),
+        ("tv_wavelet", DN.tv_wavelet_denoise_node),
+        # pattern-in-noise: detection / discovery (multitaper standalone — slow)
+        ("surrogate_test", DT.surrogate_test_node), ("lombscargle_fap", DT.lombscargle_fap_node),
+        ("matched_filter", DT.matched_filter_node), ("bocpd", DT.bocpd_node),
+        ("zero_one_chaos", DT.zero_one_chaos_node), ("ncd", DT.ncd_node),
+        ("stoch_resonance", DT.stoch_resonance_node), ("tslearn_sax", DT.tslearn_sax_node),
+        ("tslearn_shapelet", DT.tslearn_shapelet_node), ("recurring_state", DT.recurring_state_node),
     ]
 
 

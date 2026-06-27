@@ -54,7 +54,9 @@ class TestDomainNodes(unittest.TestCase):
                   GP.catboost_node, GF.talib_node, GF.fracdiff_node,
                   __import__("nodes.github_t2_predict", fromlist=["simdkalman_node"]).simdkalman_node,
                   __import__("nodes.github_t2_feature", fromlist=["ta_node"]).ta_node,
-                  __import__("nodes.online_nodes", fromlist=["river_logreg_node"]).river_logreg_node):
+                  __import__("nodes.online_nodes", fromlist=["river_logreg_node"]).river_logreg_node,
+                  __import__("nodes.denoise_nodes", fromlist=["robust_pca_node"]).robust_pca_node,
+                  __import__("nodes.detect_nodes", fromlist=["zero_one_chaos_node"]).zero_one_chaos_node):
             with self.subTest(node=f.__name__):
                 self._check(f)
 

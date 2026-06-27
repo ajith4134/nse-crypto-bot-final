@@ -148,3 +148,17 @@ ta                      # bukosabino technical-analysis indicators
 # --- River online/incremental learning (the growing-brain fit) ---
 river                   # online learn_one/predict_one nodes (linear, Hoeffding, ARF)
 # (river install bumped scipy to 1.18; statsforecast/aeon/autogluon metadata-warn but import+run fine)
+
+# --- Pattern-in-noise batch (INSTALLED; see ml-network-pattern-in-noise-nodes.md) ---
+sig-decomp              # Boyd signal-decomposition (named components; import gfosd)
+python-picard           # ICA / blind source separation
+ewtpy                   # empirical wavelet transform
+vmdpy                   # variational mode decomposition
+multitaper              # DPSS multitaper + Thomson F-test — SLOW(12s), standalone
+tslearn                 # SAX / shapelets / soft-DTW
+bayesian-changepoint-detection  # online BOCPD
+scikit-image            # TV / wavelet denoising (denoise_tv_chambolle, denoise_wavelet)
+# SELF-IMPLEMENTED (pip failed, not GPU): RobustPCA (numpy PCP), IAAFT surrogate test,
+#   Gottwald-Melbourne 0-1 chaos test, NCD via stdlib lzma, stochastic-resonance Langevin,
+#   recurring-state (ruptures+KMeans, claspy substitute). scikit-rmt value covered by the
+#   existing numpy Marchenko-Pastur node.
