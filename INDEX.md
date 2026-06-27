@@ -223,6 +223,11 @@ _GrowingBrain — grows the network by keeping only nodes that help._
 - **functions:** `_roughness(x) -> float`; `_mean(proba_list, idxs) -> Vector`
 - **imports:** __future__, core.node_protocol, eval.golden, native
 
+## `core/heads.py`
+_Output heads — the multi-output contract for the prediction-graph network._
+- **classes:** OutputHead
+- **imports:** __future__, dataclasses
+
 ## `core/node_protocol.py`
 _Node interface contracts for the prediction-graph network._
 - **classes:** IOSchema, NodeProtocol, NodeInfo, BaseNode
@@ -276,8 +281,8 @@ _(no summary)_
 
 ## `eval/golden.py`
 _Golden datasets + evaluation — the 'known input->output first' discipline._
-- **functions:** `make_golden_dataset(n, noise, seed) -> tuple[Matrix, Labels]`; `train_test_split(X, y, test_frac, seed) -> tuple[Matrix, Labels, Matrix, Labels]`; `accuracy(pred, y) -> float`
-- **imports:** __future__, core.node_protocol, random
+- **functions:** `make_golden_dataset(n, noise, seed) -> tuple[Matrix, Labels]`; `train_test_split(X, y, test_frac, seed) -> tuple[Matrix, Labels, Matrix, Labels]`; `accuracy(pred, y) -> float`; `argmax_labels(pred_output) -> Labels`; `_macro_f1(pred, y, n_classes) -> float`; `_r2(pred, y) -> float`; `score_head(head, pred_output, y) -> dict`; `baseline_for(head, y_train, y_test) -> dict`
+- **imports:** __future__, core.heads, core.node_protocol, numpy, random
 
 ## `memory/__init__.py`
 _(no summary)_

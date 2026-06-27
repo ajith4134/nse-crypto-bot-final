@@ -60,11 +60,21 @@ class NodeInfo:
 
 
 class BaseNode:
-    """Shared base: subclasses implement fit() and predict_proba()."""
+    """Shared base: subclasses implement fit() and predict_proba().
+
+    Multi-output contract (see core/heads.py): every node declares the output
+    `head` it serves and its `task` (binary | multiclass | regression). The
+    DEFAULT here is the binary special case, so all existing binary nodes keep
+    working unchanged. `predict_output(X)` is the general API the multi-head
+    runner/eval use — for a binary node it derives the 2-column class-probability
+    rows from `predict_proba`; multiclass/regression nodes override it.
+    """
     name: str = "base"
     kind: str = "base"
     summary: str = ""
     schema: IOSchema = IOSchema(0, "features", "p(class=1)")
+    task: str = "binary"          # binary | multiclass | regression
+    head: str = "y"               # name of the OutputHead this node predicts
 
     def fit(self, X: Matrix, y: Labels) -> "BaseNode":
         raise NotImplementedError
@@ -74,6 +84,16 @@ class BaseNode:
 
     def predict(self, X: Matrix) -> Labels:
         return [1 if p >= 0.5 else 0 for p in self.predict_proba(X)]
+
+    def predict_output(self, X: Matrix) -> list[list[float]]:
+        """General multi-output prediction: one row per input.
+
+        classification -> per-class probabilities (length n_classes);
+        regression     -> a length-1 [value] row.
+        Default (binary) builds 2-column [p0, p1] rows from predict_proba so the
+        whole existing binary node zoo satisfies the general contract for free.
+        """
+        return [[1.0 - p, p] for p in self.predict_proba(X)]
 
 
 NodeFactory = Callable[[], BaseNode]
