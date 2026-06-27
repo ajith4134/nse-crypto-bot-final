@@ -87,23 +87,38 @@ def domain_pool():
     Deliberately EXCLUDES the slow ones (STUMPY ~26s, EVT ~20s, GaussianProcess
     ~12s) which stay importable standalone but off the hot path."""
     from nodes import dynamics_nodes as D
+    from nodes import frontier_nodes as F
     from nodes import ml_nodes as M
+    from nodes import probabilistic_nodes as P
     from nodes import quant_nodes as Q
     from nodes import signal_nodes as S
+    from nodes import spectral_nodes as SP
+    from nodes import structure_nodes as ST
     return [
         # physics / chaos / nonlinear dynamics
         ("sindy", D.sindy_node), ("rqa", D.rqa_node), ("permentropy", D.permentropy_node),
         ("antropy", D.antropy_node), ("dmd", D.dmd_node), ("transfer_entropy", D.transfer_entropy_node),
+        ("multifractal", ST.multifractal_node),
         # signal-in-noise / pattern detection
         ("wavelet", S.wavelet_energy_node), ("emd", S.emd_energy_node), ("ssa", S.ssa_node),
         ("kalman", S.kalman_level_node), ("rmt", S.rmt_signal_node), ("pyod", S.pyod_anomaly_node),
         ("nist", S.nist_randomness_node),
-        # math / topology / causal / ML / control
+        ("spectral", SP.spectral_node), ("lombscargle", SP.lombscargle_node), ("hilbert", SP.hilbert_node),
+        # math / topology / graph / causal / control
         ("catch22", M.catch22_node), ("tda", M.tda_node), ("causal", M.causal_select_node),
-        ("control", M.control_sysid_node),
+        ("control", M.control_sysid_node), ("visibility_graph", ST.visibility_graph_node),
+        ("optimal_transport", ST.optimal_transport_node), ("functional_data", SP.functional_data_node),
+        ("regime", SP.regime_node),
         # quant / finance
         ("ewma_vol", Q.ewma_vol_node), ("garch_vol", Q.garch_vol_node),
         ("statsforecast", Q.statsforecast_node), ("adf", Q.adf_stationarity_node),
+        ("survival", P.survival_hazard_node),
+        # probabilistic / symbolic / fuzzy
+        ("conformal", P.conformal_node), ("prophet", P.prophet_node),
+        ("gplearn", P.gplearn_symbolic_node), ("fuzzy", P.fuzzy_ts_node),
+        # frontier: quantum / RL / options
+        ("quantum", F.quantum_kernel_node), ("rl_policy", F.rl_policy_node),
+        ("option_iv", F.option_iv_node),
     ]
 
 

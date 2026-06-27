@@ -66,3 +66,27 @@ sippy                   # subspace system identification
 statsforecast           # AutoARIMA/ETS/Theta (numba, no torch)
 statsmodels             # GARCH-adjacent stats, ADF, cointegration, state-space
 # NOT installed (no py3.13 wheel / alternatives used): giotto-tda(AGPL)->ripser; PyIF->pyinform
+
+# --- 2nd research wave: spectral / structure / probabilistic / frontier (INSTALLED, CPU) ---
+numpy<2.4               # PIN: <2.4 for autogluon; >=2.0 for pymc/pennylane/pysindy/astropy
+ts2vg                   # time-series -> visibility graph (topology features)
+MFDFA                   # multifractal detrended fluctuation analysis
+POT                     # optimal transport / Wasserstein distributional drift (import ot)
+tensorly                # CP/Tucker tensor decomposition (multichannel windows)
+astropy                 # Lomb-Scargle periodogram (irregular-sampling spectral)
+umap-learn              # manifold embedding feature node — SLOW (~17s), standalone
+scikit-fda              # functional data analysis (FPCA of window curves)
+hdbscan                 # density clustering for regime labels
+mapie                   # conformal / distribution-free prediction intervals
+crepes                  # (alt conformal)
+prophet                 # additive decomposable forecaster w/ uncertainty
+pymc                    # Bayesian probabilistic node (NUTS; needs g++)
+gplearn                 # genetic-programming symbolic regression/classification
+lifelines               # survival / time-to-event hazard node
+scikit-fuzzy            # fuzzy logic (pyFTS is numpy-incompatible -> this is the fuzzy path)
+pennylane               # quantum-kernel node (default.qubit CPU simulator)
+QuantLib                # Black-Scholes/Heston option analytics (Deribit snapshot data)
+# REMOVED: neuralprophet (hard numpy<2.0 pin conflicts with pymc/pennylane/pysindy;
+#          Prophet + Darts + statsforecast already cover decomposable forecasting).
+# Standalone-only (built but kept off the fast pool — slow, not GPU): stumpy, pyextremes,
+# umap-learn(manifold), GaussianProcess, tsfresh, tensor_decomp, bayesian(pymc).

@@ -209,6 +209,12 @@ _(no summary)_
 _(no summary)_
 - **imports:** glob, re
 
+## `.pytensor/compiledir_Linux-6.12-cloud-amd64-x86_64-with-glibc2.41--3.13.5-64/__init__.py`
+_(no summary)_
+
+## `.pytensor/compiledir_Linux-6.12-cloud-amd64-x86_64-with-glibc2.41--3.13.5-64/lazylinker_ext/__init__.py`
+_(no summary)_
+
 ## `config.py`
 _config.py — central, safe secrets/config loader._
 - **classes:** Settings
@@ -338,6 +344,12 @@ _Nonlinear-dynamics / chaos / physics nodes — the reuse-first dynamics layer._
 - **functions:** `sindy_node(name, col, W) -> SINDyNode`; `rqa_node(name, col, W) -> RQANode`; `permentropy_node(name, col, W) -> PermEntropyNode`; `antropy_node(name, col, W) -> AntropyNode`; `dmd_node(name, col, W) -> DMDNode`; `transfer_entropy_node(name, col, col2, W) -> TransferEntropyNode`
 - **imports:** __future__, core.node_protocol, numpy, warnings
 
+## `nodes/frontier_nodes.py`
+_Frontier nodes: quantum-inspired kernels, a reinforcement-learning policy, and_
+- **classes:** QuantumKernelNode, RLPolicyNode, OptionIVNode
+- **functions:** `_http_json(url, timeout) -> dict`; `quantum_kernel_node(name)`; `rl_policy_node(name)`; `option_iv_node(name)`
+- **imports:** __future__, core.node_protocol, json, nodes.quant_nodes, numpy, os, ssl, time, urllib.request, warnings
+
 ## `nodes/ml_nodes.py`
 _Advanced ML / topology / control nodes — the reuse-first expansion of the_
 - **classes:** _HeadMixin, _FeatureBase, Catch22Node, TsfreshNode, TDANode, CausalSelectNode, GaussianProcessNode, _ForecastBase, DartsForecastNode, ControlSysIDNode
@@ -372,6 +384,12 @@ _Shared candidate pool of node families + hyperparameter variants._
 - **functions:** `_oss_candidates()`; `factories()`; `names()`
 - **imports:** __future__, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes
 
+## `nodes/probabilistic_nodes.py`
+_Uncertainty / probabilistic / symbolic / fuzzy / survival nodes._
+- **classes:** _HeadBase, ConformalNode, ProphetNode, GplearnSymbolicNode, FuzzyTSNode, BayesianNode, SurvivalHazardNode
+- **functions:** `_readout(task)`; `_base_matrix(X) -> np.ndarray`; `conformal_node()`; `prophet_node()`; `gplearn_symbolic_node()`; `fuzzy_ts_node()`; `bayesian_node()`; `survival_hazard_node()`
+- **imports:** __future__, core.node_protocol, logging, numpy, os, time, warnings
+
 ## `nodes/quant_nodes.py`
 _Quant / finance + math-structure nodes (arch GARCH, EVT, ADF, EWMA, statsforecast)._
 - **classes:** _HeadBase, _WindowFeat, EVTTailNode, ADFStationarityNode, EWMAVolNode, GarchVolNode, StatsForecastNode
@@ -390,11 +408,23 @@ _Signal-in-noise / pattern-detection nodes — the reuse-first signal layer._
 - **functions:** `stumpy_matrix_profile_node(col, W, name) -> StumpyMatrixProfileNode`; `pyod_anomaly_node(col, W, name) -> PyODAnomalyNode`; `wavelet_energy_node(col, W, name) -> WaveletEnergyNode`; `emd_energy_node(col, W, name) -> EMDEnergyNode`; `ssa_node(col, W, name) -> SSANode`; `kalman_level_node(col, W, name) -> KalmanLevelNode`; `rmt_signal_node(W, name) -> RMTSignalNode`; `nist_randomness_node(col, W, name) -> NISTRandomnessNode`
 - **imports:** __future__, core.node_protocol, numpy, warnings
 
+## `nodes/spectral_nodes.py`
+_Spectral / manifold / functional / regime nodes (OSS behind NodeProtocol)._
+- **classes:** _HeadBase, _WindowFeat, SpectralNode, LombScargleNode, HilbertNode, ManifoldNode, FunctionalDataNode, RegimeNode
+- **functions:** `_readout(task)`; `spectral_node()`; `lombscargle_node()`; `hilbert_node()`; `manifold_node()`; `functional_data_node()`; `regime_node()`
+- **imports:** __future__, core.node_protocol, numpy, warnings
+
 ## `nodes/stacking_node.py`
 _StackingEnsembleNode — the Phase-1 'models as nodes' core._
 - **classes:** StackingEnsembleNode
 - **functions:** `_kfold_indices(n, folds) -> list[list[int]]`
 - **imports:** __future__, core.node_protocol, nodes.base_learners
+
+## `nodes/structure_nodes.py`
+_Structure / graph / topology nodes — visibility graphs, multifractal spectrum,_
+- **classes:** VisibilityGraphNode, MultifractalNode, OptimalTransportNode, TensorDecompNode
+- **functions:** `visibility_graph_node(name)`; `multifractal_node(name)`; `optimal_transport_node(name)`; `tensor_decomp_node(name)`
+- **imports:** __future__, nodes.quant_nodes, numpy, warnings
 
 ## `nodes/symbolic_node.py`
 _PySRNode — the plan's Phase-5 equation-discovery node._
