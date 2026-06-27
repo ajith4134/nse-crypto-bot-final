@@ -86,3 +86,4 @@ dashboard/*.png
 .local/
 .npm/
 .ssh/
+AutoML_*
