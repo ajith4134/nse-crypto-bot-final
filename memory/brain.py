@@ -1,15 +1,23 @@
 """KnowledgeBrain — the Phase-4 brain/memory layer.
 
-Ingests documents (text / .md / .txt / .py), chunks them into the VectorMemory,
-extracts concepts into the KnowledgeGraph, and answers recall queries via
+Ingests documents (text / .md / .txt / .py / .pdf), chunks them into the
+VectorMemory (neural embeddings + cosine recall via embedded ChromaDB), extracts
+concepts into the KnowledgeGraph (NetworkX), and answers recall queries via
 semantic search + graph context. It GROWS as more is ingested, and tracks how
 often each chunk is recalled (a crude salience signal for future consolidation).
+
+Inputs: titles/paths/urls + raw text. Outputs: recall hits, stats, and a
+dashboard snapshot ({stats, nodes, edges}). Public API (KnowledgeBrain and its
+ingest_text/ingest_file/recall/stats/dashboard_snapshot methods) is unchanged.
 """
 from __future__ import annotations
 
+import html
 import os
 import re
+import urllib.request
 from collections import Counter
+from itertools import combinations
 
 from memory.graph import KnowledgeGraph
 from memory.store import VectorMemory, tokenize
@@ -22,6 +30,19 @@ def _slug(s: str) -> str:
 def _chunk(text: str, words: int = 70) -> list[str]:
     toks = text.split()
     return [" ".join(toks[i:i + words]) for i in range(0, len(toks), words)] or [text]
+
+
+def _read_pdf(path: str) -> str:
+    """Extract text from a PDF (reuse-first: pypdf, pure-Python, CPU-only)."""
+    from pypdf import PdfReader
+    reader = PdfReader(path)
+    return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+
+def _html_to_text(raw: str) -> str:
+    raw = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", raw, flags=re.S | re.I)
+    raw = re.sub(r"<[^>]+>", " ", raw)
+    return html.unescape(re.sub(r"\s+", " ", raw)).strip()
 
 
 class KnowledgeBrain:
@@ -40,16 +61,38 @@ class KnowledgeBrain:
             self.mem.add(cid, ch, title)
             self.graph.add_node(cid, "chunk", f"{title} [{i}]")
             self.graph.add_edge(doc_id, cid, "has_chunk")
-        for term in self.mem.top_terms(Counter(tokenize(text)), n=6):
+        concepts = self.mem.top_terms(Counter(tokenize(text)), n=6)
+        for term in concepts:
             cnode = "concept:" + term
             self.graph.add_node(cnode, "concept", term)
             self.graph.add_edge(doc_id, cnode, "about")
+        # Concept co-occurrence: concepts sharing a document get linked, so the
+        # graph forms a navigable web (not just a star of doc->concept spokes).
+        for a, b in combinations(sorted(concepts), 2):
+            self.graph.add_edge("concept:" + a, "concept:" + b, "co_occurs")
         return doc_id
 
     def ingest_file(self, path: str) -> str:
-        with open(path, encoding="utf-8", errors="ignore") as f:
-            text = f.read()
+        if path.lower().endswith(".pdf"):
+            text = _read_pdf(path)
+        else:
+            with open(path, encoding="utf-8", errors="ignore") as f:
+                text = f.read()
         return self.ingest_text(os.path.basename(path), text)
+
+    def ingest_url(self, url: str) -> str:
+        """Lightweight live-web ingestion stand-in (urllib + HTML->text).
+
+        Kept dependency-free and CPU-only on purpose: the reuse-first next drop-in
+        for rich crawling is Crawl4AI, but it needs a headless browser (Playwright)
+        that is heavy and fragile in headless/CI environments, so it is skipped
+        here. This stub fetches a page and strips tags so URLs are still ingestible.
+        """
+        req = urllib.request.Request(url, headers={"User-Agent": "ml-brain/0.1"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            raw = r.read().decode("utf-8", "ignore")
+        title = url.split("//")[-1][:60]
+        return self.ingest_text(f"url: {title}", _html_to_text(raw))
 
     def recall(self, query: str, k: int = 4) -> list[dict]:
         hits = self.mem.search(query, k)

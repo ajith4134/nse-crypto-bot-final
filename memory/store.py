@@ -1,14 +1,36 @@
-"""VectorMemory — pure-stdlib semantic store (TF-IDF + cosine).
+"""VectorMemory — semantic chunk store with neural embeddings (reuse-first).
 
-No dependencies: tokenizes text, stores per-chunk term counts, and ranks by
-cosine similarity of TF-IDF vectors. Good enough for real recall now; swappable
-for neural embeddings + a vector DB later (reuse-first / ask-to-install).
+Primary backend: ChromaDB (embedded PersistentClient, NO server) holding real
+sentence-embeddings (all-MiniLM-L6-v2 via sentence-transformers) and ranking by
+cosine similarity. Inputs: (chunk_id, text, title). Output of `search`: a ranked
+list of (chunk_id, cosine_score).
+
+Reuse-first choice: ChromaDB(embedded) + sentence-transformers + NetworkX deliver
+human-brain-style vector+graph memory CPU-first with ZERO external services. We
+deliberately avoid Mem0 / Graphiti / Neo4j / Qdrant-server here: those need a
+running service and/or an LLM key, so they cannot run cleanly headless. If those
+OSS imports are unavailable, we fall back to the original pure-stdlib TF-IDF
+cosine path so the no-deps mode still works. (Live web ingestion via Crawl4AI is
+the next drop-in on the ingestion side — see memory/brain.py.)
 """
 from __future__ import annotations
 
 import math
+import os
 import re
+import uuid
 from collections import Counter
+
+# Persistent on-disk store for the embedded vector DB (gitignored).
+CHROMA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".chroma_store")
+EMBED_MODEL = "all-MiniLM-L6-v2"
+
+# Detect the mature-OSS backend once; fall back to stdlib TF-IDF if unavailable.
+try:
+    import chromadb  # type: ignore
+    _HAVE_CHROMA = True
+except Exception:  # pragma: no cover - exercised only in no-deps mode
+    _HAVE_CHROMA = False
 
 _STOP = {
     "the", "a", "an", "and", "or", "of", "to", "in", "is", "are", "for", "on",
@@ -23,17 +45,85 @@ def tokenize(text: str) -> list[str]:
     return [t for t in re.findall(r"[a-z][a-z0-9]{2,}", text.lower()) if t not in _STOP]
 
 
+def _build_embedding_function():
+    """Prefer real neural sentence-embeddings; fall back to Chroma's default.
+
+    Returns (embedding_function, backend_label) or (None, ...) if Chroma itself
+    is missing (caller then uses TF-IDF).
+    """
+    if not _HAVE_CHROMA:
+        return None, "tfidf"
+    from chromadb.utils import embedding_functions
+    try:
+        ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL)
+        ef(["warmup"])  # force model load/download now so failures fall back cleanly
+        return ef, f"chroma+sentence-transformers/{EMBED_MODEL}"
+    except Exception:
+        # sentence-transformers unavailable/too heavy: use Chroma's bundled
+        # default embedding (ONNX MiniLM) so recall stays neural, not keyword.
+        try:
+            ef = embedding_functions.DefaultEmbeddingFunction()
+            return ef, "chroma+default-onnx-minilm"
+        except Exception:
+            return None, "tfidf"
+
+
 class VectorMemory:
+    """Add chunks, search them by meaning. Same public API as the TF-IDF original:
+    `.chunks`, `.df`, `add(cid, text, title)`, `search(query, k)`, `top_terms(...)`.
+    """
+
     def __init__(self):
         self.chunks: dict[str, dict] = {}     # cid -> {text, counts, title}
-        self.df: dict[str, int] = {}          # term -> #chunks containing it
+        self.df: dict[str, int] = {}          # term -> #chunks containing it (vocab/idf)
+        self._collection = None
+        self.backend = "tfidf"
 
+        ef, label = _build_embedding_function()
+        if ef is not None:
+            try:
+                client = chromadb.PersistentClient(path=CHROMA_DIR)
+                # Unique collection per instance keeps tests / runs isolated while
+                # the data still persists on disk under .chroma_store.
+                name = "knowledge_" + uuid.uuid4().hex[:12]
+                self._collection = client.create_collection(
+                    name=name, embedding_function=ef,
+                    metadata={"hnsw:space": "cosine"})
+                self.backend = label
+            except Exception:
+                self._collection = None
+                self.backend = "tfidf"
+
+    # ---- ingestion -------------------------------------------------------
     def add(self, cid: str, text: str, title: str = "") -> None:
         counts = Counter(tokenize(text))
         self.chunks[cid] = {"text": text, "counts": counts, "title": title}
         for t in counts:
             self.df[t] = self.df.get(t, 0) + 1
+        if self._collection is not None:
+            self._collection.upsert(ids=[cid], documents=[text],
+                                    metadatas=[{"title": title}])
 
+    # ---- retrieval -------------------------------------------------------
+    def search(self, query: str, k: int = 5) -> list[tuple[str, float]]:
+        if self._collection is not None:
+            return self._search_chroma(query, k)
+        return self._search_tfidf(query, k)
+
+    def _search_chroma(self, query: str, k: int) -> list[tuple[str, float]]:
+        n = min(k, len(self.chunks))
+        if n <= 0:
+            return []
+        res = self._collection.query(query_texts=[query], n_results=n)
+        ids = res.get("ids", [[]])[0]
+        dists = res.get("distances", [[]])[0]
+        out = []
+        for cid, dist in zip(ids, dists):
+            if cid in self.chunks:                # cosine distance -> similarity
+                out.append((cid, round(1.0 - float(dist), 4)))
+        return out
+
+    # ---- stdlib fallback (TF-IDF cosine) --------------------------------
     def _idf(self, t: str) -> float:
         n = len(self.chunks)
         return math.log((1 + n) / (1 + self.df.get(t, 0))) + 1.0
@@ -44,7 +134,7 @@ class VectorMemory:
         norm = math.sqrt(sum(x * x for x in v.values())) or 1.0
         return {t: x / norm for t, x in v.items()}
 
-    def search(self, query: str, k: int = 5) -> list[tuple[str, float]]:
+    def _search_tfidf(self, query: str, k: int) -> list[tuple[str, float]]:
         qv = self._tfidf(Counter(tokenize(query)))
         if not qv:
             return []
@@ -57,6 +147,7 @@ class VectorMemory:
         scored.sort(reverse=True)
         return [(cid, s) for s, cid in scored[:k]]
 
+    # ---- concept extraction (used by the graph layer) -------------------
     def top_terms(self, counts: Counter, n: int = 6) -> list[str]:
         scored = sorted(((c * self._idf(t), t) for t, c in counts.items()), reverse=True)
         return [t for _, t in scored[:n]]

@@ -22,8 +22,14 @@ ruptures            # change-point detection (regime family)
 autogluon.tabular   # multi-layer stacked ensemble (production reference node)
 pysr                # symbolic regression / equation discovery (Phase 5); pulls Julia on first fit
 
-# --- Phase 4 brain/memory upgrade (installed when Area 4 lands) ---
-#   qdrant-client chromadb   # vector memory
-#   mem0ai                   # agent memory
-#   graphiti-core neo4j      # temporal knowledge graph
-#   crawl4ai                 # web/PDF/news ingestion
+# --- Phase 4 brain/memory upgrade (INSTALLED — reuse-first, CPU-only) ---
+# ChromaDB(embedded) + sentence-transformers + NetworkX give human-brain-style
+# vector+graph memory with ZERO external services. Mem0/Graphiti/Neo4j/Qdrant-
+# server are deliberately NOT used: they need a running service and/or LLM key,
+# so they can't run cleanly headless. All modules fall back to pure-stdlib
+# (TF-IDF + dict graph) if these imports are missing.
+chromadb                # embedded persistent vector DB (no server)
+sentence-transformers   # neural sentence-embeddings (all-MiniLM-L6-v2, CPU)
+networkx                # documents/chunks/concepts knowledge graph
+pypdf                   # PDF text extraction for ingestion
+#   crawl4ai            # next drop-in for live web crawl (needs headless browser)

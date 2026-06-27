@@ -239,6 +239,10 @@ _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **functions:** `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys
 
+## `dashboard/verify_render.py`
+_(no summary)_
+- **imports:** playwright.sync_api, sys
+
 ## `data/__init__.py`
 _(no summary)_
 
@@ -281,8 +285,8 @@ _(no summary)_
 ## `memory/brain.py`
 _KnowledgeBrain — the Phase-4 brain/memory layer._
 - **classes:** KnowledgeBrain
-- **functions:** `_slug(s) -> str`; `_chunk(text, words) -> list[str]`
-- **imports:** __future__, collections, memory.graph, memory.store, os, re
+- **functions:** `_slug(s) -> str`; `_chunk(text, words) -> list[str]`; `_read_pdf(path) -> str`; `_html_to_text(raw) -> str`
+- **imports:** __future__, collections, html, itertools, memory.graph, memory.store, os, re, urllib.request
 
 ## `memory/graph.py`
 _KnowledgeGraph — concept graph backed by NetworkX (reuse-first)._
