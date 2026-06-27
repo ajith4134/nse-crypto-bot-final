@@ -65,7 +65,14 @@ def _oss_candidates():
         (lambda: O.ReservoirPyNode(units=150, name="esn150"), "esn150"),
         (lambda: O.HMMRegimeNode(2, name="hmm_regime2"), "hmm_regime2"),
         (lambda: O.HMMRegimeNode(3, name="hmm_regime3"), "hmm_regime3"),
-        (lambda: O.NoldsChaosNode("nolds_chaos"), "nolds_chaos"),
+        # NOTE: NoldsChaosNode is deliberately NOT in the growth pool. Profiling
+        # showed it was ~89% of total pool fit time (it computes sampen/Hurst/DFA
+        # per row, 1000x/fit) AND those measures are near-meaningless on short
+        # tabular feature rows (they need long sequences). It stays importable
+        # (nodes.oss_nodes.NoldsChaosNode) for genuine long time-series use; it
+        # just doesn't belong in the per-row tabular growth pool. This is the fix
+        # for the slow CI gate — a language rewrite would not have helped, the
+        # node is algorithmically expensive + low-value here, not CPU-bound code.
     ]
 
 
