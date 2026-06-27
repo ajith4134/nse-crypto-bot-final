@@ -6,7 +6,7 @@
 > plus orphaned/dead code. Every coding step MUST follow these.
 
 A one-line banner of the active rules is shown at the top of every reply:
-`Rules: prompt-rating | reuse-first | auto-index | enforced-interfaces | secrets-safe | dashboard-sync`
+`Rules: prompt-rating | reuse-first | ask-to-install | polyglot | auto-index | enforced-interfaces | secrets-safe | dashboard-sync | never-skip`
 
 ---
 
@@ -117,6 +117,17 @@ A one-line banner of the active rules is shown at the top of every reply:
 - Prefer a fix already used elsewhere in the repo (consistency) over a novel one.
   Record the root cause, not just the patch.
 
+## 13. Never-skip (GPU-only is the ONLY skip reason)
+- The ONLY acceptable reason to skip a model, feature, node, or library is that it
+  **requires a GPU** with no CPU path. Build everything else.
+- If a node needs **extra data, DOWNLOAD it** (free/no-key sources first — e.g.
+  Deribit public options API, Binance L2 via the collector; request a key only if
+  unavoidable, per §7). Slowness, heaviness, copyleft license, redundancy, or a
+  different paradigm (RL → a separate policy/execution layer) are NOT skip reasons
+  — build it (slow/standalone is fine, kept off the fast hot-path).
+- When something is genuinely GPU-only, say so explicitly and note any CPU
+  alternative used instead.
+
 ---
 
 ### Definition of Done for any coding task
@@ -128,3 +139,4 @@ A one-line banner of the active rules is shown at the top of every reply:
 6. Dashboard view registered for any new node/feature (§6); wiring is real (honest, §6).
 7. No secrets touched tracked files (§7).
 8. Every "it works / passes / fixed" claim was VERIFIED first-hand (§11), not taken on trust.
+9. Nothing skipped except GPU-only (§13); extra data downloaded when a node needs it.
