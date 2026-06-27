@@ -1,22 +1,28 @@
 """run_multi.py — the MULTI-OUTPUT network: an output layer of several heads.
 
-This realises the plan's output layer (not one binary label). On the SAME input
-features it trains an independent sub-network per OutputHead — covering all three
-task types at once:
+Realises the plan's output layer (not one binary label). On the SAME input
+features it trains an independent sub-network per OutputHead, covering all three
+task types at once. Two data sources:
 
-    direction  -> binary       (up/down)
-    regime     -> multiclass-3 (down/flat/up)
-    magnitude  -> regression   (next-step return)
+  synthetic (default)  — Mackey-Glass etc.: heads = direction(binary),
+                         regime(multiclass-3), magnitude(regression).
+  crypto               — REAL cached crypto (BTC/ETH/BNB/SOL): heads =
+                         direction(binary), volatility(binary), magnitude(regression).
+                         PER-COIN walk-forward (each coin split past->future, then
+                         pooled) — the only honest split for multi-asset series.
 
 Each head gets its own base-node pool (classifiers auto-handle multiclass;
-regressors for the regression head) plus a per-head meta combiner (soft-vote for
-classification, mean for regression) that REALLY consumes the base nodes'
-predictions. Honest walk-forward split; each head scored with its task's metric
-against its task's baseline (majority / mean predictor). Writes state.json with a
-real `heads` list + nodes/edges tagged by head, so the dashboard renders multiple
-outputs (honest wiring: a node connects only to the head it actually predicts).
+regressors for the regression head) + a per-head meta combiner (soft-vote /
+mean) that REALLY consumes the base nodes' predictions. Honest per-task metric
+vs per-task baseline. Writes state.json with a real `heads` list + nodes/edges
+tagged by head, so the dashboard renders multiple outputs.
 
-Run:  python run_multi.py [benchmark]    (or: make multi)
+NOTE (honesty): free crypto OHLCV has NO leak-free edge under walk-forward
+(documented finding); the crypto heads are EXPECTED to sit at/below baseline.
+That is reported truthfully — the value here is the multi-output mechanism on
+real data, not a fabricated edge.
+
+Run:  python run_multi.py [mackey_glass | logistic_map | crypto]
 """
 from __future__ import annotations
 
@@ -35,23 +41,26 @@ np.seterr(all="ignore")
 from core import registry
 from core.heads import TASK_REGRESSION, OutputHead
 from data.benchmarks import make_benchmark_dataset
-from data.dataset import chrono_split
 from eval.golden import baseline_for, score_head
 from nodes import oss_nodes as O
 
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 N = 1500
 
-HEADS = [
+SYNTH_HEADS = [
     OutputHead("direction", "binary", 2, "next-step direction (up/down)"),
     OutputHead("regime", "multiclass", 3, "next-step regime (down/flat/up)"),
     OutputHead("magnitude", "regression", 1, "next-step return (regression)"),
 ]
+CRYPTO_HEADS = [
+    OutputHead("direction", "binary", 2, "next-day direction (up/down)"),
+    OutputHead("volatility", "binary", 2, "big move next day? (high/low)"),
+    OutputHead("magnitude", "regression", 1, "next-day return (regression)"),
+]
 
 
 def cls_pool():
-    """Classifier base nodes — the same factories handle binary AND multiclass
-    (SklearnNode switches on class count), so one pool serves direction+regime."""
+    """Classifier base nodes — the same factories serve binary AND multiclass."""
     return [
         ("sk_logreg", O.logreg_node),
         ("sk_knn10", lambda: O.knn_node(10)),
@@ -73,7 +82,7 @@ def reg_pool():
 
 
 class _MetaView:
-    """Minimal NodeProtocol-satisfying view of a per-head meta combiner.
+    """Minimal NodeProtocol-satisfying view of a per-head meta/output node.
 
     The combiner is a real soft-vote (classification) / mean (regression) over
     the base nodes' predictions, so upstream=base_names is a TRUE dependency.
@@ -100,22 +109,67 @@ class _MetaView:
         return [int(np.argmax(r)) for r in self._proba]
 
 
-def _combine(outputs, task):
+def _combine(outputs):
     """Soft-vote (classification) or mean (regression) over base predict_output."""
     return np.mean([np.asarray(o, dtype=float) for o in outputs], axis=0)
 
 
-def main(benchmark: str = "mackey_glass", n: int = N) -> dict:
-    registry.reset()
+# --------------------------------------------------------------------------- #
+#  Data loaders — each returns (name, feat, Xtr, Xte, head_targets, heads, n)
+#  where head_targets[head.name] = (ytr, yte).
+# --------------------------------------------------------------------------- #
+def _load_synthetic(benchmark: str, n: int):
     ds = make_benchmark_dataset(benchmark, n=n, noise=0.05)
     X, feat = ds["X"], ds["feature_names"]
+    cut = int(len(X) * 0.7)
+    Xtr, Xte = X[:cut], X[cut:]
+    ht = {h.name: (ds["targets"][h.name][:cut], ds["targets"][h.name][cut:])
+          for h in SYNTH_HEADS}
+    return (f"{benchmark} (synthetic, known process)", feat, Xtr, Xte, ht,
+            SYNTH_HEADS, len(X))
 
+
+def _load_crypto(train_frac: float = 0.7):
+    """Per-coin walk-forward: split each coin's history past->future, then pool
+    the train halves and the test halves (no cross-coin leakage)."""
+    from data.dataset import MAJORS, make_dataset
+    Xtr, Xte, feat, used = [], [], None, []
+    acc = {h.name: [[], []] for h in CRYPTO_HEADS}
+    for c in MAJORS:
+        try:
+            d = make_dataset(c)
+        except Exception as e:                      # missing cache / parse error
+            print(f"  [skip {c}: {e}]")
+            continue
+        feat = d["feature_names"]
+        Xc = d["X"]
+        cut = int(len(Xc) * train_frac)
+        Xtr += Xc[:cut]; Xte += Xc[cut:]; used.append(c)
+        for h in CRYPTO_HEADS:
+            yv = d["targets"][h.name]
+            acc[h.name][0] += yv[:cut]
+            acc[h.name][1] += yv[cut:]
+    if not used:
+        raise SystemExit("no cached crypto coins found — run `python run_crypto.py` "
+                         "or data.dataset.ensure() to fetch first.")
+    ht = {k: (v[0], v[1]) for k, v in acc.items()}
+    return (f"REAL crypto walk-forward ({'+'.join(used)})", feat, Xtr, Xte, ht,
+            CRYPTO_HEADS, len(Xtr) + len(Xte))
+
+
+def main(arg: str = "mackey_glass", n: int = N) -> dict:
+    if arg == "crypto":
+        name, feat, Xtr, Xte, head_targets, heads, n = _load_crypto()
+        source, stack = "crypto", "scikit-learn · XGBoost · LightGBM — REAL crypto, multi-head, walk-forward"
+    else:
+        name, feat, Xtr, Xte, head_targets, heads, n = _load_synthetic(arg, n)
+        source, stack = "synthetic", "scikit-learn · XGBoost · LightGBM (multi-head: binary · multiclass · regression)"
+
+    registry.reset()
     head_reports = []
-    for h in HEADS:
-        y = ds["targets"][h.name]
-        Xtr, ytr, Xte, yte = chrono_split(X, y, 0.7)
+    for h in heads:
+        ytr, yte = head_targets[h.name]
         pool = reg_pool() if h.task == TASK_REGRESSION else cls_pool()
-
         base_names, base_outs = [], []
         for base_name, factory in pool:
             nd = factory()
@@ -129,14 +183,11 @@ def main(benchmark: str = "mackey_glass", n: int = N) -> dict:
             base_names.append(nd.name)
             base_outs.append(out)
 
-        # per-head meta = real soft-vote / mean over the base nodes' outputs
-        meta_out = _combine(base_outs, h.task)
+        meta_out = _combine(base_outs)
         meta_sc = score_head(h, meta_out.tolist(), yte)
         meta = _MetaView(f"meta@{h.name}", h, meta_out)
         registry.register(meta, upstream=base_names)
         registry.set_metrics(meta.name, {"metric": meta_sc["metric"], "value": round(meta_sc["value"], 4)})
-
-        # output node for this head (the network's ŷ for this target)
         out_node = _MetaView(f"ŷ:{h.name}", h, meta_out)
         out_node.kind = "output"
         registry.register(out_node, upstream=[meta.name])
@@ -150,14 +201,12 @@ def main(benchmark: str = "mackey_glass", n: int = N) -> dict:
 
     snap = registry.snapshot()
     state = {
-        "project": f"ML Network Brain — MULTI-OUTPUT ({benchmark})",
+        "project": f"ML Network Brain — MULTI-OUTPUT ({source})",
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "stack": "scikit-learn · XGBoost · LightGBM (multi-head: binary · multiclass · regression)",
-        "dataset": {"name": f"{benchmark} (synthetic, known process)", "n": ds["n"],
-                    "features": len(feat), "feature_names": feat,
-                    "train": int(n * 0.7), "test": int(n * 0.3)},
-        "heads": head_reports,
-        "multi_output": True,
+        "stack": stack,
+        "dataset": {"name": name, "n": n, "features": len(feat), "feature_names": feat,
+                    "train": len(Xtr), "test": len(Xte), "source": source},
+        "heads": head_reports, "multi_output": True,
         "nodes": snap["nodes"], "edges": snap["edges"],
     }
     with open(STATE_PATH, "w", encoding="utf-8") as f:
@@ -166,9 +215,10 @@ def main(benchmark: str = "mackey_glass", n: int = N) -> dict:
 
 
 if __name__ == "__main__":
-    bench = sys.argv[1] if len(sys.argv) > 1 else "mackey_glass"
-    s = main(bench)
-    print(f"MULTI-OUTPUT network on: {s['dataset']['name']}  ({len(s['heads'])} output heads)")
+    arg = sys.argv[1] if len(sys.argv) > 1 else "mackey_glass"
+    s = main(arg)
+    print(f"MULTI-OUTPUT network on: {s['dataset']['name']}  ({len(s['heads'])} heads, "
+          f"train={s['dataset']['train']} test={s['dataset']['test']})")
     print(f"{'head':12} {'task':11} {'metric':9} {'value':>7} {'baseline':>9}  beats?")
     for h in s["heads"]:
         print(f"{h['name']:12} {h['task']:11} {h['metric']:9} {h['value']:7.3f} {h['baseline']:9.3f}"

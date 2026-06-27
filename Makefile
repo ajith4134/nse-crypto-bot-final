@@ -1,5 +1,5 @@
 # ML Network Brain — build tasks (CPU-only). OSS stack lives in .venv.
-.PHONY: index test phase1 oss dev dash all crypto ci
+.PHONY: index test phase1 oss dev multi multi-crypto dash all crypto ci
 
 index:        ## regenerate INDEX.md from source (never hand-edit it)
 	python3 tools/gen_index.py
@@ -15,6 +15,12 @@ oss:          ## train the OSS-backed node layer (sklearn/xgb/lgbm/reservoirpy/.
 
 dev:          ## train the growing brain on synthetic data (stdlib pool)
 	. .venv/bin/activate && python run_dev.py
+
+multi:        ## train the MULTI-OUTPUT network on synthetic data -> state.json
+	. .venv/bin/activate && python run_multi.py mackey_glass
+
+multi-crypto: ## train the MULTI-OUTPUT network on REAL crypto (per-coin walk-forward)
+	. .venv/bin/activate && python run_multi.py crypto
 
 dash:         ## serve the dashboard at http://localhost:8000
 	python3 dashboard/server.py 8000
