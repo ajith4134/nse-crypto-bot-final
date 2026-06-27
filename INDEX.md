@@ -410,7 +410,7 @@ _(ii) Demonstrate the noise-regime router beating either single expert._
 ## `run_oss.py`
 _run_oss.py — train the REUSE-FIRST (OSS-backed) node layer and emit state.json._
 - **functions:** `main(benchmark, with_autogluon) -> dict`
-- **imports:** __future__, core, data.benchmarks, data.dataset, eval.golden, json, nodes, nodes.oss_nodes, numpy, os, sys, time, warnings
+- **imports:** __future__, core, data.benchmarks, data.dataset, eval.golden, json, nodes, nodes.stacking_node, numpy, os, sys, time, warnings
 
 ## `run_phase1.py`
 _run_phase1.py — train the Phase-1 prediction-graph network and emit state.json._

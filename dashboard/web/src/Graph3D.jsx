@@ -47,7 +47,7 @@ function buildModel(nodes, edges, dataset) {
 
   const featureNames = (dataset?.feature_names || []).slice(0, 14)
   const models = nodes.filter((n) => FEATURE_CONSUMERS.includes(n.kind))
-  const metas = nodes.filter((n) => n.kind === 'ensemble' || n.kind === 'router')
+  const metas = nodes.filter((n) => ['ensemble', 'router', 'meta'].includes(n.kind))
   const automl = nodes.filter((n) => n.kind === 'automl')
 
   // ---- columns (x positions), left -> right = direction of data flow ----

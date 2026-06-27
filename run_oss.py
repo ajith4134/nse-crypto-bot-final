@@ -28,7 +28,7 @@ from data.benchmarks import make_benchmark_dataset
 from data.dataset import chrono_split
 from eval.golden import accuracy
 from nodes import pool
-from nodes.oss_nodes import SklearnStackingNode
+from nodes.stacking_node import StackingEnsembleNode
 
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 N = 1200
@@ -50,7 +50,11 @@ def main(benchmark: str = "mackey_glass", with_autogluon: bool = True) -> dict:
         registry.set_metrics(node.name, {"test_accuracy": round(acc, 4)})
     base_names = list(base_acc)
 
-    ens = SklearnStackingNode(name="sk_stacking").fit(Xtr, ytr)
+    # HONEST WIRING: this meta node REALLY consumes the pool nodes — it builds
+    # each pool node's out-of-fold predictions and feeds them to a meta-learner
+    # (StackingEnsembleNode). So upstream=base_names is a TRUE data dependency
+    # (unlike SklearnStackingNode, which has its own fixed internal learners).
+    ens = StackingEnsembleNode(pool.factories(), folds=5, name="sk_stacking").fit(Xtr, ytr)
     registry.register(ens, upstream=base_names)
     ens_acc = accuracy(ens.predict(Xte), yte)
     registry.set_metrics(ens.name, {"test_accuracy": round(ens_acc, 4)})

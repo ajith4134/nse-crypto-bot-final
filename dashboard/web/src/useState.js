@@ -29,6 +29,7 @@ export function useNetworkState(intervalMs = 4000) {
 export const KIND_COLOR = {
   base: '#5cc8ff',
   ensemble: '#b98cff',
+  meta: '#b98cff',
   automl: '#f0a14b',
   symbolic: '#4ade80',
   regime: '#fbbf24',
