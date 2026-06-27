@@ -90,6 +90,8 @@ def domain_pool():
     from nodes import dl_nodes as DL
     from nodes import github_feature_nodes as GF
     from nodes import github_predict_nodes as GP
+    from nodes import github_t2_feature as G2F
+    from nodes import github_t2_predict as G2P
     from nodes import dynamics_nodes as D
     from nodes import frontier_nodes as F
     from nodes import ml_nodes as M
@@ -136,6 +138,16 @@ def domain_pool():
         ("talib", GF.talib_node), ("librosa", GF.librosa_node),
         ("entropyhub", GF.entropyhub_node), ("tsfel", GF.tsfel_node),
         ("fracdiff", GF.fracdiff_node),
+        # GitHub Tier 2 — predictors/dynamics (fast subset; flaml/autots standalone)
+        ("mlforecast", G2P.mlforecast_node), ("functime", G2P.functime_node),
+        ("deeptime", G2P.deeptime_node), ("pomegranate_hmm", G2P.pomegranate_hmm_node),
+        ("pgmpy", G2P.pgmpy_bayesnet_node), ("econml", G2P.econml_node),
+        ("pykalman", G2P.pykalman_node), ("simdkalman", G2P.simdkalman_node),
+        # GitHub Tier 2 — features/anomaly (node2vec standalone — slow)
+        ("ssqueeze", G2F.ssqueeze_node), ("scikit_dim", G2F.scikit_dim_node),
+        ("feature_engine", G2F.feature_engine_node), ("stockstats", G2F.stockstats_node),
+        ("pandas_ta", G2F.pandas_ta_classic_node), ("ta", G2F.ta_node),
+        ("adtk", G2F.adtk_anomaly_node),
     ]
 
 

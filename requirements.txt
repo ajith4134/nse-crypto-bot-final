@@ -120,3 +120,27 @@ EntropyHub              # ~40 entropy measures
 tsfel                   # statistical/spectral/fractal feature sets
 TA-Lib                  # 150+ indicators + candlestick patterns (built C lib from source)
 # fracdiff failed to build (py3.13) -> FracDiffNode uses a pure-numpy implementation
+
+# --- GitHub-projects-as-nodes TIER 2 (INSTALLED; see ml-network-github-nodes.md) ---
+deeptime                # Koopman/VAMP/TICA/MSM slow-dynamics
+pomegranate             # HMM/GMM/Bayes-net (torch CPU)
+pgmpy                   # Bayesian-network structure learning + inference
+econml                  # causal treatment-effect (CATE) estimators
+ssqueezepy              # synchrosqueezed wavelet time-frequency (numba)
+feature-engine          # sklearn-style feature transforms
+mlforecast              # LightGBM global forecaster
+functime                # Polars-native panel forecasting
+flaml                   # fast AutoML — SLOW(10s), standalone
+autots                  # genetic AutoML forecasting — SLOW/variable, standalone
+adtk                    # rule-based time-series anomaly detection
+scikit-dimension        # intrinsic-dimension estimation (numba)
+pykalman                # Kalman filter/smoother + EM
+simdkalman              # vectorized Kalman (fast, strong)
+node2vec                # graph embeddings — needs numpy<2 (conflict) -> degree-stat fallback
+stockstats              # inline technical indicators
+pandas-ta-classic       # 193 indicators + candlestick patterns (maintained fork)
+ta                      # bukosabino technical-analysis indicators
+# pyqlib NOT installed (heavy platform, py3.13 dep conflicts) -> Alpha158/360 factor
+#   value covered by TA-Lib + TSFEL + pandas-ta-classic + ta nodes.
+# ENV PINS (load-bearing): numpy>=2.0,<2.4 (numba needs <=2.3); scikit-learn>=1.7,<1.8
+#   (pyoselm>=1.7.1 + autogluon<1.8; econml/gplearn metadata-warn but work at runtime).

@@ -384,6 +384,18 @@ _GitHub-project predictor nodes — CatBoost, NGBoost, EBM, skforecast._
 - **functions:** `_readout(task)`; `catboost_node() -> CatBoostNode`; `ngboost_node() -> NGBoostNode`; `ebm_node() -> EBMNode`; `skforecast_node() -> SkforecastNode`
 - **imports:** __future__, core.node_protocol, numpy, warnings
 
+## `nodes/github_t2_feature.py`
+_GitHub tier-2 feature / anomaly nodes (signal • math • graph • ml)._
+- **classes:** SSQueezeNode, ScikitDimNode, Node2VecGraphNode, FeatureEngineNode, StockStatsNode, PandasTAClassicNode, TANode, ADTKAnomalyNode
+- **functions:** `_clean(vals, n) -> list[float]`; `_ohlc(win) -> 'object'`; `ssqueeze_node()`; `scikit_dim_node()`; `node2vec_graph_node()`; `feature_engine_node()`; `stockstats_node()`; `pandas_ta_classic_node()`; `ta_node()`; `adtk_anomaly_node()`
+- **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, time, warnings
+
+## `nodes/github_t2_predict.py`
+_GitHub-tier-2 predictor / probabilistic / dynamics nodes (T2)._
+- **classes:** _HeadBase, _Aug, _ForecastBase, MLForecastNode, FunctimeNode, AutoTSNode, FLAMLNode, DeeptimeNode, PomegranateHMMNode, PgmpyBayesNetNode, EconMLNode, PykalmanNode, SimdKalmanNode
+- **functions:** `_readout(task)`; `mlforecast_node()`; `functime_node()`; `flaml_node()`; `autots_node()`; `deeptime_node()`; `pomegranate_hmm_node()`; `pgmpy_bayesnet_node()`; `econml_node()`; `pykalman_node()`; `simdkalman_node()`
+- **imports:** __future__, core.node_protocol, datetime, numpy, os, warnings
+
 ## `nodes/ml_nodes.py`
 _Advanced ML / topology / control nodes — the reuse-first expansion of the_
 - **classes:** _HeadMixin, _FeatureBase, Catch22Node, TsfreshNode, TDANode, CausalSelectNode, GaussianProcessNode, _ForecastBase, DartsForecastNode, ControlSysIDNode
@@ -425,10 +437,10 @@ _Uncertainty / probabilistic / symbolic / fuzzy / survival nodes._
 - **imports:** __future__, core.node_protocol, logging, numpy, os, time, warnings
 
 ## `nodes/quant_nodes.py`
-_Quant / finance + math-structure nodes (arch GARCH, EVT, ADF, EWMA, statsforecast)._
-- **classes:** _HeadBase, _WindowFeat, EVTTailNode, ADFStationarityNode, EWMAVolNode, GarchVolNode, StatsForecastNode
-- **functions:** `_readout(task)`; `evt_tail_node(name)`; `adf_stationarity_node(name)`; `ewma_vol_node(name)`; `garch_vol_node(name)`; `statsforecast_node(name)`
-- **imports:** __future__, core.node_protocol, numpy, warnings
+_Quant / finance / math-structure nodes — OSS time-series & extreme-value_
+- **classes:** _QBase, _FeatNode, _PredNode, GarchVolNode, EVTTailNode, StateSpaceNode, StatsForecastNode, ADFStationarityNode, CointSpreadNode, _HeadBase, _WindowFeat, EWMAVolNode
+- **functions:** `_quiet()`; `garch_vol_node(col, win, name) -> GarchVolNode`; `evt_tail_node(col, win, name) -> EVTTailNode`; `state_space_node(col, win, name) -> StateSpaceNode`; `statsforecast_node(col, win, name) -> StatsForecastNode`; `adf_stationarity_node(col, win, name) -> ADFStationarityNode`; `coint_spread_node(col0, col1, win, name) -> CointSpreadNode`; `_compat_readout(task)`; `ewma_vol_node(name)`
+- **imports:** __future__, contextlib, core.node_protocol, numpy, warnings
 
 ## `nodes/router_node.py`
 _LearnedRouterNode — Phase 3: dynamic routing between full-model nodes._
