@@ -144,3 +144,7 @@ ta                      # bukosabino technical-analysis indicators
 #   value covered by TA-Lib + TSFEL + pandas-ta-classic + ta nodes.
 # ENV PINS (load-bearing): numpy>=2.0,<2.4 (numba needs <=2.3); scikit-learn>=1.7,<1.8
 #   (pyoselm>=1.7.1 + autogluon<1.8; econml/gplearn metadata-warn but work at runtime).
+
+# --- River online/incremental learning (the growing-brain fit) ---
+river                   # online learn_one/predict_one nodes (linear, Hoeffding, ARF)
+# (river install bumped scipy to 1.18; statsforecast/aeon/autogluon metadata-warn but import+run fine)

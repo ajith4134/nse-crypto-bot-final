@@ -407,6 +407,12 @@ _NoiseRegimeRouter (ii) — route by detected noise/chaos regime, learning which
 - **classes:** NoiseRegimeRouter
 - **imports:** __future__, core.node_protocol, eval.golden
 
+## `nodes/online_nodes.py`
+_Online / incremental-learning nodes (River) — the growing-brain fit._
+- **classes:** RiverNode
+- **functions:** `_rows_to_dicts(X) -> list[dict]`; `_logreg_factory(task)`; `_hoeffding_factory(task)`; `_arf_factory(task)`; `river_logreg_node(name)`; `river_hoeffding_node(name)`; `river_arf_node(name)`
+- **imports:** __future__, core.node_protocol, numpy, warnings
+
 ## `nodes/oss_nodes.py`
 _OSS-backed prediction nodes — the reuse-first realignment of the node layer._
 - **classes:** SklearnNode, SklearnRegressorNode, ReservoirPyNode, HMMRegimeNode, NoldsChaosNode, SklearnStackingNode

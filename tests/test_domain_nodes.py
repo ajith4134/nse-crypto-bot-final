@@ -53,7 +53,8 @@ class TestDomainNodes(unittest.TestCase):
                   A.nvar_node, A.signature_node, A.nystroem_node,
                   GP.catboost_node, GF.talib_node, GF.fracdiff_node,
                   __import__("nodes.github_t2_predict", fromlist=["simdkalman_node"]).simdkalman_node,
-                  __import__("nodes.github_t2_feature", fromlist=["ta_node"]).ta_node):
+                  __import__("nodes.github_t2_feature", fromlist=["ta_node"]).ta_node,
+                  __import__("nodes.online_nodes", fromlist=["river_logreg_node"]).river_logreg_node):
             with self.subTest(node=f.__name__):
                 self._check(f)
 

@@ -41,6 +41,7 @@ export const KIND_COLOR = {
   policy: '#ffa94d',
   symbolic: '#7cff6b',
   deep_learning: '#ff4d6d',
+  online: '#36ffb0',
   ensemble: '#b98cff',
   meta: '#b98cff',
   output: '#4ade80',

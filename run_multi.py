@@ -92,6 +92,7 @@ def domain_pool():
     from nodes import github_predict_nodes as GP
     from nodes import github_t2_feature as G2F
     from nodes import github_t2_predict as G2P
+    from nodes import online_nodes as ON
     from nodes import dynamics_nodes as D
     from nodes import frontier_nodes as F
     from nodes import ml_nodes as M
@@ -148,6 +149,9 @@ def domain_pool():
         ("feature_engine", G2F.feature_engine_node), ("stockstats", G2F.stockstats_node),
         ("pandas_ta", G2F.pandas_ta_classic_node), ("ta", G2F.ta_node),
         ("adtk", G2F.adtk_anomaly_node),
+        # online / incremental learning (River) — the growing-brain fit
+        ("river_linear", ON.river_logreg_node), ("river_hoeffding", ON.river_hoeffding_node),
+        ("river_arf", ON.river_arf_node),
     ]
 
 
