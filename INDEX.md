@@ -272,6 +272,11 @@ _Assemble per-node golden datasets from cached crypto data._
 - **functions:** `ensure(coins, days) -> dict`; `make_combined(coins, target, days) -> dict`; `make_dataset(coin, target) -> dict`; `chrono_split(X, y, train_frac) -> tuple`
 - **imports:** __future__, data, data.sources
 
+## `data/external.py`
+_External real-world datasets — multi-dataset evaluation (CONVENTIONS §14)._
+- **functions:** `_rows_from_values(dates, values) -> list[tuple]`; `load_indian_equity(symbol, period) -> list[tuple]`; `load_sunspots() -> list[tuple]`; `load_weather(lat, lon, start, end) -> list[tuple]`; `load_energy() -> list[tuple]`; `load_ecg(record, n, every) -> list[tuple]`; `make_external_dataset(source) -> dict`
+- **imports:** __future__, csv, data, io, os, urllib.request
+
 ## `data/features.py`
 _Feature & target engineering for crypto price series (pure stdlib)._
 - **functions:** `_returns(closes) -> list[float]`; `_sma(closes, i, n) -> float`; `_std(xs) -> float`; `_rsi(closes, i, n) -> float`; `build(rows) -> dict`
@@ -464,7 +469,7 @@ _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 ## `run_multi.py`
 _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 - **classes:** _MetaView
-- **functions:** `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `main(arg, n, pool) -> dict`
+- **functions:** `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_load_external(source, cap, train_frac)`; `main(arg, n, pool) -> dict`
 - **imports:** __future__, core, core.heads, data.benchmarks, eval.golden, json, nodes, numpy, os, sys, time, warnings
 
 ## `run_noise_router.py`

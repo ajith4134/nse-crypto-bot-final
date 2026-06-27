@@ -150,9 +150,12 @@ class _MetaView:
         return [int(np.argmax(r)) for r in self._proba]
 
 
-def _combine(outputs):
-    """Soft-vote (classification) or mean (regression) over base predict_output."""
-    return np.mean([np.asarray(o, dtype=float) for o in outputs], axis=0)
+def _combine(outputs, task="binary"):
+    """Soft-vote (classification, mean of class-probs) or robust MEDIAN (regression)
+    over base predict_output. Median makes the regression meta robust to a single
+    exploding regressor on noisy real data (e.g. an outlier return)."""
+    arr = [np.asarray(o, dtype=float) for o in outputs]
+    return np.median(arr, axis=0) if task == "regression" else np.mean(arr, axis=0)
 
 
 # --------------------------------------------------------------------------- #
@@ -198,10 +201,30 @@ def _load_crypto(train_frac: float = 0.7):
             CRYPTO_HEADS, len(Xtr) + len(Xte))
 
 
+def _load_external(source: str, cap: int = 2500, train_frac: float = 0.7):
+    """Real non-crypto dataset (Indian equities / sunspots / weather / energy /
+    ECG) → multi-head targets; capped to the most recent `cap` rows for speed."""
+    from data.external import make_external_dataset
+    ds = make_external_dataset(source)
+    X, feat = ds["X"], ds["feature_names"]
+    tg = ds["targets"]
+    if len(X) > cap:
+        X = X[-cap:]
+        tg = {k: v[-cap:] for k, v in tg.items()}
+    cut = int(len(X) * train_frac)
+    Xtr, Xte = X[:cut], X[cut:]
+    ht = {h.name: (tg[h.name][:cut], tg[h.name][cut:]) for h in SYNTH_HEADS}
+    return ds["name"], feat, Xtr, Xte, ht, SYNTH_HEADS, len(X)
+
+
 def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
+    from data.external import EXTERNAL_SOURCES
     if arg == "crypto":
         name, feat, Xtr, Xte, head_targets, heads, n = _load_crypto()
         source = "crypto"
+    elif arg in EXTERNAL_SOURCES:
+        name, feat, Xtr, Xte, head_targets, heads, n = _load_external(arg)
+        source = arg
     else:
         name, feat, Xtr, Xte, head_targets, heads, n = _load_synthetic(arg, n)
         source = "synthetic"
@@ -238,7 +261,7 @@ def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
         if not base_outs:
             print(f"  [head {h.name}: no usable base nodes — skipped]")
             continue
-        meta_out = _combine(base_outs)
+        meta_out = _combine(base_outs, h.task)
         meta_sc = score_head(h, meta_out.tolist(), yte)
         meta = _MetaView(f"meta@{h.name}", h, meta_out)
         registry.register(meta, upstream=base_names)
