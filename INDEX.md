@@ -372,6 +372,18 @@ _Frontier nodes: quantum-inspired kernels, a reinforcement-learning policy, and_
 - **functions:** `_http_json(url, timeout) -> dict`; `quantum_kernel_node(name)`; `rl_policy_node(name)`; `option_iv_node(name)`
 - **imports:** __future__, core.node_protocol, json, nodes.quant_nodes, numpy, os, ssl, time, urllib.request, warnings
 
+## `nodes/github_feature_nodes.py`
+_Feature-extractor nodes wrapping established GitHub/OSS projects._
+- **classes:** TALibNode, NeuroKit2Node, LibrosaNode, EntropyHubNode, TSFELNode, FracDiffNode
+- **functions:** `_clean(vals, n) -> list[float]`; `_last_finite(arr) -> float`; `_fracdiff_weights(d, size) -> np.ndarray`; `talib_node()`; `neurokit2_node()`; `librosa_node()`; `entropyhub_node()`; `tsfel_node()`; `fracdiff_node()`
+- **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, warnings
+
+## `nodes/github_predict_nodes.py`
+_GitHub-project predictor nodes — CatBoost, NGBoost, EBM, skforecast._
+- **classes:** _DirectNode, CatBoostNode, NGBoostNode, EBMNode, _HeadBase, SkforecastNode
+- **functions:** `_readout(task)`; `catboost_node() -> CatBoostNode`; `ngboost_node() -> NGBoostNode`; `ebm_node() -> EBMNode`; `skforecast_node() -> SkforecastNode`
+- **imports:** __future__, core.node_protocol, numpy, warnings
+
 ## `nodes/ml_nodes.py`
 _Advanced ML / topology / control nodes — the reuse-first expansion of the_
 - **classes:** _HeadMixin, _FeatureBase, Catch22Node, TsfreshNode, TDANode, CausalSelectNode, GaussianProcessNode, _ForecastBase, DartsForecastNode, ControlSysIDNode

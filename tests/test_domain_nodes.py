@@ -44,11 +44,14 @@ class TestDomainNodes(unittest.TestCase):
         from nodes import spectral_nodes as SP
         from nodes import structure_nodes as ST
         from nodes import advanced_nodes as A
+        from nodes import github_feature_nodes as GF
+        from nodes import github_predict_nodes as GP
         for f in (D.permentropy_node, D.sindy_node, S.rmt_signal_node,
                   M.catch22_node, Q.ewma_vol_node, Q.garch_vol_node,
                   SP.lombscargle_node, SP.regime_node, ST.optimal_transport_node,
                   P.gplearn_symbolic_node, F.rl_policy_node,
-                  A.nvar_node, A.signature_node, A.nystroem_node):
+                  A.nvar_node, A.signature_node, A.nystroem_node,
+                  GP.catboost_node, GF.talib_node, GF.fracdiff_node):
             with self.subTest(node=f.__name__):
                 self._check(f)
 

@@ -88,6 +88,8 @@ def domain_pool():
     ~12s) which stay importable standalone but off the hot path."""
     from nodes import advanced_nodes as A
     from nodes import dl_nodes as DL
+    from nodes import github_feature_nodes as GF
+    from nodes import github_predict_nodes as GP
     from nodes import dynamics_nodes as D
     from nodes import frontier_nodes as F
     from nodes import ml_nodes as M
@@ -128,6 +130,12 @@ def domain_pool():
         # deep learning (CPU) — TCN/N-BEATS/TSMixer/GRU/AE fast; N-HiTS heavier
         ("tcn", DL.tcn_node), ("nbeats", DL.nbeats_node), ("tsmixer", DL.tsmixer_node),
         ("gru", DL.gru_node), ("ae_anomaly", DL.ae_anomaly_node), ("nhits", DL.nhits_node),
+        # GitHub-projects-as-nodes (Tier 1) — predictors + feature extractors
+        ("catboost", GP.catboost_node), ("ngboost", GP.ngboost_node),
+        ("skforecast", GP.skforecast_node),
+        ("talib", GF.talib_node), ("librosa", GF.librosa_node),
+        ("entropyhub", GF.entropyhub_node), ("tsfel", GF.tsfel_node),
+        ("fracdiff", GF.fracdiff_node),
     ]
 
 

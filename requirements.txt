@@ -108,3 +108,15 @@ wfdb                    # PhysioNet ECG
 meteostat               # weather (Open-Meteo used as primary, no key)
 # Order book: Binance public depth (no key, live snapshots — no free historical L2).
 # NSE has NO free L2 order book -> order-book input is crypto-only; MTF candles work for both.
+
+# --- GitHub-projects-as-nodes TIER 1 (INSTALLED; see ml-network-github-nodes.md) ---
+skforecast              # recursive multi-step forecaster over any sklearn regressor
+ngboost                 # probabilistic boosting (predictive distribution)
+catboost                # categorical gradient boosting
+interpret               # Explainable Boosting Machine (glassbox GAM) — SLOW(13s), standalone
+neurokit2               # physiological/complexity features (ECG) — SLOW(18s), standalone
+librosa                 # spectral/audio features on any series
+EntropyHub              # ~40 entropy measures
+tsfel                   # statistical/spectral/fractal feature sets
+TA-Lib                  # 150+ indicators + candlestick patterns (built C lib from source)
+# fracdiff failed to build (py3.13) -> FracDiffNode uses a pure-numpy implementation
