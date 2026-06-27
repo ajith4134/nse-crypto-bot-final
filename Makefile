@@ -22,6 +22,9 @@ multi:        ## train the MULTI-OUTPUT network on synthetic data -> state.json
 multi-crypto: ## train the MULTI-OUTPUT network on REAL crypto (per-coin walk-forward)
 	. .venv/bin/activate && python run_multi.py crypto
 
+multi-rich:   ## MULTI-OUTPUT with ALL node families (physics/chaos/signal/quant/math/control)
+	. .venv/bin/activate && python run_multi.py mackey_glass rich
+
 dash:         ## serve the dashboard at http://localhost:8000
 	python3 dashboard/server.py 8000
 

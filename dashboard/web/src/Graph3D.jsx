@@ -46,7 +46,7 @@ function buildMultiHead(nodes, edges, dataset, heads) {
 
   heads.forEach((h, hi) => {
     const bandY = ((H - 1) / 2 - hi) * bandGap
-    const models = nodes.filter((n) => n.head === h.name && (n.kind === 'base' || n.kind === 'regressor' || FEATURE_CONSUMERS.includes(n.kind)))
+    const models = nodes.filter((n) => n.head === h.name && !['meta', 'output', 'input'].includes(n.kind))
     const cols = chunk(models, 2)                      // two compact sub-columns
     cols.forEach((col, ci) => {
       const x = (-1 + ci) * X_GAP                      // model sub-columns at x=-GAP, 0

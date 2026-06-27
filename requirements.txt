@@ -33,3 +33,36 @@ sentence-transformers   # neural sentence-embeddings (all-MiniLM-L6-v2, CPU)
 networkx                # documents/chunks/concepts knowledge graph
 pypdf                   # PDF text extraction for ingestion
 #   crawl4ai            # next drop-in for live web crawl (needs headless browser)
+
+# --- PhD-domain node families (INSTALLED — CPU-only; see ml-network-nodes-catalog.md) ---
+# physics / chaos / nonlinear dynamics
+pysindy                 # SINDy — sparse identification of governing equations
+pyunicorn               # recurrence quantification analysis (RQA) + recurrence networks
+ordpy                   # permutation entropy / complexity-entropy plane
+antropy                 # entropy + fractal-dimension features
+pydmd                   # dynamic mode decomposition (Koopman)
+pyinform                # transfer entropy / directional information flow
+# signal-in-noise / pattern detection
+stumpy                  # matrix profile (motif + anomaly) — SLOW, standalone only
+PyWavelets              # wavelet multiresolution / denoising
+EMD-signal              # empirical mode decomposition (import PyEMD)
+pyts                    # singular spectrum analysis + TS transforms
+filterpy                # Kalman + particle filters
+pyod                    # 60+ anomaly/outlier detectors
+nistrng                 # NIST SP800-22 randomness test battery
+# quant / finance
+arch                    # GARCH conditional volatility
+pyextremes              # extreme-value theory (tail risk) — SLOW per-window, standalone
+# math / topology / causal
+ripser                  # persistent homology (TDA)
+persim                  # persistence-diagram features
+causal-learn            # causal discovery (PC/FCI/GES)
+# ML / control
+pycatch22               # 22 canonical TS features (GPL-3.0)
+tsfresh                 # automated TS feature extraction
+darts                   # forecasting (TCN/N-HiTS; uses CPU torch)
+control                 # python-control: state-space / Kalman
+sippy                   # subspace system identification
+statsforecast           # AutoARIMA/ETS/Theta (numba, no torch)
+statsmodels             # GARCH-adjacent stats, ADF, cointegration, state-space
+# NOT installed (no py3.13 wheel / alternatives used): giotto-tda(AGPL)->ripser; PyIF->pyinform

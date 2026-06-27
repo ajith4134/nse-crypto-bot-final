@@ -332,6 +332,18 @@ _Step 3: chaos / nonlinear-dynamics node families (pure-Python)._
 - **classes:** RecurrenceNode, ChaosFeatureNode
 - **imports:** __future__, core.node_protocol, native, nodes.base_learners
 
+## `nodes/dynamics_nodes.py`
+_Nonlinear-dynamics / chaos / physics nodes — the reuse-first dynamics layer._
+- **classes:** _Base, SINDyNode, RQANode, PermEntropyNode, AntropyNode, DMDNode, TransferEntropyNode
+- **functions:** `sindy_node(name, col, W) -> SINDyNode`; `rqa_node(name, col, W) -> RQANode`; `permentropy_node(name, col, W) -> PermEntropyNode`; `antropy_node(name, col, W) -> AntropyNode`; `dmd_node(name, col, W) -> DMDNode`; `transfer_entropy_node(name, col, col2, W) -> TransferEntropyNode`
+- **imports:** __future__, core.node_protocol, numpy, warnings
+
+## `nodes/ml_nodes.py`
+_Advanced ML / topology / control nodes — the reuse-first expansion of the_
+- **classes:** _HeadMixin, _FeatureBase, Catch22Node, TsfreshNode, TDANode, CausalSelectNode, GaussianProcessNode, _ForecastBase, DartsForecastNode, ControlSysIDNode
+- **functions:** `_readout(task)`; `_ar_fit(s, p)`; `_ar_forecast_column(coef, c0, p, s_train, s_eval) -> np.ndarray`; `gaussian_process_node(max_rows, name) -> GaussianProcessNode`; `catch22_node(win, col, name) -> Catch22Node`; `tsfresh_node(win, col, name) -> TsfreshNode`; `tda_node(win, col, name) -> TDANode`; `causal_select_node(top_k, name) -> CausalSelectNode`; `darts_forecast_node(lags, col, name) -> DartsForecastNode`; `control_sysid_node(lags, col, name) -> ControlSysIDNode`
+- **imports:** __future__, core.node_protocol, numpy, warnings
+
 ## `nodes/noise_router.py`
 _NoiseRegimeRouter (ii) — route by detected noise/chaos regime, learning which_
 - **classes:** NoiseRegimeRouter
@@ -360,11 +372,23 @@ _Shared candidate pool of node families + hyperparameter variants._
 - **functions:** `_oss_candidates()`; `factories()`; `names()`
 - **imports:** __future__, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes
 
+## `nodes/quant_nodes.py`
+_Quant / finance + math-structure nodes (arch GARCH, EVT, ADF, EWMA, statsforecast)._
+- **classes:** _HeadBase, _WindowFeat, EVTTailNode, ADFStationarityNode, EWMAVolNode, GarchVolNode, StatsForecastNode
+- **functions:** `_readout(task)`; `evt_tail_node(name)`; `adf_stationarity_node(name)`; `ewma_vol_node(name)`; `garch_vol_node(name)`; `statsforecast_node(name)`
+- **imports:** __future__, core.node_protocol, numpy, warnings
+
 ## `nodes/router_node.py`
 _LearnedRouterNode — Phase 3: dynamic routing between full-model nodes._
 - **classes:** LearnedRouterNode
 - **functions:** `_roughness(x) -> float`
 - **imports:** __future__, core.node_protocol, native
+
+## `nodes/signal_nodes.py`
+_Signal-in-noise / pattern-detection nodes — the reuse-first signal layer._
+- **classes:** _Base, StumpyMatrixProfileNode, PyODAnomalyNode, WaveletEnergyNode, EMDEnergyNode, SSANode, KalmanLevelNode, RMTSignalNode, NISTRandomnessNode
+- **functions:** `stumpy_matrix_profile_node(col, W, name) -> StumpyMatrixProfileNode`; `pyod_anomaly_node(col, W, name) -> PyODAnomalyNode`; `wavelet_energy_node(col, W, name) -> WaveletEnergyNode`; `emd_energy_node(col, W, name) -> EMDEnergyNode`; `ssa_node(col, W, name) -> SSANode`; `kalman_level_node(col, W, name) -> KalmanLevelNode`; `rmt_signal_node(W, name) -> RMTSignalNode`; `nist_randomness_node(col, W, name) -> NISTRandomnessNode`
+- **imports:** __future__, core.node_protocol, numpy, warnings
 
 ## `nodes/stacking_node.py`
 _StackingEnsembleNode — the Phase-1 'models as nodes' core._
@@ -410,7 +434,7 @@ _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 ## `run_multi.py`
 _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 - **classes:** _MetaView
-- **functions:** `cls_pool()`; `reg_pool()`; `_combine(outputs)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `main(arg, n) -> dict`
+- **functions:** `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `main(arg, n, pool) -> dict`
 - **imports:** __future__, core, core.heads, data.benchmarks, eval.golden, json, nodes, numpy, os, sys, time, warnings
 
 ## `run_noise_router.py`
@@ -447,6 +471,11 @@ _Harden: multi-seed robustness of the router-grown brain._
 _(2) Fold regime-routing into the main learned_router._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
 - **imports:** __future__, core, data.benchmarks, eval.golden, json, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, nodes.router_node, os, random, time
+
+## `tests/test_domain_nodes.py`
+_Acceptance test: the PhD-domain node modules import and conform to NodeProtocol._
+- **classes:** TestDomainNodes
+- **imports:** __future__, core.node_protocol, data.benchmarks, data.dataset, unittest
 
 ## `tests/test_knowledge.py`
 _Acceptance tests for the Phase-4 knowledge brain: ingest -> recall works._

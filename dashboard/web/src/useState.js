@@ -29,6 +29,13 @@ export function useNetworkState(intervalMs = 4000) {
 export const KIND_COLOR = {
   base: '#5cc8ff',
   regressor: '#36e0c8',
+  physics: '#ff8c42',
+  chaos: '#ffd23f',
+  signal: '#4ad9ff',
+  quant: '#7cff6b',
+  math: '#c98bff',
+  ml: '#5cc8ff',
+  control: '#ff6bd6',
   ensemble: '#b98cff',
   meta: '#b98cff',
   output: '#4ade80',

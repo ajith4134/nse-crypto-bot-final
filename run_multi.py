@@ -81,6 +81,32 @@ def reg_pool():
     ]
 
 
+def domain_pool():
+    """Curated FAST best-of-breed across all node families (PhD physics/math/quant/
+    signal-processing/control) — every node is task-aware so it serves any head.
+    Deliberately EXCLUDES the slow ones (STUMPY ~26s, EVT ~20s, GaussianProcess
+    ~12s) which stay importable standalone but off the hot path."""
+    from nodes import dynamics_nodes as D
+    from nodes import ml_nodes as M
+    from nodes import quant_nodes as Q
+    from nodes import signal_nodes as S
+    return [
+        # physics / chaos / nonlinear dynamics
+        ("sindy", D.sindy_node), ("rqa", D.rqa_node), ("permentropy", D.permentropy_node),
+        ("antropy", D.antropy_node), ("dmd", D.dmd_node), ("transfer_entropy", D.transfer_entropy_node),
+        # signal-in-noise / pattern detection
+        ("wavelet", S.wavelet_energy_node), ("emd", S.emd_energy_node), ("ssa", S.ssa_node),
+        ("kalman", S.kalman_level_node), ("rmt", S.rmt_signal_node), ("pyod", S.pyod_anomaly_node),
+        ("nist", S.nist_randomness_node),
+        # math / topology / causal / ML / control
+        ("catch22", M.catch22_node), ("tda", M.tda_node), ("causal", M.causal_select_node),
+        ("control", M.control_sysid_node),
+        # quant / finance
+        ("ewma_vol", Q.ewma_vol_node), ("garch_vol", Q.garch_vol_node),
+        ("statsforecast", Q.statsforecast_node), ("adf", Q.adf_stationarity_node),
+    ]
+
+
 class _MetaView:
     """Minimal NodeProtocol-satisfying view of a per-head meta/output node.
 
@@ -157,32 +183,46 @@ def _load_crypto(train_frac: float = 0.7):
             CRYPTO_HEADS, len(Xtr) + len(Xte))
 
 
-def main(arg: str = "mackey_glass", n: int = N) -> dict:
+def main(arg: str = "mackey_glass", n: int = N, pool: str = "core") -> dict:
     if arg == "crypto":
         name, feat, Xtr, Xte, head_targets, heads, n = _load_crypto()
-        source, stack = "crypto", "scikit-learn · XGBoost · LightGBM — REAL crypto, multi-head, walk-forward"
+        source = "crypto"
     else:
         name, feat, Xtr, Xte, head_targets, heads, n = _load_synthetic(arg, n)
-        source, stack = "synthetic", "scikit-learn · XGBoost · LightGBM (multi-head: binary · multiclass · regression)"
+        source = "synthetic"
+    stack = ("ALL node families — physics · chaos · signal-in-noise · quant · math · control · ML"
+             if pool == "rich" else
+             "scikit-learn · XGBoost · LightGBM (multi-head: binary · multiclass · regression)")
 
     registry.reset()
     head_reports = []
     for h in heads:
         ytr, yte = head_targets[h.name]
-        pool = reg_pool() if h.task == TASK_REGRESSION else cls_pool()
+        items = domain_pool() if pool == "rich" else (
+            reg_pool() if h.task == TASK_REGRESSION else cls_pool())
         base_names, base_outs = [], []
-        for base_name, factory in pool:
-            nd = factory()
-            nd.head, nd.task = h.name, h.task
-            nd.name = f"{base_name}@{h.name}"
-            nd.fit(Xtr, ytr)
-            registry.register(nd)
-            out = nd.predict_output(Xte)
-            sc = score_head(h, out, yte)
-            registry.set_metrics(nd.name, {"metric": sc["metric"], "value": round(sc["value"], 4)})
-            base_names.append(nd.name)
-            base_outs.append(out)
+        for base_name, factory in items:
+            try:                                          # one bad node can't kill the run
+                nd = factory()
+                nd.head, nd.task = h.name, h.task
+                nd.name = f"{base_name}@{h.name}"
+                nd.fit(Xtr, ytr)
+                out = nd.predict_output(Xte)
+                if not out or len(out[0]) != h.n_outputs:   # ragged/degenerate -> skip
+                    print(f"  [skip {base_name}@{h.name}: output width "
+                          f"{len(out[0]) if out else 0} != {h.n_outputs}]")
+                    continue
+                sc = score_head(h, out, yte)
+                registry.register(nd)
+                registry.set_metrics(nd.name, {"metric": sc["metric"], "value": round(sc["value"], 4)})
+                base_names.append(nd.name)
+                base_outs.append(out)
+            except Exception as e:
+                print(f"  [skip {base_name}@{h.name}: {type(e).__name__}: {e}]")
 
+        if not base_outs:
+            print(f"  [head {h.name}: no usable base nodes — skipped]")
+            continue
         meta_out = _combine(base_outs)
         meta_sc = score_head(h, meta_out.tolist(), yte)
         meta = _MetaView(f"meta@{h.name}", h, meta_out)
@@ -205,7 +245,7 @@ def main(arg: str = "mackey_glass", n: int = N) -> dict:
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "stack": stack,
         "dataset": {"name": name, "n": n, "features": len(feat), "feature_names": feat,
-                    "train": len(Xtr), "test": len(Xte), "source": source},
+                    "train": len(Xtr), "test": len(Xte), "source": source, "pool": pool},
         "heads": head_reports, "multi_output": True,
         "nodes": snap["nodes"], "edges": snap["edges"],
     }
@@ -215,8 +255,10 @@ def main(arg: str = "mackey_glass", n: int = N) -> dict:
 
 
 if __name__ == "__main__":
-    arg = sys.argv[1] if len(sys.argv) > 1 else "mackey_glass"
-    s = main(arg)
+    rest = [a for a in sys.argv[1:] if a != "rich"]
+    arg = rest[0] if rest else "mackey_glass"
+    pool = "rich" if "rich" in sys.argv[1:] else "core"
+    s = main(arg, pool=pool)
     print(f"MULTI-OUTPUT network on: {s['dataset']['name']}  ({len(s['heads'])} heads, "
           f"train={s['dataset']['train']} test={s['dataset']['test']})")
     print(f"{'head':12} {'task':11} {'metric':9} {'value':>7} {'baseline':>9}  beats?")
