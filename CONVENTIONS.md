@@ -117,6 +117,18 @@ A one-line banner of the active rules is shown at the top of every reply:
 - Prefer a fix already used elsewhere in the repo (consistency) over a novel one.
   Record the root cause, not just the patch.
 
+## 14. Multi-dataset evaluation (never crypto-only)
+- A node/feature/network is NOT validated on one dataset. Every capability must be
+  testable on **multiple, diverse data types**: crypto, **Indian equities (NSE/BSE)**,
+  and at least one **non-financial dynamical series** (e.g. sunspots/solar, weather/
+  climate, energy demand, ECG/physiological). Prefer free/no-key sources; download
+  per §9 never-skip.
+- Datasets with genuine, measurable signal are preferred (the project proves accuracy
+  rises as the network learns) — synthetic dynamical benchmarks stay the default dev
+  data, real datasets are swapped in via a data-source switch.
+- The dashboard/runners expose a data-source selector so any node can be evaluated
+  across sources; report honest per-dataset metrics (no cherry-picking one dataset).
+
 ## 13. Never-skip (GPU-only is the ONLY skip reason)
 - The ONLY acceptable reason to skip a model, feature, node, or library is that it
   **requires a GPU** with no CPU path. Build everything else.
