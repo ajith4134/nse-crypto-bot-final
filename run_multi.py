@@ -105,9 +105,9 @@ def _combine(outputs, task):
     return np.mean([np.asarray(o, dtype=float) for o in outputs], axis=0)
 
 
-def main(benchmark: str = "mackey_glass") -> dict:
+def main(benchmark: str = "mackey_glass", n: int = N) -> dict:
     registry.reset()
-    ds = make_benchmark_dataset(benchmark, n=N, noise=0.05)
+    ds = make_benchmark_dataset(benchmark, n=n, noise=0.05)
     X, feat = ds["X"], ds["feature_names"]
 
     head_reports = []
@@ -155,7 +155,7 @@ def main(benchmark: str = "mackey_glass") -> dict:
         "stack": "scikit-learn · XGBoost · LightGBM (multi-head: binary · multiclass · regression)",
         "dataset": {"name": f"{benchmark} (synthetic, known process)", "n": ds["n"],
                     "features": len(feat), "feature_names": feat,
-                    "train": int(N * 0.7), "test": int(N * 0.3)},
+                    "train": int(n * 0.7), "test": int(n * 0.3)},
         "heads": head_reports,
         "multi_output": True,
         "nodes": snap["nodes"], "edges": snap["edges"],

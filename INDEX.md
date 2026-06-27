@@ -410,7 +410,7 @@ _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 ## `run_multi.py`
 _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 - **classes:** _MetaView
-- **functions:** `cls_pool()`; `reg_pool()`; `_combine(outputs, task)`; `main(benchmark) -> dict`
+- **functions:** `cls_pool()`; `reg_pool()`; `_combine(outputs, task)`; `main(benchmark, n) -> dict`
 - **imports:** __future__, core, core.heads, data.benchmarks, data.dataset, eval.golden, json, nodes, numpy, os, sys, time, warnings
 
 ## `run_noise_router.py`
@@ -452,6 +452,11 @@ _(2) Fold regime-routing into the main learned_router._
 _Acceptance tests for the Phase-4 knowledge brain: ingest -> recall works._
 - **classes:** TestKnowledge
 - **imports:** __future__, memory.brain, unittest
+
+## `tests/test_multihead.py`
+_Acceptance test (multi-output): every output head must beat its task baseline._
+- **classes:** TestMultiHead
+- **imports:** __future__, run_multi, unittest
 
 ## `tests/test_pipeline.py`
 _Phase-0/1 acceptance tests: interface enforcement + the learning loop works._
