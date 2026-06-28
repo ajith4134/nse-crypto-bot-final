@@ -179,6 +179,17 @@
 > gate) + `/api/trading/brain/status` dashboard endpoint. Deterministic synthetic OHLCV + FIXED
 > offline news feed, `persist=False`, exit 0.
 > **Phase T8 (strategy creation/mutation/evolution + ultra-brain) is COMPLETE (T8.1–T8.9).**
+> **T8 DEFERRED PLANS BUILT** — Group B Advanced-Intelligence: Riskfolio VaR/CVaR/Kelly/HRP +
+> portfolio heat (`trading/advintel/portfolio_risk`), stress/scenario analysis (`stress`),
+> FII/DII + NSE-announcements scrapers (gated; `fii_dii`/`nse_announcements`), crypto on-chain
+> SOPR/MVRV + Fear&Greed (`onchain`), liquidation heatmap (Coinglass, key-gated;
+> `liquidations`), cross-exchange arb + funding-farming scanner (`arbitrage`); Group A engines:
+> lightweight autonomous web researcher (ddgs + `core.llm`, replaces env-destructive
+> gpt-researcher; `trading/brain/researcher`), tabular Q-learning RL exit (CPU, no torch;
+> deep-RL gated hook; `trading/brain/rl_exit`). HONEST BLOCKER: **Qlib** has no py3.13 wheel and
+> its git source-build is sandbox-denied → the vendored-gplearn miner remains the asset-picker
+> (documented, not faked). DSPy/GEPA + Langfuse already ship gated-real (activate with keys).
+> `run_advintel.py` + `/api/trading/advintel/status`.
 > Next: T8 dashboard panel (React) + full-suite verification.
 > **Sources:** Deep research (106 agents, 1.77M tokens, 18 adversarially-verified claims, 7 killed).
 > **Date:** 2026-06-28. **Hard rules carried in:** CPU-first, reuse-first (stitch OSS), ask-to-install,

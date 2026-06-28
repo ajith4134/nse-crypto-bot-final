@@ -574,6 +574,11 @@ _run_active.py — P3.8: PER-INPUT ACTIVE SUBNETWORK + sigma.js dashboard state.
 - **functions:** `_experts()`; `_split(X, y, frac, seed)`; `_communities(coact) -> list[int]`; `main() -> dict`
 - **imports:** __future__, data.benchmarks, eval.golden, json, nodes, nodes.gated_node, numpy, os, random, time
 
+## `run_advintel.py`
+_run_advintel.py — Trading Phase T8 (DEFERRED) Advanced-Intelligence offline demo._
+- **functions:** `_hdr(title) -> None`; `_to_jsonable(obj)`; `_seeded_returns(n, seed) -> pd.DataFrame`; `_stress_positions() -> list`; `_stub_fiidii_fetcher()`; `_stub_announcements_fetcher()`; `_stub_onchain_fetcher(kind) -> dict`; `_stub_liquidations_fetcher(symbol) -> dict`; `_stub_price_source(exchange, symbol) -> dict`; `_stub_funding_source(exchange, symbol) -> float`; `_stub_searcher(query) -> list`; `_stub_summarizer(prompt) -> str`; `_exit_trajectories() -> list`; `build_demo_advintel() -> dict`; `main() -> int`
+- **imports:** __future__, json, numpy, pandas, sys, trading.advintel.arbitrage, trading.advintel.fii_dii, trading.advintel.liquidations, trading.advintel.nse_announcements, trading.advintel.onchain, trading.advintel.portfolio_risk, trading.advintel.stress, trading.brain.researcher, trading.brain.rl_exit, warnings
+
 ## `run_alerts_t7.py`
 _run_alerts_t7.py — Trading Phase T7 (Alerts + Automation, Telegram-only) offline demo._
 - **classes:** _FakeTransport
@@ -701,11 +706,23 @@ _(2) Fold regime-routing into the main learned_router._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
 - **imports:** __future__, core, data.benchmarks, eval.golden, json, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, nodes.router_node, os, random, time
 
+## `tests/test_advintel.py`
+_Trading Phase T8 (Advanced Intelligence) acceptance tests — fully offline._
+- **classes:** TestPortfolioRisk, TestStress, TestFiiDii, TestNseAnnouncements, TestOnChain, TestLiquidations, TestArbitrage
+- **functions:** `_seeded_returns(n, k) -> pd.DataFrame`
+- **imports:** __future__, json, numpy, pandas, trading.advintel.arbitrage, trading.advintel.fii_dii, trading.advintel.liquidations, trading.advintel.nse_announcements, trading.advintel.onchain, trading.advintel.portfolio_risk, trading.advintel.stress, unittest, warnings
+
 ## `tests/test_alerts_t7.py`
 _Trading Phase T7 (Telegram Alerts & Automation) acceptance tests — fully offline._
 - **classes:** _RecordingTransport, TestEvents, TestDedup, TestConfig, TestFormatter, TestChannel, TestDispatcher, TestCommands, TestScheduler
 - **functions:** `_disabled_config() -> AlertConfig`; `_enabled_config() -> AlertConfig`; `_utc(y, mo, d, h, mi) -> float`
 - **imports:** __future__, datetime, trading.alerts.channels, trading.alerts.commands, trading.alerts.config, trading.alerts.dedup, trading.alerts.dispatcher, trading.alerts.events, trading.alerts.formatter, trading.alerts.scheduler, unittest
+
+## `tests/test_brain_engines_t8.py`
+_Trading Phase T8 (Brain engines, deferred A2/A3) acceptance tests — fully offline._
+- **classes:** TestAutonomousResearcher, TestQLearningExit
+- **functions:** `_stub_searcher(query)`; `_stub_summarizer(prompt)`; `_raising_summarizer(prompt)`; `_empty_summarizer(prompt)`; `_trajectories()`
+- **imports:** __future__, json, trading.brain.researcher, trading.brain.rl_exit, unittest, warnings
 
 ## `tests/test_chat.py`
 _P4.1 acceptance tests: the brain-chat plumbing is well-formed and degrades gracefully._
@@ -840,6 +857,51 @@ _Live Binance L2 order-book snapshot collector (no key)._
 _trading/ — Trading Execution Phase (T1+)._
 - **imports:** __future__, trading.config
 
+## `trading/advintel/__init__.py`
+_trading/advintel/ — Advanced Intelligence (original Phase-T8 deferred items)._
+- **imports:** __future__, trading.advintel.arbitrage, trading.advintel.fii_dii, trading.advintel.liquidations, trading.advintel.nse_announcements, trading.advintel.onchain, trading.advintel.portfolio_risk, trading.advintel.stress
+
+## `trading/advintel/arbitrage.py`
+_trading/advintel/arbitrage.py — Phase-T8 cross-exchange arbitrage scanner +_
+- **classes:** CostModel, ArbitrageScanner
+- **imports:** __future__, dataclasses, typing
+
+## `trading/advintel/fii_dii.py`
+_NSE FII/DII cash-market flows (Phase-T8 advanced intelligence)._
+- **classes:** FiiDiiFlows
+- **functions:** `_live_fetch() -> List[Dict]`; `_to_float(value) -> float`; `_normalize(row) -> Dict`
+- **imports:** __future__, typing
+
+## `trading/advintel/liquidations.py`
+_Leverage liquidation heatmap aggregation._
+- **classes:** LiquidationHeatmap
+- **functions:** `_safe_float(value) -> Optional[float]`; `_default_live_fetcher(symbol) -> Dict[str, Any]`
+- **imports:** __future__, os, requests, typing
+
+## `trading/advintel/nse_announcements.py`
+_NSE corporate announcements / corporate actions (Phase-T8 adv intel)._
+- **classes:** NseAnnouncements
+- **functions:** `_live_fetch() -> List[Dict]`; `classify(subject) -> str`; `_normalize(row) -> Dict`
+- **imports:** __future__, typing
+
+## `trading/advintel/onchain.py`
+_Crypto on-chain intelligence: SOPR, MVRV (z-score), Fear & Greed._
+- **classes:** OnChainMetrics
+- **functions:** `_safe_float(value) -> Optional[float]`; `_default_live_fetcher(kind) -> Dict[str, Any]`
+- **imports:** __future__, os, requests, typing
+
+## `trading/advintel/portfolio_risk.py`
+_Phase-T8: Portfolio risk & optimization (Riskfolio-Lib + PyPortfolioOpt)._
+- **classes:** PortfolioRisk
+- **functions:** `_as_returns_df(returns) -> pd.DataFrame`; `_portfolio_series(returns, weights) -> pd.Series`; `_is_degenerate(df) -> bool`; `var(returns, alpha, weights, per_asset)`; `cvar(returns, alpha, weights, per_asset)`; `kelly_fraction(returns, cap, half) -> dict`; `hrp_weights(returns) -> dict`; `max_drawdown(equity_or_returns) -> Optional[float]`; `portfolio_heat(positions, total_capital) -> dict`; `optimize(returns, objective) -> dict`
+- **imports:** __future__, math, numpy, pandas, typing
+
+## `trading/advintel/stress.py`
+_trading/advintel/stress.py — Phase-T8: portfolio stress testing & scenario analysis._
+- **classes:** Position, Scenario, StressTester
+- **functions:** `_norm_asset_class(ac) -> str`; `_dir_sign(direction) -> int`; `_coerce_all(positions) -> list[Position]`; `list_scenarios() -> list[str]`; `custom_scenario(name, shocks) -> Scenario`; `_resolve_scenario(scenario) -> Scenario`; `_position_impact(p, shock) -> dict`; `_capital(positions) -> float`; `stress_test(positions, scenario) -> dict`; `scenario_analysis(positions, scenarios) -> dict`; `what_if(positions, asset_class_shocks) -> dict`; `_exposure_by_class(positions) -> dict`
+- **imports:** __future__, dataclasses, json, numpy, typing
+
 ## `trading/alerts/__init__.py`
 _trading/alerts/ — Alerts + Automation (Phase T7, Telegram-only)._
 - **imports:** __future__, trading.alerts.channels, trading.alerts.commands, trading.alerts.config, trading.alerts.dedup, trading.alerts.dispatcher, trading.alerts.events, trading.alerts.formatter, trading.alerts.scheduler
@@ -895,7 +957,7 @@ _trading/alerts/scheduler.py — scheduled reports (T7 §3, §4)._
 
 ## `trading/brain/__init__.py`
 _trading/brain/ — Brain upgrades (Phase T8.4+)._
-- **imports:** __future__, trading.brain.continual, trading.brain.entryexit, trading.brain.experience, trading.brain.metalearn, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.picking, trading.brain.pipeline, trading.brain.regime, trading.brain.selfeval, trading.brain.selfimprove, trading.brain.semantic, trading.brain.sentiment, trading.brain.skills
+- **imports:** __future__, trading.brain.continual, trading.brain.entryexit, trading.brain.experience, trading.brain.metalearn, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.picking, trading.brain.pipeline, trading.brain.regime, trading.brain.researcher, trading.brain.rl_exit, trading.brain.selfeval, trading.brain.selfimprove, trading.brain.semantic, trading.brain.sentiment, trading.brain.skills
 
 ## `trading/brain/continual.py`
 _trading/brain/continual.py — online/continual learning + experience replay (T8.5)._
@@ -952,6 +1014,18 @@ _trading/brain/regime.py — market-regime detection + regime-gated activation (
 - **classes:** RegimeModel, RegimeGate
 - **functions:** `_observations(ohlcv) -> np.ndarray`
 - **imports:** __future__, dataclasses, hmmlearn, numpy, pandas
+
+## `trading/brain/researcher.py`
+_trading/brain/researcher.py — Phase-T8 (deferred A2): lightweight autonomous web research._
+- **classes:** AutonomousResearcher
+- **functions:** `_default_searcher(query) -> list[dict]`; `_default_summarizer(prompt) -> str`
+- **imports:** __future__
+
+## `trading/brain/rl_exit.py`
+_trading/brain/rl_exit.py — Phase-T8 deferred A3: RL exit policy (tabular Q-learning)._
+- **classes:** QLearningExit
+- **functions:** `_r_bucket(unrealized_r) -> int`; `_bars_bucket(bars_held) -> int`; `_state_key(unrealized_r, bars_held, anomaly_high) -> tuple`; `deep_rl_available() -> dict`
+- **imports:** __future__, numpy
 
 ## `trading/brain/selfeval.py`
 _trading/brain/selfeval.py — auto-quiz + Reflexion self-critique (T8.5)._

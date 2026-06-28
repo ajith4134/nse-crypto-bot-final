@@ -43,6 +43,8 @@ from trading.brain.skills import Skill, SkillLibrary
 from trading.brain.observability import BrainTracer, Span
 from trading.brain.selfimprove import DSPyOptimizer, SelfImprover
 from trading.brain.pipeline import BrainTradingPipeline
+from trading.brain.researcher import AutonomousResearcher
+from trading.brain.rl_exit import QLearningExit, deep_rl_available
 
 __all__ = [
     "ExperienceBank", "Recall", "trade_vector", "VEC_FIELDS", "SemanticMemory",
@@ -57,4 +59,5 @@ __all__ = [
     "SentimentScorer", "NewsItem", "NewsResearcher", "NewsSentimentNode", "fetch_rss",
     "Skill", "SkillLibrary", "BrainTracer", "Span", "SelfImprover", "DSPyOptimizer",
     "BrainTradingPipeline",
+    "AutonomousResearcher", "QLearningExit", "deep_rl_available",
 ]

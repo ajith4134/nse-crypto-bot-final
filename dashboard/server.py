@@ -586,6 +586,50 @@ class Handler(BaseHTTPRequestHandler):
                             "(see trading/brain/ and trading-execution-blueprint.md §T8).",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/trading/advintel/status":
+            # Honest T8-DEFERRED advanced-intelligence snapshot (Group B + Group A engines),
+            # all OFFLINE/deterministic via injected stub fetchers + seeded data: PortfolioRisk
+            # (Riskfolio/PyPortfolioOpt VaR/CVaR/HRP/Kelly), StressTester scenario/what-if,
+            # FII/DII + NSE-announcement scrapers, crypto on-chain SOPR/MVRV + Fear&Greed,
+            # liquidation heatmap, cross-exchange arb + funding-farm, a lightweight autonomous
+            # web researcher, and a tabular Q-learning RL exit policy. JSON-able only.
+            try:
+                from run_advintel import build_demo_advintel
+                snap = build_demo_advintel()
+                body = json.dumps({
+                    "portfolio_risk": snap["portfolio_risk"],
+                    "stress": snap["stress"],
+                    "fii_dii": snap["fii_dii"],
+                    "announcements": snap["announcements"],
+                    "onchain": snap["onchain"],
+                    "liquidations": snap["liquidations"],
+                    "arbitrage": snap["arbitrage"],
+                    "research": snap["research"],
+                    "rl_exit": snap["rl_exit"],
+                    "demo": True,
+                    "note": ("offline demo advanced-intelligence layer (run_advintel: T8 "
+                             "DEFERRED). Group B: PortfolioRisk = Riskfolio-Lib/PyPortfolioOpt "
+                             "VaR/CVaR/HRP/Kelly over a seeded returns panel (numpy fallbacks); "
+                             "StressTester = first-order scenario analysis + a 'Nifty -5%' "
+                             "what-if; FII/DII + NSE-announcement scrapers, crypto on-chain "
+                             "SOPR/MVRV + Fear&Greed, and a Coinglass-style liquidation heatmap "
+                             "all run through INJECTED stub fetchers (live use needs public NSE "
+                             "endpoints / COINGLASS_API_KEY / BITCOINDATA_API_KEY); "
+                             "ArbitrageScanner = cross-exchange spot arb + funding-farm over stub "
+                             "price/funding sources. Group A: AutonomousResearcher (ddgs + "
+                             "core.llm in live use) over a stub searcher+summarizer, and a "
+                             "tabular Q-learning RL exit policy (CPU, no torch; deep-RL gated "
+                             "hook) — no live market/news/order path wired yet"),
+                }, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "Trading T8 advanced-intelligence layer not importable "
+                            "(see trading/advintel/, trading/brain/ and "
+                            "trading-execution-blueprint.md §T8).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/tickers":
             # T6 Dark-Pro ticker tape: deterministic offline demo constants (no live
             # feed wired) — honest hardcoded values, never a fabricated live quote.

@@ -1,5 +1,5 @@
 # ML Network Brain — build tasks (CPU-only). OSS stack lives in .venv.
-.PHONY: index test phase1 oss dev multi multi-crypto phase3 dash all crypto ci trading crypto-trade trading-t3 options-t4 journal-t5 alerts-t7 strategy-t8 brain-t8
+.PHONY: index test phase1 oss dev multi multi-crypto phase3 dash all crypto ci trading crypto-trade trading-t3 options-t4 journal-t5 alerts-t7 strategy-t8 brain-t8 advintel
 
 index:        ## regenerate INDEX.md from source (never hand-edit it)
 	python3 tools/gen_index.py
@@ -30,6 +30,9 @@ strategy-t8:  ## T8.1 strategy-evolution offline demo (GP genome, mutate/crossov
 
 brain-t8:     ## T8.4 experience-bank + semantic-memory offline demo (CBR recall biases decisions; LanceDB + mem0 dry-run)
 	python3 run_brain_t8.py
+
+advintel:     ## T8-deferred advanced-intelligence offline demo (Riskfolio VaR/CVaR/Kelly/HRP, stress, FII/DII, on-chain, liquidations, arb, autonomous research, RL exit)
+	python3 run_advintel.py
 
 phase1:       ## train the ensemble and write state.json
 	python3 run_phase1.py
