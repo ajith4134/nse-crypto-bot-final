@@ -60,6 +60,19 @@ class _NetworkxGraph:
         return {"nodes": self._g.number_of_nodes(),
                 "edges": self._g.number_of_edges(), "by_type": by}
 
+    def personalized_ranks(self, seeds: dict[str, float], alpha: float = 0.85) -> dict:
+        """HippoRAG-style associative recall: Personalized PageRank seeded at `seeds`
+        (spreading activation over an undirected view of the knowledge graph)."""
+        pers = {n: max(float(w), 1e-6) for n, w in seeds.items() if self._g.has_node(n)}
+        if not pers:
+            return {}
+        try:
+            ug = nx.Graph(self._g)                  # collapse multi/directed → undirected
+            return nx.pagerank(ug, alpha=alpha, personalization=pers,
+                               max_iter=100, tol=1e-6)
+        except Exception:
+            return {}
+
 
 class _DictGraph:
     """Pure-stdlib fallback (the original implementation)."""
@@ -99,6 +112,27 @@ class _DictGraph:
         for n in self.nodes.values():
             by[n["type"]] = by.get(n["type"], 0) + 1
         return {"nodes": len(self.nodes), "edges": len(self.edges), "by_type": by}
+
+    def personalized_ranks(self, seeds: dict[str, float], alpha: float = 0.85) -> dict:
+        """Stdlib fallback: 2-hop weighted spreading activation (approximates PPR)."""
+        seeds = {n: float(w) for n, w in seeds.items() if n in self.nodes}
+        if not seeds:
+            return {}
+        scores = dict(seeds)
+        frontier = dict(seeds)
+        for _ in range(2):                          # two hops of decayed spread
+            nxt: dict[str, float] = {}
+            for nid, mass in frontier.items():
+                nbrs = self.neighbors(nid)
+                if not nbrs:
+                    continue
+                share = (1 - alpha) * mass / len(nbrs)
+                for nb in nbrs:
+                    nxt[nb] = nxt.get(nb, 0.0) + share
+            for nid, mass in nxt.items():
+                scores[nid] = scores.get(nid, 0.0) + mass
+            frontier = nxt
+        return scores
 
 
 def KnowledgeGraph():

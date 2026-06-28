@@ -12,7 +12,8 @@ import ast
 import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SKIP_DIRS = {".git", "__pycache__", "dashboard/static", ".venv", "venv", "node_modules"}
+SKIP_DIRS = {".git", "__pycache__", "dashboard/static", ".venv", "venv", "node_modules",
+             "srv", "openalgo", "catboost_info", ".pytensor"}
 PKG_DIRS = ("core", "nodes", "eval", "tools", "tests", "dashboard")
 
 

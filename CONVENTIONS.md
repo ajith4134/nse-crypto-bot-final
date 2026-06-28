@@ -35,11 +35,18 @@ A one-line banner of the active rules is shown at the top of every reply:
   not after merge. This is what actually prevents "code that doesn't fit."
 - Nodes self-register in a **registry**, so wiring cannot be silently wrong.
 
-## 4. Reuse-first / build-only-the-gaps
-- Prefer mature OSS (AutoGluon, ReservoirPy, nolds, ruptures, Mem0, Graphiti…).
-- Build from scratch ONLY where nothing fits (the node-graph substrate, the
-  learned router at depth, the node interface/data bus). See `ml-network-master-plan.md`.
-- When editing existing/online code, adapt it to our interface — don't fork blindly.
+## 4. Reuse-first / search-copy-adapt-stitch (build-from-scratch is LAST resort)
+- For ANY new code or feature: **FIRST search online — GitHub and other open-source —
+  for working code that already does it.**
+- If you find similar/working code, **copy it and edit/adapt it to fit our needs**
+  (match our `NodeProtocol`/interfaces). Don't reinvent what already exists.
+- **Prefer stitching multiple OSS pieces together** — connect different/many GitHub or
+  open-source projects/snippets into the solution — over writing original code.
+- Reuse mature OSS libraries too (AutoGluon, ReservoirPy, nolds, ruptures, Mem0,
+  Graphiti, sigma.js…); if a library needs installing, request it (→ ask-to-install).
+- **Write code from scratch ONLY when no similar code exists anywhere** to find/adapt
+  (the genuine gaps: the node-graph substrate, the learned router at depth, the node
+  interface/data bus). See `ml-network-master-plan.md`.
 
 ## 5. No orphans / no dead code (automated)
 - CI runs dead-code detection (`vulture`) + an import-graph check. Orphaned files

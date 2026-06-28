@@ -22,7 +22,9 @@ learning patterns, and prediction**. PhD-level concepts welcomed.
 
 ## Hard constraints / preferences
 - **CPU-only first**, GPU path deferred and flag-switchable.
-- **Reuse-first**: edit/adapt existing OSS; build from scratch only if nothing matches.
+- **Reuse-first (search-copy-adapt-stitch)**: for any new code, FIRST search online/GitHub
+  for working code; copy & adapt it to our interface, and stitch multiple OSS projects/
+  snippets together. Build from scratch ONLY when no similar code exists anywhere.
 - **Self-documenting + indexed + interface-enforced** codebase (see `CONVENTIONS.md`).
 - **Dashboard-sync**: every node/feature/intelligence capability appears on an
   ultra-visual animated dashboard (**React + D3/Three.js**), auto-reflecting new additions.

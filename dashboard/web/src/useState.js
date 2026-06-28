@@ -50,6 +50,9 @@ export const KIND_COLOR = {
   regime: '#fbbf24',
   chaos: '#36e0c8',
   router: '#ff7ab6',
+  gate: '#ff5d8f',        // P3.5 differentiable gate
+  cascade: '#ffb84d',     // P3.6 deep gated cascade
+  bus: '#5ad1c8',         // P3.7 dynamic I/O bus
   brain: '#ffffff',
 }
 export const kindColor = (k) => KIND_COLOR[k] || '#8ea0c0'

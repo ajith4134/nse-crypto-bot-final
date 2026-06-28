@@ -13,6 +13,7 @@ ingest_text/ingest_file/recall/stats/dashboard_snapshot methods) is unchanged.
 from __future__ import annotations
 
 import html
+import math
 import os
 import re
 import urllib.request
@@ -94,18 +95,54 @@ class KnowledgeBrain:
         title = url.split("//")[-1][:60]
         return self.ingest_text(f"url: {title}", _html_to_text(raw))
 
-    def recall(self, query: str, k: int = 4) -> list[dict]:
-        hits = self.mem.search(query, k)
+    def recall(self, query: str, k: int = 4, associative: bool = True) -> list[dict]:
+        """Hybrid human-like recall: vector similarity + ASSOCIATIVE spreading-activation
+        (Personalized PageRank over the knowledge graph), fused by Reciprocal Rank Fusion,
+        then reinforced by how often each memory has been recalled before (salience).
+
+        Backward-compatible: returns the same {title, score, snippet, concepts} dicts (plus a
+        `via` field = 'vector' | 'associative'). Degrades to vector-only if the graph/PPR is
+        unavailable, so the no-deps path still works.
+        """
+        cand = max(k * 4, 12)
+        hits = self.mem.search(query, cand)            # broaden the candidate pool
+        if not hits:
+            return []
+
+        def rrf(rank: int) -> float:                    # reciprocal rank fusion (k0=60)
+            return 1.0 / (60 + rank)
+
+        fused: dict[str, float] = {}
+        via: dict[str, str] = {}
+        for r, (cid, _s) in enumerate(hits):            # 1) vector channel
+            fused[cid] = fused.get(cid, 0.0) + rrf(r)
+            via[cid] = "vector"
+
+        if associative:                                 # 2) associative channel (PPR)
+            seeds = {cid: max(s, 1e-3) for cid, s in hits}
+            pr = self.graph.personalized_ranks(seeds)
+            pr_chunks = sorted(((cid, sc) for cid, sc in pr.items() if cid in self.mem.chunks),
+                               key=lambda kv: -kv[1])
+            for r, (cid, _sc) in enumerate(pr_chunks[:cand]):
+                fused[cid] = fused.get(cid, 0.0) + rrf(r)
+                via.setdefault(cid, "associative")
+
+        for cid in fused:                               # 3) salience: recalled-before = stronger
+            fused[cid] *= 1.0 + 0.15 * math.log1p(self.access.get(cid, 0))
+
+        ranked = sorted(fused.items(), key=lambda kv: -kv[1])[:k]
         results = []
-        for cid, score in hits:
-            self.access[cid] += 1
-            ch = self.mem.chunks[cid]
+        for cid, score in ranked:
+            ch = self.mem.chunks.get(cid)
+            if ch is None:
+                continue
+            self.access[cid] += 1                       # reinforce on recall
             doc_id = cid.split("#")[0]
             concepts = [n.split(":", 1)[1] for n in self.graph.neighbors(doc_id)
                         if n.startswith("concept:")]
-            snippet = ch["text"][:220].replace("\n", " ")
-            results.append({"title": ch["title"], "score": score,
-                            "snippet": snippet, "concepts": concepts[:6]})
+            results.append({"title": ch["title"], "score": round(score, 4),
+                            "snippet": ch["text"][:220].replace("\n", " "),
+                            "concepts": concepts[:6], "via": via.get(cid, "vector")})
         return results
 
     def stats(self) -> dict:

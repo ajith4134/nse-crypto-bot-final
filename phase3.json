@@ -1,0 +1,133 @@
+{
+  "experts": [
+    "sk_logreg",
+    "sk_knn10",
+    "sk_rf100",
+    "hmm_regime2"
+  ],
+  "synthetic_headline": {
+    "best_single": 0.8307,
+    "stacking": 0.8203,
+    "dcs_router": 0.8281,
+    "hellsemble": 0.8255,
+    "deep_router": 0.8255,
+    "des_router": 0.7891,
+    "conformal_router": 0.7995,
+    "caruana": 0.8255,
+    "gated_moe": 0.8099,
+    "deep_cascade": 0.8281,
+    "_cascade_depth": 2,
+    "dynamic_bus": 0.8125,
+    "structure_search": 0.8229,
+    "_search_kept": "2/4",
+    "baseline": 0.513
+  },
+  "noise_sweep": [
+    {
+      "best_single": 0.7614,
+      "stacking": 0.7727,
+      "dcs_router": 0.7614,
+      "hellsemble": 0.7614,
+      "deep_router": 0.7614,
+      "noise": 0.05,
+      "baseline": 0.5568
+    },
+    {
+      "best_single": 0.803,
+      "stacking": 0.7992,
+      "dcs_router": 0.803,
+      "hellsemble": 0.7917,
+      "deep_router": 0.7917,
+      "noise": 0.15,
+      "baseline": 0.5455
+    },
+    {
+      "best_single": 0.8182,
+      "stacking": 0.8182,
+      "dcs_router": 0.8144,
+      "hellsemble": 0.8258,
+      "deep_router": 0.8258,
+      "noise": 0.25,
+      "baseline": 0.5492
+    }
+  ],
+  "multiseed": {
+    "runs": [
+      {
+        "seed": 1,
+        "hellsemble": 0.7925,
+        "deep_router": 0.7925,
+        "stacking": 0.7993,
+        "baseline": 0.5476
+      },
+      {
+        "seed": 2,
+        "hellsemble": 0.7857,
+        "deep_router": 0.7857,
+        "stacking": 0.7959,
+        "baseline": 0.5612
+      },
+      {
+        "seed": 3,
+        "hellsemble": 0.7857,
+        "deep_router": 0.7857,
+        "stacking": 0.7721,
+        "baseline": 0.5204
+      }
+    ],
+    "hellsemble": {
+      "mean": 0.788,
+      "std": 0.0032,
+      "min": 0.7857,
+      "max": 0.7925
+    },
+    "deep_router": {
+      "mean": 0.788,
+      "std": 0.0032,
+      "min": 0.7857,
+      "max": 0.7925
+    },
+    "stacking": {
+      "mean": 0.7891,
+      "std": 0.0121,
+      "min": 0.7721,
+      "max": 0.7993
+    },
+    "baseline_mean": 0.5431
+  },
+  "crypto": {
+    "best_single": 0.5625,
+    "stacking": 0.5024,
+    "dcs_router": 0.4976,
+    "hellsemble": 0.5024,
+    "deep_router": 0.5024,
+    "des_router": 0.5048,
+    "conformal_router": 0.524,
+    "caruana": 0.5024,
+    "gated_moe": 0.5048,
+    "deep_cascade": 0.476,
+    "_cascade_depth": 3,
+    "dynamic_bus": 0.5216,
+    "structure_search": 0.5096,
+    "_search_kept": "2/4",
+    "baseline": 0.5312,
+    "available": true,
+    "coins": [
+      "bitcoin",
+      "ethereum",
+      "binancecoin",
+      "solana"
+    ],
+    "note": "free crypto OHLCV has no leak-free edge under walk-forward; values are EXPECTED near baseline \u2014 reported honestly"
+  },
+  "acceptance": {
+    "best_router": "dcs_router",
+    "best_router_acc": 0.8281,
+    "beats_stacking": true,
+    "beats_best_single": false,
+    "noise_ok": true,
+    "robust": true,
+    "all_passed": false
+  },
+  "generated_at": "2026-06-28 01:09:38"
+}

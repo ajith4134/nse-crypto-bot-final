@@ -1,7 +1,12 @@
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import Graph3D from './Graph3D.jsx'
+import SigmaNetwork from './SigmaNetwork.jsx'
 import { AccuracyBars, NoiseSweep } from './Charts.jsx'
+import ChatPanel from './ChatPanel.jsx'
+import StreamOfMind from './StreamOfMind.jsx'
 import { useNetworkState, KIND_COLOR } from './useState.js'
+import TradingDashboard from './trading/TradingDashboard.jsx'
+import MarketWindow from './trading/MarketWindow.jsx'
 
 function Kpi({ label, value, sub, pct }) {
   return (
@@ -15,7 +20,50 @@ function Kpi({ label, value, sub, pct }) {
 }
 
 export default function App() {
+  // Pop-out NSE/Crypto market window: render only that workspace, no brain chrome.
+  const winParam = new URLSearchParams(window.location.search).get('win')
+  if (winParam === 'nse' || winParam === 'crypto') {
+    return <MarketWindow market={winParam} />
+  }
+
+  const [view, setView] = useState('brain')   // 'brain' | 'trading'
   const { state, err } = useNetworkState(4000)
+  const [thoughts, setThoughts] = useState([])
+  const thoughtSeq = useRef(0)
+  const onThought = (text) => {
+    if (!text) return
+    const id = `${Date.now()}-${thoughtSeq.current++}`
+    setThoughts((t) => [{ id, text, ts: Date.now() }, ...t].slice(0, 40))
+  }
+
+  const TabBar = () => (
+    <div className="chips" style={{ gap: 8 }}>
+      <span className={`chip${view === 'brain' ? ' active' : ''}`}
+        style={{ cursor: 'pointer', borderColor: view === 'brain' ? '#4da3ff' : undefined }}
+        onClick={() => setView('brain')}>🧠 Brain</span>
+      <span className={`chip${view === 'trading' ? ' active' : ''}`}
+        style={{ cursor: 'pointer', borderColor: view === 'trading' ? '#4da3ff' : undefined }}
+        onClick={() => setView('trading')}>📈 Trading</span>
+    </div>
+  )
+
+  if (view === 'trading') {
+    return (
+      <div className="app">
+        <header className="top">
+          <div className="brand">
+            <span className="dot" />
+            <div><h1>Trading · Dark Pro</h1><small>NSE + Crypto · T1–T6</small></div>
+          </div>
+          <TabBar />
+          <div className="spacer" />
+        </header>
+        <div style={{ padding: '0 16px 24px' }}>
+          <TradingDashboard />
+        </div>
+      </div>
+    )
+  }
 
   if (!state) {
     return <div className="loading">{err ? `connection error: ${err}` : 'connecting to ML Network Brain…'}</div>
@@ -45,6 +93,7 @@ export default function App() {
         <div className="chips">
           {stackChips.map((c) => <span className="chip" key={c}>{c}</span>)}
         </div>
+        <TabBar />
         <div className="spacer" />
         <div className="gen">
           updated<br />{state.generated_at || '—'}
@@ -76,18 +125,33 @@ export default function App() {
               <Kpi label="AutoGluon" value={state.autogluon_accuracy.toFixed(3)} sub="multi-layer ensemble" />}
             {state.router_accuracy != null &&
               <Kpi label="Learned router" value={state.router_accuracy.toFixed(3)} sub="dynamic per-input routing" />}
+            {state.gate_accuracy != null &&
+              <Kpi label="Diff. gate (P3.5)" value={state.gate_accuracy.toFixed(3)} sub="backprop over frozen experts" />}
+            {state.cascade_accuracy != null &&
+              <Kpi label="Deep cascade (P3.6)" value={state.cascade_accuracy.toFixed(3)} sub={`grown depth ${state.cascade_depth ?? '—'} · skip-connected`} />}
+            {state.bus_accuracy != null &&
+              <Kpi label="Dynamic I/O bus (P3.7)" value={state.bus_accuracy.toFixed(3)} sub="heterogeneous-width sources" />}
+            {state.active_subnet != null &&
+              <Kpi label="Active subnetwork (P3.8)" value={`top-${state.active_subnet.top_k}/${state.active_subnet.n_experts}`}
+                sub={`per-input · ${state.active_subnet.n_communities} communities · ${state.active_subnet.mean_active} avg active`} />}
           </>
         )}
       </section>
 
       <section className="grid">
         <div className="card graphwrap-card" style={{ padding: 0 }}>
-          <Graph3D nodes={nodes} edges={edges} dataset={state.dataset} heads={heads} />
-          <div className="legend">
-            {Object.entries(KIND_COLOR).filter(([k]) => nodes.some((n) => n.kind === k)).map(([k, c]) => (
-              <span key={k}><i style={{ background: c }} />{k}</span>
-            ))}
-          </div>
+          {state.firing?.length ? (
+            <SigmaNetwork state={state} />
+          ) : (
+            <>
+              <Graph3D nodes={nodes} edges={edges} dataset={state.dataset} heads={heads} />
+              <div className="legend">
+                {Object.entries(KIND_COLOR).filter(([k]) => nodes.some((n) => n.kind === k)).map(([k, c]) => (
+                  <span key={k}><i style={{ background: c }} />{k}</span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -129,6 +193,16 @@ export default function App() {
               <NoiseSweep sweep={state.noise_sweep} />
             </div>
           )}
+          <div className="card mind-card">
+            <h2>Stream of Mind</h2>
+            <div className="hint">The brain's live state of mind — thoughts fire, glow, then fade.</div>
+            <StreamOfMind thoughts={thoughts} />
+          </div>
+          <div className="card chat-card">
+            <h2>Brain Chat</h2>
+            <div className="hint">Chat with the brain about the network, nodes and results.</div>
+            <ChatPanel onThought={onThought} />
+          </div>
         </div>
       </section>
 

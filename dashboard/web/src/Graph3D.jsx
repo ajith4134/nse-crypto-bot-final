@@ -95,8 +95,8 @@ function buildSingleHead(nodes, edges, dataset) {
   const upstreamMap = {}, hasDownstream = new Set()
   edges.forEach((e) => { (upstreamMap[e.target] = upstreamMap[e.target] || []).push(e.source); hasDownstream.add(e.source) })
   const features = (dataset?.feature_names || []).slice(0, 14)
-  const models = nodes.filter((n) => ['base', 'chaos', 'regime', 'symbolic'].includes(n.kind))
-  const metas = nodes.filter((n) => ['ensemble', 'router', 'meta'].includes(n.kind))
+  const models = nodes.filter((n) => ['base', 'chaos', 'regime', 'symbolic', 'regressor'].includes(n.kind))
+  const metas = nodes.filter((n) => ['ensemble', 'router', 'meta', 'gate', 'cascade', 'bus'].includes(n.kind))
   const automl = nodes.filter((n) => n.kind === 'automl')
   const cols = []
   cols.push({ label: 'input · features', items: features.map((f) => ({ name: f, kind: 'input', _feature: true })) })

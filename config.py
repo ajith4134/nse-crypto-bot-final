@@ -31,6 +31,14 @@ KNOWN_KEYS = (
     "DEEPINFRA_API_KEY", "FIREWORKS_API_KEY", "ZAI_API_KEY", "ZAI_API_KEY_ID",
     "DEEPSEEK_API_KEY", "ALIBABA_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_KEY",
     "LOCAL_LLM_BASE_URL",
+    # ── Trading Execution Phase (T1+) ──
+    # Broker credentials (Zerodha/Upstox/Angel) live INSIDE the OpenAlgo server's
+    # own config, not here. Our system only needs the OpenAlgo API key + host.
+    "OPENALGO_API_KEY", "OPENALGO_HOST", "OPENALGO_WS_URL", "TRADING_MODE",
+    # ── Crypto (T2) via ccxt. Keys OPTIONAL — public market data + paper sim need
+    # none; only LIVE order placement requires them. ──
+    "BINANCE_API_KEY", "BINANCE_API_SECRET", "BYBIT_API_KEY", "BYBIT_API_SECRET",
+    "CRYPTO_EXCHANGES", "CRYPTO_DEFAULT_EXCHANGE", "CRYPTO_QUOTE",
 )
 
 

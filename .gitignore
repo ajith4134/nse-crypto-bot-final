@@ -63,6 +63,12 @@ dashboard/server.log
 state.json
 knowledge_state.json
 robustness.json
+
+# ── Trading phase runtime state (machine-local; watchlist/toggle/instr cache) ──
+trading/state/
+
+# ── Self-hosted OpenAlgo server lives under $HOME but is NOT our project ──
+srv/
 walkforward.json
 intraday_wf.json
 
@@ -87,3 +93,7 @@ dashboard/*.png
 .npm/
 .ssh/
 AutoML_*
+.pytensor/
+catboost_info/
+.dspy_cache/
+.mem0/
