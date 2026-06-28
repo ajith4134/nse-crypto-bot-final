@@ -178,8 +178,11 @@ Two different questions; conflating them is the #1 source of hype:
   `KnowledgeBrain` associative memory; gated multi-provider LLM via `core.llm`; offline memory-grounded fallback).
   Wired into the dashboard via `POST /api/brain/agent` (+ `GET /api/brain/agent/status`) and the `run_brain_agent.py`
   offline demo. *You can converse with it.*
-- **P4.2 — Human-like memory.** PPR associative recall + RRF + FlashRank reranker; tiers (Letta model);
-  importance + Ebbinghaus decay + `auto_dream` consolidation. *Recall feels human; memory forgets + consolidates.*
+- **P4.2 — Human-like memory. ✅ BUILT.** `HumanMemory` over `KnowledgeBrain` (PPR + RRF recall): per-memory
+  importance + Ebbinghaus decay (stability grows with recall count + importance), Letta-style core/recall/archival
+  tiers, `auto_dream` consolidation (forgets never-recalled trivia, promotes/merges, protects important), optional
+  gated FlashRank reranker. Wired via `GET /api/brain/memory/status` and the `run_human_memory.py` offline demo.
+  *Recall feels human; memory forgets + consolidates.*
 - **P4.3 — Self-feeding internet.** SearXNG + GPT-Researcher + Crawl4AI + Trafilatura/Docling + arxiv/paperscraper +
   RSS, on a scheduler, with dedup. *It finds, reads, downloads, and stores books/papers/news on its own.*
 - **P4.4 — Proof it gets smarter.** Ragas/DeepEval auto-quiz from ingested docs + EduKTM mastery + promptfoo CI.

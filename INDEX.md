@@ -337,6 +337,11 @@ _KnowledgeGraph — concept graph backed by NetworkX (reuse-first)._
 - **functions:** `KnowledgeGraph()`
 - **imports:** __future__
 
+## `memory/human_memory.py`
+_memory/human_memory.py — human-like memory: decay, tiers, dreaming (Phase P4.2)._
+- **classes:** MemMeta, HumanMemory
+- **imports:** __future__, dataclasses, math
+
 ## `memory/store.py`
 _VectorMemory — semantic chunk store with neural embeddings (reuse-first)._
 - **classes:** VectorMemory
@@ -631,6 +636,12 @@ _run_full_network.py — THE FULL trainable network over the ENTIRE node catalog
 - **functions:** `_firing_state(ss, Xte, yte, head_reports) -> dict`; `main() -> dict`
 - **imports:** __future__, data.benchmarks, eval.golden, json, nodes.structure_search, numpy, os, run_active, run_multi, time
 
+## `run_human_memory.py`
+_run_human_memory.py — Phase P4.2 (Human-like memory) OFFLINE demo._
+- **classes:** _StubMem, _StubBrain
+- **functions:** `_build() -> HumanMemory`; `build_demo_human_memory() -> dict`; `main() -> int`
+- **imports:** __future__, json, memory.human_memory, sys, warnings
+
 ## `run_intradaywf.py`
 _Walk-forward (chronological) on Binance INTRADAY klines — more samples/structure._
 - **functions:** `eval_symbol(symbol, interval, target)`; `main(target, interval, total) -> dict`
@@ -790,6 +801,12 @@ _Trading Phase T8.2 acceptance tests — journal-fitness + overfitting guardrail
 - **classes:** TestProbabilisticDeflatedSharpe, TestPBO, TestInformationCoefficient, TestFitness, TestGuardrailGate
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, json, numpy, pandas, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, unittest, warnings
+
+## `tests/test_human_memory.py`
+_Phase P4.2 (human-like memory layer) acceptance tests — fully offline + deterministic._
+- **classes:** _StubMem, StubBrain, TestDecay, TestStability, TestRecall, TestTiers, TestDream, TestStatus
+- **functions:** `_brain()`
+- **imports:** __future__, json, math, memory.human_memory, unittest, warnings
 
 ## `tests/test_journal_t5.py`
 _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully offline._

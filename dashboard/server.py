@@ -246,6 +246,27 @@ class Handler(BaseHTTPRequestHandler):
                             "and ml-network-brain-ultra-blueprint.md §4).",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/brain/memory/status":
+            # P4.2 human-like memory: importance + Ebbinghaus decay, Letta tiers, and an
+            # auto_dream consolidation pass. Returns the OFFLINE deterministic demo snapshot
+            # (a real KnowledgeBrain downloads an embedding model = network), labelled demo.
+            # Degrades to an error payload (never crashes the server).
+            try:
+                from run_human_memory import build_demo_human_memory
+                snap = build_demo_human_memory()
+                snap["demo"] = True
+                snap["note"] = ("offline deterministic demo (run_human_memory.py over a stub "
+                                "brain, injected clock); shows real HumanMemory dynamics — "
+                                "decay/tiers/dream — not live brain memory")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.2 human-like memory not importable (see memory/human_memory.py, "
+                            "run_human_memory.py and ml-network-brain-ultra-blueprint.md §4).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/status":
             # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
             # Lazy import so the dashboard still serves if the trading deps are absent.
