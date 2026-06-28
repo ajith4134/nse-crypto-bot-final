@@ -229,6 +229,12 @@ _GrowingBrain — grows the network by keeping only nodes that help._
 - **functions:** `_roughness(x) -> float`; `_mean(proba_list, idxs) -> Vector`
 - **imports:** __future__, core.node_protocol, eval.golden, native
 
+## `core/brain_agent.py`
+_core/brain_agent.py — LangGraph brain agent: "talk to the brain" (Phase P4.1)._
+- **classes:** BrainState, BrainAgent
+- **functions:** `_default_llm()`
+- **imports:** __future__, langgraph.graph, typing
+
 ## `core/chat_brain.py`
 _core/chat_brain.py — P4.1: chat with the brain (RAG-grounded, cloud-LLM)._
 - **functions:** `_brain()`; `chat(message, history) -> dict`; `_build_messages(message, context, history) -> list[dict]`; `chat_stream(message, history)`
@@ -258,7 +264,7 @@ _Live node registry — the single source of truth the dashboard reads._
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler
-- **functions:** `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_open_trades_rows() -> list[dict]`; `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys
 
 ## `dashboard/verify_render.py`
@@ -590,6 +596,11 @@ _run_brain.py — Step 1: let the brain GROW the network from a candidate pool._
 - **functions:** `_split3(X, y, a, b)`; `_split3_shuffled(X, y, seed)`; `_split4(X, y, a, b, c)`; `_split4_shuffled(X, y, seed)`; `main(benchmark) -> dict`
 - **imports:** __future__, core, core.brain, data.benchmarks, eval.golden, json, nodes.pool, os, random, sys, time
 
+## `run_brain_agent.py`
+_run_brain_agent.py — Phase P4.1 (Talk to the brain) OFFLINE demo._
+- **functions:** `_build_demo_brain() -> KnowledgeBrain`; `_stub_llm(messages) -> str`; `build_demo_brain_agent() -> dict`; `main() -> int`
+- **imports:** __future__, core.brain_agent, json, memory.brain, sys, warnings
+
 ## `run_brain_t8.py`
 _run_brain_t8.py — Trading Phase T8.4 (Episodic Experience Bank + Semantic Memory) offline demo._
 - **functions:** `_hdr(title) -> None`; `build_extra_trades() -> list`; `_build_bank(use_lancedb, uri) -> ExperienceBank`; `build_demo_experience() -> dict`; `_learnable_stream(n, rng) -> list`; `_concept_flip_stream(n, rng) -> list`; `_trim_curve(curve, k) -> list`; `build_demo_selfeval() -> dict`; `_synthetic_ohlcv(seed) -> pd.DataFrame`; `_picking_training_set(seed)`; `_demo_universe(seed) -> dict`; `_to_jsonable(obj)`; `build_demo_brain_t86() -> dict`; `build_demo_news_items() -> list`; `build_demo_news() -> dict`; `_entryexit_fitness(params) -> float`; `_det_clock()`; `_build_skill_library() -> tuple`; `build_demo_skills() -> dict`; `_pipeline_ohlcv(seed) -> pd.DataFrame`; `_pipeline_news_items(news_symbol) -> list`; `_new_safety() -> tuple`; `_build_pipeline(market) -> BrainTradingPipeline`; `build_demo_pipeline() -> dict`; `main() -> int`
@@ -723,6 +734,12 @@ _Trading Phase T7 (Telegram Alerts & Automation) acceptance tests — fully offl
 - **classes:** _RecordingTransport, TestEvents, TestDedup, TestConfig, TestFormatter, TestChannel, TestDispatcher, TestCommands, TestScheduler
 - **functions:** `_disabled_config() -> AlertConfig`; `_enabled_config() -> AlertConfig`; `_utc(y, mo, d, h, mi) -> float`
 - **imports:** __future__, datetime, trading.alerts.channels, trading.alerts.commands, trading.alerts.config, trading.alerts.dedup, trading.alerts.dispatcher, trading.alerts.events, trading.alerts.formatter, trading.alerts.scheduler, unittest
+
+## `tests/test_brain_agent.py`
+_Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + deterministic._
+- **classes:** StubBrain, RecorderChat, TestLLMPath, TestHistory, TestOfflineFallback, TestRecallK, TestStatus, TestDeterminism
+- **functions:** `_agent(brain, llm_chat, recall_k, force_no_llm)`
+- **imports:** __future__, core.brain_agent, json, unittest, warnings
 
 ## `tests/test_brain_engines_t8.py`
 _Trading Phase T8 (Brain engines, deferred A2/A3) acceptance tests — fully offline._

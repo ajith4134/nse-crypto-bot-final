@@ -174,8 +174,10 @@ Two different questions; conflating them is the #1 source of hype:
 
 ## 4. Phased build plan (proposed; CPU-first, reuse-first, ask-to-install per dep)
 
-- **P4.1 — Talk to the brain.** LiteLLM(+Ollama) + LangGraph brain agent + assistant-ui/CopilotKit chat embedded in
-  the dashboard, wired to the existing `KnowledgeBrain.recall`. *You can converse with it.*
+- **P4.1 — Talk to the brain. ✅ BUILT.** LangGraph `BrainAgent` (recall→respond StateGraph; retrieval-augmented over
+  `KnowledgeBrain` associative memory; gated multi-provider LLM via `core.llm`; offline memory-grounded fallback).
+  Wired into the dashboard via `POST /api/brain/agent` (+ `GET /api/brain/agent/status`) and the `run_brain_agent.py`
+  offline demo. *You can converse with it.*
 - **P4.2 — Human-like memory.** PPR associative recall + RRF + FlashRank reranker; tiers (Letta model);
   importance + Ebbinghaus decay + `auto_dream` consolidation. *Recall feels human; memory forgets + consolidates.*
 - **P4.3 — Self-feeding internet.** SearXNG + GPT-Researcher + Crawl4AI + Trafilatura/Docling + arxiv/paperscraper +

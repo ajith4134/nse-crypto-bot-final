@@ -28,6 +28,25 @@ _EXPECTED = "Basic " + base64.b64encode(f"{AUTH_USER}:{AUTH_PASS}".encode()).dec
     if AUTH_PASS else None
 
 
+_BRAIN_AGENT = None
+
+
+def _brain_agent():
+    """Lazily build ONE BrainAgent (P4.1) wired to the project's KnowledgeBrain.
+
+    Reuses core.chat_brain's lazily-built, doc-ingested KnowledgeBrain so the agent
+    grounds in the SAME memory the existing chat uses. The agent's LLM is the gated
+    multi-provider core.llm (live when a key is in .env, else an honest offline
+    memory-grounded fallback). Secrets-safe: no keys are read or echoed here.
+    """
+    global _BRAIN_AGENT
+    if _BRAIN_AGENT is None:
+        from core.brain_agent import BrainAgent
+        from core.chat_brain import _brain
+        _BRAIN_AGENT = BrainAgent(_brain())
+    return _BRAIN_AGENT
+
+
 _TRADING_SESSION = None
 
 
@@ -214,6 +233,19 @@ class Handler(BaseHTTPRequestHandler):
                 with open(kp, "rb") as f:
                     return self._send(200, f.read(), "application/json")
             return self._send(200, b'{"nodes":[],"edges":[],"stats":{}}', "application/json")
+        if path == "/api/brain/agent/status":
+            # P4.1 LangGraph BrainAgent status: engine, has_memory, active LLM (or null
+            # offline), recall_k. Degrades to an error payload (never crashes the server).
+            try:
+                body = json.dumps(_brain_agent().status(), default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "engine": "langgraph", "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.1 brain agent not importable (see core/brain_agent.py "
+                            "and ml-network-brain-ultra-blueprint.md §4).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/status":
             # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
             # Lazy import so the dashboard still serves if the trading deps are absent.
@@ -802,6 +834,18 @@ class Handler(BaseHTTPRequestHandler):
                 out = {"reply": "", "sources": [], "thoughts": [],
                        "error": f"server error: {type(e).__name__}"}
             return self._send(200, json.dumps(out).encode(), "application/json")
+        if path == "/api/brain/agent":
+            # P4.1 LangGraph BrainAgent: {message, history?} → recall→respond.
+            # Mirrors /api/chat — lazy singleton agent, degrades to an error payload.
+            try:
+                n = int(self.headers.get("Content-Length", 0) or 0)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                out = _brain_agent().ask(data.get("message", ""),
+                                         history=data.get("history"))
+            except Exception as e:
+                out = {"reply": "", "llm_used": False, "used_memory": False,
+                       "recalled": [], "error": f"server error: {type(e).__name__}"}
+            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
         if path == "/api/chat/stream":
             n = int(self.headers.get("Content-Length", 0) or 0)
             try:
