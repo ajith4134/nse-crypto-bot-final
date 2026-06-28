@@ -10,6 +10,7 @@ import OrderFlowMap from './OrderFlowMap.jsx'
 import OpenTradesPanel from './OpenTradesPanel.jsx'
 import ClosedTradesTable from './ClosedTradesTable.jsx'
 import TradeDrilldown from './TradeDrilldown.jsx'
+import OnlineControlPanel from './OnlineControlPanel.jsx'
 
 function Card({ title, hint, children }) {
   return (
@@ -61,6 +62,11 @@ export default function MarketWindow({ market = 'crypto' }) {
         {isNSE ? 'NSE' : 'Crypto'} Window · {symbol}
         <span style={{ color: T.muted, fontSize: 12, marginLeft: 8 }}>live workspace</span>
       </h1>
+
+      <Card title="Online Control (Start/Stop · Paper/Real · Balance)">
+        <OnlineControlPanel marketList={[isNSE ? 'NSE' : 'CRYPTO']} />
+      </Card>
+      <div style={{ height: 12 }} />
 
       <div style={{ display: 'grid', gridTemplateColumns: isNSE ? '2fr 1fr 1fr' : '2fr 1fr',
         gap: 12, marginBottom: 12 }}>

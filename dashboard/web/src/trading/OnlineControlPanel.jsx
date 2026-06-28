@@ -292,7 +292,7 @@ function MarketCard({ market, status, busy, onAction }) {
 
 // ---- main panel ---------------------------------------------------------------
 
-export default function OnlineControlPanel({ intervalMs = 4000 }) {
+export default function OnlineControlPanel({ intervalMs = 4000, marketList = MARKETS }) {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
@@ -339,7 +339,10 @@ export default function OnlineControlPanel({ intervalMs = 4000 }) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const data = await r.json()
       if (!aliveRef.current) return
-      if (data && data.markets) setStatus(data) // backend returns new status
+      // GET /status is flat {markets,...}; POST /control returns {ok, action, status:{markets,...}}
+      const newStatus = data && data.status && data.status.markets ? data.status
+        : (data && data.markets ? data : null)
+      if (newStatus) setStatus(newStatus) // reflect the new state immediately (no 4s wait)
       setLastResult({ ok: true, text: `${body.action}${body.market ? ' · ' + body.market : ''} ✓`, ts: new Date() })
       setErr(null)
     } catch (e) {
@@ -422,8 +425,8 @@ export default function OnlineControlPanel({ intervalMs = 4000 }) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-        {MARKETS.map((m) => (
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketList.length > 1 ? 2 : 1}, minmax(0, 1fr))`, gap: 12 }}>
+        {marketList.map((m) => (
           <MarketCard
             key={m}
             market={m}
