@@ -75,8 +75,11 @@ def anomaly_score(series, m: int = 20) -> float:
     if P.size == 0:
         return 0.0
     last = float(P[-1])
-    med = float(np.median(P)) or 1e-9
-    return round(last / med, 4)               # ratio vs typical distance
+    pos = P[P > 0]                             # ignore exact-duplicate (zero-distance) windows
+    scale = float(np.median(pos)) if pos.size else 0.0
+    if scale <= 0:                            # near-constant series → no meaningful anomaly
+        return 0.0
+    return round(min(last / scale, 50.0), 4)  # capped ratio vs typical distance (no blow-ups)
 
 
 def candlestick_patterns(ohlcv: pd.DataFrame, names: list[str] | None = None) -> dict:

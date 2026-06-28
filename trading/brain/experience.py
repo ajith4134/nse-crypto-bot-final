@@ -16,6 +16,7 @@ The setup vector excludes outcome fields (no leakage): outcomes are the labels r
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from dataclasses import dataclass
 
 import numpy as np
@@ -155,6 +156,11 @@ class ExperienceBank:
         qv = self._query_vector(query)
         if self._use_lancedb and self._tbl is not None:
             res = self._tbl.search(qv.tolist()).limit(k).to_list()
+            # LanceDB's default l2 metric returns SQUARED distance; the numpy fallback uses
+            # plain euclidean. Convert so relevance=1/(1+dist) is identical across backends.
+            for r in res:
+                if "_distance" in r and r["_distance"] is not None:
+                    r["_distance"] = float(r["_distance"]) ** 0.5
             return res
         # numpy exact-kNN fallback
         mat = np.array([r["vector"] for r in self._mem], dtype=float)
@@ -167,6 +173,23 @@ class ExperienceBank:
             out.append(row)
         return out
 
+    @staticmethod
+    def _recency_weights(cases: list[dict], now_ts: float | None,
+                         halflife_days: float = 90.0) -> np.ndarray:
+        """Exponential-decay weight by case age (newer = higher). 1.0 when now_ts is None."""
+        if now_ts is None:
+            return np.ones(len(cases))
+        halflife_s = halflife_days * 86400.0
+        w = []
+        for c in cases:
+            ts = c.get("entry_datetime", "")
+            try:
+                t = datetime.fromisoformat(ts).timestamp() if ts else None
+            except Exception:
+                t = None
+            w.append(1.0 if t is None else 0.5 ** (max(0.0, now_ts - t) / halflife_s))
+        return np.array(w, dtype=float)
+
     # ── CBR recall → decision bias ──────────────────────────────────────────────
     def recall(self, query, k: int = 10, *, now_ts: float | None = None) -> Recall:
         """Aggregate the k nearest cases' outcomes into a decision bias."""
@@ -178,7 +201,8 @@ class ExperienceBank:
         dist = np.array([c.get("_distance", 0.0) for c in cases], dtype=float)
         relevance = 1.0 / (1.0 + dist)
         importance = 1.0 + np.abs(pnls) / (np.abs(pnls).max() + 1e-9)
-        w = relevance * importance
+        recency = self._recency_weights(cases, now_ts)        # honours now_ts (was ignored)
+        w = relevance * importance * recency
         w = w / (w.sum() + 1e-12)
         expected_pnl = float((w * pnls).sum())
         expected_win = float((w * wins).sum() * 100.0)

@@ -54,8 +54,12 @@ class BrainTradingPipeline:
         return False, ""
 
     def decide(self, symbol: str, ohlcv: pd.DataFrame, *, universe=None,
-               news_items=None) -> dict:
-        """Run the full T8 stack for `symbol` and return one traced, safety-gated decision."""
+               news_items=None, position_side: str | None = None) -> dict:
+        """Run the full T8 stack for `symbol` → one traced, safety-gated decision.
+
+        `position_side` (LONG/SHORT) switches to EXIT-management: the entry/exit policy's
+        should_exit fires on signal-reversal / regime-change / anomaly / kill-switch.
+        """
         tr = self.tracer
         feats = compute_features(ohlcv)
 
@@ -97,24 +101,40 @@ class BrainTradingPipeline:
             recall_bias, recall_conf = rc.bias, rc.confidence
             tr.record("experience_recall", outputs={"bias": recall_bias, "n": rc.n})
 
-        # 6) entry gate
-        entry = self.entryexit.should_enter(signal=signal, regime=regime, anomaly_score=anomaly)
-
-        # 7) safety gate (T3)
+        # 6) safety gate (T3) — blocks both entries and (forces) exits
         blocked, reason = self._safety_blocked()
-        if blocked:
-            action = "FLAT"
-            entry = {"enter": False, "reason": reason}
-        else:
-            action = entry.get("side", "FLAT") if entry.get("enter") else "FLAT"
 
-        # blended confidence: strategy conviction + news + recall agreement (0..1)
-        conviction = 0.5 + 0.2 * (1 if signal > 0 else (-1 if signal < 0 else 0))
+        # 7) decide: EXIT-management when a position is open, else ENTRY
+        if position_side:
+            if blocked:
+                gate = {"exit": True, "reason": reason}
+            else:
+                gate = self.entryexit.should_exit(position_side=position_side, signal=signal,
+                                                  regime=regime, anomaly_score=anomaly)
+            action = "EXIT" if gate.get("exit") else "HOLD"
+            entry = gate
+        else:
+            entry = self.entryexit.should_enter(signal=signal, regime=regime,
+                                                anomaly_score=anomaly)
+            if blocked:
+                action = "FLAT"
+                entry = {"enter": False, "reason": reason}
+            else:
+                action = entry.get("side", "FLAT") if entry.get("enter") else "FLAT"
+
+        # blended confidence in the ACTION (0..1): conviction by signal STRENGTH (symmetric
+        # long/short) + news & recall support ALIGNED to the action's direction.
+        direction = 1 if signal > 0 else (-1 if signal < 0 else 0)
+        conviction = 0.7 if direction != 0 else 0.5
+        news_support = news_p if direction > 0 else ((1.0 - news_p) if direction < 0 else 0.5)
+        recall_support = (0.5 + 0.5 * recall_bias) if direction > 0 else \
+            ((0.5 - 0.5 * recall_bias) if direction < 0 else 0.5)
         confidence = round(max(0.0, min(1.0,
-                          0.5 * conviction + 0.3 * news_p + 0.2 * (0.5 + 0.5 * recall_bias))), 4)
+                          0.5 * conviction + 0.3 * news_support + 0.2 * recall_support)), 4)
 
         decision = {
             "symbol": symbol, "market": self.market, "regime": regime,
+            "position_side": position_side,
             "anomaly_score": anomaly, "news_compound": news_compound, "news_p": round(news_p, 4),
             "signal": signal, "recall_bias": recall_bias, "recall_confidence": recall_conf,
             "entry": entry, "action": action, "confidence": confidence,
@@ -139,8 +159,13 @@ class BrainTradingPipeline:
         chk("not_currently_blocked", not blocked, reason or "clear")
         chk("entry_gating_active", self.entryexit is not None, "regime/anomaly gate on entry")
         chk("tracer_active", self.tracer is not None, f"backend={self.tracer.backend}")
-        passed = all(c["ok"] for c in checks if c["check"] != "not_currently_blocked")
-        return {"market": self.market, "passed": passed, "checks": checks}
+        # `passed` = the safety MACHINERY is wired (structural readiness).
+        # `currently_blocked` = a halt is active right now (a SAFE state, machinery working).
+        # `safe_to_trade` = machinery ready AND not currently halted — gate go-live on THIS.
+        structural = all(c["ok"] for c in checks if c["check"] != "not_currently_blocked")
+        return {"market": self.market, "passed": structural,
+                "currently_blocked": blocked, "block_reason": reason,
+                "safe_to_trade": structural and not blocked, "checks": checks}
 
     def status(self) -> dict:
         return {

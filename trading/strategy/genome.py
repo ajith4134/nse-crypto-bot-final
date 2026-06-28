@@ -99,12 +99,18 @@ def get_pset(features: list[str]) -> gp.PrimitiveSetTyped:
     return pset
 
 
-def _zscore(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
+def _zscore(df: pd.DataFrame, features: list[str], *, min_periods: int = 20) -> pd.DataFrame:
+    """CAUSAL z-score: each bar uses ONLY past+current data (expanding window).
+
+    Full-sample mean/std would leak the future into every bar's comparison, making the
+    backtest look-ahead-biased; an expanding window keeps the signal causal so OOS metrics
+    are honest. Warm-up bars (< min_periods) are neutral (0)."""
     z = {}
     for f in features:
         col = df[f].astype(float)
-        sd = col.std()
-        z[f] = (col - col.mean()) / sd if sd and sd > 0 else col * 0.0
+        mean = col.expanding(min_periods=min_periods).mean()
+        std = col.expanding(min_periods=min_periods).std()
+        z[f] = ((col - mean) / std.replace(0.0, np.nan)).fillna(0.0)
     return pd.DataFrame(z, index=df.index)
 
 

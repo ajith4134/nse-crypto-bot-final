@@ -16,10 +16,9 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from trading.strategy.backtest import backtest_signal
+from trading.strategy.backtest import _profit_factor, backtest_signal, walk_forward_folds
 from trading.strategy.features import compute_features
 from trading.strategy.genome import Strategy
-from trading.strategy.backtest import walk_forward_folds
 
 
 @dataclass
@@ -47,9 +46,10 @@ def evaluate_oos(strategy: Strategy, ohlcv: pd.DataFrame, *, features: pd.DataFr
     sig = strategy.signal(feats)
     folds = walk_forward_folds(len(feats), n_folds=n_folds, scheme=scheme)
 
+    ppy = bt_kw.get("periods_per_year", 252)
     pooled_trades: list[float] = []
+    pooled_bar_returns: list[float] = []          # per-bar OOS returns across all folds
     fold_returns: list[float] = []
-    sharpes: list[float] = []
     worst_dd = 0.0
     for f in folds:
         s, e = f["test"]
@@ -57,8 +57,10 @@ def evaluate_oos(strategy: Strategy, ohlcv: pd.DataFrame, *, features: pd.DataFr
         sl_px = feats.iloc[s:e].reset_index(drop=True)
         res = backtest_signal(sl_sig, sl_px, **bt_kw)
         pooled_trades += [t["ret"] for t in res.trades]
+        eq = res.equity_curve
+        pooled_bar_returns += [eq[i] / eq[i - 1] - 1.0 for i in range(1, len(eq))
+                               if eq[i - 1]]
         fold_returns.append(res.metrics["total_return"])
-        sharpes.append(res.metrics["sharpe"])
         worst_dd = min(worst_dd, res.metrics["max_drawdown"])
 
     rets = np.array(pooled_trades, dtype=float)
@@ -68,16 +70,22 @@ def evaluate_oos(strategy: Strategy, ohlcv: pd.DataFrame, *, features: pd.DataFr
     gross_win = float(wins.sum())
     gross_loss = float(-losses.sum())
     oos_total = float(np.prod([1.0 + r for r in fold_returns]) - 1.0) if fold_returns else 0.0
+    # pooled OOS Sharpe from the concatenated per-bar returns (Sharpe is a ratio — averaging
+    # per-fold Sharpes is statistically invalid; pool the returns and compute once).
+    bar = np.array(pooled_bar_returns, dtype=float)
+    bstd = float(np.std(bar, ddof=1)) if len(bar) > 1 else 0.0
+    oos_sharpe = float(np.mean(bar) / bstd * np.sqrt(ppy)) if bstd > 0 else 0.0
     return {
         "oos_total_return": oos_total,
-        "oos_sharpe_mean": float(np.mean(sharpes)) if sharpes else 0.0,
+        "oos_sharpe": oos_sharpe,
+        "oos_sharpe_mean": oos_sharpe,            # kept key for back-compat (now pooled)
         "n_trades": n,
         "expectancy": float(rets.mean()) if n else 0.0,
         "win_rate": float(len(wins) / n * 100.0) if n else 0.0,
-        "profit_factor": (gross_win / gross_loss) if gross_loss > 0
-        else (float("inf") if gross_win > 0 else 0.0),
+        "profit_factor": _profit_factor(gross_win, gross_loss),
         "max_drawdown": worst_dd,
         "trade_returns": pooled_trades,
+        "fold_returns": fold_returns,             # per-fold OOS total return (for PBO/CSCV)
         "n_folds": len(folds),
     }
 

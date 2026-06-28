@@ -53,11 +53,14 @@ class MetaLearner:
         cold = OnlineNode(self.features, name="cold")
 
         def _run(node) -> float:
+            # Score warm & cold over the SAME samples: skip index 0 for BOTH (the cold model
+            # needs >=1 sample before it can predict), so denominators match and few_shot_gain
+            # is a fair warm-cold comparison (previously cold skipped a sample warm didn't).
             c = 0
             k = 0
-            for row, y in task_samples[:shots]:
+            for i, (row, y) in enumerate(task_samples[:shots]):
                 yb = bool(y)
-                if node.n_seen > 0:
+                if i >= 1:
                     c += int((node.predict_proba([row])[0] >= 0.5) == yb)
                     k += 1
                 node.learn_one(row, yb)

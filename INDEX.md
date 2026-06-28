@@ -912,7 +912,7 @@ _trading/brain/entryexit.py — regime/pattern-gated entry + learned exit (T8.6)
 _trading/brain/experience.py — episodic experience bank + CBR recall (T8.4)._
 - **classes:** Recall, ExperienceBank
 - **functions:** `_num(v) -> float`; `_as_dict(trade) -> dict`; `trade_vector(trade) -> list[float]`; `_outcome(trade) -> dict`
-- **imports:** __future__, dataclasses, math, numpy
+- **imports:** __future__, dataclasses, datetime, math, numpy
 
 ## `trading/brain/metalearn.py`
 _trading/brain/metalearn.py — MAML-style meta-init for sample-efficiency (T8.5)._
@@ -923,7 +923,7 @@ _trading/brain/metalearn.py — MAML-style meta-init for sample-efficiency (T8.5
 _trading/brain/news.py — autonomous news research + sentiment nodes (T8.7)._
 - **classes:** NewsItem, NewsResearcher, NewsSentimentNode
 - **functions:** `fetch_rss(url) -> list[NewsItem]`
-- **imports:** __future__, core.node_protocol, dataclasses, os, trading.brain.sentiment
+- **imports:** __future__, core.node_protocol, dataclasses, os, re, trading.brain.sentiment
 
 ## `trading/brain/observability.py`
 _trading/brain/observability.py — brain reasoning tracing (T8.8)._
@@ -1221,7 +1221,7 @@ _trading/strategy/ — Strategy creation / mutation / evolution engine (Phase T8
 ## `trading/strategy/backtest.py`
 _trading/strategy/backtest.py — backtest via vectorbt + walk-forward (T8.1, reuse-first)._
 - **classes:** BacktestResult
-- **functions:** `_safe(fn, default)`; `backtest_signal(signal, ohlcv) -> BacktestResult`; `_pandas_backtest(close, target, cost_rate, periods_per_year)`; `walk_forward_folds(n_rows) -> list[dict]`
+- **functions:** `_profit_factor(gross_win, gross_loss) -> float`; `_safe(fn, default)`; `backtest_signal(signal, ohlcv) -> BacktestResult`; `_pandas_backtest(close, target, cost_rate, periods_per_year)`; `walk_forward_folds(n_rows) -> list[dict]`
 - **imports:** __future__, dataclasses, numpy, pandas
 
 ## `trading/strategy/evolve.py`

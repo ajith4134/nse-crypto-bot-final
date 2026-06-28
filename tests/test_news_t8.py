@@ -130,11 +130,15 @@ class TestNewsResearcher(unittest.TestCase):
         out = rs.research("RELIANCE", items=self._feed())
         self.assertEqual(out["n_articles"], 3)
 
-    def test_fallback_to_whole_feed_when_no_mention(self):
+    def test_no_mention_returns_neutral_not_whole_feed(self):
+        # Fixed behaviour: a symbol with no matching news yields NO articles → neutral,
+        # rather than mis-attributing the whole feed's market-wide sentiment to it.
         rs = NewsResearcher()
         items = self._feed()
         out = rs.research("NOSUCHSYMBOL", items=items)
-        self.assertEqual(out["n_articles"], len(items))
+        self.assertEqual(out["n_articles"], 0)
+        self.assertEqual(out["avg_compound"], 0.0)
+        self.assertEqual(out["label"], "neutral")
 
     def test_autonomous_research_gated_unavailable(self):
         self.assertNotIn("GPT_RESEARCHER_ENABLED", os.environ)  # not set in test env

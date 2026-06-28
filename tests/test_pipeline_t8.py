@@ -36,7 +36,7 @@ from trading.strategy.operators import market_features
 
 _SEED = 20260628
 _DECISION_KEYS = {
-    "symbol", "market", "regime", "anomaly_score", "news_compound", "news_p",
+    "symbol", "market", "position_side", "regime", "anomaly_score", "news_compound", "news_p",
     "signal", "recall_bias", "recall_confidence", "entry", "action", "confidence",
     "safety_blocked", "safety_reason",
 }

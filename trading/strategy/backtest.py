@@ -33,6 +33,17 @@ class BacktestResult:
         return {"metrics": self.metrics, "n_trades": len(self.trades), "n_bars": self.n_bars}
 
 
+# Cap for "no losing trades" — a finite sentinel keeps metrics JSON-safe (no inf) while
+# still ranking a lossless strategy as best. >= this value means "no losses in sample".
+PF_CAP = 1e6
+
+
+def _profit_factor(gross_win: float, gross_loss: float) -> float:
+    if gross_loss > 0:
+        return min(gross_win / gross_loss, PF_CAP)
+    return PF_CAP if gross_win > 0 else 0.0
+
+
 def _safe(fn, default=0.0):
     try:
         v = fn()
@@ -65,27 +76,42 @@ def backtest_signal(signal: pd.Series, ohlcv: pd.DataFrame, *, fee_bps: float = 
     )
 
     trades_rec = pf.trades.records_readable
-    trade_rets = []
+    trade_rets, trade_sides = [], []
     if len(trades_rec):
         col = "Return" if "Return" in trades_rec.columns else (
             "Return [%]" if "Return [%]" in trades_rec.columns else None)
         if col:
             vals = trades_rec[col].to_numpy(dtype=float)
             trade_rets = (vals / 100.0 if "%" in col else vals).tolist()
-    trades = [{"side": 1, "ret": r} for r in trade_rets]
+        # real trade direction (vectorbt records the side) — don't hardcode long
+        dcol = next((c for c in ("Direction", "Side") if c in trades_rec.columns), None)
+        if dcol:
+            trade_sides = [(-1 if str(d).lower().startswith("short") else 1)
+                           for d in trades_rec[dcol].tolist()]
+    if len(trade_sides) != len(trade_rets):
+        trade_sides = [1] * len(trade_rets)
+    trades = [{"side": s, "ret": r} for s, r in zip(trade_sides, trade_rets)]
 
     wins = [r for r in trade_rets if r > 0]
     losses = [r for r in trade_rets if r < 0]
     gross_win = float(sum(wins))
     gross_loss = float(-sum(losses))
+    # Sharpe computed from per-period portfolio returns honouring periods_per_year
+    # (vectorbt's own sharpe_ratio annualises by calendar freq=365, ignoring the param
+    #  and diverging from the pandas fallback — compute it ourselves for consistency).
+    try:
+        rets_arr = pf.returns().to_numpy(dtype=float)
+        rstd = float(np.std(rets_arr, ddof=1)) if len(rets_arr) > 1 else 0.0
+        sharpe = float(np.mean(rets_arr) / rstd * np.sqrt(periods_per_year)) if rstd > 0 else 0.0
+    except Exception:
+        sharpe = 0.0
     metrics = {
         "total_return": _safe(pf.total_return),
-        "sharpe": _safe(pf.sharpe_ratio),
+        "sharpe": sharpe,
         "max_drawdown": _safe(pf.max_drawdown),
         "n_trades": int(len(trade_rets)),
         "win_rate": (len(wins) / len(trade_rets) * 100.0) if trade_rets else 0.0,
-        "profit_factor": (gross_win / gross_loss) if gross_loss > 0
-        else (float("inf") if gross_win > 0 else 0.0),
+        "profit_factor": _profit_factor(gross_win, gross_loss),
         "avg_win": float(np.mean(wins)) if wins else 0.0,
         "avg_loss": float(np.mean(losses)) if losses else 0.0,
         "expectancy": float(np.mean(trade_rets)) if trade_rets else 0.0,
@@ -127,7 +153,7 @@ def _pandas_backtest(close, target, cost_rate, periods_per_year):  # pragma: no 
     metrics = {"total_return": float(equity[-1] - 1) if len(equity) else 0.0, "sharpe": sharpe,
                "max_drawdown": max_dd, "n_trades": len(rets),
                "win_rate": (len(wins) / len(rets) * 100) if rets else 0.0,
-               "profit_factor": (gw / gl) if gl > 0 else (float("inf") if gw > 0 else 0.0),
+               "profit_factor": _profit_factor(gw, gl),
                "avg_win": float(np.mean(wins)) if wins else 0.0,
                "avg_loss": float(np.mean(losses)) if losses else 0.0,
                "expectancy": float(np.mean(rets)) if rets else 0.0,

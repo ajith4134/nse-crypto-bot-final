@@ -42,7 +42,9 @@ def _pandas_feats(df, close_s, fast, slow, mom_n):
     delta = close_s.diff()
     gain = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
     loss = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
-    df["rsi"] = (100 - 100 / (1 + gain / loss.replace(0, np.nan))).fillna(50.0)
+    rsi = 100 - 100 / (1 + gain / loss.replace(0, np.nan))
+    # avg-loss == 0 with positive gains is a pure uptrend → RSI 100 (not neutral 50)
+    df["rsi"] = rsi.mask((loss == 0) & (gain > 0), 100.0).fillna(50.0)
     prev = close_s.shift(1)
     tr = pd.concat([(df["high"] - df["low"]), (df["high"] - prev).abs(),
                     (df["low"] - prev).abs()], axis=1).max(axis=1)

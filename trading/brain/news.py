@@ -14,6 +14,7 @@ Reuse-first / offline-first:
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 
 from core.node_protocol import BaseNode, IOSchema
@@ -56,10 +57,13 @@ class NewsResearcher:
         self.fetcher = fetcher                      # callable() -> list[NewsItem]; injected for tests
 
     def _items_for(self, symbol: str, items: list[NewsItem]) -> list[NewsItem]:
+        # Word-boundary match (so 'ETH' doesn't match 'method'/'whether') OR an explicit
+        # symbols tag. No whole-feed fallback: a symbol with no news → no articles → neutral,
+        # rather than mis-attributing market-wide sentiment to it.
         s = symbol.lower()
-        hits = [it for it in items if s in it.text.lower()
+        pat = re.compile(r"\b" + re.escape(s) + r"\b")
+        return [it for it in items if pat.search(it.text.lower())
                 or any(s == str(x).lower() for x in it.symbols)]
-        return hits or items                        # fall back to whole feed if no explicit mention
 
     def research(self, symbol: str, *, items: list[NewsItem] | None = None,
                  top: int = 5) -> dict:
