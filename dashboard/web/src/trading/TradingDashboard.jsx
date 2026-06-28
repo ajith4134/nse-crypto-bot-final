@@ -13,6 +13,7 @@ import TradeDrilldown from './TradeDrilldown.jsx'
 import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
 import BrainPanel from './BrainPanel.jsx'
+import OnlineControlPanel from './OnlineControlPanel.jsx'
 
 function Card({ title, hint, children, right }) {
   return (
@@ -58,6 +59,10 @@ export default function TradingDashboard() {
         <button style={btn} onClick={() => openMarketWindow('nse')}>↗ Open NSE Window</button>
         <button style={btn} onClick={() => openMarketWindow('crypto')}>↗ Open Crypto Window</button>
       </div>
+
+      <Card title="Online Control (Start/Stop · Paper/Real · Balance)" hint="Phase O5 — primary live-trading switchboard">
+        <OnlineControlPanel />
+      </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
         <Card title="Price" hint="TradingView Lightweight Charts v5">

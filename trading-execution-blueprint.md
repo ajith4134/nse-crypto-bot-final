@@ -190,6 +190,17 @@
 > its git source-build is sandbox-denied → the vendored-gplearn miner remains the asset-picker
 > (documented, not faked). DSPy/GEPA + Langfuse already ship gated-real (activate with keys).
 > `run_advintel.py` + `/api/trading/advintel/status`.
+>
+> **ONLINE (O1–O5) BUILT** (`trading/online/`): per-market session calendar with LIVE↔REPLAY
+> switching (`session.py`, XNSE via pandas_market_calendars; crypto 24/7), per-market state +
+> ACTIVE/REDUCING/HALTED trading-state gate (`state.py`), editable per-market PAPER wallet —
+> set/top-up/reset virtual money (`wallet.py`), NSE off-hours OHLCV replay (`replay.py`),
+> always-on step-driven supervisor (`supervisor.py`: acquire→decide→gate→route), and a SHARED
+> persisted control surface (`controls.py`) — Start/Stop/Pause/Halt + guarded PAPER↔REAL switch
+> per market, panic() halt-all — driven identically from the dashboard
+> (`GET/POST /api/trading/online/{status,control}`) AND Telegram (`/start_<market>`,
+> `/stop_<market>`, `/pause_<market>`, `/halt`, `/balance <m> <amt>`, `/online_status`). Markets
+> default OFF + PAPER (safe); REAL needs allow_live + confirm. `run_online.py` offline demo.
 > Next: T8 dashboard panel (React) + full-suite verification.
 > **Sources:** Deep research (106 agents, 1.77M tokens, 18 adversarially-verified claims, 7 killed).
 > **Date:** 2026-06-28. **Hard rules carried in:** CPU-first, reuse-first (stitch OSS), ask-to-install,

@@ -646,6 +646,12 @@ _(ii) Demonstrate the noise-regime router beating either single expert._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
 - **imports:** __future__, core, data.benchmarks, eval.golden, json, nodes.base_learners, nodes.chaos_nodes, nodes.noise_router, nodes.phase2_nodes, os, random, time
 
+## `run_online.py`
+_run_online.py — Trading Phase ONLINE (O1–O5) OFFLINE demo._
+- **classes:** _StubCryptoPrice
+- **functions:** `_hdr(title) -> None`; `_seeded_nse_ohlcv(seed, n) -> pd.DataFrame`; `_decide_fn(market, symbol, window_or_price) -> dict`; `build_supervisor() -> OnlineSupervisor`; `build_demo_online() -> dict`; `main() -> int`
+- **imports:** __future__, datetime, json, numpy, pandas, sys, trading.online, trading.online.session, trading.online.supervisor
+
 ## `run_options_t4.py`
 _run_options_t4.py — Trading Phase T4 (Options Intelligence) offline demo + status._
 - **functions:** `_hdr(title) -> None`; `build_demo_chain() -> OptionsChain`; `_seed_iv_history(chain) -> IVHistory`; `main() -> int`
@@ -792,6 +798,12 @@ _Acceptance test (multi-output): every output head must beat its task baseline._
 _Trading Phase T8.7 (Autonomous news research + sentiment) acceptance tests — fully offline._
 - **classes:** TestSentimentScorer, TestNewsItem, TestNewsResearcher, TestNewsSentimentNode
 - **imports:** __future__, core.node_protocol, os, trading.brain.news, trading.brain.sentiment, unittest, warnings
+
+## `tests/test_online.py`
+_Trading Phase O1–O4 (Always-Online Supervisor) acceptance tests — fully offline._
+- **classes:** TestMarketSession, TestTradingState, TestPaperWallet, TestReplay, TestOnlineSupervisor
+- **functions:** `_ohlcv(seed, n) -> pd.DataFrame`
+- **imports:** __future__, datetime, json, numpy, pandas, trading, trading.online.replay, trading.online.session, trading.online.state, trading.online.supervisor, trading.online.wallet, unittest, warnings
 
 ## `tests/test_options_t4.py`
 _Trading Phase T4 (Options Intelligence) acceptance tests — fully offline._
@@ -1218,6 +1230,42 @@ _trading/journal/tearsheet.py — Phase T5 HTML/PDF performance tearsheet._
 _trading/market_toggle.py — NSE master on/off switch (T1 §7)._
 - **classes:** MarketOff, MasterToggle
 - **imports:** __future__, trading, typing
+
+## `trading/online/__init__.py`
+_trading/online/ — "Go online": continuous paper/live trading with safe switches (O1–O5)._
+- **imports:** __future__, trading.online.replay, trading.online.session, trading.online.state, trading.online.supervisor, trading.online.wallet
+
+## `trading/online/controls.py`
+_trading/online/controls.py — shared, persisted control surface (O5)._
+- **functions:** `registry() -> MarketRegistry`; `book() -> PaperWalletBook`; `reset_singletons() -> None`; `_ms_dict(market) -> dict`; `start(market) -> dict`; `stop(market) -> dict`; `pause(market) -> dict`; `halt(market) -> dict`; `set_mode(market, mode) -> dict`; `set_allow_live(market, allow) -> dict`; `set_balance(market, amount, portfolio_id) -> dict`; `top_up(market, amount, portfolio_id) -> dict`; `reset_wallet(market, portfolio_id) -> dict`; `panic(note) -> dict`; `status() -> dict`; `_fmt_state(d) -> str`; `_fmt_status() -> str`; `_cmd_balance(args) -> str`; `build_online_command_router() -> dict`; `handle_command(command, args) -> str`
+- **imports:** __future__, trading.online.state, trading.online.wallet
+
+## `trading/online/replay.py`
+_trading/online/replay.py — NSE off-hours candle/tick replay feed (Phase O3)._
+- **classes:** CandleReplay, ReplaySession
+- **functions:** `_as_bar(bar) -> dict`; `synthetic_ticks(bar, n) -> list[float]`
+- **imports:** __future__, datetime, numpy, pandas, time, typing
+
+## `trading/online/session.py`
+_trading/online/session.py — market calendar + LIVE↔REPLAY mode (O1)._
+- **classes:** MarketSession
+- **imports:** __future__, datetime, pandas
+
+## `trading/online/state.py`
+_trading/online/state.py — per-market state + central trading-state gate (O1)._
+- **classes:** TradingState, MarketState, TradingStateGate, MarketRegistry
+- **imports:** __future__, dataclasses, enum, trading
+
+## `trading/online/supervisor.py`
+_trading/online/supervisor.py — always-on trading supervisor (O4)._
+- **classes:** OnlineSupervisor
+- **imports:** __future__, dataclasses, pandas, trading.online.replay, trading.online.session, trading.online.state, trading.online.wallet
+
+## `trading/online/wallet.py`
+_trading/online/wallet.py — editable per-market paper-money wallet (O2)._
+- **classes:** SlippageModel, FeeModel, CryptoFeeModel, NseFeeModel, FillModel, ProbabilisticFillModel, PaperWallet, PaperWalletBook
+- **functions:** `_is_buy(side) -> bool`; `_state_file(market, portfolio_id) -> str`
+- **imports:** __future__, dataclasses, trading, trading.crypto.paper_engine, trading.journal, typing
 
 ## `trading/openalgo_client.py`
 _trading/openalgo_client.py — thin, honest wrapper over the OpenAlgo REST SDK._

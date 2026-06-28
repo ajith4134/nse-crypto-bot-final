@@ -745,6 +745,27 @@ class Handler(BaseHTTPRequestHandler):
                     "hint": "Trading T6 context builder failed.",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/trading/online/status":
+            # Honest O5 online-control snapshot: the SHARED, persisted control surface
+            # (per-market enable/mode/allow_live/trading_state + editable paper wallets)
+            # plus each market's live LIVE↔REPLAY session mode. Same source of truth the
+            # POST control endpoint + Telegram mutate. Markets default OFF + PAPER (safe).
+            try:
+                from trading.online import controls
+                from trading.online.session import MarketSession
+                snap = controls.status()
+                snap["sessions"] = {m: MarketSession(m).status()
+                                    for m in snap.get("markets", {})}
+                snap.setdefault("note", "")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "Trading O5 online controls not importable "
+                            "(see trading/online/ and trading-execution-blueprint.md ONLINE).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path in ("/architecture", "/architecture.html"):
             with open(os.path.join(STATIC, "architecture.html"), "rb") as f:
                 return self._send(200, f.read(), "text/html; charset=utf-8")
@@ -804,6 +825,49 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
             return
+        if path == "/api/trading/online/control":
+            # O5 control endpoint — the SAME persisted control surface Telegram uses.
+            # JSON body {action, market, ...}; action ∈ {start,stop,pause,halt,mode,
+            # allow_live,set_balance,top_up,reset_wallet,panic}. Secrets-safe; a
+            # mode→REAL switch requires an explicit confirm:true (deliberate 2-step).
+            try:
+                n = int(self.headers.get("Content-Length", 0) or 0)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                from trading.online import controls
+                action = str(data.get("action", "")).lower()
+                market = data.get("market", "")
+                if action == "start":
+                    controls.start(market)
+                elif action == "stop":
+                    controls.stop(market)
+                elif action == "pause":
+                    controls.pause(market)
+                elif action == "halt":
+                    controls.halt(market)
+                elif action == "mode":
+                    controls.set_mode(market, data.get("mode", "PAPER"),
+                                      confirm=bool(data.get("confirm", False)))
+                elif action == "allow_live":
+                    controls.set_allow_live(market, bool(data.get("allow_live", False)))
+                elif action == "set_balance":
+                    controls.set_balance(market, float(data.get("amount", 0.0)),
+                                         data.get("portfolio_id", "default"))
+                elif action == "top_up":
+                    controls.top_up(market, float(data.get("amount", 0.0)),
+                                    data.get("portfolio_id", "default"))
+                elif action == "reset_wallet":
+                    controls.reset_wallet(market, data.get("portfolio_id", "default"))
+                elif action == "panic":
+                    controls.panic()
+                else:
+                    out = {"ok": False, "error": f"unknown action {action!r}",
+                           "status": controls.status()}
+                    return self._send(200, json.dumps(out, default=str).encode(),
+                                      "application/json")
+                out = {"ok": True, "action": action, "status": controls.status()}
+            except Exception as e:
+                out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
         self._send(404, b"not found", "text/plain")
 
     def log_message(self, *a):  # quiet
