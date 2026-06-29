@@ -92,7 +92,17 @@ export default function PriceChart({
     if (!el) return
 
     const data = candles && candles.length ? candles : demoCandles()
-    const vol = volume && volume.length ? volume : demoVolume(data)
+    // Real candles embed `volume` per bar; map volume→value for the histogram.
+    // Falls back to demoVolume only when neither a volume prop nor real volume exists.
+    const realVol =
+      candles && candles.length && candles[0].volume != null
+        ? candles.map((c) => ({
+            time: c.time,
+            value: c.volume,
+            color: c.close >= c.open ? withAlpha(T.good, 0.5) : withAlpha(T.bad, 0.5),
+          }))
+        : null
+    const vol = volume && volume.length ? volume : realVol || demoVolume(data)
 
     const chart = createChart(el, {
       width: el.clientWidth || 600,

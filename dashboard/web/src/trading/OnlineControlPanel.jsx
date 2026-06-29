@@ -112,25 +112,55 @@ function Stat({ label, value, color }) {
   )
 }
 
-function ActionButton({ children, onClick, disabled, color }) {
+// Small inline spinner (Dark-Pro). Reuses one @keyframes definition by name.
+function Spinner({ color, size = 11 }) {
+  return (
+    <>
+      <style>{'@keyframes ocp-spin{to{transform:rotate(360deg)}}'}</style>
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'inline-block',
+          width: size,
+          height: size,
+          border: `2px solid ${color || T.accent}`,
+          borderTopColor: 'transparent',
+          borderRadius: '50%',
+          animation: 'ocp-spin 0.6s linear infinite',
+          verticalAlign: 'middle',
+        }}
+      />
+    </>
+  )
+}
+
+// `loading` shows a spinner on *this* button and disables it (per-action feedback);
+// `title` adds a native tooltip (used for the "arm allow live first" hint).
+function ActionButton({ children, onClick, disabled, color, loading, title }) {
   const c = color || T.accent
+  const off = disabled || loading
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
+      disabled={off}
+      title={title}
       style={{
         background: T.panel2,
-        color: disabled ? T.muted : c,
-        border: `1px solid ${disabled ? T.border : c}`,
+        color: off ? T.muted : c,
+        border: `1px solid ${off ? T.border : c}`,
         borderRadius: 8,
         padding: '7px 12px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        cursor: off ? 'not-allowed' : 'pointer',
         fontSize: 13,
         fontWeight: 600,
-        opacity: disabled ? 0.6 : 1,
+        opacity: off ? 0.6 : 1,
         whiteSpace: 'nowrap',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
       }}
     >
+      {loading && <Spinner color={c} />}
       {children}
     </button>
   )
@@ -138,7 +168,7 @@ function ActionButton({ children, onClick, disabled, color }) {
 
 // ---- per-market card ----------------------------------------------------------
 
-function MarketCard({ market, status, busy, onAction }) {
+function MarketCard({ market, status, busy, onAction, pending }) {
   const ms = marketStatus(status, market)
   const wallet = marketWallet(status, market)
   const [balanceInput, setBalanceInput] = useState('')
@@ -154,6 +184,10 @@ function MarketCard({ market, status, busy, onAction }) {
   const cash = ms.cash ?? wallet.cash ?? wallet.balance ?? wallet.paper_cash
 
   const inFlight = !!busy
+  // is a given action the one currently in flight for THIS card? (per-action spinner)
+  const loadingFor = (a) => inFlight && pending === a
+  // arming gate: PAPER→REAL is only allowed once "allow live" is armed.
+  const armGated = !isReal && !allowLive
 
   // Banner text e.g. "CRYPTO: PAPER ● ACTIVE ● LIVE-session"
   const banner = (
@@ -227,6 +261,27 @@ function MarketCard({ market, status, busy, onAction }) {
     >
       {banner}
 
+      {/* prominent REAL-money warning (the red border alone is easy to miss) */}
+      {isReal && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(255,92,108,0.12)',
+            border: `1px solid ${T.bad}`,
+            borderRadius: 8,
+            padding: '8px 10px',
+            color: T.bad,
+            fontWeight: 800,
+            fontSize: 13,
+            letterSpacing: 0.3,
+          }}
+        >
+          ⚠ REAL MONEY — live orders can be placed
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <Stat label="enabled" value={enabled ? 'yes' : 'no'} color={enabled ? T.good : T.muted} />
         <Stat label="mode" value={String(mode).toUpperCase()} color={modeColor(mode)} />
@@ -236,17 +291,28 @@ function MarketCard({ market, status, busy, onAction }) {
 
       {/* lifecycle controls */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <ActionButton onClick={() => send({ action: 'start' })} disabled={inFlight} color={T.good}>▶ Start</ActionButton>
-        <ActionButton onClick={() => send({ action: 'stop' })} disabled={inFlight} color={T.accent}>⏹ Stop</ActionButton>
-        <ActionButton onClick={() => send({ action: 'pause' })} disabled={inFlight} color={T.warn}>⏸ Pause (reduce-only)</ActionButton>
-        <ActionButton onClick={() => send({ action: 'halt' })} disabled={inFlight} color={T.bad}>🛑 Halt</ActionButton>
+        <ActionButton onClick={() => send({ action: 'start' })} disabled={inFlight} loading={loadingFor('start')} color={T.good}>▶ Start</ActionButton>
+        <ActionButton onClick={() => send({ action: 'stop' })} disabled={inFlight} loading={loadingFor('stop')} color={T.accent}>⏹ Stop</ActionButton>
+        <ActionButton onClick={() => send({ action: 'pause' })} disabled={inFlight} loading={loadingFor('pause')} color={T.warn}>⏸ Pause (reduce-only)</ActionButton>
+        <ActionButton onClick={() => send({ action: 'halt' })} disabled={inFlight} loading={loadingFor('halt')} color={T.bad}>🛑 Halt</ActionButton>
       </div>
 
       {/* mode + allow-live */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <ActionButton onClick={toggleMode} disabled={inFlight} color={isReal ? T.good : T.bad}>
+        <ActionButton
+          onClick={toggleMode}
+          disabled={inFlight || armGated}
+          loading={loadingFor('mode')}
+          color={isReal ? T.good : T.bad}
+          title={armGated ? "arm ‘allow live’ first" : undefined}
+        >
           {isReal ? 'Switch to PAPER' : 'Switch to REAL'}
         </ActionButton>
+        {/* arming pill: makes the allow_live state unmistakable */}
+        <Badge
+          text={allowLive ? '🔓 LIVE ARMED' : '🔒 live disarmed'}
+          color={allowLive ? T.bad : T.muted}
+        />
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: T.text, cursor: inFlight ? 'not-allowed' : 'pointer' }}>
           <input
             type="checkbox"
@@ -255,6 +321,7 @@ function MarketCard({ market, status, busy, onAction }) {
             onChange={(e) => send({ action: 'allow_live', value: e.target.checked })}
           />
           allow live
+          {loadingFor('allow_live') && <Spinner color={T.warn} size={9} />}
         </label>
       </div>
 
@@ -281,9 +348,9 @@ function MarketCard({ market, status, busy, onAction }) {
               width: 120,
             }}
           />
-          <ActionButton onClick={setBalance} disabled={inFlight} color={T.accent}>Set</ActionButton>
-          <ActionButton onClick={topUp} disabled={inFlight} color={T.good}>Top-up</ActionButton>
-          <ActionButton onClick={resetWallet} disabled={inFlight} color={T.warn}>Reset</ActionButton>
+          <ActionButton onClick={setBalance} disabled={inFlight} loading={loadingFor('set_balance')} color={T.accent}>Set</ActionButton>
+          <ActionButton onClick={topUp} disabled={inFlight} loading={loadingFor('top_up')} color={T.good}>Top-up</ActionButton>
+          <ActionButton onClick={resetWallet} disabled={inFlight} loading={loadingFor('reset_wallet')} color={T.warn}>Reset</ActionButton>
         </div>
       </div>
     </div>
@@ -297,6 +364,7 @@ export default function OnlineControlPanel({ intervalMs = 4000, marketList = MAR
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(null) // market name in flight, or 'panic', or null
+  const [pendingAction, setPendingAction] = useState(null) // action string of the in-flight click
   const [lastResult, setLastResult] = useState(null)
   const [stamp, setStamp] = useState(null)
   const aliveRef = useRef(true)
@@ -330,6 +398,7 @@ export default function OnlineControlPanel({ intervalMs = 4000, marketList = MAR
   // POST a control action, then refresh. busyKey marks which control is in flight.
   const control = async (body, busyKey) => {
     setBusy(busyKey)
+    setPendingAction(body.action) // remember which button to spin
     try {
       const r = await fetch(CONTROL_URL, {
         method: 'POST',
@@ -355,6 +424,7 @@ export default function OnlineControlPanel({ intervalMs = 4000, marketList = MAR
     } finally {
       if (aliveRef.current) {
         setBusy(null)
+        setPendingAction(null)
         refresh()
       }
     }
@@ -417,8 +487,12 @@ export default function OnlineControlPanel({ intervalMs = 4000, marketList = MAR
             fontWeight: 800,
             letterSpacing: 0.5,
             opacity: busy === 'panic' ? 0.6 : 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
           }}
         >
+          {busy === 'panic' && <Spinner color={T.muted} />}
           🛑 PANIC (halt all)
         </button>
       </div>
@@ -436,6 +510,7 @@ export default function OnlineControlPanel({ intervalMs = 4000, marketList = MAR
             market={m}
             status={status}
             busy={busy === m}
+            pending={busy === m ? pendingAction : null}
             onAction={onMarketAction}
           />
         ))}

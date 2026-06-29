@@ -66,7 +66,7 @@ export default function TradingDashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
         <Card title="Price" hint="TradingView Lightweight Charts v5">
-          <PriceChart symbol="BTCUSDT" height={360} />
+          <PriceChart symbol="BTC/USDT" candles={data?.candles?.candles} height={360} />
         </Card>
         <Card title="Order Flow" hint="depth + flow primitive">
           <OrderFlowMap symbol="BTCUSDT" height={360} />

@@ -150,6 +150,41 @@ OPEN_TRADE_COLUMNS = [
 ]
 
 
+_CANDLE_CACHE: dict = {}      # (symbol, market, tf) -> (ts, candles) — short TTL to avoid hammering
+
+
+def _candles(symbol: str, market: str, tf: str = "5m", limit: int = 200) -> list[dict]:
+    """REAL OHLC candles: crypto via ccxt fetch_ohlcv, NSE via OpenAlgo history.
+
+    Returns [{time, open, high, low, close, volume}] (lightweight-charts shape). Cached ~15s.
+    """
+    import time as _t
+    key = (symbol, market.upper(), tf)
+    hit = _CANDLE_CACHE.get(key)
+    if hit and (_t.time() - hit[0]) < 15:
+        return hit[1]
+    out: list[dict] = []
+    if market.upper() == "CRYPTO":
+        from trading.crypto.exchange_client import ExchangeClient
+        raw = ExchangeClient("binance")._client().fetch_ohlcv(symbol, timeframe=tf, limit=limit)
+        out = [{"time": int(r[0] // 1000), "open": float(r[1]), "high": float(r[2]),
+                "low": float(r[3]), "close": float(r[4]), "volume": float(r[5])} for r in raw]
+    else:
+        import datetime as _dt
+
+        from trading.openalgo_client import OpenAlgoClient
+        end = _dt.date.today()
+        start = end - _dt.timedelta(days=5)
+        df = OpenAlgoClient()._client().history(symbol=symbol, exchange="NSE", interval=tf,
+                                                start_date=start.isoformat(), end_date=end.isoformat())
+        for ts, row in df.tail(limit).iterrows():
+            out.append({"time": int(ts.timestamp()), "open": float(row["open"]),
+                        "high": float(row["high"]), "low": float(row["low"]),
+                        "close": float(row["close"]), "volume": float(row.get("volume", 0))})
+    _CANDLE_CACHE[key] = (_t.time(), out)
+    return out
+
+
 def _open_trades_rows() -> list[dict]:
     """Map real ExecutionEngine.status()['positions'] to OPEN_TRADE_COLUMNS rows.
 
@@ -194,7 +229,15 @@ def _open_trades_rows() -> list[dict]:
     return rows
 
 
+_COMPRESSIBLE = ("text/", "javascript", "json", "svg", "xml", "css")
+
+
 class Handler(BaseHTTPRequestHandler):
+    # HTTP/1.1 keep-alive: reuse the TCP+TLS connection across the 8 poll endpoints
+    # instead of a fresh handshake per request (huge over a tunnel). Requires a correct
+    # Content-Length on every response (set in _send), which we always send.
+    protocol_version = "HTTP/1.1"
+
     def _authed(self) -> bool:
         if _EXPECTED is None:
             return True
@@ -205,13 +248,30 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
         return False
-    def _send(self, code: int, body: bytes, ctype: str) -> None:
+
+    def _send(self, code: int, body: bytes, ctype: str, *, cache: str = "no-store") -> None:
+        # gzip when the client accepts it and the payload is compressible + worth it.
+        # 1.7MB bundle → ~490KB; JSON responses shrink ~70-80% — the single biggest win
+        # over a slow tunnel (no language change needed; the backend was never the bottleneck).
+        enc = None
+        ae = (self.headers.get("Accept-Encoding") or "")
+        if "gzip" in ae and len(body) > 512 and any(t in ctype for t in _COMPRESSIBLE):
+            try:
+                import gzip as _gz
+                body = _gz.compress(body, 6)
+                enc = "gzip"
+            except Exception:
+                enc = None
         self.send_response(code)
         self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))   # compressed length — required
+        self.send_header("Cache-Control", cache)
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def do_GET(self) -> None:
         if not self._authed():
@@ -877,6 +937,23 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
                                    "hint": "live tickers via trading/online/live_loop.py"}).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/trading/candles":
+            # REAL OHLC candles for the price chart: crypto via ccxt, NSE via OpenAlgo history.
+            from urllib.parse import parse_qs, urlparse
+            qs = parse_qs(urlparse(self.path).query)
+            symbol = (qs.get("symbol", ["BTC/USDT"])[0])
+            market = (qs.get("market", ["CRYPTO"])[0])
+            tf = (qs.get("tf", ["5m"])[0])
+            try:
+                candles = _candles(symbol, market, tf=tf)
+                body = json.dumps({"symbol": symbol, "market": market, "tf": tf,
+                                   "candles": candles, "demo": False, "live": True,
+                                   "count": len(candles)}, default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False, "symbol": symbol, "market": market,
+                                   "error": f"{type(e).__name__}: {str(e)[:80]}",
+                                   "hint": "live candles via ccxt / OpenAlgo history"}).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/opentrades":
             # T6 Open Trades table: LIVE open PAPER positions from the running trade loop
             # (marked at last price). Empty → rows:[] (honest: no open positions right now).
@@ -1032,8 +1109,13 @@ class Handler(BaseHTTPRequestHandler):
                      ".jpg": "image/jpeg", ".woff2": "font/woff2",
                      ".woff": "font/woff", ".ico": "image/x-icon"}.get(
                          os.path.splitext(fp)[1], "application/octet-stream")
+            # Vite emits content-HASHED asset names → safe to cache forever (immutable):
+            # a returning user re-uses the bundle from disk = ZERO tunnel transfer. index.html
+            # must revalidate so new deploys are picked up.
+            cache = ("public, max-age=31536000, immutable" if "/assets/" in path
+                     else "no-cache" if fp.endswith(".html") else "public, max-age=3600")
             with open(fp, "rb") as f:
-                return self._send(200, f.read(), ctype)
+                return self._send(200, f.read(), ctype, cache=cache)
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self) -> None:
@@ -1072,6 +1154,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/x-ndjson")
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Accel-Buffering", "no")          # disable proxy buffering
+            self.send_header("Connection", "close")              # streamed (no Content-Length)
+            self.close_connection = True
             self.end_headers()
             try:
                 from core.chat_brain import chat_stream
@@ -1112,6 +1196,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", enc.get_content_type())   # text/event-stream
             self.send_header("Cache-Control", "no-cache")
             self.send_header("X-Accel-Buffering", "no")
+            self.send_header("Connection", "close")              # SSE stream (no Content-Length)
+            self.close_connection = True
             self.end_headers()
 
             def _emit(ev):

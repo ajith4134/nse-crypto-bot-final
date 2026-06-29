@@ -62,14 +62,135 @@ def momentum_decider(window: int = 12, band: float = 0.00015):
     return decide
 
 
+class BrainDecider:
+    """The T8 Brain pipeline wired as a live-loop decider (momentum is the fallback).
+
+    Per market it lazily builds ONE ``BrainTradingPipeline`` and keeps a rolling OHLCV
+    pandas window per symbol — SEEDED once from REAL exchange/broker history (so regime +
+    pattern have their ~60-bar context immediately), then refreshed each tick from the live
+    price. ``__call__`` runs ``pipeline.decide(...)`` and maps its action to the loop's
+    LONG/SHORT/EXIT/FLAT vocabulary, attaching the full brain decision under ``_brain``.
+
+    BEST-EFFORT BY DESIGN: any construction or per-tick failure returns ``None`` so the
+    live loop transparently falls back to the momentum strategy for that tick — it never
+    breaks the loop, and stays fully offline-safe.
+    """
+
+    _COLS = ["open", "high", "low", "close", "volume"]
+    _MAXLEN = 200
+
+    def __init__(self, *, maxlen: int = 200):
+        self._MAXLEN = int(maxlen)
+        self._pipelines: dict[str, object] = {}     # market -> BrainTradingPipeline (or None)
+        self._unavailable: set[str] = set()         # markets whose pipeline build failed
+        self._windows: dict[str, object] = {}       # symbol -> pandas OHLCV DataFrame
+        self._seeded: set[str] = set()              # symbols already history-seeded
+
+    # ── pipeline per market (lazy, guarded) ─────────────────────────────────────────
+    def _pipeline(self, market: str):
+        m = market.upper()
+        if m in self._unavailable:
+            return None
+        if m not in self._pipelines:
+            try:
+                from trading.brain.pipeline import BrainTradingPipeline
+                self._pipelines[m] = BrainTradingPipeline(market=m)
+            except Exception:
+                self._unavailable.add(m)
+                self._pipelines[m] = None
+        return self._pipelines[m]
+
+    # ── rolling OHLCV window per symbol (seed from REAL history, then live-refresh) ──
+    def _seed_window(self, market: str, symbol: str):
+        import pandas as pd
+        m = market.upper()
+        df = None
+        try:
+            if m == "CRYPTO":
+                from trading.crypto.exchange_client import ExchangeClient
+                raw = ExchangeClient("binance")._client().fetch_ohlcv(
+                    symbol, timeframe="5m", limit=self._MAXLEN)
+                df = pd.DataFrame(raw, columns=["ts", "open", "high", "low", "close", "volume"])
+                df = df[self._COLS].astype(float)
+            else:
+                import datetime as _dt
+                from trading.openalgo_client import OpenAlgoClient
+                end = _dt.date.today()
+                start = end - _dt.timedelta(days=10)
+                h = OpenAlgoClient()._client().history(
+                    symbol=symbol, exchange="NSE", interval="5m",
+                    start_date=start.isoformat(), end_date=end.isoformat())
+                df = pd.DataFrame(h)
+                df = df[[c for c in self._COLS if c in df.columns]].astype(float)
+        except Exception:
+            df = None
+        if df is None or len(df) == 0:
+            # offline / off-hours fallback: an empty frame the live ticks will grow
+            df = pd.DataFrame(columns=self._COLS)
+        self._windows[symbol] = df.tail(self._MAXLEN).reset_index(drop=True)
+        self._seeded.add(symbol)
+
+    def _refresh(self, market: str, symbol: str, price: float):
+        import pandas as pd
+        if symbol not in self._seeded:
+            self._seed_window(market, symbol)
+        df = self._windows.get(symbol)
+        if df is None:
+            df = pd.DataFrame(columns=self._COLS)
+        price = float(price)
+        if len(df) == 0:
+            row = {"open": price, "high": price, "low": price, "close": price, "volume": 0.0}
+            df = pd.DataFrame([row], columns=self._COLS)
+        else:
+            # refresh the latest bar in place from the live price (synthetic intra-bar update)
+            i = df.index[-1]
+            df.at[i, "close"] = price
+            df.at[i, "high"] = max(float(df.at[i, "high"]), price)
+            df.at[i, "low"] = min(float(df.at[i, "low"]), price)
+        self._windows[symbol] = df.tail(self._MAXLEN).reset_index(drop=True)
+        return self._windows[symbol]
+
+    # ── the decider entrypoint ──────────────────────────────────────────────────────
+    # the full T8 pipeline (features+regime+pattern+news+recall) is heavy; run it at most
+    # once per THROTTLE_S per symbol and cache the decision between — keeps the loop's thread
+    # from holding the GIL every tick and bogging the dashboard HTTP server it shares.
+    _THROTTLE_S = 30.0
+
+    def __call__(self, market: str, symbol: str, price, *, in_position: bool):
+        try:
+            pipe = self._pipeline(market)
+            if pipe is None:
+                return None
+            now = time.monotonic()
+            cache = getattr(self, "_decision_cache", None)
+            if cache is None:
+                self._decision_cache = cache = {}
+            hit = cache.get(symbol)
+            # reuse a recent decision unless it's stale OR we just opened/closed (in_position flip)
+            if hit and (now - hit[0]) < self._THROTTLE_S and hit[2] == in_position:
+                return hit[1]
+            window = self._refresh(market, symbol, price)
+            if window is None or len(window) < 5:
+                return None
+            side = "LONG" if in_position else None
+            decision = pipe.decide(symbol, window, position_side=side)
+            raw = decision.get("action", "FLAT")
+            action = "FLAT" if raw in ("HOLD", "FLAT") else raw   # LONG/SHORT/EXIT pass through
+            result = {"action": action, "size": 1.0, "_brain": decision}
+            cache[symbol] = (now, result, in_position)
+            return result
+        except Exception:
+            return None     # any failure → loop falls back to momentum for this tick
+
+
 def _brain_decider():
-    """Try to wire the T8 Brain trading pipeline as the decider; None if unavailable."""
+    """Wire the T8 Brain pipeline as the live decider (momentum remains the fallback).
+
+    Always returns a ``BrainDecider`` — its per-tick/per-market guards downgrade to
+    momentum whenever the brain is unavailable or errors, so the loop never breaks.
+    """
     try:
-        from trading.brain.pipeline import BrainTradingPipeline  # noqa: F401
-        # The brain pipeline needs OHLCV windows + news; for the live loop we keep it optional
-        # and only engage when it exposes a simple decide(price/window)->action. If its richer
-        # interface isn't trivially callable here, fall back to momentum (operator chose "both").
-        return None
+        return BrainDecider()
     except Exception:
         return None
 
@@ -92,6 +213,7 @@ class LiveTradeLoop:
         self._sessions: dict[str, MarketSession] = {}
         self._open: dict[str, dict] = {}           # (market:symbol) -> open trade dict
         self._marks: dict[str, dict] = {}          # market -> {symbol: price}
+        self._last_brain: dict[str, dict] = {}     # symbol -> latest brain decision dict
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.ticks = 0
@@ -159,6 +281,8 @@ class LiveTradeLoop:
             try:
                 d = self._brain(market, symbol, price, in_position=in_position)
                 if isinstance(d, dict) and d.get("action"):
+                    if isinstance(d.get("_brain"), dict):
+                        self._last_brain[symbol] = d["_brain"]   # for journal context
                     return d
             except Exception:
                 pass
@@ -193,7 +317,8 @@ class LiveTradeLoop:
                 routed = {"mode": "REAL", "blocked": True,
                           "detail": "real-money execution disabled (paper-only build)"}
             elif action == "LONG" and not in_pos and gate["ok"]:
-                routed = self._open_trade(market, symbol, "LONG", price, size, mode)
+                routed = self._open_trade(market, symbol, "LONG", price, size, mode,
+                                          brain=decision.get("_brain"))
             elif action == "EXIT" and in_pos and gate["ok"]:
                 routed = self._close_trade(market, symbol, price, mode)
             results.append({"market": market, "mode": mode, "price": round(price, 4),
@@ -202,7 +327,7 @@ class LiveTradeLoop:
         self.last_tick = {"tick": self.ticks, "results": results}
         return self.last_tick
 
-    def _open_trade(self, market, symbol, direction, price, size, mode) -> dict:
+    def _open_trade(self, market, symbol, direction, price, size, mode, *, brain=None) -> dict:
         w = self.book.wallet(market)
         try:
             w.record_fill(symbol, "buy" if direction == "LONG" else "sell", size, price)
@@ -212,7 +337,9 @@ class LiveTradeLoop:
         self._open[f"{market.upper()}:{symbol}"] = {
             "market": market.upper(), "symbol": symbol, "direction": direction,
             "quantity": size, "entry_price": price, "entry_dt": _dt.datetime.now().isoformat(),
-            "mode": mode}
+            "mode": mode,
+            # snapshot the brain decision that produced THIS entry (if any) for the journal
+            "brain_entry": dict(brain) if isinstance(brain, dict) else None}
         self.trades_opened += 1
         return {"ok": True, "opened": direction, "price": price, "qty": size}
 
@@ -240,6 +367,9 @@ class LiveTradeLoop:
 
             from trading.journal.schema import ClosedTrade
             is_crypto = ot["market"] == "CRYPTO"
+            # the brain decision that produced this entry (preferred), else the latest seen
+            brain = ot.get("brain_entry") or self._last_brain.get(ot["symbol"])
+            brain_driven = isinstance(ot.get("brain_entry"), dict)
             t = ClosedTrade(
                 trade_id=f"L{self.trades_closed}-{ot['symbol'].replace('/', '')}",
                 symbol=ot["symbol"],
@@ -247,7 +377,7 @@ class LiveTradeLoop:
                 instrument_type="PERP" if is_crypto else "EQ",
                 direction=ot["direction"],
                 product_type="ISOLATED" if is_crypto else "MIS",
-                strategy_name="brain" if self._brain else "momentum",
+                strategy_name="brain" if brain_driven else "momentum",
                 setup_type="Momentum",
                 market_session=ot.get("mode", "LIVE"),
                 broker_used="binance" if is_crypto else "zerodha",
@@ -260,6 +390,29 @@ class LiveTradeLoop:
             )
             if realized is not None:
                 t.gross_pnl = float(realized)
+            # ── brain / market-context fields (only those present in the schema) ──
+            if isinstance(brain, dict):
+                regime = brain.get("regime")
+                if regime:
+                    t.market_regime_entry = str(regime)
+                conf = brain.get("confidence")
+                if conf is not None:
+                    t.brain_confidence_entry = float(conf)
+                act = brain.get("action")
+                t.brain_prediction = ({"LONG": "UP", "SHORT": "DOWN"}
+                                      .get(act, "NEUTRAL"))
+                t.signal_source = "brain"
+                # record the richer brain telemetry (anomaly/news/signal/recall) as a
+                # node_contribution entry — the schema's JSON sidecar for AI metadata.
+                t.node_contributions = [{
+                    "source": "brain_pipeline",
+                    "signal": brain.get("signal"),
+                    "anomaly_score": brain.get("anomaly_score"),
+                    "news_compound": brain.get("news_compound"),
+                    "recall_bias": brain.get("recall_bias"),
+                    "safety_blocked": brain.get("safety_blocked"),
+                    "safety_reason": brain.get("safety_reason"),
+                }]
             self.journal().record(t)          # derives charges→net P&L, quality, behaviour, persists
         except Exception as e:
             self.errors.append(f"journal: {type(e).__name__}: {str(e)[:70]}")

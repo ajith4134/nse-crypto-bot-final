@@ -12,6 +12,7 @@ const ENDPOINTS = {
   execution: '/api/trading/execution/status',
   options: '/api/trading/options/status',
   journal: '/api/trading/journal/status',
+  candles: '/api/trading/candles?symbol=BTC/USDT&market=CRYPTO&tf=5m', // {symbol,market,tf,candles:[{time,open,high,low,close,volume}],live}
 }
 
 async function getJSON(url) {

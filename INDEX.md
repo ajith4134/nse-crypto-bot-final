@@ -484,7 +484,7 @@ _Live node registry — the single source of truth the dashboard reads._
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler
-- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys
 
 ## `dashboard/verify_render.py`
@@ -1610,7 +1610,7 @@ _trading/online/controls.py — shared, persisted control surface (O5)._
 
 ## `trading/online/live_loop.py`
 _trading/online/live_loop.py — the always-on LIVE trade loop (the missing daemon)._
-- **classes:** LiveTradeLoop
+- **classes:** BrainDecider, LiveTradeLoop
 - **functions:** `momentum_decider(window, band)`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
 - **imports:** __future__, collections, threading, time, trading.online, trading.online.session, trading.online.state
 
