@@ -261,6 +261,25 @@ function MarketCard({ market, status, busy, onAction, pending }) {
     >
       {banner}
 
+      {/* trade-type SEGMENT selector — only selected segments are traded */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+        <span style={{ fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 2 }}>Trade types:</span>
+        {(ms.available_segments || []).map((seg) => {
+          const on = (ms.segments || []).includes(seg)
+          return (
+            <span key={seg} onClick={() => !inFlight && send({ action: 'toggle_segment', value: seg })}
+              title={on ? 'click to disable' : 'click to enable'}
+              style={{ cursor: inFlight ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 600,
+                padding: '3px 9px', borderRadius: 12, textTransform: 'uppercase', letterSpacing: 0.3,
+                color: on ? T.bg || '#0a0e14' : T.muted,
+                background: on ? (market === 'CRYPTO' ? T.warn : T.accent) : 'transparent',
+                border: `1px solid ${on ? (market === 'CRYPTO' ? T.warn : T.accent) : T.border}` }}>
+              {on ? '✓ ' : ''}{seg}
+            </span>
+          )
+        })}
+      </div>
+
       {/* prominent REAL-money warning (the red border alone is easy to miss) */}
       {isReal && (
         <div

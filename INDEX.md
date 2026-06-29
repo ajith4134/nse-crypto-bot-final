@@ -1184,6 +1184,12 @@ _Acceptance test (hardening): the router-grown brain must beat the naive_
 - **classes:** TestRobust
 - **imports:** __future__, run_robust, unittest
 
+## `tests/test_screener.py`
+_tests/test_screener.py — per-segment screener: offline-safe, deterministic._
+- **classes:** FakeNSESource, FakeCryptoSource
+- **functions:** `test_percent_change_filter_sorts_and_clips()`; `test_volume_filter_ranks_desc_with_min()`; `test_relative_volume_detects_spike()`; `test_realized_volatility_and_range_stability()`; `test_oi_buildup_classification()`; `test_apply_technical_filters_on_synthetic_ohlc()`; `test_apply_technical_filters_handles_garbage()`; `test_screen_nse_movers_ranks_and_scores()`; `test_screen_crypto_spot_filters_quote_and_ranks()`; `test_candidates_uses_live_source_when_available()`; `test_candidates_falls_back_to_stub_when_source_empty()`; `test_invalid_segment_returns_empty()`; `test_demo_screener_is_pure_offline_stub_all_segments()`; `test_stub_candidates_known_symbols()`; `test_watchlist_dedupes_and_sorts_across_segments()`; `test_status_snapshot_shape()`
+- **imports:** __future__, math, pytest, trading.screener, trading.screener.screener
+
 ## `tests/test_self_coding_p47.py`
 _Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandboxed._
 - **classes:** TestProposer, TestSandbox, TestGate, TestLoop, TestDemo
@@ -1193,6 +1199,11 @@ _Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandbo
 _Phase P4.4 (FSRS self-quiz mastery tracker) acceptance tests — fully offline._
 - **classes:** KnowBrain, BlankBrain, TestMakeCloze, TestQuizOne, TestRunRound, TestMasteryCurve, TestInjectedHooks, TestStatus
 - **imports:** __future__, datetime, json, memory.self_quiz, unittest, warnings
+
+## `tests/test_sizing.py`
+_Tests for trading/sizing -- per-trade position/capital sizer._
+- **functions:** `test_atr_risk_respects_max_risk_pct()`; `test_atr_risk_uses_stop_distance_when_no_atr()`; `test_atr_risk_scales_with_max_risk_pct()`; `test_atr_risk_zero_when_no_stop_or_atr()`; `test_kelly_fraction_known_values()`; `test_kelly_fraction_between_0_and_1()`; `test_kelly_no_edge_gives_nonpositive_size()`; `test_kelly_missing_inputs_zero()`; `test_afml_bet_size_zero_at_half()`; `test_afml_bet_size_grows_to_one()`; `test_ai_meta_zero_at_half_and_caps_near_one()`; `test_ai_meta_monotonic_in_prob()`; `test_vol_target_formula()`; `test_max_position_pct_cap_binds()`; `test_kelly_cap_binds()`; `test_short_flips_sign_atr()`; `test_short_flips_sign_ai_meta()`; `test_auto_blend_takes_min_of_edge_and_atr()`; `test_auto_drawdown_reduces_size()`; `test_auto_falls_back_when_no_signal()`; `test_zero_capital_returns_empty()`; `test_return_keys_present()`; `test_invalid_method_raises()`; `test_status_shape()`; `test_build_demo_sizing_deterministic()`
+- **imports:** __future__, math, pytest, trading.sizing
 
 ## `tests/test_skills_t8.py`
 _Trading Phase T8.8 (skill library + observability + self-improvement) tests — offline._
@@ -1222,6 +1233,11 @@ _Phase P4.5 (Thinking + knowing-what-it-knows) acceptance tests — fully offlin
 _Trading Phase T1 (NSE Foundation) acceptance tests._
 - **classes:** _IsolatedState, TestConfig, TestSquareoff, TestMasterToggle, _FakeFeed, TestWatchlist, TestInstrumentParsing
 - **imports:** __future__, datetime, pathlib, tempfile, trading, trading.config, trading.instruments, trading.market_toggle, trading.state, trading.watchlist, unittest
+
+## `tests/test_trailing_exits.py`
+_Tests for trading/exits/ — four trailing-exit components over one signed engine._
+- **functions:** `_first_exit(engine, path)`; `test_long_stop_trail_exits_on_drop_from_peak()`; `test_long_stop_trail_ratchets_up_only()`; `test_long_stop_no_exit_while_rising()`; `test_long_profit_trail_arms_only_after_offset()`; `test_long_profit_trail_ratchets_after_arming()`; `test_short_loss_trail_exits_on_rise_from_trough()`; `test_short_profit_trail_ratchets_down()`; `test_short_profit_arms_only_after_offset()`; `test_long_stop_trail_matches_vectorbt_tsl()`; `test_short_trail_matches_vectorbt()`; `test_atr_mode_produces_volatility_scaled_stop()`; `test_chandelier_mode_uses_pandas_ta_classic()`; `test_supertrend_mode_uses_pandas_ta_classic()`; `test_make_exit_returns_correct_wrappers()`; `test_make_exit_passes_config_through()`; `test_make_exit_rejects_unknown_purpose()`; `test_reset_re_arms_for_new_position()`; `test_status_snapshot_shape()`; `test_build_demo_trailing_snapshot()`; `test_engine_signed_core_direct_construction()`
+- **imports:** __future__, numpy, pandas, pytest, trading.exits
 
 ## `tools/gen_index.py`
 _gen_index.py — auto-generate INDEX.md from the source tree (AST, stdlib only)._
@@ -1434,6 +1450,12 @@ _trading/brain/skills.py — growing skill library (T8.8, Voyager pattern)._
 - **classes:** Skill, SkillLibrary
 - **imports:** __future__, dataclasses, trading
 
+## `trading/brain/trade_features.py`
+_trading/brain/trade_features.py — trade rows → ML network inputs → outcome output._
+- **classes:** _NumpyLogReg, TradeOutcomeNet
+- **functions:** `_f(v, default)`; `_is_crypto(trade) -> bool`; `_brain_telemetry(trade) -> dict`; `_entry_hour(trade) -> int | None`; `_regime(trade) -> str`; `trade_feature_row(trade) -> list[float]`; `_won(trade) -> int`; `get_outcome_net(closed_rows) -> TradeOutcomeNet`
+- **imports:** __future__, datetime, math
+
 ## `trading/config.py`
 _trading/config.py — central trading configuration (T1)._
 - **classes:** TradingConfig
@@ -1539,6 +1561,12 @@ _trading/execution/trailing.py — trailing-stop strategies (T3 §3, §4, §5)._
 - **functions:** `_is_long(side) -> bool`
 - **imports:** __future__, dataclasses, math
 
+## `trading/exits/__init__.py`
+_trading/exits/ — four separate trailing-exit components over one signed engine._
+- **classes:** TrailingEngine, LongProfitTrail, LongStopTrail, ShortProfitTrail, ShortLossTrail
+- **functions:** `make_exit(direction, purpose)`; `status(engine) -> dict`; `build_demo_trailing() -> dict`
+- **imports:** __future__, trading.execution.trailing
+
 ## `trading/instruments.py`
 _trading/instruments.py — NSE/NFO/MCX instrument master via OpenAlgo._
 - **classes:** Instrument, InstrumentStore
@@ -1605,7 +1633,7 @@ _trading/online/ — "Go online": continuous paper/live trading with safe switch
 
 ## `trading/online/controls.py`
 _trading/online/controls.py — shared, persisted control surface (O5)._
-- **functions:** `registry() -> MarketRegistry`; `book() -> PaperWalletBook`; `reset_singletons() -> None`; `_ms_dict(market) -> dict`; `start(market) -> dict`; `stop(market) -> dict`; `pause(market) -> dict`; `halt(market) -> dict`; `set_mode(market, mode) -> dict`; `set_allow_live(market, allow) -> dict`; `set_balance(market, amount, portfolio_id) -> dict`; `top_up(market, amount, portfolio_id) -> dict`; `reset_wallet(market, portfolio_id) -> dict`; `panic(note) -> dict`; `status() -> dict`; `_fmt_state(d) -> str`; `_fmt_status() -> str`; `_cmd_balance(args) -> str`; `build_online_command_router() -> dict`; `handle_command(command, args) -> str`
+- **functions:** `registry() -> MarketRegistry`; `book() -> PaperWalletBook`; `reset_singletons() -> None`; `_ms_dict(market) -> dict`; `start(market) -> dict`; `stop(market) -> dict`; `pause(market) -> dict`; `halt(market) -> dict`; `set_mode(market, mode) -> dict`; `set_allow_live(market, allow) -> dict`; `set_segments(market, segments) -> dict`; `toggle_segment(market, segment) -> dict`; `set_balance(market, amount, portfolio_id) -> dict`; `top_up(market, amount, portfolio_id) -> dict`; `reset_wallet(market, portfolio_id) -> dict`; `panic(note) -> dict`; `status() -> dict`; `_fmt_state(d) -> str`; `_fmt_status() -> str`; `_cmd_balance(args) -> str`; `build_online_command_router() -> dict`; `handle_command(command, args) -> str`
 - **imports:** __future__, trading.online.state, trading.online.wallet
 
 ## `trading/online/live_loop.py`
@@ -1694,10 +1722,46 @@ _trading/options/pcr.py — Put/Call Ratio, OI and volume (T4 §5 of features)._
 - **functions:** `_ratio(put_total, call_total) -> float | None`; `put_call_ratio(call_oi, put_oi) -> dict`
 - **imports:** __future__
 
+## `trading/screener/__init__.py`
+_trading/screener — per-segment ranked candidate screeners (NSE + crypto)._
+- **imports:** __future__, trading.screener.filters, trading.screener.screener, trading.screener.stubs
+
+## `trading/screener/filters.py`
+_trading/screener/filters.py — standalone, composable screener filter algorithms._
+- **functions:** `_num(v, default) -> float`; `_get(row) -> float`; `percent_change_filter(rows) -> list[Row]`; `volume_filter(rows) -> list[Row]`; `relative_volume(volumes, window) -> float | None`; `age_filter(rows) -> list[Row]`; `realized_volatility(closes) -> float | None`; `volatility_filter(rows) -> list[Row]`; `range_stability(highs, lows) -> float | None`; `oi_buildup(price_change, oi_change) -> str`; `apply_technical_filters(ohlc_df) -> dict`; `score_rows(rows, score_fn, reason_fn) -> list[Row]`
+- **imports:** __future__, math, typing
+
+## `trading/screener/screener.py`
+_trading/screener/screener.py — per-segment ranked screeners (the live-loop entry)._
+- **classes:** Screener
+- **functions:** `_cand(symbol, segment, market, score, reason, metrics, source) -> dict`; `screen_nse_movers(source, segment) -> list[dict]`; `screen_nse_fno(source) -> list[dict]`; `_ticker_rows(tickers, markets, want) -> list[dict]`; `screen_crypto_spot(source) -> list[dict]`; `screen_crypto_futures(source) -> list[dict]`; `screen_crypto_options(source) -> list[dict]`; `build_demo_screener() -> Screener`
+- **imports:** __future__, trading.screener, trading.screener.stubs, typing
+
+## `trading/screener/sources.py`
+_trading/screener/sources.py — INJECTABLE, offline-safe market-data sources._
+- **classes:** LiveNSESource, LiveCryptoSource
+- **functions:** `_rows_from_df(obj) -> list[dict]`; `_normalise_nse_movers(rows) -> list[dict]`
+- **imports:** __future__, trading.screener.filters, typing
+
+## `trading/screener/stubs.py`
+_trading/screener/stubs.py — deterministic OFFLINE candidate lists per segment._
+- **functions:** `stub_candidates(market, segment) -> list[dict]`
+- **imports:** __future__
+
 ## `trading/session.py`
 _trading/session.py — NSE T1 orchestrator (single honest entry point)._
 - **classes:** NSESession
 - **imports:** __future__, trading, trading.config, trading.instruments, trading.market_toggle, trading.openalgo_client, trading.tick_cache, trading.watchlist
+
+## `trading/sizing/__init__.py`
+_Phase-T8: Position / capital sizing layer (NSE + crypto, long & short)._
+- **imports:** __future__, position_sizer
+
+## `trading/sizing/position_sizer.py`
+_Per-trade position sizer -- turns an edge/stop/prob into qty & notional._
+- **classes:** PositionSizer
+- **functions:** `_side_sign(side) -> int`; `afml_bet_size(prob, side, num_classes) -> float`; `build_demo_sizing() -> dict`
+- **imports:** __future__, math, scipy.stats, typing
 
 ## `trading/squareoff.py`
 _trading/squareoff.py — exchange auto-squareoff rule engine (T1 §8)._

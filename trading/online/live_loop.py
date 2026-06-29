@@ -235,9 +235,15 @@ class LiveTradeLoop:
         self._crypto_price = crypto_price          # injectable for tests; else lazy ccxt
         self._nse_price = nse_price                # injectable for tests; else lazy OpenAlgo
         self._sessions: dict[str, MarketSession] = {}
+        self._symbol_segments: dict = {}           # (MARKET, symbol) -> segment (Phase 2 screener)
         self._open: dict[str, dict] = {}           # (market:symbol) -> open trade dict
         self._marks: dict[str, dict] = {}          # market -> {symbol: price}
         self._last_brain: dict[str, dict] = {}     # symbol -> latest brain decision dict
+        # P2 screener (dynamic watchlist) · P4 sizer · P3 trailing exits — all lazy + offline-safe
+        self._screener = None
+        self._sizer = None
+        self._refresh_every = 60                    # re-screen the watchlist every ~60 ticks (5 min)
+        self._atr: dict = {}                        # symbol -> recent ATR estimate (for sizing/trailing)
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.ticks = 0
@@ -312,14 +318,95 @@ class LiveTradeLoop:
                 pass
         return self._momentum(market, symbol, price, in_position=in_position)
 
+    # map a (market, symbol) to its trade-type segment (default watchlist; Phase 2 tags
+    # screened symbols with their real segment).
+    _SEG_DEFAULT = {"CRYPTO": "spot", "NSE": "intraday"}
+
+    def _segment_of(self, market: str, symbol: str) -> str:
+        return self._symbol_segments.get((market.upper(), symbol),
+                                         self._SEG_DEFAULT.get(market.upper(), ""))
+
+    # ── P2 screener / P4 sizer (lazy, offline-safe) ────────────────────────────────
+    def screener(self):
+        if self._screener is None:
+            try:
+                from trading.screener import Screener
+                self._screener = Screener()
+            except Exception:
+                self._screener = False
+        return self._screener or None
+
+    def sizer(self):
+        if self._sizer is None:
+            try:
+                from trading.sizing import PositionSizer
+                self._sizer = PositionSizer(method="kelly_atr", max_risk_pct=1.0,
+                                            max_position_pct=25.0)
+            except Exception:
+                self._sizer = False
+        return self._sizer or None
+
+    def _update_atr(self, symbol: str, price: float) -> float:
+        """Cheap EMA True-Range proxy per symbol (for sizing + ATR trailing)."""
+        a = self._atr.get(symbol)
+        if a is None:
+            self._atr[symbol] = {"atr": max(price * 0.005, 1e-9), "prev": price}
+        else:
+            self._atr[symbol] = {"atr": 0.9 * a["atr"] + 0.1 * abs(price - a["prev"]),
+                                 "prev": price}
+        return self._atr[symbol]["atr"]
+
+    def _pairs(self):
+        """Flatten the watchlist: self.symbols values may be a single symbol or a list."""
+        out = []
+        for market, syms in self.symbols.items():
+            for s in (syms if isinstance(syms, (list, tuple)) else [syms]):
+                out.append((market, s))
+        return out
+
+    def _refresh_watchlist(self) -> None:
+        """Re-screen each enabled market's SELECTED segments → dynamic symbol watchlist."""
+        sc = self.screener()
+        if sc is None:
+            return
+        for market in list(self.symbols):
+            ms = self.registry.get(market)
+            segs = list(getattr(ms, "segments", []) or [])
+            if not ms.enabled or not segs:
+                continue
+            try:
+                wl = sc.watchlist(market, segs, per_segment=3)
+            except Exception:
+                continue
+            syms = []
+            for c in wl:
+                sym, seg = c.get("symbol"), c.get("segment")
+                if sym:
+                    syms.append(sym)
+                    self._symbol_segments[(market.upper(), sym)] = seg
+            if syms:
+                self.symbols[market] = syms[:8]      # cap the per-market watchlist
+
     # ── one tick ─────────────────────────────────────────────────────────────────────
     def tick(self, *, when=None) -> dict:
         self.ticks += 1
+        # periodically re-screen the watchlist (skip tick 1 so seeding is offline-friendly)
+        if self._refresh_every and self.ticks > 1 and self.ticks % self._refresh_every == 0:
+            try:
+                self._refresh_watchlist()
+            except Exception:
+                pass
         results = []
-        for market, symbol in self.symbols.items():
+        for market, symbol in self._pairs():
             ms = self.registry.get(market)
             if not ms.enabled:
                 results.append({"market": market, "skipped": "stopped"})
+                continue
+            # only trade SELECTED segments (Phase 2 screeners feed per-segment symbols;
+            # here the default symbol maps to its segment).
+            seg = self._segment_of(market, symbol)
+            if seg and not ms.has_segment(seg):
+                results.append({"market": market, "segment": seg, "skipped": "segment off"})
                 continue
             sess = self._sessions.setdefault(market.upper(), MarketSession(market))
             mode = sess.mode(when)
@@ -330,16 +417,27 @@ class LiveTradeLoop:
             self._marks.setdefault(market.upper(), {})[symbol] = price
             key = f"{market.upper()}:{symbol}"
             in_pos = key in self._open
-            if in_pos:                                # track running peak profit / peak loss (MFE/MAE)
+            atr = self._update_atr(symbol, price)     # ATR proxy for sizing + trailing
+            trail_exit = None
+            if in_pos:                                # track peak profit/loss + the trailing exit
                 ot = self._open[key]
                 sgn = 1.0 if ot["direction"] == "LONG" else -1.0
                 upnl = sgn * (price - ot["entry_price"]) * ot["quantity"]
                 ot["peak_profit"] = round(max(ot.get("peak_profit", 0.0), upnl), 4)
                 ot["peak_loss"] = round(min(ot.get("peak_loss", 0.0), upnl), 4)
+                eng = ot.get("trail")
+                if eng is not None:
+                    try:
+                        tr = eng.update(price, atr=atr)
+                        ot["stop_level"] = tr.get("stop")
+                        if tr.get("exit"):
+                            trail_exit = tr.get("reason", "trailing-stop")
+                    except Exception:
+                        pass
             decision = self._decide(market, symbol, price, in_position=in_pos)
             action = decision.get("action", "FLAT")
             size = float(decision.get("size", 1.0))
-            reduces = action in ("EXIT", "FLAT")
+            reduces = action in ("EXIT", "FLAT") or bool(trail_exit)
             gate = self.registry.allow_order(market, reduces_position=reduces, is_real=ms.is_real)
             routed = None
             if ms.is_real:
@@ -347,17 +445,47 @@ class LiveTradeLoop:
                 routed = {"mode": "REAL", "blocked": True,
                           "detail": "real-money execution disabled (paper-only build)"}
             elif action == "LONG" and not in_pos and gate["ok"]:
-                routed = self._open_trade(market, symbol, "LONG", price, size, mode,
+                routed = self._open_trade(market, symbol, "LONG", price, size, mode, atr=atr,
                                           brain=decision.get("_brain"))
-            elif action == "EXIT" and in_pos and gate["ok"]:
+            elif (action == "EXIT" or trail_exit) and in_pos and gate["ok"]:
                 routed = self._close_trade(market, symbol, price, mode)
+                if isinstance(routed, dict) and trail_exit:
+                    routed["exit_reason"] = trail_exit
             results.append({"market": market, "mode": mode, "price": round(price, 4),
                             "action": action, "in_position": in_pos,
                             "gate_ok": gate["ok"], "routed": routed})
         self.last_tick = {"tick": self.ticks, "results": results}
         return self.last_tick
 
-    def _open_trade(self, market, symbol, direction, price, size, mode, *, brain=None) -> dict:
+    def _size_trade(self, market, symbol, direction, price, atr, brain) -> float | None:
+        """P4: position size from {capital, entry, ATR-stop, edge} via the PositionSizer."""
+        sz = self.sizer()
+        if sz is None:
+            return None
+        try:
+            w = self.book.wallet(market)
+            cap = float(w.cash())
+            prob = brain.get("confidence") if isinstance(brain, dict) else None
+            out = sz.size(capital=cap, entry_price=float(price), atr=atr, side=direction,
+                          prob=prob, market=market.upper())
+            qty = abs(float(out.get("qty") or 0.0))
+            return qty if qty > 0 else None
+        except Exception:
+            return None
+
+    def _make_trail(self, direction, price, atr):
+        """P3: attach the direction-aware ATR trailing STOP for the position."""
+        try:
+            from trading.exits import make_exit
+            purpose = "stop" if direction == "LONG" else "loss"
+            return make_exit("long" if direction == "LONG" else "short", purpose,
+                             entry_price=float(price), mode="atr", atr_mult=2.5)
+        except Exception:
+            return None
+
+    def _open_trade(self, market, symbol, direction, price, size, mode, *, atr=None, brain=None) -> dict:
+        # P4: size the trade with the PositionSizer (capital, ATR-stop, edge) — not a fixed 1.
+        size = self._size_trade(market, symbol, direction, price, atr, brain) or size
         w = self.book.wallet(market)
         try:
             w.record_fill(symbol, "buy" if direction == "LONG" else "sell", size, price)
@@ -367,6 +495,8 @@ class LiveTradeLoop:
         is_crypto = market.upper() == "CRYPTO"
         instrument = "SPOT" if is_crypto else "EQ"
         product = "SPOT" if is_crypto else "MIS"
+        # P3: attach the direction-aware trailing STOP exit (ATR-multiple) for this position
+        trail = self._make_trail(direction, price, atr)
         self._open[f"{market.upper()}:{symbol}"] = {
             "market": market.upper(), "symbol": symbol, "direction": direction,
             "quantity": size, "entry_price": price, "entry_dt": _dt.datetime.now().isoformat(),
@@ -375,6 +505,7 @@ class LiveTradeLoop:
             "trade_type": trade_type(market, instrument, product, _EXCHANGE.get(market.upper(), "")),
             "capital": round(price * size, 2),       # capital placed on the trade (notional)
             "peak_profit": 0.0, "peak_loss": 0.0,     # MFE / MAE in currency (tracked live)
+            "trail": trail, "stop_level": None,
             # snapshot the brain decision that produced THIS entry (if any) for the journal
             "brain_entry": dict(brain) if isinstance(brain, dict) else None}
         self.trades_opened += 1
@@ -491,7 +622,9 @@ class LiveTradeLoop:
         for key, ot in self._open.items():
             mark = self._marks.get(ot["market"], {}).get(ot["symbol"], ot["entry_price"])
             sign = 1.0 if ot["direction"] == "LONG" else -1.0
-            rows.append({**ot, "mark_price": mark,
+            # drop non-JSON-serialisable internals (the trailing engine + brain dict)
+            clean = {k: v for k, v in ot.items() if k not in ("trail", "brain_entry")}
+            rows.append({**clean, "mark_price": mark,
                          "unrealized_pnl": round(sign * (mark - ot["entry_price"]) * ot["quantity"], 4)})
         return rows
 
@@ -506,12 +639,22 @@ class LiveTradeLoop:
         nse_auth = ("ok" if self._nse_auth_ok else
                     "expired — re-login Zerodha at OpenAlgo (http://127.0.0.1:5000)"
                     if self._nse_auth_ok is False else "unknown")
+        segs = {}
+        for m in self.symbols:
+            try:
+                segs[m] = list(getattr(self.registry.get(m), "segments", []) or [])
+            except Exception:
+                segs[m] = []
         return {"running": bool(self._thread and self._thread.is_alive()),
                 "interval_s": self.interval, "ticks": self.ticks,
                 "trades_opened": self.trades_opened, "trades_closed": self.trades_closed,
                 "open_positions": len(self._open), "symbols": self.symbols,
                 "decider": "brain" if self._brain else "momentum",
                 "execution": "paper-only (real-money blocked)",
+                "selected_segments": segs,
+                "screener": "active" if self.screener() else "off",
+                "sizer": "active" if self.sizer() else "off",
+                "trailing_exits": "ATR trailing-stop per position",
                 "nse_broker_auth": nse_auth, "crypto_feed": "ccxt (live)",
                 "errors": self.errors[-5:], "last_tick": self.last_tick}
 

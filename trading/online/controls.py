@@ -102,6 +102,22 @@ def set_allow_live(market: str, allow: bool) -> dict:
     return _ms_dict(market)
 
 
+# ── trade-type segment selection (only selected segments are traded) ─────────────────
+def set_segments(market: str, segments: list) -> dict:
+    """Set the selected trade-types for a market (NSE: intraday/mtf/fno/commodities;
+    CRYPTO: spot/futures/options). Only selected segments get traded."""
+    registry().get(market).set_segments(list(segments or []))
+    registry().save()
+    return _ms_dict(market)
+
+
+def toggle_segment(market: str, segment: str) -> dict:
+    """Toggle one trade-type on/off for a market."""
+    registry().get(market).toggle_segment(str(segment))
+    registry().save()
+    return _ms_dict(market)
+
+
 # ── editable paper money ──────────────────────────────────────────────────────────────
 def set_balance(market: str, amount: float, portfolio_id: str = "default") -> dict:
     """Clean-reset the paper wallet to a NEW starting capital (clears positions/PnL)."""

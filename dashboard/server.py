@@ -1253,6 +1253,31 @@ class Handler(BaseHTTPRequestHandler):
                     "hint": "Trading T6 context builder failed.",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path in ("/api/trading/screener/status", "/api/trading/exits/status",
+                    "/api/trading/sizing/status"):
+            # P2 screeners · P3 trailing exits · P4 position sizing — offline demo snapshots.
+            kind = path.rsplit("/", 2)[1]
+            _builders = {"screener": ("trading.screener", "build_demo_screener"),
+                         "exits": ("trading.exits", "build_demo_trailing"),
+                         "sizing": ("trading.sizing", "build_demo_sizing")}
+            mod, fn = _builders[kind]
+            try:
+                import importlib
+                res = getattr(importlib.import_module(mod), fn)()
+                if kind == "screener":            # build_demo_screener returns a Screener
+                    snap = {"status": res.status(),
+                            "nse_watchlist": res.watchlist("NSE", ["intraday", "fno", "commodities"],
+                                                           per_segment=3),
+                            "crypto_watchlist": res.watchlist("CRYPTO", ["spot", "futures", "options"],
+                                                              per_segment=3)}
+                else:
+                    snap = res
+                snap["demo"] = True
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
+                                   "hint": f"{kind} module (trading/{kind}/)"}).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/online/loop":
             # live trade-loop telemetry: ticks, decisions, open/closed counts, last tick, errors
             try:
@@ -1461,6 +1486,10 @@ class Handler(BaseHTTPRequestHandler):
                 elif action == "allow_live":
                     allow = data.get("allow_live", data.get("value", False))
                     controls.set_allow_live(market, bool(allow))
+                elif action == "segments":           # set the full selected-segment list
+                    controls.set_segments(market, data.get("segments") or data.get("value") or [])
+                elif action == "toggle_segment":      # flip one trade-type on/off
+                    controls.toggle_segment(market, data.get("segment") or data.get("value") or "")
                 elif action == "set_balance":
                     controls.set_balance(market, float(data.get("amount", 0.0)),
                                          data.get("portfolio_id", "default"))

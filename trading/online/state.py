@@ -30,6 +30,14 @@ class TradingState(str, Enum):
     HALTED = "HALTED"
 
 
+# Selectable trade-type SEGMENTS per market — only SELECTED segments are traded.
+SEGMENTS = {
+    "NSE": ["intraday", "mtf", "fno", "commodities"],   # MIS · MTF · F&O · MCX
+    "CRYPTO": ["spot", "futures", "options"],            # spot · USDⓢ-M perp · options
+}
+_DEFAULT_SEGMENTS = {"NSE": ["intraday"], "CRYPTO": ["spot"]}   # safe minimal default
+
+
 @dataclass
 class MarketState:
     market: str
@@ -37,12 +45,37 @@ class MarketState:
     mode: str = "PAPER"                   # PAPER | REAL
     allow_live: bool = False              # must be True to ever send REAL
     trading_state: TradingState = TradingState.ACTIVE
+    segments: list = None                 # selected trade-types; None → market default
 
     def __post_init__(self) -> None:
         self.market = self.market.upper()
         self.mode = self.mode.upper()
         if isinstance(self.trading_state, str):
             self.trading_state = TradingState(self.trading_state)
+        valid = SEGMENTS.get(self.market, [])
+        if self.segments is None:
+            self.segments = list(_DEFAULT_SEGMENTS.get(self.market, valid[:1]))
+        else:                              # keep only valid segments for this market
+            self.segments = [s for s in self.segments if s in valid]
+
+    # ── segment selection (the trade-type buttons) ──────────────────────────────
+    def set_segments(self, segs: list) -> "MarketState":
+        valid = SEGMENTS.get(self.market, [])
+        self.segments = [s for s in segs if s in valid]
+        return self
+
+    def toggle_segment(self, seg: str) -> "MarketState":
+        seg = seg.lower()
+        if seg not in SEGMENTS.get(self.market, []):
+            return self
+        if seg in self.segments:
+            self.segments = [s for s in self.segments if s != seg]
+        else:
+            self.segments = self.segments + [seg]
+        return self
+
+    def has_segment(self, seg: str) -> bool:
+        return seg.lower() in self.segments
 
     # ── toggles ─────────────────────────────────────────────────────────────────
     def enable(self) -> "MarketState":
@@ -77,7 +110,8 @@ class MarketState:
     def as_dict(self) -> dict:
         return {"market": self.market, "enabled": self.enabled, "mode": self.mode,
                 "allow_live": self.allow_live, "trading_state": self.trading_state.value,
-                "is_real": self.is_real}
+                "is_real": self.is_real, "segments": list(self.segments),
+                "available_segments": SEGMENTS.get(self.market, [])}
 
 
 class TradingStateGate:
@@ -119,7 +153,8 @@ class MarketRegistry:
                     self.markets[m.upper()] = MarketState(
                         market=m, enabled=d.get("enabled", False), mode=d.get("mode", "PAPER"),
                         allow_live=d.get("allow_live", False),
-                        trading_state=d.get("trading_state", "ACTIVE"))
+                        trading_state=d.get("trading_state", "ACTIVE"),
+                        segments=d.get("segments"))
 
     def save(self) -> None:
         if self.persist:
