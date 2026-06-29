@@ -34,6 +34,18 @@ networkx                # documents/chunks/concepts knowledge graph
 pypdf                   # PDF text extraction for ingestion
 #   crawl4ai            # next drop-in for live web crawl (needs headless browser)
 
+# --- P4.5 cognition: thinking + knowing-what-it-knows (INSTALLED — CPU-only, see cognition/) ---
+# Reasoning + governance layers stitched onto BrainAgent (Thinker). langgraph already listed
+# (P4.1). mapie/crepes/causal-learn already listed above (conformal + causal discovery).
+inferactively-pymdp==0.0.7.1  # NumPy Active Inference: surprise (Bayesian) + curiosity (info gain).
+#   PINNED to the classic numpy API; 1.0.x is a JAX rewrite with a different functional Agent API.
+pyDatalog               # pure-Python Datalog: traceable transitive reasoning over the KG.
+#   scallopy (blueprint's 1st pick) ships NO PyPI wheel + needs a Rust/maturin toolchain absent
+#   here; cognition/neuro_symbolic.py has a real scallop adapter that auto-activates if built.
+dowhy                   # causal effect estimation + refutation (placebo / random-common-cause)
+netcal                  # probability calibration + ECE (recalibrate raw confidence honestly)
+nemoguardrails          # runtime constitution rails (secrets-safe / grounded / honest / non-harmful)
+
 # --- PhD-domain node families (INSTALLED — CPU-only; see ml-network-nodes-catalog.md) ---
 # physics / chaos / nonlinear dynamics
 pysindy                 # SINDy — sparse identification of governing equations

@@ -209,6 +209,43 @@ _(no summary)_
 _(no summary)_
 - **imports:** glob, re
 
+## `cognition/__init__.py`
+_cognition — Phase P4.5: "Thinking + knowing-what-it-knows"._
+- **imports:** cognition.active_inference, cognition.calibration, cognition.guardrails, cognition.neuro_symbolic, cognition.reasoning, cognition.thinker
+
+## `cognition/active_inference.py`
+_cognition/active_inference.py — principled surprise + curiosity (Phase P4.5)._
+- **classes:** ActiveInferenceModel
+- **functions:** `_kl(p, q) -> float`; `_entropy(p) -> float`
+- **imports:** __future__, math
+
+## `cognition/calibration.py`
+_cognition/calibration.py — knowing what it knows; abstain + ask for help (Phase P4.5)._
+- **classes:** CalibratedAbstainer
+- **imports:** __future__, numpy
+
+## `cognition/guardrails.py`
+_cognition/guardrails.py — the constitution / self-audit rail (Phase P4.5)._
+- **classes:** Constitution
+- **imports:** __future__, re
+
+## `cognition/neuro_symbolic.py`
+_cognition/neuro_symbolic.py — traceable logic + causal reasoning (Phase P4.5)._
+- **classes:** SymbolicReasoner, CausalAnalyzer
+- **functions:** `_scallop_available() -> bool`
+- **imports:** __future__, threading
+
+## `cognition/reasoning.py`
+_cognition/reasoning.py — deliberate reasoning: ReAct + Tree-of-Thoughts (Phase P4.5)._
+- **classes:** ReActState, ReasoningGraph
+- **functions:** `_terms(q) -> list[str]`
+- **imports:** __future__, langgraph.graph, re, typing
+
+## `cognition/thinker.py`
+_cognition/thinker.py — the P4.5 orchestrator: "thinks, stays calibrated, asks for help"._
+- **classes:** Thinker
+- **imports:** __future__, cognition.active_inference, cognition.calibration, cognition.guardrails, cognition.neuro_symbolic, cognition.reasoning
+
 ## `config.py`
 _config.py — central, safe secrets/config loader._
 - **classes:** Settings
@@ -755,6 +792,12 @@ _run_strategy_t8.py — Trading Phase T8.1 (Strategy genome + operators + walk-f
 - **functions:** `_hdr(title) -> None`; `synth_ohlcv(n, seed) -> pd.DataFrame`; `_oos_slice(feats) -> tuple[pd.DataFrame, list[dict]]`; `_score(strategy, oos_feats) -> dict`; `_load_markets() -> dict`; `_fold_returns(strategy, market_data, n_folds) -> list[float]`; `build_demo_population() -> dict`; `build_demo_evolution() -> dict`; `_rank_key(m) -> tuple`; `_fmt_metrics(m) -> str`; `_fmt_fitness(p) -> str`; `main() -> int`
 - **imports:** __future__, json, numpy, pandas, sys, trading.strategy, warnings
 
+## `run_thinking_p45.py`
+_run_thinking_p45.py — Phase P4.5 (Thinking + knowing-what-it-knows) OFFLINE demo._
+- **classes:** _Graph, _DemoBrain
+- **functions:** `_calibrated_abstainer() -> CalibratedAbstainer`; `_causal_demo() -> dict`; `build_demo_thinking() -> dict`; `demo_snapshot() -> dict`; `main() -> None`
+- **imports:** __future__, cognition, cognition.reasoning, json, numpy, warnings
+
 ## `run_trading.py`
 _run_trading.py — Trading Phase T1 (NSE) smoke test + status._
 - **functions:** `_hdr(title) -> None`; `main() -> int`
@@ -953,6 +996,12 @@ _Trading Phase T8.1 (Strategy-Evolution Engine) acceptance tests — fully offli
 - **classes:** TestFeatures, TestGenome, TestOperators, TestBacktest, TestWalkForward
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, math, numpy, pandas, trading.strategy.backtest, trading.strategy.features, trading.strategy.genome, trading.strategy.operators, unittest, warnings
+
+## `tests/test_thinking_p45.py`
+_Phase P4.5 (Thinking + knowing-what-it-knows) acceptance tests — fully offline._
+- **classes:** _Graph, _Brain, TestActiveInference, TestReasoning, TestSymbolic, TestCausal, TestCalibration, TestConstitution, TestThinker, TestBrainAgentIntegration, TestDemo
+- **functions:** `_abstainer(level)`
+- **imports:** __future__, cognition, cognition.reasoning, numpy, unittest, warnings
 
 ## `tests/test_trading_t1.py`
 _Trading Phase T1 (NSE Foundation) acceptance tests._

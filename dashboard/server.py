@@ -337,6 +337,32 @@ class Handler(BaseHTTPRequestHandler):
                             "run_self_quiz.py and ml-network-brain-ultra-blueprint.md §4).",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/brain/thinking/status":
+            # P4.5 thinking + knowing-what-it-knows: the brain REASONS deliberately over its
+            # own memory (LangGraph ReAct/ToT), updates pymdp active-inference beliefs (surprise
+            # + curiosity), reasons symbolically (pyDatalog traceable transitive logic) and
+            # causally (DoWhy + causal-learn), then STAYS CALIBRATED — a conformal selective gate
+            # (MAPIE/netcal) makes it ABSTAIN and escalate to the human when it isn't sure — and
+            # passes a NeMo-Guardrails constitution. Returns the OFFLINE deterministic demo
+            # snapshot, labelled demo. Degrades to an error payload (never crashes the server).
+            try:
+                from run_thinking_p45 import build_demo_thinking
+                snap = build_demo_thinking()
+                snap["demo"] = True
+                snap["note"] = ("offline deterministic demo (run_thinking_p45.py over a stub "
+                                "brain): real ReAct/ToT reasoning + pymdp surprise/curiosity + "
+                                "pyDatalog/DoWhy reasoning + conformal abstention + NeMo "
+                                "constitution — answers when confident, abstains + escalates "
+                                "when not; not live brain reasoning")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.5 thinking layer not importable (see cognition/, "
+                            "run_thinking_p45.py and ml-network-brain-ultra-blueprint.md §4).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/status":
             # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
             # Lazy import so the dashboard still serves if the trading deps are absent.

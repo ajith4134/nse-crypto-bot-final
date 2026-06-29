@@ -42,12 +42,16 @@ def _default_llm():
 class BrainAgent:
     """LangGraph agent: recall memory → respond (LLM-grounded, offline-safe)."""
 
-    def __init__(self, brain=None, *, llm_chat: Callable | None = None, recall_k: int = 4):
+    def __init__(self, brain=None, *, llm_chat: Callable | None = None, recall_k: int = 4,
+                 thinker=None):
         self.brain = brain                       # KnowledgeBrain or None (no memory)
         self.recall_k = recall_k
         self._llm = _default_llm()
         # injected chat(messages)->str overrides core.llm (for tests / custom providers)
         self._llm_chat = llm_chat
+        # P4.5 deliberate-reasoning layer (cognition.Thinker), lazily attachable; the agent
+        # works without it (P4.1 recall→respond) and gains think() when one is wired in.
+        self._thinker = thinker
         self.app = self._build()
 
     # ── graph ───────────────────────────────────────────────────────────────────
@@ -113,6 +117,23 @@ class BrainAgent:
                          for r in out["recalled"]],
         }
 
+    # ── P4.5: deliberate "thinking" path ─────────────────────────────────────────
+    def attach_thinker(self, thinker) -> "BrainAgent":
+        """Wire in a cognition.Thinker so the agent can think() (reason→calibrate→audit)."""
+        self._thinker = thinker
+        return self
+
+    def think(self, message: str, *, strategy: str = "react") -> dict:
+        """Deliberate answer: ReAct/ToT reasoning + conformal abstention + constitution audit
+        + active-inference surprise/curiosity. Falls back to ask() if no Thinker is attached."""
+        if self._thinker is None:
+            out = self.ask(message)
+            out["thinking"] = False
+            return out
+        result = self._thinker.think(message, strategy=strategy)
+        result["thinking"] = True
+        return result
+
     def status(self) -> dict:
         model = None
         if self._llm is not None:
@@ -121,5 +142,11 @@ class BrainAgent:
                 model = am[0] if am else None
             except Exception:
                 model = None
-        return {"engine": "langgraph", "has_memory": self.brain is not None,
-                "llm": model, "recall_k": self.recall_k}
+        st = {"engine": "langgraph", "has_memory": self.brain is not None,
+              "llm": model, "recall_k": self.recall_k, "thinking": self._thinker is not None}
+        if self._thinker is not None:
+            try:
+                st["cognition"] = self._thinker.status()
+            except Exception:
+                pass
+        return st

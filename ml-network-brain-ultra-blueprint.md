@@ -205,8 +205,22 @@ Two different questions; conflating them is the #1 source of hype:
   (`memory/knowledge_tracing.py`, `MasteryQuiz.knowledge_tracing`). Wired via
   `GET /api/brain/quiz/status` and the `run_self_quiz.py` offline demo (both curves + DKT mastery).
   *A rising accuracy/retention curve as it reads more — the honest test.*
-- **P4.5 — Thinking + knowing-what-it-knows.** ReAct/ToT + pymdp (surprise+curiosity) + Scallop/causal +
-  MAPIE calibration/abstention + NeMo-Guardrails. *Reasons, stays calibrated, asks for help.*
+- **P4.5 — Thinking + knowing-what-it-knows. ✅ BUILT.** The `cognition/` package stitches five
+  REAL reasoning/governance layers into a `Thinker` orchestrator wired onto `BrainAgent`
+  (`attach_thinker` → `agent.think()`): (a) **LangGraph** `ReasoningGraph` — ReAct (think→act→
+  observe over its OWN memory) + Tree-of-Thoughts (branch→score→select); (b) **pymdp**
+  `ActiveInferenceModel` — beliefs updated per ingest → principled **surprise** (Bayesian
+  KL(posterior‖prior), which HABITUATES on repeats and SPIKES on novelty) + **curiosity**
+  (anticipated belief-change = epistemic info gain); (c) **pyDatalog** `SymbolicReasoner` —
+  transitive concept reasoning over the knowledge graph WITH a derivation trace (scallop adapter
+  auto-activates if scallopy is ever built — no PyPI wheel + no Rust toolchain here), plus
+  **DoWhy** (+ refutation) + **causal-learn** (PC discovery) `CausalAnalyzer`; (d) conformal
+  **selective-prediction** abstention gate (+ **netcal** calibration/ECE, **MAPIE**
+  `SplitConformalClassifier` auxiliary set) — answers when confident, else **abstains + escalates
+  to the human**; (e) **NeMo-Guardrails** `Constitution` — runtime rails (secrets-safe / grounded
+  / honest-uncertainty / non-harmful). Wired via `GET /api/brain/thinking/status` and the
+  `run_thinking_p45.py` offline deterministic demo (tests: `tests/test_thinking_p45.py`).
+  *Reasons over its memory, stays calibrated, asks for help.*
 - **P4.6 — Stream-of-Mind + observability.** Ephemeral thought panel + Langfuse. *You see its state of mind.*
 - **P4.7 — Autonomy + self-coding.** gptme 24/7 loop + ADAS/SICA inventing & benchmark-gating new nodes
   (into the node-graph/structure-search). *Always-on, self-improving, sandboxed.*
