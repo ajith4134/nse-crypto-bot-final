@@ -363,6 +363,30 @@ class Handler(BaseHTTPRequestHandler):
                             "run_thinking_p45.py and ml-network-brain-ultra-blueprint.md §4).",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/brain/stream/status":
+            # P4.6 Stream-of-Mind: the brain's live, EPHEMERAL state of mind — each think()
+            # cycle becomes a stream of REAL thought-events (goal, ReAct steps, pymdp surprise/
+            # curiosity, symbolic insight, calibrated verdict); a Global Workspace competition
+            # broadcasts the most salient each tick and CONSOLIDATES winners to long-term memory
+            # (visible working→long-term pipeline). Each cycle is a durable Langfuse trace
+            # (no-op offline). Returns the OFFLINE deterministic demo snapshot, labelled demo.
+            try:
+                from run_stream_of_mind import build_demo_thinking
+                snap = build_demo_thinking()
+                snap["demo"] = True
+                snap["note"] = ("offline deterministic demo (run_stream_of_mind.py over a stub "
+                                "brain): real Thinker think-cycle → thought stream → Global "
+                                "Workspace consolidation to long-term memory; live panel streams "
+                                "via AG-UI (POST /api/agui). Langfuse offline no-op unless keys set")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.6 Stream-of-Mind not importable (see cognition/stream_of_mind.py, "
+                            "core/observability.py, run_stream_of_mind.py and the blueprint §2/§4).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/status":
             # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
             # Lazy import so the dashboard still serves if the trading deps are absent.
@@ -989,6 +1013,69 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     self.wfile.write((json.dumps(
                         {"type": "error", "error": f"server error: {type(e).__name__}"}) + "\n").encode())
+                except Exception:
+                    pass
+            return
+        if path == "/api/agui":
+            # P4.6 Stream-of-Mind over the AG-UI protocol (the blueprint's named transport, the
+            # exact lib CopilotKit is built on). The React panel's @ag-ui/client HttpAgent POSTs a
+            # RunAgentInput here; we run ONE real think cycle and stream its thought-events as
+            # AG-UI SSE: RUN_STARTED → per-thought TEXT_MESSAGE_START/CONTENT/END (+ a CUSTOM
+            # event carrying kind/salience/consolidated) → RUN_FINISHED. Offline-safe.
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            try:
+                data = json.loads(self.rfile.read(n) or b"{}")
+            except Exception:
+                data = {}
+            try:
+                import uuid
+
+                from ag_ui.core import (CustomEvent, EventType, RunFinishedEvent,
+                                        RunStartedEvent, TextMessageContentEvent,
+                                        TextMessageEndEvent, TextMessageStartEvent)
+                from ag_ui.encoder import EventEncoder
+            except Exception as e:
+                return self._send(503, json.dumps(
+                    {"error": f"AG-UI unavailable: {type(e).__name__}: {e}"}).encode(),
+                    "application/json")
+            enc = EventEncoder()
+            self.send_response(200)
+            self.send_header("Content-Type", enc.get_content_type())   # text/event-stream
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+
+            def _emit(ev):
+                self.wfile.write(enc.encode(ev).encode())
+                self.wfile.flush()
+
+            thread_id = str(data.get("threadId") or uuid.uuid4())
+            run_id = str(data.get("runId") or uuid.uuid4())
+            # query: last user message from the AG-UI RunAgentInput, if any
+            query = ""
+            for m in (data.get("messages") or []):
+                if m.get("role") == "user" and m.get("content"):
+                    query = str(m["content"])
+            try:
+                _emit(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id))
+                from run_stream_of_mind import live_stream
+                for ev in live_stream(query):
+                    if ev.get("type") == "thought":
+                        mid = str(uuid.uuid4())
+                        _emit(TextMessageStartEvent(type=EventType.TEXT_MESSAGE_START,
+                                                    message_id=mid, role="assistant"))
+                        _emit(TextMessageContentEvent(type=EventType.TEXT_MESSAGE_CONTENT,
+                                                      message_id=mid, delta=ev["text"]))
+                        _emit(TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=mid))
+                        # non-chat signal: salience/kind/consolidated for the panel to style
+                        _emit(CustomEvent(type=EventType.CUSTOM, name=ev.get("kind", "thought"),
+                                          value={"salience": ev.get("salience"),
+                                                 "consolidated": ev.get("consolidated")}))
+                _emit(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id))
+            except Exception as e:
+                try:
+                    from ag_ui.core import RunErrorEvent
+                    _emit(RunErrorEvent(type=EventType.RUN_ERROR, message=f"{type(e).__name__}"))
                 except Exception:
                     pass
             return

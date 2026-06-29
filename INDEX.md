@@ -241,6 +241,12 @@ _cognition/reasoning.py — deliberate reasoning: ReAct + Tree-of-Thoughts (Phas
 - **functions:** `_terms(q) -> list[str]`
 - **imports:** __future__, langgraph.graph, re, typing
 
+## `cognition/stream_of_mind.py`
+_cognition/stream_of_mind.py — Stream-of-Mind + Global Workspace (Phase P4.6)._
+- **classes:** Thought, GlobalWorkspace, StreamOfMind
+- **functions:** `_ga_importance(text) -> float`
+- **imports:** __future__, collections, core, itertools
+
 ## `cognition/thinker.py`
 _cognition/thinker.py — the P4.5 orchestrator: "thinks, stays calibrated, asks for help"._
 - **classes:** Thinker
@@ -292,6 +298,12 @@ _core/llm.py — P4.1 cloud-LLM access (the brain's "mouth"), reuse-first via Li
 _Node interface contracts for the prediction-graph network._
 - **classes:** IOSchema, NodeProtocol, NodeInfo, BaseNode
 - **imports:** __future__, dataclasses, typing
+
+## `core/observability.py`
+_core/observability.py — P4.6 durable observability (the brain "watches itself") via Langfuse._
+- **classes:** _Span
+- **functions:** `enabled() -> bool`; `_export_keys() -> None`; `tracer()`; `trace(name)`; `flush() -> None`; `status() -> dict`
+- **imports:** __future__, config, contextlib, logging
 
 ## `core/registry.py`
 _Live node registry — the single source of truth the dashboard reads._
@@ -792,6 +804,12 @@ _run_strategy_t8.py — Trading Phase T8.1 (Strategy genome + operators + walk-f
 - **functions:** `_hdr(title) -> None`; `synth_ohlcv(n, seed) -> pd.DataFrame`; `_oos_slice(feats) -> tuple[pd.DataFrame, list[dict]]`; `_score(strategy, oos_feats) -> dict`; `_load_markets() -> dict`; `_fold_returns(strategy, market_data, n_folds) -> list[float]`; `build_demo_population() -> dict`; `build_demo_evolution() -> dict`; `_rank_key(m) -> tuple`; `_fmt_metrics(m) -> str`; `_fmt_fitness(p) -> str`; `main() -> int`
 - **imports:** __future__, json, numpy, pandas, sys, trading.strategy, warnings
 
+## `run_stream_of_mind.py`
+_run_stream_of_mind.py — Phase P4.6 (Stream-of-Mind + observability) OFFLINE demo._
+- **classes:** _DemoBrain
+- **functions:** `_abstainer()`; `_build() -> tuple`; `build_demo_thinking() -> dict`; `demo_snapshot() -> dict`; `live_stream(query)`; `main() -> None`
+- **imports:** __future__, cognition, cognition.stream_of_mind, json, warnings
+
 ## `run_thinking_p45.py`
 _run_thinking_p45.py — Phase P4.5 (Thinking + knowing-what-it-knows) OFFLINE demo._
 - **classes:** _Graph, _DemoBrain
@@ -996,6 +1014,12 @@ _Trading Phase T8.1 (Strategy-Evolution Engine) acceptance tests — fully offli
 - **classes:** TestFeatures, TestGenome, TestOperators, TestBacktest, TestWalkForward
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, math, numpy, pandas, trading.strategy.backtest, trading.strategy.features, trading.strategy.genome, trading.strategy.operators, unittest, warnings
+
+## `tests/test_stream_of_mind_p46.py`
+_Phase P4.6 (Stream-of-Mind + observability) acceptance tests — fully offline._
+- **classes:** _Brain, TestGlobalWorkspace, TestStreamOfMind, TestObservability, TestAGUI, TestDemo
+- **functions:** `_abstainer()`; `_som(brain)`
+- **imports:** __future__, cognition, cognition.stream_of_mind, itertools, numpy, unittest, warnings
 
 ## `tests/test_thinking_p45.py`
 _Phase P4.5 (Thinking + knowing-what-it-knows) acceptance tests — fully offline._

@@ -4,6 +4,7 @@ import SigmaNetwork from './SigmaNetwork.jsx'
 import { AccuracyBars, NoiseSweep } from './Charts.jsx'
 import ChatPanel from './ChatPanel.jsx'
 import StreamOfMind from './StreamOfMind.jsx'
+import { useBrainThoughts } from './useBrainThoughts.js'
 import { useNetworkState, KIND_COLOR } from './useState.js'
 import TradingDashboard from './trading/TradingDashboard.jsx'
 import MarketWindow from './trading/MarketWindow.jsx'
@@ -35,6 +36,8 @@ export default function App() {
     const id = `${Date.now()}-${thoughtSeq.current++}`
     setThoughts((t) => [{ id, text, ts: Date.now() }, ...t].slice(0, 40))
   }
+  // P4.6: stream the brain's REAL think-cycle thoughts into the panel via the AG-UI protocol.
+  const think = useBrainThoughts(onThought)
 
   const TabBar = () => (
     <div className="chips" style={{ gap: 8 }}>
@@ -194,8 +197,14 @@ export default function App() {
             </div>
           )}
           <div className="card mind-card">
-            <h2>Stream of Mind</h2>
-            <div className="hint">The brain's live state of mind — thoughts fire, glow, then fade.</div>
+            <h2>Stream of Mind
+              <button className="think-btn" onClick={() => think('How does the brain decide when to ask for help?')}
+                style={{ marginLeft: 10, fontSize: 12, padding: '2px 10px', cursor: 'pointer',
+                  background: '#1b2433', color: '#4cc2ff', border: '1px solid #1e2837', borderRadius: 8 }}>
+                ⚡ Think
+              </button>
+            </h2>
+            <div className="hint">The brain's live state of mind (AG-UI stream) — thoughts fire, glow, then fade; salient ones consolidate to memory.</div>
             <StreamOfMind thoughts={thoughts} />
           </div>
           <div className="card chat-card">

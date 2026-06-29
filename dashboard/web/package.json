@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ag-ui/client": "^0.0.57",
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
     "d3": "^7.9.0",

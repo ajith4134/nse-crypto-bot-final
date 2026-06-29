@@ -221,7 +221,20 @@ Two different questions; conflating them is the #1 source of hype:
   / honest-uncertainty / non-harmful). Wired via `GET /api/brain/thinking/status` and the
   `run_thinking_p45.py` offline deterministic demo (tests: `tests/test_thinking_p45.py`).
   *Reasons over its memory, stays calibrated, asks for help.*
-- **P4.6 — Stream-of-Mind + observability.** Ephemeral thought panel + Langfuse. *You see its state of mind.*
+- **P4.6 — Stream-of-Mind + observability. ✅ BUILT.** The `cognition/stream_of_mind.py` engine turns one
+  real `Thinker.think()` cycle (P4.5) into a STREAM of genuine thought-events (goal, ReAct steps, pymdp
+  surprise/curiosity, symbolic insight, calibrated verdict). A **`GlobalWorkspace`** — the missing
+  selective-attention gate (GWT) — runs ONE competition per cycle: the salient **peak** wins the single
+  broadcast slot and, if it clears the floor, is **consolidated to long-term memory**
+  (`KnowledgeBrain.ingest_text`); the rest fade — a VISIBLE working-memory → long-term-memory pipeline.
+  Salience fuses the vendored **Generative-Agents** poignancy + active-inference **surprise/curiosity** +
+  confidence. The dashboard panel (`StreamOfMind.jsx`) streams it live over the **AG-UI protocol**
+  (`POST /api/agui` emits real `ag-ui-protocol` SSE events → **`@ag-ui/client`** `HttpAgent` in React —
+  the exact pipeline CopilotKit is built on, used directly so no separate Node runtime is needed; a
+  ⚡Think button triggers a cycle). Every cycle is a durable **Langfuse** trace (`core/observability.py`,
+  gated like `core/llm.py` — a silent no-op offline, a replayable thought-history when keys are set).
+  Wired via `GET /api/brain/stream/status` + the `run_stream_of_mind.py` offline demo
+  (tests: `tests/test_stream_of_mind_p46.py`). *You see its state of mind; salient thoughts become knowledge.*
 - **P4.7 — Autonomy + self-coding.** gptme 24/7 loop + ADAS/SICA inventing & benchmark-gating new nodes
   (into the node-graph/structure-search). *Always-on, self-improving, sandboxed.*
 - **P4.8 — Multimodal + identity + society + affect.** faster-whisper/Kokoro/Moondream + Letta persona +

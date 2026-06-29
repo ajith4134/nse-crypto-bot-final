@@ -46,6 +46,13 @@ dowhy                   # causal effect estimation + refutation (placebo / rando
 netcal                  # probability calibration + ECE (recalibrate raw confidence honestly)
 nemoguardrails          # runtime constitution rails (secrets-safe / grounded / honest / non-harmful)
 
+# --- P4.6 Stream-of-Mind + observability (INSTALLED — CPU-only, see cognition/stream_of_mind.py) ---
+# langfuse already present (durable trace store; silent no-op offline, gated like core/llm.py).
+ag-ui-protocol          # AG-UI agent-UI event protocol (pydantic-only, 13KB): the brain streams
+#   real thought-events as SSE from POST /api/agui; React consumes via @ag-ui/client HttpAgent
+#   (dashboard/web — the exact pipeline CopilotKit wraps, used directly so NO Node runtime needed).
+#   CopilotKit/assistant-ui deferred: they'd force a 2nd server / full chat UI for no added value here.
+
 # --- PhD-domain node families (INSTALLED — CPU-only; see ml-network-nodes-catalog.md) ---
 # physics / chaos / nonlinear dynamics
 pysindy                 # SINDy — sparse identification of governing equations
