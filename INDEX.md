@@ -1608,6 +1608,12 @@ _trading/online/controls.py — shared, persisted control surface (O5)._
 - **functions:** `registry() -> MarketRegistry`; `book() -> PaperWalletBook`; `reset_singletons() -> None`; `_ms_dict(market) -> dict`; `start(market) -> dict`; `stop(market) -> dict`; `pause(market) -> dict`; `halt(market) -> dict`; `set_mode(market, mode) -> dict`; `set_allow_live(market, allow) -> dict`; `set_balance(market, amount, portfolio_id) -> dict`; `top_up(market, amount, portfolio_id) -> dict`; `reset_wallet(market, portfolio_id) -> dict`; `panic(note) -> dict`; `status() -> dict`; `_fmt_state(d) -> str`; `_fmt_status() -> str`; `_cmd_balance(args) -> str`; `build_online_command_router() -> dict`; `handle_command(command, args) -> str`
 - **imports:** __future__, trading.online.state, trading.online.wallet
 
+## `trading/online/live_loop.py`
+_trading/online/live_loop.py — the always-on LIVE trade loop (the missing daemon)._
+- **classes:** LiveTradeLoop
+- **functions:** `momentum_decider(window, band)`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
+- **imports:** __future__, collections, threading, time, trading.online, trading.online.session, trading.online.state
+
 ## `trading/online/replay.py`
 _trading/online/replay.py — NSE off-hours candle/tick replay feed (Phase O3)._
 - **classes:** CandleReplay, ReplaySession

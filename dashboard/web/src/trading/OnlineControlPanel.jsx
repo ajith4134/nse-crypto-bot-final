@@ -70,15 +70,15 @@ function marketStatus(status, market) {
   )
 }
 
-// Pull the wallet for a market from a variety of plausible shapes.
+// Pull the wallet for a market. The backend returns wallets as a LIST of
+// {market, portfolio_id, cash, equity, ...}; also tolerate a dict-keyed shape.
 function marketWallet(status, market) {
-  const wallets = (status && status.wallets) || {}
-  return (
-    wallets[market] ||
-    wallets[market.toLowerCase()] ||
-    wallets[market.toUpperCase()] ||
-    {}
-  )
+  const wallets = (status && status.wallets) || []
+  if (Array.isArray(wallets)) {
+    const m = String(market).toUpperCase()
+    return wallets.find((w) => String(w.market).toUpperCase() === m) || {}
+  }
+  return wallets[market] || wallets[String(market).toUpperCase()] || {}
 }
 
 // ---- presentational primitives ------------------------------------------------
@@ -343,7 +343,11 @@ export default function OnlineControlPanel({ intervalMs = 4000, marketList = MAR
       const newStatus = data && data.status && data.status.markets ? data.status
         : (data && data.markets ? data : null)
       if (newStatus) setStatus(newStatus) // reflect the new state immediately (no 4s wait)
-      setLastResult({ ok: true, text: `${body.action}${body.market ? ' · ' + body.market : ''} ✓`, ts: new Date() })
+      // honest toast: a rejected switch (e.g. REAL without allow_live+confirm) returns ok:false
+      const ok = data && data.ok !== false
+      const label = `${body.action}${body.market ? ' · ' + body.market : ''}`
+      setLastResult({ ok, ts: new Date(),
+        text: ok ? `${label} ✓` : `${label} rejected: ${data.reason || 'not allowed'}` })
       setErr(null)
     } catch (e) {
       if (!aliveRef.current) return

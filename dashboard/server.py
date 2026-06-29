@@ -857,63 +857,71 @@ class Handler(BaseHTTPRequestHandler):
                 }).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/tickers":
-            # T6 Dark-Pro ticker tape: deterministic offline demo constants (no live
-            # feed wired) — honest hardcoded values, never a fabricated live quote.
+            # T6 Dark-Pro ticker tape: LIVE last prices from the running trade loop (real ccxt /
+            # OpenAlgo quotes). Falls back to demo constants only if the loop has no ticks yet.
             try:
-                body = json.dumps({
-                    "tickers": _DEMO_TICKERS,
-                    "demo": True,
-                    "note": ("offline demo ticker tape (hardcoded constants); no live "
-                             "NSE/crypto feed wired yet — values are illustrative only"),
-                }, default=str).encode()
+                from trading.online.live_loop import get_loop
+                snap = get_loop().ticks_snapshot()
+                if snap:
+                    tickers = [{"symbol": v["symbol"], "last": round(float(v["last"]), 2),
+                                "change": 0.0, "change_pct": 0.0, "market": v["market"]}
+                               for v in snap.values()]
+                    body = json.dumps({"tickers": tickers, "demo": False, "live": True,
+                                       "note": "live last prices from the trade loop"},
+                                      default=str).encode()
+                else:
+                    body = json.dumps({"tickers": _DEMO_TICKERS, "demo": True,
+                                       "note": "loop has no live ticks yet (warming up)"},
+                                      default=str).encode()
             except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "Trading T6 tickers builder failed.",
-                }).encode()
+                body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
+                                   "hint": "live tickers via trading/online/live_loop.py"}).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/opentrades":
-            # T6 Open Trades table: rows derived from REAL ExecutionEngine.status()
-            # positions (run_trading_t3 demo sequence). Empty positions → rows:[].
+            # T6 Open Trades table: LIVE open PAPER positions from the running trade loop
+            # (marked at last price). Empty → rows:[] (honest: no open positions right now).
             try:
-                body = json.dumps({
-                    "columns": OPEN_TRADE_COLUMNS,
-                    "rows": _open_trades_rows(),
-                    "demo": True,
-                    "note": ("rows from real offline ExecutionEngine.status() positions "
-                             "(run_trading_t3 sequence); no live broker wired — some "
-                             "cells honestly '—' when not carried by the engine"),
-                }, default=str).encode()
+                from trading.online.live_loop import get_loop
+                live = get_loop().open_positions()
+                rows = [[p["symbol"], "PERP" if p["market"] == "CRYPTO" else "EQ", p["direction"],
+                         p["quantity"], p["quantity"], round(p["entry_price"], 4),
+                         round(p["mark_price"], 4), round(p["unrealized_pnl"], 4),
+                         round(p["unrealized_pnl"] / (p["entry_price"] * p["quantity"]) * 100, 3)
+                         if p["entry_price"] * p["quantity"] else 0.0,
+                         "—", "—", "—", "—", "—", "—",
+                         "momentum", p["market"], 1.0, "—", "—", "—", "—"]
+                        for p in live]
+                body = json.dumps({"columns": OPEN_TRADE_COLUMNS, "rows": rows,
+                                   "demo": False, "live": True,
+                                   "note": "live open paper positions from the trade loop"},
+                                  default=str).encode()
             except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "Trading T6 open-trades builder failed "
-                            "(see trading/execution/ and blueprint §T3/§4).",
-                }).encode()
+                body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
+                                   "hint": "live open trades via trading/online/live_loop.py"}).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/closedtrades":
-            # T6 Closed Trades journal: full 85+ column schema, real to_dict() rows
-            # off the labelled DEMO journal (run_journal_t5 synthetic closed trades).
+            # T6 Closed Trades journal: LIVE persisted journal (journal.json) — the full
+            # 110-column closed trades the trade loop actually saved. Falls back to the demo
+            # journal only while the live journal is still empty (so the table isn't blank).
             try:
-                from run_journal_t5 import build_demo_journal
+                from trading.journal.journal import TradeJournal
                 from trading.journal.schema import COLUMNS
-                rows = [t.to_dict() for t in build_demo_journal().trades]
-                body = json.dumps({
-                    "columns": COLUMNS,
-                    "rows": rows,
-                    "demo": True,
-                    "note": ("offline demo journal (run_journal_t5 synthetic trades); no "
-                             "live trade loop wired yet — real computed analytics only"),
-                }, default=str).encode()
+                live = TradeJournal(state_file="journal.json", persist=True)
+                if live._trades:
+                    rows = [t.to_dict() for t in live._trades]
+                    body = json.dumps({"columns": COLUMNS, "rows": rows, "demo": False,
+                                       "live": True, "count": len(rows),
+                                       "note": "live journal.json — real closed paper trades"},
+                                      default=str).encode()
+                else:
+                    from run_journal_t5 import build_demo_journal
+                    rows = [t.to_dict() for t in build_demo_journal().trades]
+                    body = json.dumps({"columns": COLUMNS, "rows": rows, "demo": True,
+                                       "note": "no live closed trades yet — showing demo journal"},
+                                      default=str).encode()
             except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "Trading T6 closed-trades not importable "
-                            "(see trading/journal/ and blueprint §T5/§5).",
-                }).encode()
+                body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
+                                   "hint": "live journal via trading/journal/journal.py"}).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/confidence":
             # T6 per-symbol Brain confidence book: real Bayesian win-rate + Brier
@@ -970,6 +978,14 @@ class Handler(BaseHTTPRequestHandler):
                     "error": f"{type(e).__name__}: {e}",
                     "hint": "Trading T6 context builder failed.",
                 }).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/trading/online/loop":
+            # live trade-loop telemetry: ticks, decisions, open/closed counts, last tick, errors
+            try:
+                from trading.online.live_loop import get_loop
+                body = json.dumps(get_loop().status(), default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}"}).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/online/status":
             # Honest O5 online-control snapshot: the SHARED, persisted control surface
@@ -1152,10 +1168,16 @@ class Handler(BaseHTTPRequestHandler):
                 elif action == "halt":
                     controls.halt(market)
                 elif action == "mode":
-                    controls.set_mode(market, data.get("mode", "PAPER"),
-                                      confirm=bool(data.get("confirm", False)))
+                    # accept either "mode" or the UI's "value" key (robust to both clients);
+                    # surface set_mode's {ok, reason} so a REJECTED real-switch isn't shown green.
+                    mode = str(data.get("mode") or data.get("value") or "PAPER").upper()
+                    res = controls.set_mode(market, mode, confirm=bool(data.get("confirm", False)))
+                    out = {"ok": bool(res.get("ok", True)), "action": action,
+                           "reason": res.get("reason"), "status": controls.status()}
+                    return self._send(200, json.dumps(out, default=str).encode(), "application/json")
                 elif action == "allow_live":
-                    controls.set_allow_live(market, bool(data.get("allow_live", False)))
+                    allow = data.get("allow_live", data.get("value", False))
+                    controls.set_allow_live(market, bool(allow))
                 elif action == "set_balance":
                     controls.set_balance(market, float(data.get("amount", 0.0)),
                                          data.get("portfolio_id", "default"))
@@ -1184,6 +1206,14 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    # P-trade: start the always-on LIVE trade loop (real-data PAPER trading + journaling).
+    # Ticks the supervisor that controls.start()/Stop drive; PAPER-only (real orders blocked).
+    try:
+        from trading.online.live_loop import start_loop
+        start_loop()
+        print("Live trade loop started (real-data paper trading).")
+    except Exception as e:
+        print(f"Live trade loop NOT started: {type(e).__name__}: {e}")
     print(f"Dashboard on http://localhost:{port}  (Ctrl+C to stop)")
     srv.serve_forever()
 

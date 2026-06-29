@@ -21,13 +21,15 @@ env/
 *.ckpt
 *.pt
 *.onnx
-models/                 # P4.8 downloaded model files (kokoro onnx + voices, etc.) — not git
+# P4.8 downloaded model files (kokoro onnx+voices) + corpora — not git (re-fetch via downloads)
+models/
 models/checkpoints/
-nltk_data/              # NRCLex/textblob corpora (downloaded; re-fetch via textblob.download_corpora)
+nltk_data/
 data/raw/
 data/processed/
 mlruns/
-*.bin                   # large model binaries (kokoro voices, etc.)
+# large model binaries (kokoro voices, etc.)
+*.bin
 
 # AutoGluon / symbolic-regression / training run output (generated)
 AutogluonModels/
