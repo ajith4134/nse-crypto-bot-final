@@ -54,7 +54,7 @@ export default function OrderFlowMap({ bids, asks, height = 320, symbol = 'BTCUS
   const isDemo = !bids || !asks
   let bk = isDemo ? demoBook() : { bids, asks }
 
-  const LEVELS = 12
+  const LEVELS = 20      // full L2 depth (matches the /api/trading/orderbook ladder)
   const topBids = (bk.bids || []).slice(0, LEVELS)
   const topAsks = (bk.asks || []).slice(0, LEVELS)
 

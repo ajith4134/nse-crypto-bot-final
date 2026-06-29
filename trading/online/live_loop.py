@@ -244,8 +244,13 @@ class LiveTradeLoop:
         self._sizer = None
         self._refresh_every = 60                    # re-screen the watchlist every ~60 ticks (5 min)
         self._atr: dict = {}                        # symbol -> recent ATR estimate (for sizing/trailing)
-        # user-tunable strategy config (trailing ATR multiple · sizing method/risk/caps) — persisted
-        self.cfg = {"trail_atr_mult": 2.5, "sizing_method": "kelly_atr",
+        # user-tunable strategy config — persisted. Defaults tuned to HOLD trades (intraday,
+        # minutes→hours): a wide percentage trailing stop that rides up + a far take-profit cap.
+        self.cfg = {"trail_mode": "pct",          # "pct" (wide, predictable) | "atr" (volatility)
+                    "trail_pct": 0.035,           # 3.5% wide trailing stop — rides up, locks gains
+                    "take_profit_pct": 0.07,      # 7% far take-profit cap (0 = none, ride trail only)
+                    "trail_atr_mult": 2.5,        # used only when trail_mode == "atr"
+                    "sizing_method": "kelly_atr",
                     "max_risk_pct": 1.0, "max_position_pct": 25.0, "kelly_fraction": 0.5}
         try:
             from trading import state as _st
@@ -361,9 +366,10 @@ class LiveTradeLoop:
     def set_config(self, **kw) -> dict:
         """Update strategy config (trail_atr_mult / sizing_method / max_risk_pct /
         max_position_pct / kelly_fraction), rebuild the sizer, and persist."""
+        _str_keys = ("sizing_method", "trail_mode")
         for k, v in kw.items():
             if k in self.cfg and v is not None:
-                self.cfg[k] = float(v) if k != "sizing_method" else str(v)
+                self.cfg[k] = str(v) if k in _str_keys else float(v)
         self._sizer = None                          # rebuild with new params on next use
         try:
             from trading import state as _st
@@ -476,6 +482,11 @@ class LiveTradeLoop:
                             trail_exit = tr.get("reason", "trailing-stop")
                     except Exception:
                         pass
+                # far TAKE-PROFIT cap — book the trade only on a big win (lets it run long)
+                tp = float(self.cfg.get("take_profit_pct", 0.0) or 0.0)
+                cap = ot.get("capital") or (ot["entry_price"] * ot["quantity"])
+                if tp > 0 and cap and (upnl / cap) >= tp:
+                    trail_exit = trail_exit or "take-profit"
             decision = self._decide(market, symbol, price, in_position=in_pos)
             action = decision.get("action", "FLAT")
             size = float(decision.get("size", 1.0))
@@ -522,13 +533,17 @@ class LiveTradeLoop:
             return None
 
     def _make_trail(self, direction, price, atr):
-        """P3: attach the direction-aware ATR trailing STOP for the position."""
+        """P3: attach the direction-aware WIDE trailing STOP for the position — a percentage
+        trail by default (rides up, predictable width) so trades hold; ATR mode optional."""
         try:
             from trading.exits import make_exit
             purpose = "stop" if direction == "LONG" else "loss"
-            return make_exit("long" if direction == "LONG" else "short", purpose,
-                             entry_price=float(price), mode="atr",
-                             atr_mult=float(self.cfg.get("trail_atr_mult", 2.5)))
+            side = "long" if direction == "LONG" else "short"
+            if self.cfg.get("trail_mode", "pct") == "atr":
+                return make_exit(side, purpose, entry_price=float(price), mode="atr",
+                                 atr_mult=float(self.cfg.get("trail_atr_mult", 2.5)))
+            return make_exit(side, purpose, entry_price=float(price), mode="pct",
+                             trail_pct=float(self.cfg.get("trail_pct", 0.035)))
         except Exception:
             return None
 

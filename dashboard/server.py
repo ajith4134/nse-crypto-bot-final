@@ -152,6 +152,20 @@ OPEN_TRADE_COLUMNS = [
 ]
 
 
+def _trade_outcome_net():
+    """The project node network trained on the LIVE closed-trade journal (cached by
+    trade-count in trade_features). Returns a TradeOutcomeNet, or None if the trading
+    stack isn't importable. This is the trade-row → neural-network bridge."""
+    try:
+        from trading.brain.trade_features import get_outcome_net
+        from trading.journal.journal import TradeJournal
+        jr = TradeJournal(state_file="journal.json", persist=True)
+        closed = [t.to_dict() for t in jr._trades]
+        return get_outcome_net(closed)
+    except Exception:
+        return None
+
+
 _CANDLE_CACHE: dict = {}      # (symbol, market, tf) -> (ts, candles) — short TTL to avoid hammering
 _FX_CACHE: dict = {}          # "USDINR" -> (ts, rate)
 
@@ -1036,12 +1050,19 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from trading.online.live_loop import get_loop
                 live = get_loop().open_positions()
+                # train the project node network on the CLOSED journal, predict each OPEN trade
+                net = _trade_outcome_net()
+                preds = net.predict(live) if net else []
                 # rows are DICTS keyed by OPEN_TRADE_COLUMNS (the frontend reads row[columnName]).
                 rows = []
                 nse_pnl = crypto_pnl = nse_cap = crypto_cap = 0.0
                 import datetime as _dt
-                for p in live:
+
+                def _money(v):
+                    return f"{sym}{float(v):,.4f}".rstrip("0").rstrip(".")
+                for i, p in enumerate(live):
                     cur, sym = CCY.get(p["market"], ("INR", "₹"))
+                    is_crypto = p["market"] == "CRYPTO"
                     notional = p.get("capital") or (p["entry_price"] * p["quantity"])
                     upnl = p["unrealized_pnl"]
                     pct = round(upnl / notional * 100, 3) if notional else 0.0
@@ -1051,6 +1072,38 @@ class Handler(BaseHTTPRequestHandler):
                         hold = f"{int(held.total_seconds() // 60)}m"
                     except Exception:
                         hold = "—"
+                    # live stop/trail from the loop's ratcheting trailing engine (+ initial SL)
+                    stop_lv = p.get("stop_level", p.get("initial_sl"))
+                    stop_txt = _money(stop_lv) if stop_lv is not None else "—"
+                    lev = float(p.get("leverage", 1.0) or 1.0)
+                    # R-multiple (live) = unrealized P&L / capital-at-risk
+                    risk = p.get("capital_at_risk")
+                    rmult_txt = f"{round(upnl / risk, 2):.2f}R" if risk else "—"
+                    # efficiency (live) = MFE capture share of the realised path
+                    denom = pp + abs(pl)
+                    eff_txt = f"{round(pp / denom * 100, 1)}%" if denom > 0 else "—"
+                    # liquidation price — only meaningful when leveraged (spot/eq → N/A, honest)
+                    liq_txt = "—"
+                    if is_crypto and lev > 1.0:
+                        try:
+                            from trading.crypto.liquidation import liquidation_price
+                            liq = liquidation_price(side=p["direction"].lower(),
+                                                    entry_price=float(p["entry_price"]), leverage=lev,
+                                                    margin_mode=p.get("margin_mode", "isolated"))
+                            liq_txt = f"{sym}{liq:,.2f}"
+                        except Exception:
+                            pass
+                    # node-network outcome call on THIS open trade (trade row → NN → output)
+                    pr = preds[i] if i < len(preds) else {}
+                    win_txt = (f"{round(pr['p_win'] * 100, 1)}%"
+                               if pr.get("p_win") is not None else "—")
+                    expr = pr.get("expected_R")
+                    expr_txt = f"{expr:.2f}R" if expr is not None else "—"
+                    # confidence: brain entry confidence, else the NN p_win
+                    conf_val = p.get("brain_confidence_entry")
+                    if conf_val is None:
+                        conf_val = pr.get("p_win")
+                    conf_txt = f"{round(float(conf_val) * 100, 1)}%" if conf_val is not None else "—"
                     if p["market"] == "CRYPTO":
                         crypto_pnl += upnl; crypto_cap += notional
                     else:
@@ -1061,29 +1114,81 @@ class Handler(BaseHTTPRequestHandler):
                         "Direction": p["direction"], "Qty": p["quantity"],
                         # money values carry their currency symbol so $ (crypto) ≠ ₹ (NSE)
                         "Capital": f"{sym}{notional:,.2f}",
-                        "Entry Price": f"{sym}{p['entry_price']:,.4f}".rstrip("0").rstrip("."),
-                        "Current Price": f"{sym}{p['mark_price']:,.4f}".rstrip("0").rstrip("."),
+                        "Entry Price": _money(p["entry_price"]),
+                        "Current Price": _money(p["mark_price"]),
                         "Unrealized P&L": f"{sym}{upnl:,.2f}", "Unrealized P&L %": pct,
                         "Peak P/L": f"{sym}{pp:,.2f}/{sym}{pl:,.2f}",
-                        "Stop": "—", "Trail Stop": "—", "R-multiple": "—", "Efficiency": "—",
+                        "Stop": stop_txt, "Trail Stop": stop_txt,
+                        "R-multiple": rmult_txt, "Efficiency": eff_txt,
                         "Strategy": p.get("strategy", "momentum"),
                         "Exchange": "binance" if p["market"] == "CRYPTO" else "NSE",
-                        "Leverage": 1.0, "Liq Price": "—", "Hold Time": hold, "Confidence": "—"})
+                        "Leverage": lev, "Liq Price": liq_txt, "Hold Time": hold,
+                        "Confidence": conf_txt,
+                        "Win Prob": win_txt, "NN Verdict": pr.get("verdict", "—"),
+                        "Exp R": expr_txt})
                 rate = _usdinr()
                 total_inr = nse_pnl + crypto_pnl * rate     # convert $ → ₹ for the grand total
                 body = json.dumps({"columns": OPEN_TRADE_COLUMNS, "rows": rows,
                                    "demo": False, "live": True,
+                                   "nn": (net.info() if net else None),
                                    "totals": {"nse_pnl": round(nse_pnl, 2),          # ₹
                                               "binance_pnl": round(crypto_pnl, 2),   # $
                                               "total_inr": round(total_inr, 2),      # ₹ (converted)
                                               "nse_capital": round(nse_cap, 2),
                                               "binance_capital": round(crypto_cap, 2),
                                               "usdinr": round(rate, 2), "open": len(rows)},
-                                   "note": "live open paper positions — crypto in $ (USDT), NSE in ₹"},
+                                   "note": "live open paper positions — crypto in $ (USDT), NSE in ₹; "
+                                           "Win Prob/NN Verdict/Exp R = project node network on the trade row"},
                                   default=str).encode()
             except Exception as e:
                 body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
                                    "hint": "live open trades via trading/online/live_loop.py"}).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/trading/brain/predict":
+            # The trade-row → NEURAL-NETWORK bridge (operator's first ask): the project
+            # node network (GatedMoENode over real sklearn experts) is TRAINED on the
+            # closed-trade journal and run on every OPEN trade. We also replay the last
+            # few CLOSED trades through it (predicted vs actual) so the panel shows the
+            # network's output even with zero open positions. Honest: untrained until the
+            # journal has ≥12 closed trades with both outcomes.
+            try:
+                from trading.online.live_loop import get_loop
+                net = _trade_outcome_net()
+                if net is None:
+                    raise RuntimeError("trading stack not importable")
+                live = get_loop().open_positions()
+                open_preds = net.predict(live)
+                # replay recent closed trades (predicted p_win vs actual outcome)
+                replay = []
+                try:
+                    from trading.journal.journal import TradeJournal
+                    jr = TradeJournal(state_file="journal.json", persist=True)
+                    for t in jr._trades[-10:]:
+                        d = t.to_dict()
+                        pr = net.predict_one(d)
+                        actual = "WIN" if float(d.get("net_pnl") or 0.0) > 0 else "LOSS"
+                        replay.append({"symbol": d.get("symbol"), "p_win": pr.get("p_win"),
+                                       "verdict": pr.get("verdict"), "actual": actual,
+                                       "net_pnl": d.get("net_pnl")})
+                except Exception:
+                    replay = []
+                body = json.dumps({
+                    "model": net.info(),
+                    "open_predictions": open_preds,
+                    "closed_replay": replay,
+                    "demo": False,
+                    "note": ("trade rows → project node network → outcome. The network is "
+                             "trained on the live closed-trade journal and run on each open "
+                             "trade; closed_replay shows predicted p_win vs the actual result. "
+                             "engine 'gated_moe' = the real node MoE; 'numpy_logreg' = the "
+                             "offline fallback; 'untrained' = need ≥12 closed trades."),
+                }, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False, "error": f"{type(e).__name__}: {e}",
+                    "hint": "trade→NN bridge via trading/brain/trade_features.py "
+                            "(TradeOutcomeNet) + the closed journal.",
+                }).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/closedtrades":
             # T6 Closed Trades journal: LIVE persisted journal (journal.json) — the full
@@ -1529,7 +1634,10 @@ class Handler(BaseHTTPRequestHandler):
                         sizing_method=data.get("sizing_method"),
                         max_risk_pct=data.get("max_risk_pct"),
                         max_position_pct=data.get("max_position_pct"),
-                        kelly_fraction=data.get("kelly_fraction"))
+                        kelly_fraction=data.get("kelly_fraction"),
+                        trail_mode=data.get("trail_mode"),
+                        trail_pct=data.get("trail_pct"),
+                        take_profit_pct=data.get("take_profit_pct"))
                     out = {"ok": True, "action": action, "config": cfg}
                     return self._send(200, json.dumps(out, default=str).encode(), "application/json")
                 elif action == "panic":

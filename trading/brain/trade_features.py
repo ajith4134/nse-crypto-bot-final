@@ -185,7 +185,8 @@ class _NumpyLogReg:
     def predict_proba_row(self, row) -> float:
         import numpy as np
         x = (np.asarray(row, dtype=float) - self.mu) / self.sd
-        return float(1.0 / (1.0 + math.exp(-(float(x @ self.w) + self.b))))
+        z = max(-60.0, min(60.0, float(x @ self.w) + self.b))   # clamp: stable sigmoid
+        return float(1.0 / (1.0 + math.exp(-z)))
 
 
 class TradeOutcomeNet:

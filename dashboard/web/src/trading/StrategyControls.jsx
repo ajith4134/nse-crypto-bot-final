@@ -52,6 +52,9 @@ export default function StrategyControls({ config, onAction }) {
   const [maxPos, setMaxPos] = useState('')
   const [trailAtr, setTrailAtr] = useState('')
   const [kelly, setKelly] = useState('')
+  const [trailMode, setTrailMode] = useState('pct')
+  const [trailPct, setTrailPct] = useState('')      // shown as % (3.5), stored as fraction
+  const [takeProfit, setTakeProfit] = useState('')  // shown as % (7), stored as fraction
   const [applied, setApplied] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -62,13 +65,18 @@ export default function StrategyControls({ config, onAction }) {
     if (cfg.max_position_pct != null) setMaxPos(String(cfg.max_position_pct))
     if (cfg.trail_atr_mult != null) setTrailAtr(String(cfg.trail_atr_mult))
     if (cfg.kelly_fraction != null) setKelly(String(cfg.kelly_fraction))
+    if (cfg.trail_mode != null) setTrailMode(String(cfg.trail_mode))
+    if (cfg.trail_pct != null) setTrailPct(String(+(cfg.trail_pct * 100).toFixed(3)))
+    if (cfg.take_profit_pct != null) setTakeProfit(String(+(cfg.take_profit_pct * 100).toFixed(3)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg.sizing_method, cfg.max_risk_pct, cfg.max_position_pct, cfg.trail_atr_mult, cfg.kelly_fraction])
+  }, [cfg.sizing_method, cfg.max_risk_pct, cfg.max_position_pct, cfg.trail_atr_mult, cfg.kelly_fraction, cfg.trail_mode, cfg.trail_pct, cfg.take_profit_pct])
 
   const apply = async () => {
     if (busy) return
     setBusy(true)
     try {
+      const tp = num(trailPct)
+      const tk = num(takeProfit)
       await onAction?.({
         action: 'set_strategy',
         sizing_method: method,
@@ -76,6 +84,9 @@ export default function StrategyControls({ config, onAction }) {
         max_position_pct: num(maxPos),
         trail_atr_mult: num(trailAtr),
         kelly_fraction: num(kelly),
+        trail_mode: trailMode,
+        trail_pct: tp != null ? tp / 100 : null,         // % → fraction
+        take_profit_pct: tk != null ? tk / 100 : null,   // % → fraction
       })
       setApplied(true)
       setTimeout(() => setApplied(false), 2200)
@@ -112,6 +123,25 @@ export default function StrategyControls({ config, onAction }) {
           ))}
         </select>
       </Field>
+
+      {/* Exit controls — wide trailing stop + far take-profit = hold trades longer */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+        <Field label="Trailing mode" hint="pct = wide & predictable">
+          <select value={trailMode} onChange={(e) => setTrailMode(e.target.value)} style={inputStyle}>
+            <option value="pct">% trail</option>
+            <option value="atr">ATR ×</option>
+          </select>
+        </Field>
+        <Field label="Trailing stop %" hint="rides up, locks gains">
+          <input type="number" step="0.5" min="0" value={trailPct}
+            onChange={(e) => setTrailPct(e.target.value)} placeholder="3.5" style={inputStyle}
+            disabled={trailMode === 'atr'} />
+        </Field>
+        <Field label="Take-profit %" hint="0 = ride trail only">
+          <input type="number" step="0.5" min="0" value={takeProfit}
+            onChange={(e) => setTakeProfit(e.target.value)} placeholder="7" style={inputStyle} />
+        </Field>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
         <Field label="Risk % / trade" hint="max_risk_pct">

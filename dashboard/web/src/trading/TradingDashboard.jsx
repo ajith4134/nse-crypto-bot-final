@@ -13,6 +13,7 @@ import TradeDrilldown from './TradeDrilldown.jsx'
 import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
 import BrainPanel from './BrainPanel.jsx'
+import BrainOutcomeNet from './BrainOutcomeNet.jsx'
 import OnlineControlPanel from './OnlineControlPanel.jsx'
 import WatchlistPanel from './WatchlistPanel.jsx'
 import StrategyControls from './StrategyControls.jsx'
@@ -111,9 +112,14 @@ export default function TradingDashboard() {
           onRowClick={(row) => setDrill(row)} />
       </Card>
 
-      <Card title="AI Brain (T8)" hint="evolution · self-eval · skills · end-to-end decision">
-        <BrainPanel />
-      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Card title="AI Brain (T8)" hint="evolution · self-eval · skills · end-to-end decision">
+          <BrainPanel />
+        </Card>
+        <Card title="Brain Outcome Net" hint="trade rows → node network → win-prob / verdict">
+          <BrainOutcomeNet data={data?.brainPredict} />
+        </Card>
+      </div>
 
       <TradeDrilldown trade={drill} onClose={() => setDrill(null)} />
     </div>
