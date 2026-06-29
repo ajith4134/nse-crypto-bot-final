@@ -149,9 +149,12 @@ def domain_pool():
         ("hawkes", A.hawkes_node), ("nvar", A.nvar_node), ("signature", A.signature_node),
         ("edm", A.edm_node), ("som", A.som_node), ("elm", A.elm_node),
         ("copula", A.copula_node), ("rocket", A.rocket_node), ("nystroem", A.nystroem_node),
-        # deep learning (CPU) — TCN/N-BEATS/TSMixer/GRU/AE fast; N-HiTS heavier
+        # deep learning (CPU) — TCN/N-BEATS/TSMixer/GRU/LSTM/AE fast; N-HiTS heavier
         ("tcn", DL.tcn_node), ("nbeats", DL.nbeats_node), ("tsmixer", DL.tsmixer_node),
-        ("gru", DL.gru_node), ("ae_anomaly", DL.ae_anomaly_node), ("nhits", DL.nhits_node),
+        ("gru", DL.gru_node), ("lstm", DL.lstm_node), ("ae_anomaly", DL.ae_anomaly_node),
+        ("nhits", DL.nhits_node),
+        # TabPFN — pretrained tabular foundation transformer (in-context, CPU)
+        ("tabpfn", DL.tabpfn_node),
         # GitHub-projects-as-nodes (Tier 1) — predictors + feature extractors
         ("catboost", GP.catboost_node), ("ngboost", GP.ngboost_node),
         ("skforecast", GP.skforecast_node),

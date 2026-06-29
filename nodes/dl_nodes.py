@@ -285,6 +285,25 @@ class GRUNode(_DLForecastBase):
         )
 
 
+class LSTMNode(_DLForecastBase):
+    """darts RNNModel(model="LSTM") — small long-short-term-memory forecaster.
+
+    The LSTM sibling of GRUNode: an explicit memory-cell recurrent net, kept tiny
+    for CPU (same one-step in-sample/out-of-sample readout + linear/AR fallback)."""
+
+    def __init__(self, name="lstm", col=0):
+        super().__init__(name, "darts LSTM recurrent neural forecaster (tiny, CPU).", col)
+
+    def _build_model(self):
+        from darts.models import RNNModel
+        return RNNModel(
+            model="LSTM", input_chunk_length=self.INPUT,
+            training_length=self.INPUT + 4, hidden_dim=16, n_rnn_layers=1,
+            dropout=0.0, n_epochs=self.EPOCHS, batch_size=32, random_state=0,
+            pl_trainer_kwargs=_PL_KWARGS,
+        )
+
+
 # --------------------------------------------------------------------------- #
 #  PyTorch dense autoencoder anomaly feature-extractor (no darts)
 # --------------------------------------------------------------------------- #
@@ -367,6 +386,82 @@ class AEAnomalyNode(_HeadBase):
 
 
 # --------------------------------------------------------------------------- #
+#  TabPFN — pretrained tabular foundation transformer (in-context, CPU)
+# --------------------------------------------------------------------------- #
+class TabPFNNode(_HeadBase):
+    """TabPFN v2 — a PRE-TRAINED transformer that predicts tabular targets in a
+    single in-context forward pass (NO gradient training on your data).
+
+    Task-aware: TabPFNClassifier for binary/multiclass, TabPFNRegressor for
+    regression. Reuses the `_HeadBase` task-aware readout surface by installing
+    the fitted TabPFN estimator as `self._ro` (it exposes the sklearn
+    `classes_`/`predict_proba`/`predict` the base already drives).
+
+    Honest about TabPFN's pretraining limits: it caps the TRAIN set to
+    `max_rows` (seeded subsample — predict uses ALL rows) and degrades to a
+    StandardScaler+Logistic/Ridge pipeline (`self.fell_back = True`) if `tabpfn`
+    is unavailable or errors. CPU by default (`device="cpu"`)."""
+
+    kind = "deep_learning"
+
+    def __init__(self, name="tabpfn", col=0, max_rows=1024, device="cpu"):
+        super().__init__(name, "TabPFN pretrained tabular transformer (in-context, CPU).",
+                         col=col)
+        self.max_rows = int(max_rows)
+        self.device = device
+        self.fit_seconds = 0.0
+        self.fell_back = False
+        self._ro = None
+
+    def _augment(self, X: Matrix) -> np.ndarray:                # TabPFN takes raw features
+        return np.asarray([[float(v) for v in row] for row in X], float)
+
+    def _build_est(self):
+        if self.task == "regression":
+            from tabpfn import TabPFNRegressor
+            return TabPFNRegressor(device=self.device,
+                                   ignore_pretraining_limits=True, random_state=0)
+        from tabpfn import TabPFNClassifier
+        return TabPFNClassifier(device=self.device,
+                                ignore_pretraining_limits=True, random_state=0)
+
+    def _subsample(self, A: np.ndarray, ya: np.ndarray):
+        """Cap the TRAIN set to max_rows via a seeded permutation (keeps balance)."""
+        if len(A) <= self.max_rows:
+            return A, ya
+        idx = np.random.default_rng(0).permutation(len(A))[: self.max_rows]
+        idx.sort()                                              # keep temporal order
+        return A[idx], ya[idx]
+
+    def fit(self, X: Matrix, y: Labels) -> "TabPFNNode":
+        ya = np.asarray(y)
+        self.schema = IOSchema(len(X[0]), f"{len(X[0])} numeric features", self.task)
+        if self.task != "regression":
+            self._classes = sorted(set(int(v) for v in ya))
+            if len(self._classes) < 2:                          # degenerate single class
+                return self
+            ya = ya.astype(int)
+        A = self._augment(X)
+        At, yt = self._subsample(A, ya)
+        t0 = time.time()
+        try:                                                    # TabPFN in-context fit
+            self._ro = self._build_est()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self._ro.fit(At, yt)
+        except Exception:                                       # honest sklearn fallback
+            from nodes.quant_nodes import _compat_readout
+            self._ro = _compat_readout(self.task)
+            self._ro.fit(A, ya)
+            self.fell_back = True
+        self.fit_seconds = time.time() - t0
+        return self
+
+
+def tabpfn_node(name="tabpfn"): return TabPFNNode(name)
+
+
+# --------------------------------------------------------------------------- #
 #  Factories
 # --------------------------------------------------------------------------- #
 def nhits_node(name="nhits"): return NHiTSNode(name)
@@ -374,4 +469,5 @@ def tcn_node(name="tcn"): return TCNNode(name)
 def nbeats_node(name="nbeats"): return NBEATSNode(name)
 def tsmixer_node(name="tsmixer"): return TSMixerNode(name)
 def gru_node(name="gru"): return GRUNode(name)
+def lstm_node(name="lstm"): return LSTMNode(name)
 def ae_anomaly_node(name="ae_anomaly"): return AEAnomalyNode(name)
