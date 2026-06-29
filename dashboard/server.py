@@ -1013,14 +1013,29 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from trading.online.live_loop import get_loop
                 live = get_loop().open_positions()
-                rows = [[p["symbol"], "PERP" if p["market"] == "CRYPTO" else "EQ", p["direction"],
-                         p["quantity"], p["quantity"], round(p["entry_price"], 4),
-                         round(p["mark_price"], 4), round(p["unrealized_pnl"], 4),
-                         round(p["unrealized_pnl"] / (p["entry_price"] * p["quantity"]) * 100, 3)
-                         if p["entry_price"] * p["quantity"] else 0.0,
-                         "—", "—", "—", "—", "—", "—",
-                         "momentum", p["market"], 1.0, "—", "—", "—", "—"]
-                        for p in live]
+                # rows are DICTS keyed by OPEN_TRADE_COLUMNS (the frontend reads row[columnName]).
+                rows = []
+                for p in live:
+                    notional = p["entry_price"] * p["quantity"]
+                    pct = round(p["unrealized_pnl"] / notional * 100, 3) if notional else 0.0
+                    import datetime as _dt
+                    try:
+                        held = _dt.datetime.now() - _dt.datetime.fromisoformat(p.get("entry_dt", ""))
+                        hold = f"{int(held.total_seconds() // 60)}m"
+                    except Exception:
+                        hold = "—"
+                    rows.append({
+                        "Symbol": p["symbol"],
+                        "Instrument Type": "PERP" if p["market"] == "CRYPTO" else "EQ",
+                        "Direction": p["direction"], "Qty": p["quantity"], "Open Qty": p["quantity"],
+                        "Entry Price": round(p["entry_price"], 4),
+                        "Current Price": round(p["mark_price"], 4),
+                        "Unrealized P&L": round(p["unrealized_pnl"], 4), "Unrealized P&L %": pct,
+                        "Stop": "—", "Trail Stop": "—", "MAE": "—", "MFE": "—", "R-multiple": "—",
+                        "Efficiency": "—", "Strategy": p.get("strategy", "momentum"),
+                        "Exchange": "binance" if p["market"] == "CRYPTO" else "NSE",
+                        "Leverage": 1.0, "Margin": round(notional, 2), "Liq Price": "—",
+                        "Hold Time": hold, "Confidence": "—"})
                 body = json.dumps({"columns": OPEN_TRADE_COLUMNS, "rows": rows,
                                    "demo": False, "live": True,
                                    "note": "live open paper positions from the trade loop"},
