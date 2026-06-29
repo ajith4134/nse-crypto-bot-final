@@ -71,7 +71,10 @@ export default function MarketWindow({ market = 'crypto' }) {
       <div style={{ display: 'grid', gridTemplateColumns: isNSE ? '2fr 1fr 1fr' : '2fr 1fr',
         gap: 12, marginBottom: 12 }}>
         <Card title="Chart"><PriceChart symbol={symbol} height={340} /></Card>
-        <Card title="Order Flow"><OrderFlowMap symbol={symbol} height={340} /></Card>
+        <Card title="Order Flow"><OrderFlowMap symbol={symbol}
+          bids={isNSE ? undefined : data?.orderbook?.bids}
+          asks={isNSE ? undefined : data?.orderbook?.asks}
+          height={340} /></Card>
         {isNSE && <Card title="Options Chain" hint="T4 analytics">
           <OptionsChainMini options={data.options} />
         </Card>}

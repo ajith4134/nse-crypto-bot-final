@@ -954,6 +954,59 @@ class Handler(BaseHTTPRequestHandler):
                                    "error": f"{type(e).__name__}: {str(e)[:80]}",
                                    "hint": "live candles via ccxt / OpenAlgo history"}).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/trading/orderbook":
+            # LIVE L2 order book. CRYPTO → ccxt fetch_order_book; NSE → OpenAlgo depth.
+            # Degrades to a demo book on any error so the panel never crashes.
+            from urllib.parse import parse_qs, urlparse
+            qs = parse_qs(urlparse(self.path).query)
+            symbol = (qs.get("symbol") or ["BTC/USDT"])[0]
+            market = (qs.get("market") or ["CRYPTO"])[0].upper()
+            try:
+                def _norm(levels):
+                    out = []
+                    for lv in levels[:20]:
+                        if isinstance(lv, dict):
+                            out.append([float(lv.get("price", 0)),
+                                        float(lv.get("quantity", lv.get("size", 0)))])
+                        else:
+                            out.append([float(lv[0]), float(lv[1])])
+                    return out
+                if market == "NSE":
+                    from trading.openalgo_client import OpenAlgoClient
+                    d = OpenAlgoClient()._client().depth(symbol=symbol, exchange="NSE")
+                    data = d.get("data", d) if isinstance(d, dict) else {}
+                    bids = _norm(data.get("bids", []))
+                    asks = _norm(data.get("asks", []))
+                else:
+                    from trading.crypto.exchange_client import ExchangeClient
+                    ob = ExchangeClient("binance")._client().fetch_order_book(symbol, limit=20)
+                    bids = _norm(ob.get("bids", []))
+                    asks = _norm(ob.get("asks", []))
+                if not bids or not asks:
+                    raise ValueError("empty order book")
+                best_bid = bids[0][0]
+                best_ask = asks[0][0]
+                body = json.dumps({
+                    "symbol": symbol, "market": market,
+                    "bids": bids, "asks": asks,
+                    "mid": (best_bid + best_ask) / 2.0,
+                    "spread": best_ask - best_bid,
+                    "demo": False, "live": True,
+                }, default=str).encode()
+            except Exception as e:
+                # Honest demo book around a plausible mid so the UI degrades, never crashes.
+                mid = 65000.0 if market != "NSE" else 1500.0
+                step = mid * 0.0001
+                bids = [[round(mid - step * (i + 1), 2), round(0.5 + i * 0.1, 3)] for i in range(20)]
+                asks = [[round(mid + step * (i + 1), 2), round(0.5 + i * 0.1, 3)] for i in range(20)]
+                body = json.dumps({
+                    "symbol": symbol, "market": market,
+                    "bids": bids, "asks": asks,
+                    "mid": mid, "spread": round(asks[0][0] - bids[0][0], 2),
+                    "demo": True,
+                    "note": f"live order book unavailable ({type(e).__name__}: {str(e)[:80]}) — demo book",
+                }, default=str).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/opentrades":
             # T6 Open Trades table: LIVE open PAPER positions from the running trade loop
             # (marked at last price). Empty → rows:[] (honest: no open positions right now).
@@ -1002,11 +1055,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, body, "application/json")
         if path == "/api/trading/confidence":
             # T6 per-symbol Brain confidence book: real Bayesian win-rate + Brier
-            # calibration off the labelled DEMO journal. Flattened to a list.
-            try:
-                from run_journal_t5 import build_demo_journal
-                book = build_demo_journal().confidence.as_dict()
-                symbols = [
+            # calibration off the LIVE journal (journal.json). Flattened to a list.
+            # Falls back to the demo confidence book only while the live journal is empty.
+            def _flatten_book(book):
+                return [
                     {"symbol": s,
                      "confidence": d.get("confidence"),
                      "win_rate": d.get("win_rate"),
@@ -1014,12 +1066,26 @@ class Handler(BaseHTTPRequestHandler):
                      "brier": d.get("brier")}
                     for s, d in book.get("symbols", {}).items()
                 ]
-                body = json.dumps({
-                    "symbols": symbols,
-                    "demo": True,
-                    "note": ("offline demo confidence book (run_journal_t5 synthetic "
-                             "trades); real computed Bayesian win-rate + Brier only"),
-                }, default=str).encode()
+            try:
+                from trading.journal.journal import TradeJournal
+                jr = TradeJournal(state_file="journal.json", persist=True)
+                book = jr.confidence.as_dict()
+                symbols = _flatten_book(book)
+                if symbols:
+                    body = json.dumps({
+                        "symbols": symbols,
+                        "demo": False, "live": True,
+                        "note": "live journal.json confidence book — Bayesian win-rate + Brier",
+                    }, default=str).encode()
+                else:
+                    from run_journal_t5 import build_demo_journal
+                    symbols = _flatten_book(build_demo_journal().confidence.as_dict())
+                    body = json.dumps({
+                        "symbols": symbols,
+                        "demo": True,
+                        "note": ("no live trades yet — offline demo confidence book "
+                                 "(run_journal_t5); real computed Bayesian win-rate + Brier"),
+                    }, default=str).encode()
             except Exception as e:
                 body = json.dumps({
                     "available": False,
@@ -1029,25 +1095,64 @@ class Handler(BaseHTTPRequestHandler):
                 }).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/context":
-            # T6 market-context strip. HONEST: no live NSE/macro feed is wired, so VIX,
-            # FII/DII and fear-greed carry available:false. Demo numbers are illustrative
-            # only and MUST never be read as live (their available flag says so).
+            # T6 market-context strip. Crypto Fear & Greed is LIVE (alternative.me, free).
+            # India VIX is LIVE when OpenAlgo returns a real ltp, else honest demo. FII/DII
+            # stays available:false (no free live source). available:false ⇒ never live.
             try:
+                # ── crypto Fear & Greed (LIVE, free, no key) ──────────────────────
+                fear_greed = {
+                    "value": 62, "available": False,
+                    "note": "live crypto Fear & Greed unavailable — illustrative demo value",
+                }
+                try:
+                    import urllib.request
+                    fng = json.load(urllib.request.urlopen(
+                        "https://api.alternative.me/fng/", timeout=8))["data"][0]
+                    fear_greed = {
+                        "value": int(fng["value"]),
+                        "classification": fng.get("value_classification"),
+                        "available": True,
+                        "source": "alternative.me",
+                    }
+                except Exception:
+                    pass
+
+                # ── India VIX (LIVE via OpenAlgo if a real ltp comes back) ─────────
+                india_vix = {
+                    "value": 13.85, "available": False,
+                    "note": "no live NSE India VIX feed wired — illustrative demo value",
+                }
+                try:
+                    from trading.openalgo_client import OpenAlgoClient
+                    oc = OpenAlgoClient()
+                    ltp = None
+                    for sym, exch in (("INDIA VIX", "NSE_INDEX"),
+                                      ("INDIAVIX", "NSE_INDEX"),
+                                      ("INDIA VIX", "NSE")):
+                        try:
+                            q = oc.quote(sym, exchange=exch)
+                            data = q.get("data", q) if isinstance(q, dict) else {}
+                            cand = data.get("ltp")
+                            if cand is not None and float(cand) > 0:
+                                ltp = float(cand)
+                                break
+                        except Exception:
+                            continue
+                    if ltp is not None:
+                        india_vix = {"value": ltp, "available": True, "source": "openalgo:NSE"}
+                except Exception:
+                    pass
+
+                live = fear_greed.get("available") or india_vix.get("available")
                 body = json.dumps({
-                    "india_vix": {
-                        "value": 13.85, "available": False,
-                        "note": "no live NSE India VIX feed wired — illustrative demo value",
-                    },
+                    "india_vix": india_vix,
                     "fii_dii": {
                         "available": False,
                         "fii_net_cr": 1240.5, "dii_net_cr": -310.8,
-                        "note": "no live FII/DII provisional feed wired — illustrative demo values",
+                        "note": "no free live FII/DII provisional feed — illustrative demo values",
                     },
-                    "fear_greed": {
-                        "value": 62, "available": False,
-                        "note": "no live crypto Fear & Greed feed wired — illustrative demo value",
-                    },
-                    "demo": True,
+                    "fear_greed": fear_greed,
+                    "demo": not live,
                 }, default=str).encode()
             except Exception as e:
                 body = json.dumps({
@@ -1294,12 +1399,20 @@ def main() -> None:
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     # P-trade: start the always-on LIVE trade loop (real-data PAPER trading + journaling).
     # Ticks the supervisor that controls.start()/Stop drive; PAPER-only (real orders blocked).
-    try:
-        from trading.online.live_loop import start_loop
-        start_loop()
-        print("Live trade loop started (real-data paper trading).")
-    except Exception as e:
-        print(f"Live trade loop NOT started: {type(e).__name__}: {e}")
+    # Start the live trade loop on a short DELAY (after the HTTP server is already serving),
+    # off the main thread, so server startup is instant and the loop's first network calls
+    # never block/destabilise boot. Gate with NO_LOOP=1 to run the dashboard without trading.
+    if os.getenv("NO_LOOP") != "1":
+        def _deferred_loop():
+            import time as _t
+            _t.sleep(3.0)
+            try:
+                from trading.online.live_loop import start_loop
+                start_loop()
+            except Exception:
+                pass
+        import threading as _th
+        _th.Thread(target=_deferred_loop, daemon=True).start()
     print(f"Dashboard on http://localhost:{port}  (Ctrl+C to stop)")
     srv.serve_forever()
 

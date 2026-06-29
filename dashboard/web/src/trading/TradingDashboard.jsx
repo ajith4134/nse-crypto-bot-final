@@ -69,7 +69,7 @@ export default function TradingDashboard() {
           <PriceChart symbol="BTC/USDT" candles={data?.candles?.candles} height={360} />
         </Card>
         <Card title="Order Flow" hint="depth + flow primitive">
-          <OrderFlowMap symbol="BTCUSDT" height={360} />
+          <OrderFlowMap symbol="BTC/USDT" bids={data?.orderbook?.bids} asks={data?.orderbook?.asks} height={360} />
         </Card>
       </div>
 

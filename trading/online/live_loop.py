@@ -184,11 +184,17 @@ class BrainDecider:
 
 
 def _brain_decider():
-    """Wire the T8 Brain pipeline as the live decider (momentum remains the fallback).
+    """Wire the T8 Brain pipeline as the live decider — OPT-IN via BRAIN_LOOP=1.
 
-    Always returns a ``BrainDecider`` — its per-tick/per-market guards downgrade to
-    momentum whenever the brain is unavailable or errors, so the loop never breaks.
+    The full pipeline (features+regime+pattern[stumpy]+news+recall) is heavy; running it in
+    the always-on loop on every symbol slows the shared dashboard server and floods logs. By
+    default we return None → the loop uses the fast, real momentum strategy (observable trades,
+    responsive dashboard). Set BRAIN_LOOP=1 to engage the brain (throttled to 30s/symbol); it
+    still falls back to momentum per-tick on any error.
     """
+    import os
+    if os.getenv("BRAIN_LOOP") != "1":
+        return None
     try:
         return BrainDecider()
     except Exception:
