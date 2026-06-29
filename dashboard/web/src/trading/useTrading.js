@@ -14,6 +14,8 @@ const ENDPOINTS = {
   journal: '/api/trading/journal/status',
   candles: '/api/trading/candles?symbol=BTC/USDT&market=CRYPTO&tf=5m', // {symbol,market,tf,candles:[{time,open,high,low,close,volume}],live}
   orderbook: '/api/trading/orderbook?symbol=BTC/USDT&market=CRYPTO', // {symbol,market,bids:[[price,size],...],asks:[[price,size],...],mid,spread,live}
+  watchlist: '/api/trading/watchlist',       // {watchlist:{NSE:[{symbol,segment,last}],CRYPTO:[...]}, candidates:{NSE:[{symbol,segment,market,score,reason,metrics}],...}, live}
+  loop: '/api/trading/online/loop',          // {..., config:{trail_atr_mult,sizing_method,max_risk_pct,max_position_pct,kelly_fraction}, selected_segments}
 }
 
 async function getJSON(url) {

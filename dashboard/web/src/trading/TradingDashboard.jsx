@@ -14,6 +14,8 @@ import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
 import BrainPanel from './BrainPanel.jsx'
 import OnlineControlPanel from './OnlineControlPanel.jsx'
+import WatchlistPanel from './WatchlistPanel.jsx'
+import StrategyControls from './StrategyControls.jsx'
 
 function Card({ title, hint, children, right }) {
   return (
@@ -44,6 +46,15 @@ export default function TradingDashboard() {
   const confidence = data.confidence?.symbols || []
   const context = data.context || {}
 
+  // Shared POST helper for the online-control endpoint (same surface OnlineControlPanel
+  // uses internally). StrategyControls posts {action:'set_strategy', ...} through this.
+  const postControl = (body) =>
+    fetch('/api/trading/online/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => r.json())
+
   const btn = {
     background: T.panel2, color: T.accent, border: `1px solid ${T.border}`,
     borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 13,
@@ -63,6 +74,15 @@ export default function TradingDashboard() {
       <Card title="Online Control (Start/Stop · Paper/Real · Balance)" hint="Phase O5 — primary live-trading switchboard">
         <OnlineControlPanel />
       </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
+        <Card title="Watchlist / Screener" hint="symbols traded + screened candidates">
+          <WatchlistPanel watchlist={data?.watchlist?.watchlist} candidates={data?.watchlist?.candidates} />
+        </Card>
+        <Card title="Strategy & Sizing" hint="position-sizing · risk · trailing">
+          <StrategyControls config={data?.loop?.config} onAction={postControl} />
+        </Card>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
         <Card title="Price" hint="TradingView Lightweight Charts v5">

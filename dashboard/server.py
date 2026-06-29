@@ -147,6 +147,8 @@ OPEN_TRADE_COLUMNS = [
     "Entry Price", "Current Price", "Unrealized P&L", "Unrealized P&L %", "Peak P/L", "Stop",
     "Trail Stop", "R-multiple", "Efficiency", "Strategy", "Exchange", "Leverage",
     "Liq Price", "Hold Time", "Confidence",
+    # T-wire: the project node network's outcome call on THIS open trade (trade row → NN)
+    "Win Prob", "NN Verdict", "Exp R",
 ]
 
 
@@ -1278,6 +1280,28 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
                                    "hint": f"{kind} module (trading/{kind}/)"}).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/trading/watchlist":
+            # live per-market watchlist (symbol+segment the loop trades) + fresh screener
+            # candidates for the SELECTED segments of each market.
+            try:
+                from trading.online import controls
+                from trading.online.live_loop import get_loop
+                loop = get_loop()
+                view = loop.watchlist_view()
+                sc = loop.screener()
+                candidates = {}
+                if sc is not None:
+                    for m in ("NSE", "CRYPTO"):
+                        segs = list(getattr(controls.registry().get(m), "segments", []) or [])
+                        try:
+                            candidates[m] = sc.watchlist(m, segs, per_segment=4) if segs else []
+                        except Exception:
+                            candidates[m] = []
+                body = json.dumps({"watchlist": view, "candidates": candidates,
+                                   "live": True}, default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/online/loop":
             # live trade-loop telemetry: ticks, decisions, open/closed counts, last tick, errors
             try:
@@ -1498,6 +1522,16 @@ class Handler(BaseHTTPRequestHandler):
                                     data.get("portfolio_id", "default"))
                 elif action == "reset_wallet":
                     controls.reset_wallet(market, data.get("portfolio_id", "default"))
+                elif action == "set_strategy":        # trailing ATR mult · sizing method/risk/caps
+                    from trading.online.live_loop import get_loop
+                    cfg = get_loop().set_config(
+                        trail_atr_mult=data.get("trail_atr_mult"),
+                        sizing_method=data.get("sizing_method"),
+                        max_risk_pct=data.get("max_risk_pct"),
+                        max_position_pct=data.get("max_position_pct"),
+                        kelly_fraction=data.get("kelly_fraction"))
+                    out = {"ok": True, "action": action, "config": cfg}
+                    return self._send(200, json.dumps(out, default=str).encode(), "application/json")
                 elif action == "panic":
                     controls.panic()
                 else:

@@ -244,6 +244,16 @@ class LiveTradeLoop:
         self._sizer = None
         self._refresh_every = 60                    # re-screen the watchlist every ~60 ticks (5 min)
         self._atr: dict = {}                        # symbol -> recent ATR estimate (for sizing/trailing)
+        # user-tunable strategy config (trailing ATR multiple · sizing method/risk/caps) — persisted
+        self.cfg = {"trail_atr_mult": 2.5, "sizing_method": "kelly_atr",
+                    "max_risk_pct": 1.0, "max_position_pct": 25.0, "kelly_fraction": 0.5}
+        try:
+            from trading import state as _st
+            saved = _st.load_json("strategy_config.json", {})
+            if isinstance(saved, dict):
+                self.cfg.update({k: v for k, v in saved.items() if k in self.cfg})
+        except Exception:
+            pass
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.ticks = 0
@@ -340,11 +350,38 @@ class LiveTradeLoop:
         if self._sizer is None:
             try:
                 from trading.sizing import PositionSizer
-                self._sizer = PositionSizer(method="kelly_atr", max_risk_pct=1.0,
-                                            max_position_pct=25.0)
+                self._sizer = PositionSizer(method=self.cfg["sizing_method"],
+                                            max_risk_pct=self.cfg["max_risk_pct"],
+                                            max_position_pct=self.cfg["max_position_pct"],
+                                            kelly_fraction=self.cfg["kelly_fraction"])
             except Exception:
                 self._sizer = False
         return self._sizer or None
+
+    def set_config(self, **kw) -> dict:
+        """Update strategy config (trail_atr_mult / sizing_method / max_risk_pct /
+        max_position_pct / kelly_fraction), rebuild the sizer, and persist."""
+        for k, v in kw.items():
+            if k in self.cfg and v is not None:
+                self.cfg[k] = float(v) if k != "sizing_method" else str(v)
+        self._sizer = None                          # rebuild with new params on next use
+        try:
+            from trading import state as _st
+            _st.save_json("strategy_config.json", self.cfg)
+        except Exception:
+            pass
+        return dict(self.cfg)
+
+    def watchlist_view(self) -> dict:
+        """Current per-market watchlist (symbol + segment) the loop is trading — for the UI."""
+        out = {}
+        for market, syms in self.symbols.items():
+            items = []
+            for s in (syms if isinstance(syms, (list, tuple)) else [syms]):
+                items.append({"symbol": s, "segment": self._segment_of(market, s),
+                              "last": self._marks.get(market.upper(), {}).get(s)})
+            out[market] = items
+        return out
 
     def _update_atr(self, symbol: str, price: float) -> float:
         """Cheap EMA True-Range proxy per symbol (for sizing + ATR trailing)."""
@@ -479,7 +516,8 @@ class LiveTradeLoop:
             from trading.exits import make_exit
             purpose = "stop" if direction == "LONG" else "loss"
             return make_exit("long" if direction == "LONG" else "short", purpose,
-                             entry_price=float(price), mode="atr", atr_mult=2.5)
+                             entry_price=float(price), mode="atr",
+                             atr_mult=float(self.cfg.get("trail_atr_mult", 2.5)))
         except Exception:
             return None
 
@@ -655,6 +693,7 @@ class LiveTradeLoop:
                 "screener": "active" if self.screener() else "off",
                 "sizer": "active" if self.sizer() else "off",
                 "trailing_exits": "ATR trailing-stop per position",
+                "config": dict(self.cfg),
                 "nse_broker_auth": nse_auth, "crypto_feed": "ccxt (live)",
                 "errors": self.errors[-5:], "last_tick": self.last_tick}
 
