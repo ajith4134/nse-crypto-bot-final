@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ML Network Brain — Hub</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121823; --panel2:#0f1520; --line:#1e2837;
+    --txt:#e6edf3; --muted:#8b96a5; --accent:#4cc2ff; --accent2:#7ee787;
+    --warn:#ffb454; --bad:#ff6b6b; --chip:#1b2433;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#11233a 0%,var(--bg) 55%);
+       color:var(--txt);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  header{padding:28px 32px 8px}
+  h1{margin:0;font-size:24px;letter-spacing:.3px}
+  h1 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent2);
+          box-shadow:0 0 10px var(--accent2);margin-right:10px;vertical-align:middle}
+  .sub{color:var(--muted);margin:6px 0 0;font-size:13px}
+  .wrap{padding:18px 32px 56px;max-width:1280px}
+  section{margin-top:28px}
+  .sec-h{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;border-bottom:1px solid var(--line);
+         padding-bottom:8px}
+  .sec-h h2{margin:0;font-size:15px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#cdd6e0}
+  .sec-h .hint{color:var(--muted);font-size:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px}
+  a.tile{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:var(--txt);
+         background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+         border-radius:12px;padding:14px 14px 12px;transition:.15s ease;position:relative}
+  a.tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 26px #0008}
+  .tile .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .tile .name{font-weight:600;font-size:14.5px}
+  .tile .desc{color:var(--muted);font-size:12px}
+  .tile .tag{font-size:10.5px;color:var(--accent);background:var(--chip);border:1px solid var(--line);
+             padding:1px 7px;border-radius:20px;white-space:nowrap}
+  .hdot{width:9px;height:9px;border-radius:50%;background:#3a4554;flex:0 0 auto;transition:.2s}
+  .hdot.up{background:var(--accent2);box-shadow:0 0 8px var(--accent2)}
+  .hdot.down{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  .hdot.local{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+  .legend{color:var(--muted);font-size:12px;margin-top:14px;display:flex;gap:18px;flex-wrap:wrap}
+  .legend b{font-weight:600;color:var(--txt)}
+  .legend .d{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .open-all{margin-left:auto;font-size:12px;color:var(--accent);cursor:pointer;background:none;
+            border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+  .open-all:hover{border-color:var(--accent)}
+  footer{color:var(--muted);font-size:12px;padding:0 32px 36px}
+  code{background:var(--chip);padding:1px 6px;border-radius:6px;color:#cdd6e0}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>ML Network Brain — Control Hub</h1>
+  <p class="sub">Every dashboard &amp; live panel in one place. Each tile opens in a new tab. Live dot = real reachability (this origin).</p>
+</header>
+<div class="wrap">
+
+  <section>
+    <div class="sec-h"><h2>Dashboards</h2><span class="hint">rendered HTML views</span>
+      <button class="open-all" data-sec="dash">⤢ open all</button></div>
+    <div class="grid" id="dash"></div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>Brain — Ultra (P4.1–P4.5)</h2><span class="hint">live status JSON</span>
+      <button class="open-all" data-sec="brain">⤢ open all</button></div>
+    <div class="grid" id="brain"></div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>Trading (T1–T8 + Online)</h2><span class="hint">live status JSON</span>
+      <button class="open-all" data-sec="trade">⤢ open all</button></div>
+    <div class="grid" id="trade"></div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>External services</h2><span class="hint">separate processes</span></div>
+    <div class="grid" id="ext"></div>
+  </section>
+
+  <div class="legend">
+    <span><span class="d" style="background:#7ee787"></span><b>reachable</b></span>
+    <span><span class="d" style="background:#ff6b6b"></span><b>down</b></span>
+    <span><span class="d" style="background:#ffb454"></span><b>local-only</b> (not checkable from a remote browser)</span>
+  </div>
+</div>
+
+<footer>
+  Served by the dashboard on port 8000 — links are <b>relative</b>, so this page works the same via the public tunnel,
+  the server IP, or <code>localhost</code>. OpenAlgo (<code>:5000</code>) is bound to localhost by design; reach it on the
+  server or via SSH port-forward (<code>ssh -L 5000:127.0.0.1:5000 …</code>).
+</footer>
+
+<script>
+// Tile catalog. url is RELATIVE for same-origin (works through any host); external tiles set local:true.
+const DASH = [
+  {name:"Main Dashboard", desc:"network · brain · trading · stream-of-mind", url:"/", tag:"SPA"},
+  {name:"Architecture", desc:"system architecture map", url:"/architecture", tag:"page"},
+  {name:"Knowledge Graph", desc:"docs · concepts · associations", url:"/knowledge", tag:"page"},
+];
+const BRAIN = [
+  {name:"P4.1 Brain Agent", desc:"recall → respond (LangGraph)", url:"/api/brain/agent/status", tag:"P4.1"},
+  {name:"P4.2 Human Memory", desc:"Ebbinghaus decay · tiers · dream", url:"/api/brain/memory/status", tag:"P4.2"},
+  {name:"P4.2 Hybrid Memory", desc:"GA stream · Letta · mem0", url:"/api/brain/hybrid/status", tag:"P4.2"},
+  {name:"P4.3 Librarian", desc:"self-feeding internet ingest", url:"/api/brain/librarian/status", tag:"P4.3"},
+  {name:"P4.4 Self-Quiz Mastery", desc:"FSRS + DKT rising curve", url:"/api/brain/quiz/status", tag:"P4.4"},
+  {name:"P4.5 Thinking", desc:"reason · calibrate · ask-for-help", url:"/api/brain/thinking/status", tag:"P4.5"},
+];
+const TRADE = [
+  {name:"Trading (T1)", desc:"NSE foundation · OpenAlgo", url:"/api/trading/status", tag:"T1"},
+  {name:"Crypto (T2)", desc:"ccxt all-market", url:"/api/trading/crypto/status", tag:"T2"},
+  {name:"Execution (T3)", desc:"order SM · trailing · breaker", url:"/api/trading/execution/status", tag:"T3"},
+  {name:"Options (T4)", desc:"Greeks · max pain · GEX", url:"/api/trading/options/status", tag:"T4"},
+  {name:"Journal (T5)", desc:"net P&L · MAE/MFE/R", url:"/api/trading/journal/status", tag:"T5"},
+  {name:"Alerts (T7)", desc:"Telegram events · commands", url:"/api/trading/alerts/status", tag:"T7"},
+  {name:"Strategy (T8.1)", desc:"GP evolution · walk-forward", url:"/api/trading/strategy/status", tag:"T8"},
+  {name:"Evolution", desc:"OOS leaderboard", url:"/api/trading/evolution/status", tag:"T8"},
+  {name:"Experience", desc:"CBR experience bank", url:"/api/trading/experience/status", tag:"T8"},
+  {name:"Self-Eval", desc:"honest self-grading", url:"/api/trading/selfeval/status", tag:"T8"},
+  {name:"Patterns", desc:"pattern mining", url:"/api/trading/patterns/status", tag:"T8"},
+  {name:"News", desc:"news intelligence", url:"/api/trading/news/status", tag:"T8"},
+  {name:"Skills", desc:"skill library", url:"/api/trading/skills/status", tag:"T8"},
+  {name:"Brain (T8.4)", desc:"semantic memory · decisions", url:"/api/trading/brain/status", tag:"T8"},
+  {name:"AdvIntel", desc:"VaR/CVaR · Kelly · HRP · RL", url:"/api/trading/advintel/status", tag:"T8"},
+  {name:"Online (O1–O5)", desc:"always-on paper/live bot", url:"/api/trading/online/status", tag:"O"},
+];
+const EXT = [
+  {name:"OpenAlgo", desc:"broker server · web UI · charts", url:"http://127.0.0.1:5000", tag:"local", local:true},
+];
+
+function tile(item){
+  const a = document.createElement("a");
+  a.className = "tile"; a.href = item.url; a.target = "_blank"; a.rel = "noopener";
+  a.innerHTML = `<div class="top"><span class="hdot ${item.local?'local':''}"></span>
+      <span class="tag">${item.tag}</span></div>
+    <div class="name">${item.name}</div><div class="desc">${item.desc}</div>`;
+  a._dot = a.querySelector(".hdot"); a._item = item;
+  return a;
+}
+function render(id, list){
+  const root = document.getElementById(id);
+  list.forEach(it => root.appendChild(tile(it)));
+}
+render("dash", DASH); render("brain", BRAIN); render("trade", TRADE); render("ext", EXT);
+
+// honest health: ping each same-origin tile; mark up/down. External(local) tiles stay amber.
+async function ping(a){
+  if (a._item.local) return;
+  try{
+    const r = await fetch(a._item.url, {method:"GET", headers:{"X-Hub-Ping":"1"}, cache:"no-store"});
+    a._dot.classList.add(r.ok ? "up" : "down");
+  }catch(e){ a._dot.classList.add("down"); }
+}
+document.querySelectorAll("a.tile").forEach(ping);
+
+// "open all" per section
+document.querySelectorAll(".open-all").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(`#${btn.dataset.sec} a.tile`).forEach((a,i)=>{
+      setTimeout(()=>window.open(a.href,"_blank","noopener"), i*120);
+    });
+  });
+});
+</script>
+</body>
+</html>

@@ -921,6 +921,12 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/knowledge", "/knowledge.html"):
             with open(os.path.join(STATIC, "knowledge.html"), "rb") as f:
                 return self._send(200, f.read(), "text/html; charset=utf-8")
+        if path in ("/hub", "/hub.html"):
+            # all-in-one landing page: every rendered dashboard + live brain/trading
+            # status panel as a clickable tile (opens in a new tab). Links are relative
+            # so it works identically via the public tunnel, the server IP, or localhost.
+            with open(os.path.join(STATIC, "hub.html"), "rb") as f:
+                return self._send(200, f.read(), "text/html; charset=utf-8")
         # static passthrough — resolves under STATIC so the built React app's
         # /assets/*.js|css and other bundled files are served (and path-safe).
         safe = os.path.normpath(path).lstrip("/")
