@@ -267,6 +267,52 @@ class Handler(BaseHTTPRequestHandler):
                             "run_human_memory.py and ml-network-brain-ultra-blueprint.md §4).",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/brain/hybrid/status":
+            # P4.2 hybrid memory: fuses REAL reused projects — vendored Stanford
+            # Generative-Agents memory stream (Apache-2.0; importance+recency+relevance
+            # retrieval + reflection), real Letta tiered core-memory (pip), mem0 semantic
+            # store (pip, gated) + our Ebbinghaus decay/auto_dream. Returns the OFFLINE
+            # deterministic demo snapshot (real brain/LLM = network), labelled demo.
+            # Degrades to an error payload (never crashes the server).
+            try:
+                from run_hybrid_memory import build_demo_hybrid_memory
+                snap = build_demo_hybrid_memory()
+                snap["demo"] = True
+                snap["note"] = ("offline deterministic demo (run_hybrid_memory.py over a stub "
+                                "brain + stub LLM, injected clock); shows real HybridMemory "
+                                "fusion — GA stream + Letta tiers + Ebbinghaus decay/dream — "
+                                "not live brain memory")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.2 hybrid memory not importable (see memory/hybrid_memory.py, "
+                            "run_hybrid_memory.py and ml-network-brain-ultra-blueprint.md §4).",
+                }).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/brain/librarian/status":
+            # P4.3 self-feeding internet: the Librarian discovers (ddgs web / arxiv /
+            # feedparser RSS), extracts (trafilatura), dedups (content+URL), and ingests
+            # into KnowledgeBrain — on an APScheduler loop in live use. Returns the OFFLINE
+            # deterministic demo snapshot (live mode needs network + an embedding model),
+            # labelled demo. Degrades to an error payload (never crashes the server).
+            try:
+                from run_librarian import build_demo_librarian
+                snap = build_demo_librarian()
+                snap["demo"] = True
+                snap["note"] = ("offline deterministic demo (run_librarian.py over a stub "
+                                "brain, injected stub web/arxiv sources + extractor); shows "
+                                "real Librarian discover/feed/dedup — not live ingestion")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.3 self-feeding Librarian not importable (see memory/librarian.py, "
+                            "run_librarian.py and ml-network-brain-ultra-blueprint.md §4).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/status":
             # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
             # Lazy import so the dashboard still serves if the trading deps are absent.

@@ -178,13 +178,24 @@ Two different questions; conflating them is the #1 source of hype:
   `KnowledgeBrain` associative memory; gated multi-provider LLM via `core.llm`; offline memory-grounded fallback).
   Wired into the dashboard via `POST /api/brain/agent` (+ `GET /api/brain/agent/status`) and the `run_brain_agent.py`
   offline demo. *You can converse with it.*
-- **P4.2 — Human-like memory. ✅ BUILT.** `HumanMemory` over `KnowledgeBrain` (PPR + RRF recall): per-memory
-  importance + Ebbinghaus decay (stability grows with recall count + importance), Letta-style core/recall/archival
-  tiers, `auto_dream` consolidation (forgets never-recalled trivia, promotes/merges, protects important), optional
-  gated FlashRank reranker. Wired via `GET /api/brain/memory/status` and the `run_human_memory.py` offline demo.
-  *Recall feels human; memory forgets + consolidates.*
-- **P4.3 — Self-feeding internet.** SearXNG + GPT-Researcher + Crawl4AI + Trafilatura/Docling + arxiv/paperscraper +
-  RSS, on a scheduler, with dedup. *It finds, reads, downloads, and stores books/papers/news on its own.*
+- **P4.2 — Human-like memory. ✅ BUILT (REBUILT on real reused projects).** Two layers ship together:
+  (a) `HumanMemory` over `KnowledgeBrain` (PPR + RRF recall) — per-memory importance + Ebbinghaus decay (stability
+  grows with recall count + importance), Letta-style core/recall/archival tiers, `auto_dream` consolidation (forgets
+  never-recalled trivia, promotes/merges, protects important), optional gated FlashRank reranker; wired via
+  `GET /api/brain/memory/status` + the `run_human_memory.py` offline demo.
+  (b) `HybridMemory` (`memory/hybrid_memory.py`) — fuses FOUR REAL reused components: the **vendored Stanford
+  Generative-Agents memory stream** (`vendor/generative_agents_memory`, Apache-2.0) for importance + recency +
+  relevance retrieval and **reflection** (higher-level insight synthesis); **real Letta** (pip) tiered core-memory
+  blocks (persona/human/knowledge, embedded/offline); **mem0** (pip, gated on an LLM key) semantic store; plus our
+  **Ebbinghaus decay + `auto_dream`** — the one piece no library does. The project's LLM keys power GA's
+  `importance_fn` + `synthesize_fn` (offline → vendored heuristics). Wired via `GET /api/brain/hybrid/status` + the
+  `run_hybrid_memory.py` offline/deterministic demo (stub brain + stub LLM + injected clock).
+  *Recall feels human; memory forgets, consolidates, and reflects — on real, tested code.*
+- **P4.3 — Self-feeding internet. ✅ BUILT.** `Librarian` discover (ddgs web / arxiv papers / feedparser RSS) →
+  trafilatura extract → content+URL dedup (persistable seen-set) → `KnowledgeBrain.ingest_text`; APScheduler always-on
+  `.schedule(topics, interval_minutes=)`; gated + offline-testable via injected source callables. Wired via
+  `GET /api/brain/librarian/status` and the `run_librarian.py` offline demo.
+  *It finds, reads, downloads, and stores books/papers/news on its own.*
 - **P4.4 — Proof it gets smarter.** Ragas/DeepEval auto-quiz from ingested docs + EduKTM mastery + promptfoo CI.
   *A rising accuracy/retention curve as it reads more — the honest test.*
 - **P4.5 — Thinking + knowing-what-it-knows.** ReAct/ToT + pymdp (surprise+curiosity) + Scallop/causal +

@@ -342,6 +342,18 @@ _memory/human_memory.py — human-like memory: decay, tiers, dreaming (Phase P4.
 - **classes:** MemMeta, HumanMemory
 - **imports:** __future__, dataclasses, math
 
+## `memory/hybrid_memory.py`
+_memory/hybrid_memory.py — hybrid human memory (Phase P4.2), wired to REAL projects._
+- **classes:** HybridMemory
+- **functions:** `_default_llm()`
+- **imports:** __future__, dataclasses, memory.human_memory, re, vendor.generative_agents_memory
+
+## `memory/librarian.py`
+_memory/librarian.py — self-feeding internet: the brain reads on its own (Phase P4.3)._
+- **classes:** Librarian
+- **functions:** `_ddgs_search(query, max_results) -> list[dict]`; `_rss_fetch(url, limit) -> list[dict]`; `_arxiv_search(query, max_results) -> list[dict]`; `_trafilatura_extract(url) -> str`; `_count_by(items, key) -> dict`
+- **imports:** __future__, dataclasses, hashlib, json, os
+
 ## `memory/store.py`
 _VectorMemory — semantic chunk store with neural embeddings (reuse-first)._
 - **classes:** VectorMemory
@@ -412,8 +424,8 @@ _Detection / discovery nodes — "is the structure real, weak, or random?"._
 
 ## `nodes/dl_nodes.py`
 _CPU-practical deep-learning / transformer time-series PREDICTOR nodes._
-- **classes:** _ARFallback, _DLForecastBase, NHiTSNode, TCNNode, NBEATSNode, TSMixerNode, GRUNode, AEAnomalyNode
-- **functions:** `_silence()`; `_timeseries(y)`; `nhits_node(name)`; `tcn_node(name)`; `nbeats_node(name)`; `tsmixer_node(name)`; `gru_node(name)`; `ae_anomaly_node(name)`
+- **classes:** _ARFallback, _DLForecastBase, NHiTSNode, TCNNode, NBEATSNode, TSMixerNode, GRUNode, LSTMNode, AEAnomalyNode, TabPFNNode
+- **functions:** `_silence()`; `_timeseries(y)`; `tabpfn_node(name)`; `nhits_node(name)`; `tcn_node(name)`; `nbeats_node(name)`; `tsmixer_node(name)`; `gru_node(name)`; `lstm_node(name)`; `ae_anomaly_node(name)`
 - **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, time, warnings
 
 ## `nodes/dynamic_bus.py`
@@ -642,6 +654,12 @@ _run_human_memory.py — Phase P4.2 (Human-like memory) OFFLINE demo._
 - **functions:** `_build() -> HumanMemory`; `build_demo_human_memory() -> dict`; `main() -> int`
 - **imports:** __future__, json, memory.human_memory, sys, warnings
 
+## `run_hybrid_memory.py`
+_run_hybrid_memory.py — Phase P4.2 Hybrid human memory OFFLINE demo._
+- **classes:** _StubMem, _StubBrain, _StubLLM
+- **functions:** `_build() -> HybridMemory`; `build_demo_hybrid_memory() -> dict`; `main() -> int`
+- **imports:** __future__, datetime, json, memory.hybrid_memory, sys, warnings
+
 ## `run_intradaywf.py`
 _Walk-forward (chronological) on Binance INTRADAY klines — more samples/structure._
 - **functions:** `eval_symbol(symbol, interval, target)`; `main(target, interval, total) -> dict`
@@ -656,6 +674,12 @@ _run_journal_t5.py — Trading Phase T5 (Brain Confidence + Trade Journal) offli
 _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
 - **functions:** `_wiki(title) -> str | None`; `main() -> dict`
 - **imports:** __future__, json, memory.brain, os, urllib.request
+
+## `run_librarian.py`
+_run_librarian.py — Phase P4.3 (Self-feeding internet) OFFLINE demo._
+- **classes:** _StubMem, _StubBrain
+- **functions:** `_stub_web_search(query, max_results) -> list[dict]`; `_stub_arxiv_search(query, max_results) -> list[dict]`; `_stub_extractor(url) -> str`; `build_demo_librarian() -> dict`; `main() -> int`
+- **imports:** __future__, json, memory.librarian, sys, warnings
 
 ## `run_multi.py`
 _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
@@ -774,6 +798,12 @@ _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
 - **classes:** TestConfig, TestLiquidation, TestOrderBookFill, TestPaperEngine, TestFundingSpread, TestCryptoWatchlist
 - **imports:** __future__, pathlib, tempfile, trading.crypto.config, trading.crypto.funding, trading.crypto.liquidation, trading.crypto.paper_engine, trading.crypto.watchlist, trading.state, unittest
 
+## `tests/test_dl_nodes.py`
+_DL-node acceptance tests: the darts neural forecasters, the PyTorch_
+- **classes:** TestDartsForecastNodes, TestAutoencoderNode, TestTabPFNNode, TestPoolRegistration
+- **functions:** `_data(n)`; `_split(X, y, frac)`; `_naive(y) -> float`; `_assert_protocol(tc, node, X)`
+- **imports:** __future__, core.node_protocol, data.benchmarks, nodes, unittest
+
 ## `tests/test_domain_nodes.py`
 _Acceptance test: the PhD-domain node modules import and conform to NodeProtocol._
 - **classes:** TestDomainNodes
@@ -808,6 +838,12 @@ _Phase P4.2 (human-like memory layer) acceptance tests — fully offline + deter
 - **functions:** `_brain()`
 - **imports:** __future__, json, math, memory.human_memory, unittest, warnings
 
+## `tests/test_hybrid_memory.py`
+_Phase P4.2 HybridMemory acceptance tests — fully OFFLINE + deterministic._
+- **classes:** StubBrain, TestAdd, TestRecall, TestReflect, TestDream, TestMem0Gating, TestStatus, TestDeterminism
+- **functions:** `stub_llm(messages)`; `_hybrid()`; `_seed(hm, n)`
+- **imports:** __future__, datetime, json, memory.hybrid_memory, unittest, warnings
+
 ## `tests/test_journal_t5.py`
 _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully offline._
 - **classes:** TestSchema, TestCharges, TestQuality, TestAnalytics, TestBehavior, TestConfidence, TestTearsheet, TestJournalEndToEnd
@@ -817,6 +853,12 @@ _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully 
 _Acceptance tests for the Phase-4 knowledge brain: ingest -> recall works._
 - **classes:** TestKnowledge
 - **imports:** __future__, memory.brain, unittest
+
+## `tests/test_librarian.py`
+_Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & deterministic._
+- **classes:** StubBrain, TestDiscover, TestIngestItem, TestDedup, TestFeed, TestPersistence, TestStatusAndDeterminism
+- **functions:** `make_web(items, recorder)`; `make_arxiv(items, recorder)`; `make_rss(items, recorder)`; `make_extractor(text, recorder)`; `_lib(brain)`
+- **imports:** __future__, json, memory.librarian, os, tempfile, unittest, warnings
 
 ## `tests/test_memory_assoc.py`
 _P4.2 acceptance: human-like ASSOCIATIVE recall (Personalized-PageRank + RRF fusion)._
@@ -1432,6 +1474,16 @@ _trading/watchlist.py — persisted NSE watchlist (T1 §6)._
 
 ## `vendor/__init__.py`
 _(no summary)_
+
+## `vendor/generative_agents_memory/__init__.py`
+_Vendored Generative-Agents "Memory Stream" (Stanford joonspk-research)._
+- **imports:** memory_stream
+
+## `vendor/generative_agents_memory/memory_stream.py`
+_Generative Agents "Memory Stream" -- vendored, decoupled, offline-capable._
+- **classes:** ConceptNode, AssociativeMemory
+- **functions:** `default_importance_fn(text) -> int`; `default_embed_fn(text, dim) -> list[float]`; `default_synthesize_fn(statements) -> list[str]`; `cos_sim(a, b)`; `normalize_dict_floats(d, target_min, target_max)`; `top_highest_x_values(d, x)`; `extract_recency(nodes, recency_decay)`; `extract_importance(nodes)`; `extract_relevance(memory, nodes, focal_pt)`
+- **imports:** __future__, datetime, hashlib, math, re
 
 ## `vendor/gplearn/__init__.py`
 _Genetic Programming in Python, with a scikit-learn inspired API_
