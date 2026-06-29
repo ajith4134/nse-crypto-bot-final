@@ -26,12 +26,13 @@ function fmtCell(v) {
   return String(v)
 }
 
-// Summary bar: Total / NSE / Binance P&L, coloured by sign. Reused by open + closed tables.
+// Summary bar: NSE (₹) + Binance ($) kept SEPARATE (different currencies, never blindly added),
+// plus a grand total converted to ₹ via the live USD→INR rate. Reused by open + closed tables.
 export function TotalsBar({ totals, label = 'Unrealized' }) {
   if (!totals) return null
-  const pnl = (v) => {
+  const pnl = (v, sym) => {
     const n = Number(v) || 0
-    return <b style={{ color: n > 0 ? T.good : n < 0 ? T.bad : T.muted }}>{n >= 0 ? '+' : ''}{n.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b>
+    return <b style={{ color: n > 0 ? T.good : n < 0 ? T.bad : T.muted }}>{n >= 0 ? '+' : '−'}{sym}{Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}</b>
   }
   const cell = { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 90 }
   const lab = { fontSize: 9.5, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.5 }
@@ -39,10 +40,13 @@ export function TotalsBar({ totals, label = 'Unrealized' }) {
     <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap',
       padding: '8px 12px', background: T.panel2, borderBottom: `1px solid ${T.border}`,
       fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 14 }}>
-      <div style={cell}><span style={lab}>Total {label} P/L</span><span style={{ fontSize: 16 }}>{pnl(totals.total_pnl)}</span></div>
-      <div style={cell}><span style={lab}>NSE</span>{pnl(totals.nse_pnl)}</div>
-      <div style={cell}><span style={lab}>Binance</span>{pnl(totals.binance_pnl)}</div>
-      {totals.capital != null && <div style={cell}><span style={lab}>Capital</span><b style={{ color: T.text }}>{Number(totals.capital).toLocaleString(undefined, { maximumFractionDigits: 0 })}</b></div>}
+      <div style={cell}><span style={lab}>NSE {label} (₹)</span>{pnl(totals.nse_pnl, '₹')}</div>
+      <div style={cell}><span style={lab}>Binance {label} ($)</span>{pnl(totals.binance_pnl, '$')}</div>
+      <div style={cell}>
+        <span style={lab}>Total ≈ ₹ (converted)</span>
+        <span style={{ fontSize: 16 }}>{pnl(totals.total_inr, '₹')}</span>
+      </div>
+      {totals.usdinr != null && <div style={cell}><span style={lab}>USD→INR</span><b style={{ color: T.muted }}>{Number(totals.usdinr).toFixed(2)}</b></div>}
     </div>
   )
 }

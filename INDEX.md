@@ -484,7 +484,7 @@ _Live node registry — the single source of truth the dashboard reads._
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler
-- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys
 
 ## `dashboard/verify_render.py`
