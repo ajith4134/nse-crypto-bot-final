@@ -10,6 +10,7 @@
 // Renders fine with empty/missing props (tasteful empty state, never crashes).
 import { useMemo, useState } from 'react'
 import { T, pnlColor } from './theme.js'
+import { TotalsBar } from './OpenTradesPanel.jsx'
 
 // Default ~15-column subset to show first (matched case-insensitively, in order).
 // Anything else stays hidden until the user opts in via the column chooser.
@@ -55,7 +56,7 @@ function csvEscape(v) {
   return s
 }
 
-export default function ClosedTradesTable({ columns, rows, onRowClick }) {
+export default function ClosedTradesTable({ columns, rows, onRowClick, totals }) {
   const allCols = Array.isArray(columns) ? columns : []
   const data = Array.isArray(rows) ? rows : []
 
@@ -284,6 +285,7 @@ export default function ClosedTradesTable({ columns, rows, onRowClick }) {
   return (
     <div style={wrap}>
       {toolbar}
+      <TotalsBar totals={totals} label="Net" />
       {chooser}
       <div style={{ overflowX: 'auto', maxHeight: 480, overflowY: 'auto' }}>
         <table

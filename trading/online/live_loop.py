@@ -36,6 +36,24 @@ _SYMBOLS = {"CRYPTO": "BTC/USDT", "NSE": "RELIANCE"}
 _EXCHANGE = {"CRYPTO": "binance", "NSE": "NSE"}
 
 
+def trade_type(market: str, instrument: str = "", product: str = "", exchange: str = "") -> str:
+    """Human-readable trade class: Crypto Spot/Futures · Options · Futures · NSE Intraday/
+    Delivery · Commodities — derived from market + instrument + product + exchange."""
+    m, it, pt, ex = (market or "").upper(), (instrument or "").upper(), \
+        (product or "").upper(), (exchange or "").upper()
+    if m == "CRYPTO" or ex in ("BINANCE", "BYBIT", "OKX", "KUCOIN", "COINBASE", "KRAKEN"):
+        return "Crypto Futures" if it in ("PERP", "FUTURES", "QUARTERLY") else "Crypto Spot"
+    if it in ("CE", "PE", "OPT"):
+        return "Options"
+    if it == "FUT":
+        return "Futures"
+    if ex == "MCX":
+        return "Commodities"
+    if it in ("EQ", "STK", ""):
+        return "NSE Intraday" if pt == "MIS" else "NSE Delivery"
+    return f"{ex or m} {it}".strip()
+
+
 def momentum_decider(window: int = 12, band: float = 0.00015):
     """A real, simple momentum strategy: go/stay LONG above the SMA, EXIT below it.
 
@@ -312,6 +330,12 @@ class LiveTradeLoop:
             self._marks.setdefault(market.upper(), {})[symbol] = price
             key = f"{market.upper()}:{symbol}"
             in_pos = key in self._open
+            if in_pos:                                # track running peak profit / peak loss (MFE/MAE)
+                ot = self._open[key]
+                sgn = 1.0 if ot["direction"] == "LONG" else -1.0
+                upnl = sgn * (price - ot["entry_price"]) * ot["quantity"]
+                ot["peak_profit"] = round(max(ot.get("peak_profit", 0.0), upnl), 4)
+                ot["peak_loss"] = round(min(ot.get("peak_loss", 0.0), upnl), 4)
             decision = self._decide(market, symbol, price, in_position=in_pos)
             action = decision.get("action", "FLAT")
             size = float(decision.get("size", 1.0))
@@ -340,10 +364,17 @@ class LiveTradeLoop:
         except Exception as e:
             return {"ok": False, "detail": str(e)[:80]}
         import datetime as _dt
+        is_crypto = market.upper() == "CRYPTO"
+        instrument = "SPOT" if is_crypto else "EQ"
+        product = "SPOT" if is_crypto else "MIS"
         self._open[f"{market.upper()}:{symbol}"] = {
             "market": market.upper(), "symbol": symbol, "direction": direction,
             "quantity": size, "entry_price": price, "entry_dt": _dt.datetime.now().isoformat(),
             "mode": mode,
+            "instrument": instrument, "product": product,
+            "trade_type": trade_type(market, instrument, product, _EXCHANGE.get(market.upper(), "")),
+            "capital": round(price * size, 2),       # capital placed on the trade (notional)
+            "peak_profit": 0.0, "peak_loss": 0.0,     # MFE / MAE in currency (tracked live)
             # snapshot the brain decision that produced THIS entry (if any) for the journal
             "brain_entry": dict(brain) if isinstance(brain, dict) else None}
         self.trades_opened += 1
@@ -380,9 +411,9 @@ class LiveTradeLoop:
                 trade_id=f"L{self.trades_closed}-{ot['symbol'].replace('/', '')}",
                 symbol=ot["symbol"],
                 exchange=_EXCHANGE.get(ot["market"], ot["market"]),
-                instrument_type="PERP" if is_crypto else "EQ",
+                instrument_type=ot.get("instrument", "SPOT" if is_crypto else "EQ"),
                 direction=ot["direction"],
-                product_type="ISOLATED" if is_crypto else "MIS",
+                product_type=ot.get("product", "SPOT" if is_crypto else "MIS"),
                 strategy_name="brain" if brain_driven else "momentum",
                 setup_type="Momentum",
                 market_session=ot.get("mode", "LIVE"),
@@ -396,6 +427,10 @@ class LiveTradeLoop:
             )
             if realized is not None:
                 t.gross_pnl = float(realized)
+            # peak profit (MFE) / peak loss (MAE, stored positive) + capital placed — tracked live
+            t.mfe = round(float(ot.get("peak_profit", 0.0)), 4)
+            t.mae = round(abs(float(ot.get("peak_loss", 0.0))), 4)
+            t.margin_used = float(ot.get("capital", ot["entry_price"] * ot["quantity"]))
             # ── brain / market-context fields (only those present in the schema) ──
             if isinstance(brain, dict):
                 regime = brain.get("regime")

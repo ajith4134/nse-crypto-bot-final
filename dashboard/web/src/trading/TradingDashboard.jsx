@@ -83,11 +83,11 @@ export default function TradingDashboard() {
       </div>
 
       <Card title="Open Trades" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols`}>
-        <OpenTradesPanel columns={openT.columns || []} rows={openT.rows || []} />
+        <OpenTradesPanel columns={openT.columns || []} rows={openT.rows || []} totals={openT.totals} />
       </Card>
 
       <Card title="Closed Trades" hint={`${(closedT.rows || []).length} trades · ${(closedT.columns || []).length}-col journal · click a row to drill down`}>
-        <ClosedTradesTable columns={closedT.columns || []} rows={closedT.rows || []}
+        <ClosedTradesTable columns={closedT.columns || []} rows={closedT.rows || []} totals={closedT.totals}
           onRowClick={(row) => setDrill(row)} />
       </Card>
 

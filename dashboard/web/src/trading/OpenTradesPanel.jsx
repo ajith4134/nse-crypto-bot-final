@@ -26,7 +26,28 @@ function fmtCell(v) {
   return String(v)
 }
 
-export default function OpenTradesPanel({ columns, rows }) {
+// Summary bar: Total / NSE / Binance P&L, coloured by sign. Reused by open + closed tables.
+export function TotalsBar({ totals, label = 'Unrealized' }) {
+  if (!totals) return null
+  const pnl = (v) => {
+    const n = Number(v) || 0
+    return <b style={{ color: n > 0 ? T.good : n < 0 ? T.bad : T.muted }}>{n >= 0 ? '+' : ''}{n.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b>
+  }
+  const cell = { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 90 }
+  const lab = { fontSize: 9.5, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.5 }
+  return (
+    <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap',
+      padding: '8px 12px', background: T.panel2, borderBottom: `1px solid ${T.border}`,
+      fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 14 }}>
+      <div style={cell}><span style={lab}>Total {label} P/L</span><span style={{ fontSize: 16 }}>{pnl(totals.total_pnl)}</span></div>
+      <div style={cell}><span style={lab}>NSE</span>{pnl(totals.nse_pnl)}</div>
+      <div style={cell}><span style={lab}>Binance</span>{pnl(totals.binance_pnl)}</div>
+      {totals.capital != null && <div style={cell}><span style={lab}>Capital</span><b style={{ color: T.text }}>{Number(totals.capital).toLocaleString(undefined, { maximumFractionDigits: 0 })}</b></div>}
+    </div>
+  )
+}
+
+export default function OpenTradesPanel({ columns, rows, totals }) {
   const cols = Array.isArray(columns) ? columns : []
   const data = Array.isArray(rows) ? rows : []
 
@@ -93,6 +114,7 @@ export default function OpenTradesPanel({ columns, rows }) {
         <span style={{ fontWeight: 600, letterSpacing: 0.4 }}>Open Trades</span>
         <span style={{ fontSize: 12, color: T.good }}>{data.length} open</span>
       </div>
+      <TotalsBar totals={totals} label="Unrealized" />
 
       <div style={{ overflowX: 'auto', maxHeight: 420, overflowY: 'auto' }}>
         <table

@@ -143,10 +143,10 @@ _DEMO_TICKERS = [
 # frontend hook and this builder agree. Some cells are honestly "—" when the offline
 # TradeManager.status() does not carry that field (no live broker/feed wired yet).
 OPEN_TRADE_COLUMNS = [
-    "Symbol", "Instrument Type", "Direction", "Qty", "Open Qty", "Entry Price",
-    "Current Price", "Unrealized P&L", "Unrealized P&L %", "Stop", "Trail Stop",
-    "MAE", "MFE", "R-multiple", "Efficiency", "Strategy", "Exchange", "Leverage",
-    "Margin", "Liq Price", "Hold Time", "Confidence",
+    "Symbol", "Trade Type", "Instrument Type", "Direction", "Qty", "Capital", "Entry Price",
+    "Current Price", "Unrealized P&L", "Unrealized P&L %", "Peak P/L", "Stop",
+    "Trail Stop", "R-multiple", "Efficiency", "Strategy", "Exchange", "Leverage",
+    "Liq Price", "Hold Time", "Confidence",
 ]
 
 
@@ -1015,29 +1015,45 @@ class Handler(BaseHTTPRequestHandler):
                 live = get_loop().open_positions()
                 # rows are DICTS keyed by OPEN_TRADE_COLUMNS (the frontend reads row[columnName]).
                 rows = []
+                tot_pnl = tot_cap = tot_pp = tot_pl = 0.0
+                nse_pnl = crypto_pnl = 0.0
+                import datetime as _dt
                 for p in live:
-                    notional = p["entry_price"] * p["quantity"]
+                    notional = p.get("capital") or (p["entry_price"] * p["quantity"])
                     pct = round(p["unrealized_pnl"] / notional * 100, 3) if notional else 0.0
-                    import datetime as _dt
+                    pp, pl = float(p.get("peak_profit", 0.0)), float(p.get("peak_loss", 0.0))
                     try:
                         held = _dt.datetime.now() - _dt.datetime.fromisoformat(p.get("entry_dt", ""))
                         hold = f"{int(held.total_seconds() // 60)}m"
                     except Exception:
                         hold = "—"
+                    tot_pnl += p["unrealized_pnl"]; tot_cap += notional
+                    tot_pp += pp; tot_pl += pl
+                    if p["market"] == "CRYPTO":
+                        crypto_pnl += p["unrealized_pnl"]
+                    else:
+                        nse_pnl += p["unrealized_pnl"]
                     rows.append({
-                        "Symbol": p["symbol"],
-                        "Instrument Type": "PERP" if p["market"] == "CRYPTO" else "EQ",
-                        "Direction": p["direction"], "Qty": p["quantity"], "Open Qty": p["quantity"],
+                        "Symbol": p["symbol"], "Trade Type": p.get("trade_type", "—"),
+                        "Instrument Type": p.get("instrument", "—"),
+                        "Direction": p["direction"], "Qty": p["quantity"],
+                        "Capital": round(notional, 2),            # capital placed (money invested)
                         "Entry Price": round(p["entry_price"], 4),
                         "Current Price": round(p["mark_price"], 4),
                         "Unrealized P&L": round(p["unrealized_pnl"], 4), "Unrealized P&L %": pct,
-                        "Stop": "—", "Trail Stop": "—", "MAE": "—", "MFE": "—", "R-multiple": "—",
-                        "Efficiency": "—", "Strategy": p.get("strategy", "momentum"),
+                        "Peak P/L": f"{pp:.2f}/{pl:.2f}",          # peak profit / peak loss
+                        "Stop": "—", "Trail Stop": "—", "R-multiple": "—", "Efficiency": "—",
+                        "Strategy": p.get("strategy", "momentum"),
                         "Exchange": "binance" if p["market"] == "CRYPTO" else "NSE",
-                        "Leverage": 1.0, "Margin": round(notional, 2), "Liq Price": "—",
-                        "Hold Time": hold, "Confidence": "—"})
+                        "Leverage": 1.0, "Liq Price": "—", "Hold Time": hold, "Confidence": "—"})
                 body = json.dumps({"columns": OPEN_TRADE_COLUMNS, "rows": rows,
                                    "demo": False, "live": True,
+                                   "totals": {"total_pnl": round(tot_pnl, 2),
+                                              "nse_pnl": round(nse_pnl, 2),
+                                              "binance_pnl": round(crypto_pnl, 2),
+                                              "capital": round(tot_cap, 2),
+                                              "peak_pl": f"{tot_pp:.2f}/{tot_pl:.2f}",
+                                              "open": len(rows)},
                                    "note": "live open paper positions from the trade loop"},
                                   default=str).encode()
             except Exception as e:
@@ -1051,17 +1067,46 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from trading.journal.journal import TradeJournal
                 from trading.journal.schema import COLUMNS
+                from trading.online.live_loop import trade_type as _ttype
+                # surface the same friendly columns the open-trades table has, up front
+                extra = ["Trade Type", "Peak P/L", "Capital"]
+                cols = extra + COLUMNS
+
+                def _augment(rws):
+                    for r in rws:
+                        pp = float(r.get("mfe") or 0.0)         # peak profit (MFE)
+                        pl = -float(r.get("mae") or 0.0)        # peak loss (MAE, shown negative)
+                        cap = r.get("margin_used") or ((r.get("entry_price") or 0) * (r.get("quantity") or 0))
+                        r["Trade Type"] = _ttype("CRYPTO" if (r.get("exchange") or "").lower() in
+                                                 ("binance", "bybit", "okx") else "NSE",
+                                                 r.get("instrument_type", ""), r.get("product_type", ""),
+                                                 r.get("exchange", ""))
+                        r["Peak P/L"] = f"{pp:.2f}/{pl:.2f}"
+                        r["Capital"] = round(float(cap), 2)
+                    return rws
+                def _totals(rws):
+                    tot = nse = binance = 0.0
+                    for r in rws:
+                        net = float(r.get("net_pnl") or 0.0)
+                        tot += net
+                        if (r.get("exchange") or "").lower() in ("binance", "bybit", "okx", "kucoin"):
+                            binance += net
+                        else:
+                            nse += net
+                    return {"total_pnl": round(tot, 2), "nse_pnl": round(nse, 2),
+                            "binance_pnl": round(binance, 2), "count": len(rws)}
                 live = TradeJournal(state_file="journal.json", persist=True)
                 if live._trades:
-                    rows = [t.to_dict() for t in live._trades]
-                    body = json.dumps({"columns": COLUMNS, "rows": rows, "demo": False,
-                                       "live": True, "count": len(rows),
+                    rows = _augment([t.to_dict() for t in live._trades])
+                    body = json.dumps({"columns": cols, "rows": rows, "demo": False,
+                                       "live": True, "count": len(rows), "totals": _totals(rows),
                                        "note": "live journal.json — real closed paper trades"},
                                       default=str).encode()
                 else:
                     from run_journal_t5 import build_demo_journal
-                    rows = [t.to_dict() for t in build_demo_journal().trades]
-                    body = json.dumps({"columns": COLUMNS, "rows": rows, "demo": True,
+                    rows = _augment([t.to_dict() for t in build_demo_journal().trades])
+                    body = json.dumps({"columns": cols, "rows": rows, "demo": True,
+                                       "totals": _totals(rows),
                                        "note": "no live closed trades yet — showing demo journal"},
                                       default=str).encode()
             except Exception as e:
