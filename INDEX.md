@@ -484,7 +484,7 @@ _Live node registry — the single source of truth the dashboard reads._
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler
-- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_trade_outcome_net()`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys
 
 ## `dashboard/verify_render.py`
@@ -1228,6 +1228,11 @@ _Phase P4.5 (Thinking + knowing-what-it-knows) acceptance tests — fully offlin
 - **classes:** _Graph, _Brain, TestActiveInference, TestReasoning, TestSymbolic, TestCausal, TestCalibration, TestConstitution, TestThinker, TestBrainAgentIntegration, TestDemo
 - **functions:** `_abstainer(level)`
 - **imports:** __future__, cognition, cognition.reasoning, numpy, unittest, warnings
+
+## `tests/test_trade_features.py`
+_tests/test_trade_features.py — the trade-row → node-network bridge (TradeOutcomeNet)._
+- **functions:** `_closed(win, i) -> dict`; `test_feature_row_length_matches_schema()`; `test_network_trains_and_predicts()`; `test_degrades_honestly_when_undersampled()`
+- **imports:** random, trading.brain.trade_features
 
 ## `tests/test_trading_t1.py`
 _Trading Phase T1 (NSE Foundation) acceptance tests._

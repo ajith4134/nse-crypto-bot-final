@@ -383,15 +383,20 @@ class LiveTradeLoop:
             out[market] = items
         return out
 
+    # Floor the ATR proxy at a fraction of price so the trailing stop is never absurdly tight:
+    # raw 5s-tick true-range decays toward ~0 on flat ticks, which made positions stop out in
+    # seconds (so "open trades" looked empty). 0.4% floor → ~1% stop at 2.5×ATR, keeping
+    # positions open through normal noise.
+    _ATR_FLOOR = 0.004
+
     def _update_atr(self, symbol: str, price: float) -> float:
-        """Cheap EMA True-Range proxy per symbol (for sizing + ATR trailing)."""
+        """Cheap EMA True-Range proxy per symbol (for sizing + ATR trailing), floored so the
+        trailing stop stays sane on slow/flat real ticks."""
         a = self._atr.get(symbol)
-        if a is None:
-            self._atr[symbol] = {"atr": max(price * 0.005, 1e-9), "prev": price}
-        else:
-            self._atr[symbol] = {"atr": 0.9 * a["atr"] + 0.1 * abs(price - a["prev"]),
-                                 "prev": price}
-        return self._atr[symbol]["atr"]
+        ema = price * 0.006 if a is None else 0.9 * a["atr"] + 0.1 * abs(price - a["prev"])
+        atr = max(ema, price * self._ATR_FLOOR)
+        self._atr[symbol] = {"atr": atr, "prev": price}
+        return atr
 
     def _pairs(self):
         """Flatten the watchlist: self.symbols values may be a single symbol or a list."""
@@ -474,6 +479,12 @@ class LiveTradeLoop:
             decision = self._decide(market, symbol, price, in_position=in_pos)
             action = decision.get("action", "FLAT")
             size = float(decision.get("size", 1.0))
+            # EXIT policy: when a position has a trailing stop attached, let the TRAILING STOP
+            # manage the exit (ride the trend) — don't flip out on every SMA dip. The momentum
+            # EXIT only applies as a fallback when there's no trailing engine. This keeps
+            # positions open meaningfully (observable) instead of scalping out in seconds.
+            has_trail = in_pos and self._open.get(key, {}).get("trail") is not None
+            do_exit = bool(trail_exit) or (action == "EXIT" and not has_trail)
             reduces = action in ("EXIT", "FLAT") or bool(trail_exit)
             gate = self.registry.allow_order(market, reduces_position=reduces, is_real=ms.is_real)
             routed = None
@@ -484,10 +495,10 @@ class LiveTradeLoop:
             elif action == "LONG" and not in_pos and gate["ok"]:
                 routed = self._open_trade(market, symbol, "LONG", price, size, mode, atr=atr,
                                           brain=decision.get("_brain"))
-            elif (action == "EXIT" or trail_exit) and in_pos and gate["ok"]:
+            elif do_exit and in_pos and gate["ok"]:
                 routed = self._close_trade(market, symbol, price, mode)
-                if isinstance(routed, dict) and trail_exit:
-                    routed["exit_reason"] = trail_exit
+                if isinstance(routed, dict):
+                    routed["exit_reason"] = trail_exit or "momentum"
             results.append({"market": market, "mode": mode, "price": round(price, 4),
                             "action": action, "in_position": in_pos,
                             "gate_ok": gate["ok"], "routed": routed})
@@ -521,6 +532,55 @@ class LiveTradeLoop:
         except Exception:
             return None
 
+    # ── real market-context snapshot AT ENTRY (cached, guarded, offline-safe) ──────────
+    _CTX_CACHE: dict = {}        # key -> (monotonic_ts, value)
+
+    def _ctx_cached(self, key: str, ttl: float, fn):
+        """Memoise a possibly-network context value for `ttl` seconds (best-effort)."""
+        hit = self._CTX_CACHE.get(key)
+        now = time.monotonic()
+        if hit and (now - hit[0]) < ttl:
+            return hit[1]
+        try:
+            val = fn()
+        except Exception:
+            val = None
+        self._CTX_CACHE[key] = (now, val)
+        return val
+
+    def _entry_context(self, market: str, symbol: str, brain) -> dict:
+        """Snapshot the REAL market context at entry → the journal's context columns.
+        Each source is cached + guarded so an entry never blocks or fails on the network.
+        india_vix/nifty stay None (no free live source per blueprint) — honest."""
+        is_crypto = market.upper() == "CRYPTO"
+        ctx: dict = {}
+        # crypto Fear & Greed (free, no key) — hourly cache
+        ctx["fear_greed_index"] = self._ctx_cached("fng", 3600, lambda: float(
+            __import__("trading.advintel.onchain", fromlist=["OnChainMetrics"])
+            .OnChainMetrics().fear_greed().get("value")))
+        # BTC reference price — from a live mark if we have one, else a 60s-cached ticker
+        btc = (self._marks.get("CRYPTO", {}) or {}).get("BTC/USDT")
+        if btc is None:
+            btc = self._ctx_cached("btc", 60, lambda: float(
+                __import__("trading.crypto.exchange_client", fromlist=["ExchangeClient"])
+                .ExchangeClient("binance").ticker("BTC/USDT").get("last")))
+        ctx["btc_price_entry"] = btc
+        if is_crypto:
+            # perp funding rate (None for SPOT — honest) — 5-min cache
+            ctx["funding_rate_entry"] = self._ctx_cached(
+                f"fund:{symbol}", 300, lambda: float(
+                    __import__("trading.crypto.funding", fromlist=["FundingMonitor"])
+                    .FundingMonitor().fetch(symbol, "binance").get("funding_rate")))
+            vol = self._ctx_cached(f"vol:{symbol}", 60, lambda: float(
+                __import__("trading.crypto.exchange_client", fromlist=["ExchangeClient"])
+                .ExchangeClient("binance").ticker(symbol).get("baseVolume")))
+            ctx["volume_entry"] = vol
+        if isinstance(brain, dict):
+            rc = brain.get("regime_confidence", brain.get("recall_confidence"))
+            if rc is not None:
+                ctx["regime_confidence"] = float(rc)
+        return ctx
+
     def _open_trade(self, market, symbol, direction, price, size, mode, *, atr=None, brain=None) -> dict:
         # P4: size the trade with the PositionSizer (capital, ATR-stop, edge) — not a fixed 1.
         size = self._size_trade(market, symbol, direction, price, atr, brain) or size
@@ -535,6 +595,12 @@ class LiveTradeLoop:
         product = "SPOT" if is_crypto else "MIS"
         # P3: attach the direction-aware trailing STOP exit (ATR-multiple) for this position
         trail = self._make_trail(direction, price, atr)
+        sgn = 1.0 if direction == "LONG" else -1.0
+        # initial protective stop (ATR-multiple if known, else 1%) → enables R-multiple/efficiency
+        stop_dist = (atr * float(self.cfg.get("trail_atr_mult", 2.5))) if atr else (price * 0.01)
+        initial_sl = round(price - sgn * stop_dist, 6)
+        initial_target = round(price + sgn * stop_dist * 2.0, 6)
+        leverage = 1.0                               # paper spot/CNC: unleveraged (honest)
         self._open[f"{market.upper()}:{symbol}"] = {
             "market": market.upper(), "symbol": symbol, "direction": direction,
             "quantity": size, "entry_price": price, "entry_dt": _dt.datetime.now().isoformat(),
@@ -543,7 +609,12 @@ class LiveTradeLoop:
             "trade_type": trade_type(market, instrument, product, _EXCHANGE.get(market.upper(), "")),
             "capital": round(price * size, 2),       # capital placed on the trade (notional)
             "peak_profit": 0.0, "peak_loss": 0.0,     # MFE / MAE in currency (tracked live)
-            "trail": trail, "stop_level": None,
+            "trail": trail, "stop_level": initial_sl,
+            "leverage": leverage, "margin_mode": "isolated" if is_crypto else "",
+            "initial_sl": initial_sl, "initial_target": initial_target,
+            "capital_at_risk": round(stop_dist * size, 4), "risk_reward": 2.0,
+            # real market context AT ENTRY (fear&greed / btc / funding / volume / regime)
+            "ctx": self._entry_context(market, symbol, brain),
             # snapshot the brain decision that produced THIS entry (if any) for the journal
             "brain_entry": dict(brain) if isinstance(brain, dict) else None}
         self.trades_opened += 1
@@ -600,6 +671,23 @@ class LiveTradeLoop:
             t.mfe = round(float(ot.get("peak_profit", 0.0)), 4)
             t.mae = round(abs(float(ot.get("peak_loss", 0.0))), 4)
             t.margin_used = float(ot.get("capital", ot["entry_price"] * ot["quantity"]))
+            # ── risk & sizing (enables quality.py r_multiple / efficiency / RR) ──
+            if ot.get("initial_sl") is not None:
+                t.initial_sl_price = float(ot["initial_sl"])
+            if ot.get("initial_target") is not None:
+                t.initial_target_price = float(ot["initial_target"])
+            t.leverage = float(ot.get("leverage", 1.0))
+            t.margin_mode = ot.get("margin_mode", "")
+            if ot.get("capital_at_risk") is not None:
+                t.capital_at_risk = float(ot["capital_at_risk"])
+            if ot.get("risk_reward") is not None:
+                t.risk_reward = float(ot["risk_reward"])
+            # ── real market context snapshotted at entry → the schema's context columns ──
+            ctx = ot.get("ctx") or {}
+            for k in ("fear_greed_index", "btc_price_entry", "funding_rate_entry",
+                      "volume_entry", "relative_volume", "regime_confidence"):
+                if ctx.get(k) is not None:
+                    setattr(t, k, float(ctx[k]))
             # ── brain / market-context fields (only those present in the schema) ──
             if isinstance(brain, dict):
                 regime = brain.get("regime")
@@ -660,8 +748,20 @@ class LiveTradeLoop:
         for key, ot in self._open.items():
             mark = self._marks.get(ot["market"], {}).get(ot["symbol"], ot["entry_price"])
             sign = 1.0 if ot["direction"] == "LONG" else -1.0
-            # drop non-JSON-serialisable internals (the trailing engine + brain dict)
+            # drop non-JSON-serialisable internals (the trailing engine + raw brain dict)
             clean = {k: v for k, v in ot.items() if k not in ("trail", "brain_entry")}
+            # flatten the brain decision to closed-trade keys so the outcome-net (and the
+            # dashboard Confidence column) can read it without the raw object
+            be = ot.get("brain_entry")
+            if isinstance(be, dict):
+                if be.get("confidence") is not None:
+                    clean["brain_confidence_entry"] = be["confidence"]
+                if be.get("regime"):
+                    clean["market_regime_entry"] = be["regime"]
+                clean["node_contributions"] = [{
+                    "source": "brain_pipeline", "anomaly_score": be.get("anomaly_score"),
+                    "news_compound": be.get("news_compound"), "recall_bias": be.get("recall_bias"),
+                }]
             rows.append({**clean, "mark_price": mark,
                          "unrealized_pnl": round(sign * (mark - ot["entry_price"]) * ot["quantity"], 4)})
         return rows
