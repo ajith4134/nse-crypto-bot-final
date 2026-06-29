@@ -196,7 +196,14 @@ Two different questions; conflating them is the #1 source of hype:
   `.schedule(topics, interval_minutes=)`; gated + offline-testable via injected source callables. Wired via
   `GET /api/brain/librarian/status` and the `run_librarian.py` offline demo.
   *It finds, reads, downloads, and stores books/papers/news on its own.*
-- **P4.4 — Proof it gets smarter.** Ragas/DeepEval auto-quiz from ingested docs + EduKTM mastery + promptfoo CI.
+- **P4.4 — Proof it gets smarter. ✅ BUILT.** `MasteryQuiz` self-quiz: cloze questions from ingested memories →
+  brain `recall` answers → grade → FSRS-driven per-topic mastery/retention curve. A RISING accuracy+retention curve
+  (vs a flat never-learning control) is the honest learning test; DeepEval/LLM grading gated (offline = deterministic
+  cloze + overlap grade). TWO real mastery models now, per reuse-real-code-first (use the named/most-capable real
+  project even if heavy): **FSRS** (py-fsrs) drives the retention curve, AND **EduKTM Deep Knowledge Tracing**
+  (DKT, torch — the blueprint-named heavier model) fits the same quiz timeline for a deep per-topic mastery view
+  (`memory/knowledge_tracing.py`, `MasteryQuiz.knowledge_tracing`). Wired via
+  `GET /api/brain/quiz/status` and the `run_self_quiz.py` offline demo (both curves + DKT mastery).
   *A rising accuracy/retention curve as it reads more — the honest test.*
 - **P4.5 — Thinking + knowing-what-it-knows.** ReAct/ToT + pymdp (surprise+curiosity) + Scallop/causal +
   MAPIE calibration/abstention + NeMo-Guardrails. *Reasons, stays calibrated, asks for help.*

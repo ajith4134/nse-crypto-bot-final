@@ -313,6 +313,30 @@ class Handler(BaseHTTPRequestHandler):
                             "run_librarian.py and ml-network-brain-ultra-blueprint.md §4).",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/brain/quiz/status":
+            # P4.4 self-quiz mastery: the brain quizzes ITSELF (cloze questions from
+            # ingested memories → recall → grade) and tracks a FSRS-driven mastery/
+            # retention curve — a RISING accuracy+retention curve is the honest "it gets
+            # smarter" test (vs a never-learning control). Returns the OFFLINE
+            # deterministic demo snapshot (a real KnowledgeBrain downloads an embedding
+            # model = network), labelled demo. Degrades to an error payload (never crashes).
+            try:
+                from run_self_quiz import build_demo_self_quiz
+                snap = build_demo_self_quiz()
+                snap["demo"] = True
+                snap["note"] = ("offline deterministic demo (run_self_quiz.py over a stub "
+                                "brain, injected clock); shows the real FSRS-driven mastery "
+                                "curve rising for a learning brain vs a flat never-learning "
+                                "control — not live brain self-testing")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.4 self-quiz mastery not importable (see memory/self_quiz.py, "
+                            "run_self_quiz.py and ml-network-brain-ultra-blueprint.md §4).",
+                }).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/status":
             # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
             # Lazy import so the dashboard still serves if the trading deps are absent.

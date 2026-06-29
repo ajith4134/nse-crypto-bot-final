@@ -348,11 +348,22 @@ _memory/hybrid_memory.py — hybrid human memory (Phase P4.2), wired to REAL pro
 - **functions:** `_default_llm()`
 - **imports:** __future__, dataclasses, memory.human_memory, re, vendor.generative_agents_memory
 
+## `memory/knowledge_tracing.py`
+_memory/knowledge_tracing.py — EduKTM Deep Knowledge Tracing mastery (Phase P4.4, 2nd model)._
+- **classes:** KnowledgeTracer
+- **imports:** __future__, dataclasses
+
 ## `memory/librarian.py`
 _memory/librarian.py — self-feeding internet: the brain reads on its own (Phase P4.3)._
 - **classes:** Librarian
 - **functions:** `_ddgs_search(query, max_results) -> list[dict]`; `_rss_fetch(url, limit) -> list[dict]`; `_arxiv_search(query, max_results) -> list[dict]`; `_trafilatura_extract(url) -> str`; `_count_by(items, key) -> dict`
 - **imports:** __future__, dataclasses, hashlib, json, os
+
+## `memory/self_quiz.py`
+_memory/self_quiz.py — proof the brain gets smarter (Phase P4.4)._
+- **classes:** MasteryQuiz
+- **functions:** `_salient_term(text) -> str | None`
+- **imports:** __future__, dataclasses, datetime, fsrs, re
 
 ## `memory/store.py`
 _VectorMemory — semantic chunk store with neural embeddings (reuse-first)._
@@ -733,6 +744,12 @@ _Harden: multi-seed robustness of the router-grown brain._
 - **functions:** `_one(seed) -> dict`; `main(seeds) -> dict`
 - **imports:** __future__, core.brain, data.benchmarks, eval.golden, json, nodes.pool, os, run_brain
 
+## `run_self_quiz.py`
+_run_self_quiz.py — Phase P4.4 Self-quiz mastery tracker OFFLINE demo._
+- **classes:** _KnowBrain, _BlankBrain
+- **functions:** `_silenced()`; `_run_curve(brain) -> tuple[list[dict], dict, MasteryQuiz]`; `build_demo_self_quiz() -> dict`; `main() -> int`
+- **imports:** __future__, contextlib, datetime, json, memory.self_quiz, os, sys, warnings
+
 ## `run_strategy_t8.py`
 _run_strategy_t8.py — Trading Phase T8.1 (Strategy genome + operators + walk-forward_
 - **functions:** `_hdr(title) -> None`; `synth_ohlcv(n, seed) -> pd.DataFrame`; `_oos_slice(feats) -> tuple[pd.DataFrame, list[dict]]`; `_score(strategy, oos_feats) -> dict`; `_load_markets() -> dict`; `_fold_returns(strategy, market_data, n_folds) -> list[float]`; `build_demo_population() -> dict`; `build_demo_evolution() -> dict`; `_rank_key(m) -> tuple`; `_fmt_metrics(m) -> str`; `_fmt_fitness(p) -> str`; `main() -> int`
@@ -854,6 +871,12 @@ _Acceptance tests for the Phase-4 knowledge brain: ingest -> recall works._
 - **classes:** TestKnowledge
 - **imports:** __future__, memory.brain, unittest
 
+## `tests/test_knowledge_tracing.py`
+_Phase P4.4 (2nd mastery model) acceptance tests — EduKTM Deep Knowledge Tracing._
+- **classes:** _StubBrain, TestTracerFit, TestNoInteractions, TestAddSequence, TestBaselineRanking, TestDKTEasyVsHard, TestDeterminism, TestQuizIntegration
+- **functions:** `_muted()`; `_quiet_fit(tracer)`
+- **imports:** __future__, contextlib, io, json, memory.knowledge_tracing, memory.self_quiz, unittest, warnings
+
 ## `tests/test_librarian.py`
 _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & deterministic._
 - **classes:** StubBrain, TestDiscover, TestIngestItem, TestDedup, TestFeed, TestPersistence, TestStatusAndDeterminism
@@ -913,6 +936,11 @@ _Trading Phase T8.9 (end-to-end brain trading pipeline + safety) acceptance test
 _Acceptance test (hardening): the router-grown brain must beat the naive_
 - **classes:** TestRobust
 - **imports:** __future__, run_robust, unittest
+
+## `tests/test_self_quiz.py`
+_Phase P4.4 (FSRS self-quiz mastery tracker) acceptance tests — fully offline._
+- **classes:** KnowBrain, BlankBrain, TestMakeCloze, TestQuizOne, TestRunRound, TestMasteryCurve, TestInjectedHooks, TestStatus
+- **imports:** __future__, datetime, json, memory.self_quiz, unittest, warnings
 
 ## `tests/test_skills_t8.py`
 _Trading Phase T8.8 (skill library + observability + self-improvement) tests — offline._
