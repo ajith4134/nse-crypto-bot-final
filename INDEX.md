@@ -2,6 +2,139 @@
 
 Regenerate with `make index` (parses the source via AST).
 
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/config.py`
+_(no summary)_
+- **classes:** TextConfig, VisionConfig, RegionConfig, TokenizerConfig, MoondreamConfig
+- **imports:** dataclasses, typing
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/hf_moondream.py`
+_(no summary)_
+- **classes:** HfConfig, HfMoondream
+- **functions:** `extract_question(text)`
+- **imports:** config, image_crops, moondream, region, text, torch, torch.nn, transformers, typing, utils, vision
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/image_crops.py`
+_(no summary)_
+- **classes:** OverlapCropOutput
+- **functions:** `select_tiling(height, width, crop_size, max_crops) -> tuple[int, int]`; `overlap_crop_image(image, overlap_margin, max_crops, base_size, patch_size) -> OverlapCropOutput`; `reconstruct_from_crops(crops, tiling, overlap_margin, patch_size) -> torch.Tensor`
+- **imports:** math, numpy, torch, typing
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/layers.py`
+_(no summary)_
+- **classes:** LinearWeights, QuantizedLinear, LayerNormWeights, MLPWeights, AttentionWeights
+- **functions:** `gelu_approx(x)`; `linear(x, w) -> torch.Tensor`; `dequantize_tensor(W_q, scale, zero, orig_shape, dtype)`; `layer_norm(x, w) -> torch.Tensor`; `mlp(x, w, lora) -> torch.Tensor`; `attn(x, w, n_heads) -> torch.Tensor`
+- **imports:** dataclasses, torch, torch.nn, torch.nn.functional, typing
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/lora.py`
+_(no summary)_
+- **functions:** `variant_cache_dir()`; `cached_variant_path(variant_id)`; `nest(flat)`; `variant_state_dict(variant_id, device)`
+- **imports:** functools, os, pathlib, shutil, torch, typing, urllib.request
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/moondream.py`
+_(no summary)_
+- **classes:** EncodedImage, KVCache, MoondreamModel
+- **functions:** `_is_cjk_char(cp)`
+- **imports:** PIL, config, dataclasses, image_crops, layers, lora, random, region, text, tokenizers, torch, torch.nn, typing, utils, vision
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/region.py`
+_(no summary)_
+- **functions:** `fourier_features(x, w) -> torch.Tensor`; `encode_coordinate(coord, w) -> torch.Tensor`; `decode_coordinate(hidden_state, w) -> torch.Tensor`; `encode_size(size, w) -> torch.Tensor`; `decode_size(hidden_state, w) -> torch.Tensor`; `encode_spatial_refs(spatial_refs, w) -> torch.Tensor`
+- **imports:** layers, math, torch, torch.nn, typing
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/rope.py`
+_(no summary)_
+- **functions:** `precompute_freqs_cis(dim, end, theta, use_scaled, dtype) -> torch.Tensor`; `apply_rotary_emb(x, freqs_cis, position_ids, num_heads, rot_dim, interleave) -> torch.Tensor`
+- **imports:** torch
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/text.py`
+_(no summary)_
+- **functions:** `text_encoder(input_ids, w)`; `attn(x, w, freqs_cis, kv_cache, attn_mask, n_heads, n_kv_heads, position_ids, lora)`; `_attn(x, w, freqs_cis, attn_mask, n_heads, n_kv_heads)`; `_produce_hidden(inputs_embeds, w, config)`; `text_decoder(x, w, attn_mask, position_ids, config, lora)`; `lm_head(hidden_BTC, w)`; `_lm_head(hidden_BTC, w)`; `build_text_model(config, dtype) -> nn.Module`
+- **imports:** config, layers, rope, torch, torch.nn, typing
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/utils.py`
+_(no summary)_
+- **functions:** `remove_outlier_points(points_tuples, k_nearest, threshold)`
+- **imports:** numpy
+
+## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/vision.py`
+_(no summary)_
+- **functions:** `prepare_crops(image, config, device) -> Tuple[torch.Tensor, Tuple[int, int]]`; `create_patches(x, patch_size)`; `vision_encoder(input_BCHW, w, config)`; `vision_projection(global_features, reconstructed, w, config)`; `build_vision_model(config, dtype)`
+- **imports:** PIL, config, image_crops, layers, numpy, torch, torch.nn, torch.nn.functional, typing
+
+## `.cache/huggingface/modules/__init__.py`
+_(no summary)_
+
+## `.cache/huggingface/modules/transformers_modules/__init__.py`
+_(no summary)_
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/__init__.py`
+_(no summary)_
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/__init__.py`
+_(no summary)_
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/config.py`
+_(no summary)_
+- **classes:** TextConfig, VisionConfig, RegionConfig, TokenizerConfig, MoondreamConfig
+- **imports:** dataclasses, typing
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/hf_moondream.py`
+_(no summary)_
+- **classes:** HfConfig, HfMoondream
+- **functions:** `extract_question(text)`
+- **imports:** config, image_crops, moondream, region, text, torch, torch.nn, transformers, typing, utils, vision
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/image_crops.py`
+_(no summary)_
+- **classes:** OverlapCropOutput
+- **functions:** `select_tiling(height, width, crop_size, max_crops) -> tuple[int, int]`; `overlap_crop_image(image, overlap_margin, max_crops, base_size, patch_size) -> OverlapCropOutput`; `reconstruct_from_crops(crops, tiling, overlap_margin, patch_size) -> torch.Tensor`
+- **imports:** math, numpy, torch, typing
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/layers.py`
+_(no summary)_
+- **classes:** LinearWeights, QuantizedLinear, LayerNormWeights, MLPWeights, AttentionWeights
+- **functions:** `gelu_approx(x)`; `linear(x, w) -> torch.Tensor`; `dequantize_tensor(W_q, scale, zero, orig_shape, dtype)`; `layer_norm(x, w) -> torch.Tensor`; `mlp(x, w, lora) -> torch.Tensor`; `attn(x, w, n_heads) -> torch.Tensor`
+- **imports:** dataclasses, torch, torch.nn, torch.nn.functional, typing
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/lora.py`
+_(no summary)_
+- **functions:** `variant_cache_dir()`; `cached_variant_path(variant_id)`; `nest(flat)`; `variant_state_dict(variant_id, device)`
+- **imports:** functools, os, pathlib, shutil, torch, typing, urllib.request
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/moondream.py`
+_(no summary)_
+- **classes:** EncodedImage, KVCache, MoondreamModel
+- **functions:** `_is_cjk_char(cp)`
+- **imports:** PIL, config, dataclasses, image_crops, layers, lora, random, region, text, tokenizers, torch, torch.nn, typing, utils, vision
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/region.py`
+_(no summary)_
+- **functions:** `fourier_features(x, w) -> torch.Tensor`; `encode_coordinate(coord, w) -> torch.Tensor`; `decode_coordinate(hidden_state, w) -> torch.Tensor`; `encode_size(size, w) -> torch.Tensor`; `decode_size(hidden_state, w) -> torch.Tensor`; `encode_spatial_refs(spatial_refs, w) -> torch.Tensor`
+- **imports:** layers, math, torch, torch.nn, typing
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/rope.py`
+_(no summary)_
+- **functions:** `precompute_freqs_cis(dim, end, theta, use_scaled, dtype) -> torch.Tensor`; `apply_rotary_emb(x, freqs_cis, position_ids, num_heads, rot_dim, interleave) -> torch.Tensor`
+- **imports:** torch
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/text.py`
+_(no summary)_
+- **functions:** `text_encoder(input_ids, w)`; `attn(x, w, freqs_cis, kv_cache, attn_mask, n_heads, n_kv_heads, position_ids, lora)`; `_attn(x, w, freqs_cis, attn_mask, n_heads, n_kv_heads)`; `_produce_hidden(inputs_embeds, w, config)`; `text_decoder(x, w, attn_mask, position_ids, config, lora)`; `lm_head(hidden_BTC, w)`; `_lm_head(hidden_BTC, w)`; `build_text_model(config, dtype) -> nn.Module`
+- **imports:** config, layers, rope, torch, torch.nn, typing
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/utils.py`
+_(no summary)_
+- **functions:** `remove_outlier_points(points_tuples, k_nearest, threshold)`
+- **imports:** numpy
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/6b714b26eea5cbd9f31e4edb2541c170afa935ba/vision.py`
+_(no summary)_
+- **functions:** `prepare_crops(image, config, device) -> Tuple[torch.Tensor, Tuple[int, int]]`; `create_patches(x, patch_size)`; `vision_encoder(input_BCHW, w, config)`; `vision_projection(global_features, reconstructed, w, config)`; `build_vision_model(config, dtype)`
+- **imports:** PIL, config, image_crops, layers, numpy, torch, torch.nn, torch.nn.functional, typing
+
+## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/__init__.py`
+_(no summary)_
+
 ## `.claude/plugins/marketplaces/claude-plugins-official/plugins/hookify/core/__init__.py`
 _(no summary)_
 
@@ -211,7 +344,12 @@ _(no summary)_
 
 ## `cognition/__init__.py`
 _cognition — Phase P4.5: "Thinking + knowing-what-it-knows"._
-- **imports:** cognition.active_inference, cognition.calibration, cognition.guardrails, cognition.neuro_symbolic, cognition.reasoning, cognition.thinker
+- **imports:** cognition.active_inference, cognition.affect, cognition.calibration, cognition.embodiment, cognition.guardrails, cognition.identity, cognition.neuro_symbolic, cognition.reasoning, cognition.society, cognition.thinker
+
+## `cognition/_sandbox_worker.py`
+_cognition/_sandbox_worker.py — isolated fit+score worker for P4.7 self-coding._
+- **functions:** `_run(req) -> dict`; `main() -> None`
+- **imports:** __future__, json, sys, warnings
 
 ## `cognition/active_inference.py`
 _cognition/active_inference.py — principled surprise + curiosity (Phase P4.5)._
@@ -219,15 +357,37 @@ _cognition/active_inference.py — principled surprise + curiosity (Phase P4.5).
 - **functions:** `_kl(p, q) -> float`; `_entropy(p) -> float`
 - **imports:** __future__, math
 
+## `cognition/affect.py`
+_cognition/affect.py — the brain's affect/mood channel (Phase P4.8)._
+- **classes:** _GoEmotions, Mood
+- **functions:** `_stub_scores(text) -> dict`; `_nrclex_scores(text) -> dict | None`
+- **imports:** __future__, os
+
 ## `cognition/calibration.py`
 _cognition/calibration.py — knowing what it knows; abstain + ask for help (Phase P4.5)._
 - **classes:** CalibratedAbstainer
 - **imports:** __future__, numpy
 
+## `cognition/embodiment.py`
+_cognition/embodiment.py — the P4.8 orchestrator: a personality with senses._
+- **classes:** Embodiment
+- **imports:** __future__, cognition.affect, cognition.identity, cognition.multimodal, cognition.society
+
 ## `cognition/guardrails.py`
 _cognition/guardrails.py — the constitution / self-audit rail (Phase P4.5)._
 - **classes:** Constitution
 - **imports:** __future__, re
+
+## `cognition/identity.py`
+_cognition/identity.py — persistent self-model / persona (Phase P4.8)._
+- **classes:** Identity
+- **imports:** __future__, json, os
+
+## `cognition/multimodal.py`
+_cognition/multimodal.py — see / hear / speak (Phase P4.8)._
+- **classes:** Ears, Voice, Eyes
+- **functions:** `_models_off() -> bool`; `status() -> dict`
+- **imports:** __future__, os
 
 ## `cognition/neuro_symbolic.py`
 _cognition/neuro_symbolic.py — traceable logic + causal reasoning (Phase P4.5)._
@@ -240,6 +400,17 @@ _cognition/reasoning.py — deliberate reasoning: ReAct + Tree-of-Thoughts (Phas
 - **classes:** ReActState, ReasoningGraph
 - **functions:** `_terms(q) -> list[str]`
 - **imports:** __future__, langgraph.graph, re, typing
+
+## `cognition/self_coding.py`
+_cognition/self_coding.py — P4.7 Autonomy + self-coding: invent nodes, gate, admit._
+- **classes:** NodeProposer, Sandbox, BenchmarkGate, SelfCodingLoop
+- **imports:** __future__, json, os, subprocess, sys
+
+## `cognition/society.py`
+_cognition/society.py — society of mind: internal debate → vote (Phase P4.8)._
+- **classes:** InternalDebate
+- **functions:** `_default_chat()`; `_vote_from_text(text) -> int`; `_heuristic_vote(role, question, ctx) -> tuple[str, int]`
+- **imports:** __future__, re
 
 ## `cognition/stream_of_mind.py`
 _cognition/stream_of_mind.py — Stream-of-Mind + Global Workspace (Phase P4.6)._
@@ -703,9 +874,14 @@ _run_dev.py — train the growing network on a synthetic benchmark (default data
 - **functions:** `noise_sweep(levels) -> list[dict]`; `main(benchmark) -> dict`
 - **imports:** __future__, core, data.benchmarks, data.dataset, eval.golden, json, nodes.base_learners, nodes.phase2_nodes, nodes.phase2b_nodes, nodes.router_node, nodes.stacking_node, os, sys, time
 
+## `run_embodiment_p48.py`
+_run_embodiment_p48.py — Phase P4.8 (Multimodal + identity + society + affect) demo._
+- **functions:** `build_demo_embodiment() -> dict`; `demo_snapshot() -> dict`; `main() -> None`
+- **imports:** __future__, cognition.embodiment, json, os, tempfile, warnings
+
 ## `run_full_network.py`
 _run_full_network.py — THE FULL trainable network over the ENTIRE node catalog._
-- **functions:** `_firing_state(ss, Xte, yte, head_reports) -> dict`; `main() -> dict`
+- **functions:** `_head_graph(ss, Xte, yte, head_name, head_value, comm_base) -> dict`; `main() -> dict`
 - **imports:** __future__, data.benchmarks, eval.golden, json, nodes.structure_search, numpy, os, run_active, run_multi, time
 
 ## `run_human_memory.py`
@@ -792,6 +968,11 @@ _Walk-forward (chronological) evaluation on real crypto — the HONEST protocol.
 _Harden: multi-seed robustness of the router-grown brain._
 - **functions:** `_one(seed) -> dict`; `main(seeds) -> dict`
 - **imports:** __future__, core.brain, data.benchmarks, eval.golden, json, nodes.pool, os, run_brain
+
+## `run_self_coding_p47.py`
+_run_self_coding_p47.py — Phase P4.7 (Autonomy + self-coding) OFFLINE demo._
+- **functions:** `build_demo_self_coding() -> dict`; `demo_snapshot() -> dict`; `main() -> None`
+- **imports:** __future__, cognition.self_coding, json, warnings
 
 ## `run_self_quiz.py`
 _run_self_quiz.py — Phase P4.4 Self-quiz mastery tracker OFFLINE demo._
@@ -886,6 +1067,11 @@ _DL-node acceptance tests: the darts neural forecasters, the PyTorch_
 _Acceptance test: the PhD-domain node modules import and conform to NodeProtocol._
 - **classes:** TestDomainNodes
 - **imports:** __future__, core.node_protocol, data.benchmarks, data.dataset, unittest
+
+## `tests/test_embodiment_p48.py`
+_Phase P4.8 (Multimodal + identity + society + affect) acceptance tests._
+- **classes:** TestAffect, TestIdentity, TestSociety, TestSensesDegrade, TestEmbodiment, TestDemo
+- **imports:** __future__, cognition.affect, cognition.embodiment, cognition.identity, cognition.society, os, tempfile, unittest, warnings
 
 ## `tests/test_evolve_t8.py`
 _Trading Phase T8.3 (DEAP NSGA-II evolution loop + promotion) acceptance tests — offline._
@@ -997,6 +1183,11 @@ _Trading Phase T8.9 (end-to-end brain trading pipeline + safety) acceptance test
 _Acceptance test (hardening): the router-grown brain must beat the naive_
 - **classes:** TestRobust
 - **imports:** __future__, run_robust, unittest
+
+## `tests/test_self_coding_p47.py`
+_Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandboxed._
+- **classes:** TestProposer, TestSandbox, TestGate, TestLoop, TestDemo
+- **imports:** __future__, cognition.self_coding, unittest, warnings
 
 ## `tests/test_self_quiz.py`
 _Phase P4.4 (FSRS self-quiz mastery tracker) acceptance tests — fully offline._

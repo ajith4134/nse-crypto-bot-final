@@ -235,10 +235,34 @@ Two different questions; conflating them is the #1 source of hype:
   gated like `core/llm.py` — a silent no-op offline, a replayable thought-history when keys are set).
   Wired via `GET /api/brain/stream/status` + the `run_stream_of_mind.py` offline demo
   (tests: `tests/test_stream_of_mind_p46.py`). *You see its state of mind; salient thoughts become knowledge.*
-- **P4.7 — Autonomy + self-coding.** gptme 24/7 loop + ADAS/SICA inventing & benchmark-gating new nodes
-  (into the node-graph/structure-search). *Always-on, self-improving, sandboxed.*
-- **P4.8 — Multimodal + identity + society + affect.** faster-whisper/Kokoro/Moondream + Letta persona +
-  CrewAI debate + GoEmotions/NRCLex. *See/hear/speak, a persistent personality, internal debate, mood.*
+- **P4.7 — Autonomy + self-coding. ✅ BUILT.** `cognition/self_coding.py` is the ADAS/SICA pattern made
+  SAFE + offline: **NodeProposer** invents new model-nodes as declarative `AlgoSpec`s (deterministic search
+  over an **allow-listed** estimator space + mutation of past winners; an optional gated `core.llm` proposer
+  is schema-/allow-list-validated before it can run — never eval's model-written code) → **Sandbox** fits +
+  scores each candidate in a fresh **subprocess** with CPU/address-space `setrlimit` caps, a wall-clock
+  timeout, and a stripped network-free env (`cognition/_sandbox_worker.py`) so a crash/OOM/hang just rejects
+  it → **BenchmarkGate** admits ONLY candidates that beat the incumbent best on deterministic **golden data**
+  by a margin → winners register as real `AlgoSpec`s the **structure-search** network can use, with a full
+  ADAS-style **archive**. The incumbent best ratchets up (honest self-improvement); a malicious/off-allow-list
+  spec (`os.system`) is rejected WITHOUT running (RestrictedPython available for the LLM path). Built on the
+  safe substrate (P4.4 self-test + P4.5 calibration/guardrails). Wired via `GET /api/brain/autonomy/status` +
+  the `run_self_coding_p47.py` offline demo (tests: `tests/test_self_coding_p47.py`).
+  *Always-on, self-improving, sandboxed — gptme/local-LLM is the optional proposer; the loop runs without it.*
+- **P4.8 — Multimodal + identity + society + affect. ✅ BUILT.** `cognition/embodiment.py` ties four real
+  faculties into one personality on top of the thinking brain: **affect** (`affect.py` — GoEmotions
+  28-label RoBERTa → NRCLex lexicon → keyword stub, plus a persistent EMA **mood**); **identity**
+  (`identity.py` — persistent persona/human self-model over the already-installed **Letta** core-memory
+  blocks + JSON persistence; it *evolves* via `remember`/`reflect_mood`); **society** (`society.py` —
+  specialist roles **debate→vote** over the gated `core.llm`; CrewAI was REJECTED — it force-downgrades
+  pydantic<2.13 + chromadb and breaks the working NeMo/litellm/letta stack — so per the dep-weight rule
+  the faithful equivalent ships with zero conflict); **multimodal** (`multimodal.py` — **see** Moondream2→
+  BLIP, **hear** faster-whisper, **speak** kokoro-onnx, all CPU). Real models are downloaded and ACTIVE by
+  default (`BRAIN_NO_MODELS=1` forces the fast stub path for CI). Verified end-to-end: it SPEAKS a
+  sentence, HEARS it back verbatim (TTS→STT round-trip), SEES + captions a generated chart, FEELS
+  emotional text (mood shifts → reflected into the persona), and runs a real-LLM internal debate. Wired
+  via `GET /api/brain/embodiment/status` (computed in a subprocess so the ~4GB of models load in a child
+  that exits) + the `run_embodiment_p48.py` demo (tests: `tests/test_embodiment_p48.py`).
+  *See/hear/speak, a persistent personality, internal debate, mood.*
 
 Each phase ships something usable, stitches mature OSS, and defers the hardest/novel bits (self-coding,
 society) until the safe substrate (calibration, guardrails, self-test) exists.

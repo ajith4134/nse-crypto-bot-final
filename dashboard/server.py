@@ -29,6 +29,7 @@ _EXPECTED = "Basic " + base64.b64encode(f"{AUTH_USER}:{AUTH_PASS}".encode()).dec
 
 
 _BRAIN_AGENT = None
+_EMBODIMENT_CACHE = None    # P4.8 embodiment snapshot (computed once via subprocess, then cached)
 
 
 def _brain_agent():
@@ -385,6 +386,58 @@ class Handler(BaseHTTPRequestHandler):
                     "error": f"{type(e).__name__}: {e}",
                     "hint": "P4.6 Stream-of-Mind not importable (see cognition/stream_of_mind.py, "
                             "core/observability.py, run_stream_of_mind.py and the blueprint §2/§4).",
+                }).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/brain/autonomy/status":
+            # P4.7 Autonomy + self-coding: the brain INVENTS new model-nodes, fits + scores each
+            # in a SANDBOX (isolated subprocess · CPU/mem rlimits · wall-clock timeout · no
+            # network), and admits only winners that BEAT the incumbent on golden data into its
+            # own registry — bounded self-improvement on the safe substrate (P4.4 self-test +
+            # P4.5 calibration/guardrails). Returns the OFFLINE deterministic demo snapshot.
+            try:
+                from run_self_coding_p47 import build_demo_self_coding
+                snap = build_demo_self_coding()
+                snap["demo"] = True
+                snap["note"] = ("offline deterministic demo (run_self_coding_p47.py): real "
+                                "propose→sandbox→benchmark-gate→admit loop over golden data; "
+                                "shows the rising best-score curve + the safety gate rejecting a "
+                                "malicious spec without running it. No network, no LLM")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.7 self-coding not importable (see cognition/self_coding.py, "
+                            "cognition/_sandbox_worker.py, run_self_coding_p47.py and blueprint §4).",
+                }).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/brain/embodiment/status":
+            # P4.8 Multimodal + identity + society + affect: the brain's personality with senses —
+            # it SEES (Moondream2→BLIP), HEARS (faster-whisper), SPEAKS (kokoro-onnx), FEELS
+            # (GoEmotions→NRCLex mood), holds an INTERNAL DEBATE (specialist roles → vote), and
+            # keeps a persistent IDENTITY (Letta persona/human blocks). Computed in a SUBPROCESS so
+            # the ~4GB of real models load in a child that exits (the dashboard server stays lean);
+            # the JSON result is cached. First call is slow (model loads), then instant.
+            try:
+                global _EMBODIMENT_CACHE
+                if _EMBODIMENT_CACHE is None:
+                    import subprocess
+                    import sys as _sys
+                    proc = subprocess.run([_sys.executable, "run_embodiment_p48.py", "--json"],
+                                          capture_output=True, text=True, timeout=300, cwd=os.getcwd())
+                    _EMBODIMENT_CACHE = json.loads(proc.stdout.strip().splitlines()[-1])
+                snap = dict(_EMBODIMENT_CACHE)
+                snap["demo"] = True
+                snap["note"] = ("REAL models active (see/hear/speak + GoEmotions mood + internal "
+                                "debate + persistent Letta identity), computed in a subprocess and "
+                                "cached. run_embodiment_p48.py for the live CLI demo")
+                body = json.dumps(snap, default=str).encode()
+            except Exception as e:
+                body = json.dumps({
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "hint": "P4.8 embodiment not importable (see cognition/embodiment.py, "
+                            "cognition/{affect,identity,society,multimodal}.py, run_embodiment_p48.py).",
                 }).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/status":

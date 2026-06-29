@@ -39,14 +39,27 @@ export default function App() {
   // P4.6: stream the brain's REAL think-cycle thoughts into the panel via the AG-UI protocol.
   const think = useBrainThoughts(onThought)
 
+  // in-app React views (Brain/Trading) + links to the other local-hosted dashboards.
+  // Each external page opens in a NEW TAB; the Hub aggregates every brain (P4.1–P4.6) and
+  // trading (T1–T8) live panel, so "the rest of the dashboard" is one click away here.
+  const NAV_LINKS = [
+    { href: '/hub', label: '🗂 Hub' },
+    { href: '/architecture', label: '🏗 Architecture' },
+    { href: '/knowledge', label: '🕸 Knowledge' },
+  ]
   const TabBar = () => (
-    <div className="chips" style={{ gap: 8 }}>
+    <div className="chips" style={{ gap: 8, flexWrap: 'wrap' }}>
       <span className={`chip${view === 'brain' ? ' active' : ''}`}
         style={{ cursor: 'pointer', borderColor: view === 'brain' ? '#4da3ff' : undefined }}
         onClick={() => setView('brain')}>🧠 Brain</span>
       <span className={`chip${view === 'trading' ? ' active' : ''}`}
         style={{ cursor: 'pointer', borderColor: view === 'trading' ? '#4da3ff' : undefined }}
         onClick={() => setView('trading')}>📈 Trading</span>
+      <span style={{ width: 1, alignSelf: 'stretch', background: '#1e2837', margin: '0 2px' }} />
+      {NAV_LINKS.map((l) => (
+        <a className="chip" key={l.href} href={l.href} target="_blank" rel="noopener"
+          style={{ cursor: 'pointer', textDecoration: 'none' }}>{l.label}</a>
+      ))}
     </div>
   )
 

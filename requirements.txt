@@ -53,6 +53,25 @@ ag-ui-protocol          # AG-UI agent-UI event protocol (pydantic-only, 13KB): t
 #   (dashboard/web — the exact pipeline CopilotKit wraps, used directly so NO Node runtime needed).
 #   CopilotKit/assistant-ui deferred: they'd force a 2nd server / full chat UI for no added value here.
 
+# --- P4.7 Autonomy + self-coding (INSTALLED — CPU-only, see cognition/self_coding.py) ---
+RestrictedPython        # AST allow-list gate for the (optional, gated) LLM node-proposer path.
+#   Core loop needs no extra dep: subprocess + stdlib resource.setrlimit = the real sandbox.
+#   gptme (blueprint-named 24/7 agent) is the OPTIONAL LLM proposer — NOT required (the loop runs
+#   deterministically offline; per dep-weight rule, core.llm gives equal node-proposal capability
+#   without gptme's weak-sandbox shell-exec risk). Install gptme + a local model to enable it.
+
+# --- P4.8 Multimodal + identity + society + affect (INSTALLED — CPU-only, see cognition/) ---
+NRCLex                  # affect: NRC emotion lexicon (light real tier; GoEmotions is the rich tier
+#   via already-installed transformers, model SamLowe/roberta-base-go_emotions — downloaded + active).
+faster-whisper          # multimodal HEAR: STT (CTranslate2 int8, CPU). model downloaded (small).
+kokoro-onnx             # multimodal SPEAK: TTS (Apache, torch-free ONNX; `kokoro` needs py<3.13).
+#   model files in models/kokoro/ (kokoro-v1.0.onnx + voices-v1.0.bin, downloaded).
+#   SEE (VLM): Moondream2 via transformers if it loads, else BLIP (Salesforce/blip-image-captioning-base)
+#   — moondream2 remote code is incompatible with transformers 5.x here, so BLIP is the active VLM.
+#   identity reuses installed letta (persona/human blocks). society reuses core.llm (CrewAI REJECTED:
+#   pins pydantic<2.13 + chromadb~=1.1 → would break the nemoguardrails/litellm/letta stack).
+#   Models ACTIVE by default; BRAIN_NO_MODELS=1 forces the fast stub path (CI/tests).
+
 # --- PhD-domain node families (INSTALLED — CPU-only; see ml-network-nodes-catalog.md) ---
 # physics / chaos / nonlinear dynamics
 pysindy                 # SINDy — sparse identification of governing equations

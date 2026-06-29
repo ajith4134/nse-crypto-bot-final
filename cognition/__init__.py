@@ -22,10 +22,14 @@ API keys required), per the project conventions and the ml-network-brain-ultra-b
 """
 
 from cognition.active_inference import ActiveInferenceModel
+from cognition.affect import Mood
 from cognition.calibration import CalibratedAbstainer
+from cognition.embodiment import Embodiment
 from cognition.guardrails import Constitution
+from cognition.identity import Identity
 from cognition.neuro_symbolic import CausalAnalyzer, SymbolicReasoner
 from cognition.reasoning import ReasoningGraph
+from cognition.society import InternalDebate
 from cognition.thinker import Thinker
 
 __all__ = [
@@ -36,4 +40,9 @@ __all__ = [
     "CalibratedAbstainer",
     "Constitution",
     "Thinker",
+    # P4.8 — multimodal + identity + society + affect
+    "Mood",
+    "Identity",
+    "InternalDebate",
+    "Embodiment",
 ]
