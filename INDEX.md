@@ -483,9 +483,9 @@ _Live node registry — the single source of truth the dashboard reads._
 
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
-- **classes:** Handler
-- **functions:** `_brain_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_trade_outcome_net()`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
-- **imports:** __future__, base64, http.server, json, os, sys
+- **classes:** Handler, BoundedHTTPServer
+- **functions:** `_brain_agent()`; `_gui_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_trade_outcome_net()`; `_confidence_book() -> dict`; `_enrich_predictions() -> None`; `_ccxt_spot()`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **imports:** __future__, base64, http.server, json, os, sys, time
 
 ## `dashboard/verify_render.py`
 _(no summary)_
@@ -980,6 +980,10 @@ _run_self_quiz.py — Phase P4.4 Self-quiz mastery tracker OFFLINE demo._
 - **functions:** `_silenced()`; `_run_curve(brain) -> tuple[list[dict], dict, MasteryQuiz]`; `build_demo_self_quiz() -> dict`; `main() -> int`
 - **imports:** __future__, contextlib, datetime, json, memory.self_quiz, os, sys, warnings
 
+## `run_strategy_library.py`
+_run_strategy_library.py — run the curated institutional Strategy Library (active T8 feature)._
+- **imports:** __future__, sys, trading.strategy.library.run
+
 ## `run_strategy_t8.py`
 _run_strategy_t8.py — Trading Phase T8.1 (Strategy genome + operators + walk-forward_
 - **functions:** `_hdr(title) -> None`; `synth_ohlcv(n, seed) -> pd.DataFrame`; `_oos_slice(feats) -> tuple[pd.DataFrame, list[dict]]`; `_score(strategy, oos_feats) -> dict`; `_load_markets() -> dict`; `_fold_returns(strategy, market_data, n_folds) -> list[float]`; `build_demo_population() -> dict`; `build_demo_evolution() -> dict`; `_rank_key(m) -> tuple`; `_fmt_metrics(m) -> str`; `_fmt_fitness(p) -> str`; `main() -> int`
@@ -1046,6 +1050,11 @@ _P4.1 acceptance tests: the brain-chat plumbing is well-formed and degrades grac
 - **classes:** TestChat
 - **imports:** __future__, core, os, unittest
 
+## `tests/test_computer_use.py`
+_tests/test_computer_use.py — the brain's computer-use / GUI agent (trading/brain/gui)._
+- **functions:** `isolated_state(tmp_path, monkeypatch)`; `test_default_targets_are_own_and_freqtrade(isolated_state)`; `test_html_controls_parse()`; `test_chart_reader_reads_trend()`; `test_dry_run_plans_without_firing(isolated_state)`; `test_live_affecting_refused_unless_armed(isolated_state)`; `test_skill_retrieval_and_success_compounding(isolated_state)`; `test_reflector_distils_and_recalls(isolated_state)`; `test_agent_step_and_practice(isolated_state)`; `test_agent_aborts_into_halted_market(isolated_state, monkeypatch)`; `test_node_conforms_and_registers(isolated_state)`
+- **imports:** __future__, core.node_protocol, pytest
+
 ## `tests/test_continual_t8.py`
 _Trading Phase T8.5 (Continual Learning + Auto-Quiz + Meta-Init + Reflexion) tests._
 - **classes:** TestOnlineNode, TestReplayBuffer, TestReplayRetrain, TestAutoQuiz, TestMetaLearner, TestReflexion
@@ -1108,6 +1117,11 @@ _Phase P4.2 HybridMemory acceptance tests — fully OFFLINE + deterministic._
 - **functions:** `stub_llm(messages)`; `_hybrid()`; `_seed(hm, n)`
 - **imports:** __future__, datetime, json, memory.hybrid_memory, unittest, warnings
 
+## `tests/test_hypothesis.py`
+_tests/test_hypothesis.py — the brain's hypothesis→experiment→belief loop._
+- **functions:** `isolated_state(tmp_path, monkeypatch)`; `_trades(n, seed) -> list[dict]`; `test_confirms_true_edge_and_refutes_false(isolated_state)`; `test_reflect_promotes_and_archives(isolated_state)`; `test_persists_and_reloads(isolated_state)`; `test_node_protocol_and_registry(isolated_state)`; `test_pipeline_integration_with_ledger(isolated_state)`
+- **imports:** __future__, core.node_protocol, numpy, pytest
+
 ## `tests/test_journal_t5.py`
 _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully offline._
 - **classes:** TestSchema, TestCharges, TestQuality, TestAnalytics, TestBehavior, TestConfidence, TestTearsheet, TestJournalEndToEnd
@@ -1162,6 +1176,12 @@ _Trading Phase T8.6 acceptance tests — fully offline + deterministic._
 - **functions:** `_synthetic_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, numpy, pandas, trading.brain.continual, trading.brain.entryexit, trading.brain.patterns, trading.brain.picking, trading.brain.regime, unittest, warnings
 
+## `tests/test_percoin_decider.py`
+_tests/test_percoin_decider.py — brain picks the best strategy PER COIN (offline, no network)._
+- **classes:** _Strat
+- **functions:** `_trend_df(n, up)`; `_make_decider(df, strategies)`; `test_picks_the_profitable_strategy_on_an_uptrend()`; `test_stays_flat_when_no_strategy_clears_threshold()`; `test_high_threshold_forces_flat_even_with_a_winner()`; `test_exit_when_best_strategy_turns_negative_while_in_position()`; `test_backtest_is_causal_no_lookahead()`
+- **imports:** __future__, numpy, pandas, trading.crypto.freqtrade.percoin_decider
+
 ## `tests/test_phase3.py`
 _Phase-3 acceptance tests: Hellsemble + deep (L2/L3) routing._
 - **classes:** TestPhase3Routing
@@ -1179,6 +1199,12 @@ _Trading Phase T8.9 (end-to-end brain trading pipeline + safety) acceptance test
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`; `_stub_news()`; `_strategy(market, seed)`; `_full_pipeline(market)`; `_assert_no_numpy(case, obj, path)`
 - **imports:** __future__, json, numpy, pandas, trading.brain.entryexit, trading.brain.experience, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.pipeline, trading.brain.regime, trading.execution.circuit_breaker, trading.execution.kill_switch, trading.strategy.genome, trading.strategy.operators, unittest, warnings
 
+## `tests/test_reset_closed.py`
+_tests/test_reset_closed.py — closed-trade reset is brain-safe + isolated._
+- **classes:** _FakeRest, _FakeClient
+- **functions:** `isolated_state(tmp_path, monkeypatch)`; `test_bad_confirm_deletes_nothing(isolated_state)`; `test_reset_clears_journal_and_freqtrade_and_backs_up(isolated_state)`; `test_case_insensitive_confirm(isolated_state)`; `test_empty_journal_no_backup_no_crash(isolated_state)`
+- **imports:** __future__, json, pytest, trading, trading.journal.reset
+
 ## `tests/test_robust.py`
 _Acceptance test (hardening): the router-grown brain must beat the naive_
 - **classes:** TestRobust
@@ -1194,6 +1220,11 @@ _tests/test_screener.py — per-segment screener: offline-safe, deterministic._
 _Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandboxed._
 - **classes:** TestProposer, TestSandbox, TestGate, TestLoop, TestDemo
 - **imports:** __future__, cognition.self_coding, unittest, warnings
+
+## `tests/test_self_evolve.py`
+_tests/test_self_evolve.py — lifelong self-evolving strategy loop._
+- **functions:** `isolated_state(tmp_path, monkeypatch)`; `_ohlcv(seed, n) -> pd.DataFrame`; `test_gated_off_by_default(isolated_state)`; `test_force_runs_and_persists(isolated_state)`; `test_admission_grows_library(isolated_state)`; `test_reevaluate_retires_weak_skill(isolated_state)`; `test_node_protocol_and_registry(isolated_state)`
+- **imports:** __future__, core.node_protocol, numpy, pandas, pytest
 
 ## `tests/test_self_quiz.py`
 _Phase P4.4 (FSRS self-quiz mastery tracker) acceptance tests — fully offline._
@@ -1243,6 +1274,11 @@ _Trading Phase T1 (NSE Foundation) acceptance tests._
 _Tests for trading/exits/ — four trailing-exit components over one signed engine._
 - **functions:** `_first_exit(engine, path)`; `test_long_stop_trail_exits_on_drop_from_peak()`; `test_long_stop_trail_ratchets_up_only()`; `test_long_stop_no_exit_while_rising()`; `test_long_profit_trail_arms_only_after_offset()`; `test_long_profit_trail_ratchets_after_arming()`; `test_short_loss_trail_exits_on_rise_from_trough()`; `test_short_profit_trail_ratchets_down()`; `test_short_profit_arms_only_after_offset()`; `test_long_stop_trail_matches_vectorbt_tsl()`; `test_short_trail_matches_vectorbt()`; `test_atr_mode_produces_volatility_scaled_stop()`; `test_chandelier_mode_uses_pandas_ta_classic()`; `test_supertrend_mode_uses_pandas_ta_classic()`; `test_make_exit_returns_correct_wrappers()`; `test_make_exit_passes_config_through()`; `test_make_exit_rejects_unknown_purpose()`; `test_reset_re_arms_for_new_position()`; `test_status_snapshot_shape()`; `test_build_demo_trailing_snapshot()`; `test_engine_signed_core_direct_construction()`
 - **imports:** __future__, numpy, pandas, pytest, trading.exits
+
+## `tests/test_worldmodel.py`
+_tests/test_worldmodel.py — world-model + MuZero imagination planner._
+- **functions:** `_series(drift, n, seed) -> pd.DataFrame`; `test_features_shape()`; `test_node_protocol_and_registry()`; `test_world_model_learns_dynamics()`; `test_planner_prefers_long_on_uptrend()`; `test_planner_manages_open_position()`; `test_pipeline_integration_with_planner()`
+- **imports:** __future__, core.node_protocol, numpy, pandas, pytest, trading.brain.worldmodel
 
 ## `tools/gen_index.py`
 _gen_index.py — auto-generate INDEX.md from the source tree (AST, stdlib only)._
@@ -1377,6 +1413,51 @@ _trading/brain/experience.py — episodic experience bank + CBR recall (T8.4)._
 - **functions:** `_num(v) -> float`; `_as_dict(trade) -> dict`; `trade_vector(trade) -> list[float]`; `_outcome(trade) -> dict`
 - **imports:** __future__, dataclasses, datetime, math, numpy
 
+## `trading/brain/gui/__init__.py`
+_trading/brain/gui — the brain's computer-use / GUI-agent capability._
+- **imports:** __future__, trading.brain.gui.actions, trading.brain.gui.agent, trading.brain.gui.perception, trading.brain.gui.reflection, trading.brain.gui.skills, trading.brain.gui.targets
+
+## `trading/brain/gui/actions.py`
+_trading/brain/gui/actions.py — the ACT layer of the computer-use agent._
+- **classes:** ActionResult, ActionExecutor
+- **imports:** __future__, dataclasses, json, urllib.error, urllib.request
+
+## `trading/brain/gui/agent.py`
+_trading/brain/gui/agent.py — the computer-use agent loop + its NodeProtocol face._
+- **classes:** ComputerUseAgent, ComputerUseNode
+- **functions:** `register_computer_use_agent(agent) -> ComputerUseNode`
+- **imports:** __future__, core.node_protocol, numpy, trading.brain.gui.actions, trading.brain.gui.perception, trading.brain.gui.reflection, trading.brain.gui.skills, trading.brain.gui.targets
+
+## `trading/brain/gui/perception.py`
+_trading/brain/gui/perception.py — the SEE layer of the computer-use agent._
+- **classes:** _ButtonHarvester, ChartReading, ChartReader, DomReader, OcrReader, Perception, DashboardPerception
+- **functions:** `_has(mod) -> bool`; `capabilities() -> dict`; `_get(url, timeout) -> tuple[int, str]`; `_get_json(url, timeout) -> dict | None`; `read_html_controls(url) -> list[dict]`
+- **imports:** __future__, dataclasses, html.parser, importlib.util, json, urllib.error, urllib.request
+
+## `trading/brain/gui/reflection.py`
+_trading/brain/gui/reflection.py — the LEARN layer: Reflexion-style self-critique._
+- **classes:** Lesson, GuiReflector
+- **functions:** `_tokens(text) -> set[str]`
+- **imports:** __future__, dataclasses
+
+## `trading/brain/gui/skills.py`
+_trading/brain/gui/skills.py — the LEARN layer: a growing library of GUI macros._
+- **classes:** GuiSkill, GuiSkillLibrary
+- **functions:** `_tokens(text) -> set[str]`
+- **imports:** __future__, dataclasses
+
+## `trading/brain/gui/targets.py`
+_trading/brain/gui/targets.py — the dashboards the computer-use agent operates._
+- **classes:** DashboardTarget, TargetRegistry
+- **functions:** `_own_base() -> str`; `_freq_base() -> str`; `default_targets() -> list[DashboardTarget]`
+- **imports:** __future__, dataclasses, os
+
+## `trading/brain/hypothesis.py`
+_trading/brain/hypothesis.py — the brain's hypothesis → experiment → belief loop._
+- **classes:** Hypothesis, ExperimentRunner, HypothesisLedger, HypothesisNode
+- **functions:** `_metric_values(trades, metric) -> np.ndarray`; `_win_rate(vals) -> float`; `_bayes_ab(cond, ctrl, draws, seed) -> float`; `register_hypothesis_ledger(ledger) -> HypothesisNode`
+- **imports:** __future__, core.node_protocol, dataclasses, hashlib, numpy
+
 ## `trading/brain/metalearn.py`
 _trading/brain/metalearn.py — MAML-style meta-init for sample-efficiency (T8.5)._
 - **classes:** MetaLearner
@@ -1408,7 +1489,7 @@ _trading/brain/picking.py — cross-sectional asset picking (T8.6)._
 ## `trading/brain/pipeline.py`
 _trading/brain/pipeline.py — end-to-end brain trading pipeline (T8.9 finale)._
 - **classes:** BrainTradingPipeline
-- **imports:** __future__, dataclasses, pandas, trading.brain.entryexit, trading.brain.experience, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.regime, trading.strategy.features
+- **imports:** __future__, dataclasses, pandas, trading.brain.entryexit, trading.brain.experience, trading.brain.hypothesis, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.regime, trading.brain.worldmodel, trading.strategy.features
 
 ## `trading/brain/regime.py`
 _trading/brain/regime.py — market-regime detection + regime-gated activation (T8.6)._
@@ -1461,6 +1542,12 @@ _trading/brain/trade_features.py — trade rows → ML network inputs → outcom
 - **functions:** `_f(v, default)`; `_is_crypto(trade) -> bool`; `_brain_telemetry(trade) -> dict`; `_entry_hour(trade) -> int | None`; `_regime(trade) -> str`; `trade_feature_row(trade) -> list[float]`; `_won(trade) -> int`; `get_outcome_net(closed_rows) -> TradeOutcomeNet`
 - **imports:** __future__, datetime, math
 
+## `trading/brain/worldmodel.py`
+_trading/brain/worldmodel.py — learned market world-model + imagination planner._
+- **classes:** MarketWorldModel, _MinMax, _MCTSNode, PositionState, ImaginationPlanner, WorldModelNode
+- **functions:** `market_features(ohlcv) -> np.ndarray`; `_feature_matrix(ohlcv) -> np.ndarray`; `build_planner(ohlcv) -> ImaginationPlanner`; `register_world_model() -> WorldModelNode`
+- **imports:** __future__, core.node_protocol, dataclasses, math, numpy, pandas
+
 ## `trading/config.py`
 _trading/config.py — central trading configuration (T1)._
 - **classes:** TradingConfig
@@ -1477,6 +1564,11 @@ _trading/crypto/config.py — crypto trading configuration (T2)._
 - **functions:** `_load() -> CryptoConfig`
 - **imports:** __future__, config, dataclasses
 
+## `trading/crypto/engine_client.py`
+_trading/crypto/engine_client.py — thin, honest wrapper over Freqtrade's REST API (T-split B)._
+- **classes:** FreqtradeError, CryptoEngineClient
+- **imports:** __future__, trading.crypto.config, trading.openalgo_client, typing
+
 ## `trading/crypto/exchange_client.py`
 _trading/crypto/exchange_client.py — thin ccxt wrapper (T2)._
 - **classes:** ExchangeError, Reachable, ExchangeClient
@@ -1487,6 +1579,467 @@ _trading/crypto/feed.py — crypto market feed (T2)._
 - **classes:** CryptoFeed
 - **imports:** __future__, threading, time, trading.crypto.config, trading.crypto.exchange_client, trading.tick_cache
 
+## `trading/crypto/freqtrade/__init__.py`
+_trading/crypto/freqtrade/ — managed Freqtrade config + launch helper (T-split B)._
+
+## `trading/crypto/freqtrade/brain_executor.py`
+_trading/crypto/freqtrade/brain_executor.py — brain reads strategies as instructions (Phase G)._
+- **classes:** LibraryBrainDecider, BrainExecutor
+- **functions:** `_spot(symbol) -> str`; `library_brain_decider()`
+- **imports:** __future__, pandas, time
+
+## `trading/crypto/freqtrade/candle_updater.py`
+_trading/crypto/freqtrade/candle_updater.py — keep OHLCV candle data continuously fresh._
+- **functions:** `_uidir() -> str`; `_now() -> str`; `_write_status(uidir) -> None`; `_top_pairs(n) -> list[str]`; `run_cycle(uidir, cycle) -> None`; `main() -> int`
+- **imports:** __future__, datetime, json, os, subprocess, time
+
+## `trading/crypto/freqtrade/config_template.py`
+_trading/crypto/freqtrade/config_template.py — build a Freqtrade config from OUR config._
+- **functions:** `_pairs(cfg) -> list[str]`; `_freqai_block() -> dict`; `build_config(cfg) -> dict`; `write_config(path, cfg, dry_run_wallet) -> str`
+- **imports:** __future__, json, os, secrets, trading.crypto.config
+
+## `trading/crypto/freqtrade/control.py`
+_trading/crypto/freqtrade/control.py — guarded paper↔live & spot↔futures switch (Phase F)._
+- **functions:** `_cfg()`; `_config_json() -> dict`; `_bot_running() -> bool`; `status() -> dict`; `_set_env_keys(updates) -> None`; `_wait_port_free(host, port, timeout) -> bool`; `restart_bot() -> dict`; `switch() -> dict`; `set_params() -> dict`; `main(argv) -> int`
+- **imports:** __future__, dataclasses, json, os, re, socket, subprocess, time
+
+## `trading/crypto/freqtrade/launch.py`
+_trading/crypto/freqtrade/launch.py — generate the config and print the launch command._
+- **functions:** `_write_start_script(cfg_path, user_dir) -> str`; `main() -> None`
+- **imports:** __future__, os, sys, trading.crypto.config, trading.crypto.freqtrade.config_template
+
+## `trading/crypto/freqtrade/ml_decider.py`
+_trading/crypto/freqtrade/ml_decider.py — real ML direction models → brain instruction (Phase G)._
+- **classes:** MLDirectionDecider
+- **functions:** `all_ml_deciders() -> list`
+- **imports:** __future__, numpy, pandas, time
+
+## `trading/crypto/freqtrade/percoin_decider.py`
+_trading/crypto/freqtrade/percoin_decider.py — brain picks the BEST strategy PER COIN (Phase G+)._
+- **classes:** PerCoinBrainDecider
+- **functions:** `per_coin_brain_decider()`
+- **imports:** __future__, math, numpy, trading.crypto.freqtrade.brain_executor
+
+## `trading/crypto/freqtrade/run_brain_loop.py`
+_run_brain_loop.py — the missing driver: run the brain→Freqtrade entry/exit loop._
+- **functions:** `main() -> int`
+- **imports:** __future__, os, sys, time, trading.crypto.engine_client, trading.crypto.freqtrade.brain_executor
+
+## `trading/crypto/freqtrade/user_data/strategies/FreqAIDirection.py`
+_FreqAIDirection — FreqAI directional ML strategy (Wave: crypto ML strategies → Freqtrade)._
+- **classes:** FreqAIDirection
+- **imports:** __future__, freqtrade.strategy, numpy, pandas, technical
+
+## `trading/crypto/freqtrade/user_data/strategies/MlBridgeStrategy.py`
+_MlBridgeStrategy — minimal placeholder Freqtrade strategy (T-split B)._
+- **classes:** MlBridgeStrategy
+- **imports:** __future__, freqtrade.strategy, pandas
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutAtrChannel.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutAtrChannel
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutBollingerSqueeze.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutBollingerSqueeze
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutDonchianTrailing.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutDonchianTrailing
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutGapAndGo.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutGapAndGo
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutInsideBar.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutInsideBar
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutLwVolatility.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutLwVolatility
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutOpeningRange.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutOpeningRange
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutRangeExpansion.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutRangeExpansion
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_BreakoutTtmSqueeze.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** BreakoutTtmSqueeze
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboAdxGatedCross.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboAdxGatedCross
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboBollingerRsi.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboBollingerRsi
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboElderTripleScreen.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboElderTripleScreen
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboEmaCloud.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboEmaCloud
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboPullbackContinuation.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboPullbackContinuation
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboRsiMacd.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboRsiMacd
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboSupertrendRsi.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboSupertrendRsi
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboTrendDay.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboTrendDay
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_ComboVwapRsi.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** ComboVwapRsi
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_FlowAccumulation.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** FlowAccumulation
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_FlowChaikinAdosc.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** FlowChaikinAdosc
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_FlowMfiTrend.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** FlowMfiTrend
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_FlowObvTrend.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** FlowObvTrend
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_FlowRvolShock.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** FlowRvolShock
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_FlowVolumeBreakout.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** FlowVolumeBreakout
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_FlowVwapTrend.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** FlowVwapTrend
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevAtrOverextension.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevAtrOverextension
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevBbPctb.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevBbPctb
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevBollinger.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevBollinger
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevCci.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevCci
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevConnorsRsi2.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevConnorsRsi2
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevKeltner.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevKeltner
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevMfi.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevMfi
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevRsi.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevRsi
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevStochastic.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevStochastic
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevStochrsi.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevStochrsi
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevUltimateOsc.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevUltimateOsc
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevVwap.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevVwap
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevWilliamsR.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevWilliamsR
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MeanrevZscore.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MeanrevZscore
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MlRegimeSwitchingHmm.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MlRegimeSwitchingHmm
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomBreakout.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomBreakout
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomCmo.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomCmo
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomIgnition.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomIgnition
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomMacdHistogram.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomMacdHistogram
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomObvConfirmed.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomObvConfirmed
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomPpo.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomPpo
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomRelativeVolume.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomRelativeVolume
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomRoc.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomRoc
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomRsiRegime.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomRsiRegime
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomStochastic.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomStochastic
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomTimeseries.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomTimeseries
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_MomTrix.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** MomTrix
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_PatternDojiBreakout.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** PatternDojiBreakout
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_PatternEngulfing.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** PatternEngulfing
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_PatternHammerStar.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** PatternHammerStar
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_PatternHarami.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** PatternHarami
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_PatternMarubozu.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** PatternMarubozu
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_PatternThreeBarReversal.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** PatternThreeBarReversal
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_SpotDcaAccumulate.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** SpotDcaAccumulate
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_SpotGridRange.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** SpotGridRange
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendAdxDi.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendAdxDi
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendAroon.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendAroon
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendDonchianBreakout.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendDonchianBreakout
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendEmaCrossover.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendEmaCrossover
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendGoldenDeathCross.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendGoldenDeathCross
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendKama.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendKama
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendLinregSlope.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendLinregSlope
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendMacd.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendMacd
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendMacdZeroLine.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendMacdZeroLine
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendParabolicSar.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendParabolicSar
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendSmaCrossover.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendSmaCrossover
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendSupertrend.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendSupertrend
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendSupertrendMacdCombo.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendSupertrendMacdCombo
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendTema.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendTema
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendTripleMaStack.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendTripleMaStack
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_TrendTurtle55.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** TrendTurtle55
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_VolBbWidthExpansion.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** VolBbWidthExpansion
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_VolCompressionBreakout.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** VolCompressionBreakout
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_VolExpansionTrend.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** VolExpansionTrend
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade/user_data/strategies/lib_VolLowvolMeanrevert.py`
+_AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
+- **classes:** VolLowvolMeanrevert
+- **imports:** sys, trading.strategy.freqtrade_strategy_base
+
+## `trading/crypto/freqtrade_ingest.py`
+_trading/crypto/freqtrade_ingest.py — Freqtrade closed trades → 85-col journal → NN bridge (Phase D)._
+- **functions:** `_f(v, default) -> float`; `_peak_client(perp)`; `_fmt_ms(ms) -> str | None`; `_peak_fields(ft, allow_net) -> dict`; `map_trade(ft) -> ClosedTrade`; `map_open_trade(ft) -> dict`; `closed_view(client, net_budget) -> list[dict]`; `open_trades_view(client) -> list[dict]`; `ingest_closed(journal, client) -> dict`
+- **imports:** __future__, dataclasses, datetime, time, trading.journal.schema
+
 ## `trading/crypto/funding.py`
 _trading/crypto/funding.py — perpetual funding-rate monitor (T2 §5)._
 - **classes:** Funding, FundingMonitor
@@ -1496,6 +2049,16 @@ _trading/crypto/funding.py — perpetual funding-rate monitor (T2 §5)._
 _trading/crypto/liquidation.py — liquidation-price estimator (T2)._
 - **functions:** `liquidation_price() -> float`; `distance_to_liquidation() -> float`
 - **imports:** __future__, trading.crypto.config
+
+## `trading/crypto/markets.py`
+_trading/crypto/markets.py — live crypto markets/screener feed (Binance-style table)._
+- **functions:** `_client(segment)`; `_funding(ex) -> dict`; `live_markets() -> list[dict]`
+- **imports:** __future__, time
+
+## `trading/crypto/mlnb_writer.py`
+_trading/crypto/mlnb_writer.py — standalone same-origin overlay writer for the forked FreqUI._
+- **functions:** `_uidir() -> str`; `_dash_url() -> str`; `write_once(uidir) -> None`; `main() -> int`
+- **imports:** __future__, json, os, re, time
 
 ## `trading/crypto/paper_engine.py`
 _trading/crypto/paper_engine.py — crypto paper-fill simulator (T2 §3)._
@@ -1615,6 +2178,11 @@ _trading/journal/journal.py — TradeJournal orchestrator (T5)._
 _trading/journal/quality.py — per-trade quality metrics (T5 §5, blueprint Trade Quality Metrics)._
 - **functions:** `r_multiple(net_pnl, entry_price, stop_price, quantity) -> float | None`; `_parse(dt)`; `_hms(seconds) -> str`; `trade_quality(trade) -> dict`
 - **imports:** __future__, datetime
+
+## `trading/journal/reset.py`
+_trading/journal/reset.py — permanently wipe CLOSED-trade data, brain-safe (operator reset)._
+- **functions:** `_backup(name, data) -> str`; `reset_closed_trades() -> dict`
+- **imports:** __future__, json, os, time, trading
 
 ## `trading/journal/schema.py`
 _trading/journal/schema.py — 85+ column closed-trade record (T5 §3, blueprint §5)._
@@ -1781,7 +2349,7 @@ _trading/state.py — tiny JSON state persistence for the trading package._
 
 ## `trading/strategy/__init__.py`
 _trading/strategy/ — Strategy creation / mutation / evolution engine (Phase T8)._
-- **imports:** __future__, trading.strategy.backtest, trading.strategy.evolve, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, trading.strategy.registry
+- **imports:** __future__, trading.strategy.backtest, trading.strategy.control, trading.strategy.evolve, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, trading.strategy.registry
 
 ## `trading/strategy/backtest.py`
 _trading/strategy/backtest.py — backtest via vectorbt + walk-forward (T8.1, reuse-first)._
@@ -1789,11 +2357,17 @@ _trading/strategy/backtest.py — backtest via vectorbt + walk-forward (T8.1, re
 - **functions:** `_profit_factor(gross_win, gross_loss) -> float`; `_safe(fn, default)`; `backtest_signal(signal, ohlcv) -> BacktestResult`; `_pandas_backtest(close, target, cost_rate, periods_per_year)`; `walk_forward_folds(n_rows) -> list[dict]`
 - **imports:** __future__, dataclasses, numpy, pandas
 
+## `trading/strategy/control.py`
+_trading/strategy/control.py — feature gate for the evolution/mutation engine._
+- **classes:** StrategyEvolutionDisabled
+- **functions:** `_env_flag() -> bool | None`; `evolution_enabled() -> bool`; `set_evolution_enabled(enabled) -> None`; `require_evolution_enabled() -> None`
+- **imports:** __future__, os
+
 ## `trading/strategy/evolve.py`
 _trading/strategy/evolve.py — DEAP NSGA-II evolution loop (T8.3)._
 - **classes:** EvolutionResult
 - **functions:** `_assign_fitness(strat, ohlcv, feats, n_folds) -> Strategy`; `evolve(ohlcv) -> EvolutionResult`
-- **imports:** __future__, copy, dataclasses, deap, numpy, pandas, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, trading.strategy.registry
+- **imports:** __future__, copy, dataclasses, deap, numpy, pandas, trading.strategy.control, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, trading.strategy.registry
 
 ## `trading/strategy/features.py`
 _trading/strategy/features.py — OHLCV → feature frame via TA-Lib (T8.1, reuse-first)._
@@ -1805,6 +2379,16 @@ _trading/strategy/fitness.py — journal/backtest-driven multi-objective fitness
 - **classes:** Fitness
 - **functions:** `evaluate_oos(strategy, ohlcv) -> dict`; `multi_objective(oos) -> tuple[float, tuple, dict]`; `journal_realized(realized_trade_returns) -> dict | None`; `fitness(strategy, ohlcv) -> Fitness`
 - **imports:** __future__, dataclasses, numpy, pandas, trading.strategy.backtest, trading.strategy.features, trading.strategy.genome
+
+## `trading/strategy/freqtrade_adapter.py`
+_trading/strategy/freqtrade_adapter.py — translate LibraryStrategy → Freqtrade IStrategy (Phase C)._
+- **functions:** `_spot_mode() -> bool`; `_is_crypto(strat) -> bool`; `crypto_strategies() -> list`; `skipped_strategies() -> list[dict]`; `class_name_for(name) -> str`; `can_short_for(strat) -> bool`; `make_freqtrade_strategy(name)`; `generate_strategy_files(out_dir) -> dict`; `main(argv) -> int`
+- **imports:** __future__, os, re
+
+## `trading/strategy/freqtrade_strategy_base.py`
+_trading/strategy/freqtrade_strategy_base.py — concrete Freqtrade base for library strategies._
+- **classes:** LibraryStrategyBase
+- **imports:** __future__, freqtrade.strategy, pandas
 
 ## `trading/strategy/genome.py`
 _trading/strategy/genome.py — DEAP genetic-programming strategy genome (T8.1, reuse-first)._
@@ -1818,6 +2402,190 @@ _trading/strategy/guardrails.py — overfitting guardrails (T8.2)._
 - **functions:** `probabilistic_sharpe_ratio(sr, n) -> float`; `expected_max_sharpe(var_sr, n_trials) -> float`; `deflated_sharpe_ratio(returns) -> dict`; `pbo_cscv(perf_blocks) -> dict`; `information_coefficient(values, forward_returns) -> float`; `passes_guardrails(strategy, ohlcv) -> GuardrailReport`
 - **imports:** __future__, dataclasses, itertools, math, numpy, scipy, trading.strategy.fitness
 
+## `trading/strategy/library/__init__.py`
+_trading/strategy/library/ — curated institutional Strategy Library (the active T8 feature)._
+- **imports:** __future__, trading.strategy.library.base, trading.strategy.library.features_ext, trading.strategy.library.registry
+
+## `trading/strategy/library/base.py`
+_trading/strategy/library/base.py — the LibraryStrategy abstraction + data-requirement model._
+- **classes:** DataReq, StrategyStatus, LibraryStrategy
+- **functions:** `long_when(cond, index) -> pd.Series`; `long_short(long_cond, short_cond, index) -> pd.Series`; `stateful_band(entry_long, exit_long, entry_short, exit_short) -> pd.Series`
+- **imports:** __future__, dataclasses, enum, pandas, typing
+
+## `trading/strategy/library/catalog/__init__.py`
+_trading/strategy/library/catalog/ — the strategy definitions, one module per family group._
+
+## `trading/strategy/library/catalog/_impl_crypto_deriv.py`
+_catalog/_impl_crypto_deriv.py — REAL backtest functions for crypto-derivatives strategies._
+- **functions:** `_empty(reason) -> dict`; `_load(want_oi)`; `bt_funding_arb(md) -> dict`; `bt_funding_momentum(md) -> dict`; `bt_basis_arb(md) -> dict`; `bt_cash_carry(md) -> dict`; `bt_basis_trading(md) -> dict`; `bt_calendar_spread(md) -> dict`; `bt_roll_yield_harvesting(md) -> dict`; `bt_oi_breakout(md) -> dict`
+- **imports:** __future__, numpy, pandas, trading.strategy.library, warnings
+
+## `trading/strategy/library/catalog/_impl_crypto_options.py`
+_catalog/_impl_crypto_options.py — REAL backtests for crypto-options strategies (Wave 1B)._
+- **functions:** `_empty(reason) -> dict`; `_ivrv()`; `_chain()`; `_vol_premium(short_vol) -> dict`; `bt_vrp_harvest(md) -> dict`; `bt_short_straddle(md) -> dict`; `bt_short_strangle(md) -> dict`; `bt_iron_condor(md) -> dict`; `bt_iron_butterfly(md) -> dict`; `bt_volatility_carry(md) -> dict`; `bt_iv_rv_arbitrage(md) -> dict`; `bt_vega_trading(md) -> dict`; `bt_long_straddle(md) -> dict`; `bt_long_strangle(md) -> dict`; `bt_volatility_cone(md) -> dict`; `bt_skew_trading(md) -> dict`; `_underlying_daily()`; `_atm_iv() -> float`; `_structure_metrics(legs) -> dict`; `bt_long_call(md) -> dict`; `bt_long_put(md) -> dict`; `bt_bull_call_spread(md) -> dict`; `bt_bear_put_spread(md) -> dict`; `bt_covered_call(md) -> dict`; `bt_protective_put(md) -> dict`; `bt_ratio_spread(md) -> dict`
+- **imports:** __future__, numpy, pandas, trading.strategy.library, warnings
+
+## `trading/strategy/library/catalog/_impl_ml_direction.py`
+_catalog/_impl_ml_direction.py — REAL sklearn/boosting ML-direction backtests (Wave 2)._
+- **functions:** `_empty(reason) -> dict`; `_ohlcv()`; `_ml_backtest(model_key) -> dict`; `bt_rf(md) -> dict`; `bt_xgb(md) -> dict`; `bt_lgb(md) -> dict`; `bt_catboost(md) -> dict`
+- **imports:** __future__, importlib, numpy, pandas, trading.strategy.library, warnings
+
+## `trading/strategy/library/catalog/_impl_multi_asset.py`
+_catalog/_impl_multi_asset.py — REAL backtests for multi-asset crypto stat-arb (Wave 1C)._
+- **functions:** `_empty(reason) -> dict`; `_panel(days)`; `_nse_panel()`; `_best_pair(logp)`; `_pairs_metrics() -> dict`; `bt_pairs_trading(md) -> dict`; `bt_cointegration(md) -> dict`; `bt_correlation(md) -> dict`; `_cross_sectional() -> dict`; `bt_cross_sectional_momentum(md) -> dict`; `bt_cross_sectional_mean_reversion(md) -> dict`; `bt_relative_strength_ranking(md) -> dict`; `bt_long_short_market_neutral(md) -> dict`; `bt_nse_basket(md) -> dict`; `bt_nse_correlation_breakdown(md) -> dict`; `bt_nse_leader_laggard(md) -> dict`; `bt_nse_sector_rotation(md) -> dict`; `bt_nse_dollar_neutral(md) -> dict`; `bt_nse_beta_neutral(md) -> dict`; `bt_nse_cross_sectional_momentum(md) -> dict`; `bt_nse_cross_sectional_mr(md) -> dict`
+- **imports:** __future__, numpy, pandas, trading.strategy.library, warnings
+
+## `trading/strategy/library/catalog/_impl_nse_factor.py`
+_catalog/_impl_nse_factor.py — REAL backtests for the NSE factor family (Wave 2, free yfinance)._
+- **functions:** `_empty(reason) -> dict`; `_data()`; `_long_short_from_scores(panel, scores) -> dict`; `_factor(kind) -> dict`; `bt_factor_value(md) -> dict`; `bt_factor_growth(md) -> dict`; `bt_factor_quality(md) -> dict`; `bt_factor_dividend(md) -> dict`; `bt_factor_low_volatility(md) -> dict`; `bt_factor_multifactor(md) -> dict`; `bt_statarb_factor(md) -> dict`
+- **imports:** __future__, numpy, pandas, trading.strategy.library, warnings
+
+## `trading/strategy/library/catalog/_impl_orderflow.py`
+_catalog/_impl_orderflow.py — REAL backtests for order-flow + market-making (Wave 3)._
+- **functions:** `_empty(reason) -> dict`; `_flow(tf, limit)`; `_flow_signal(kind) -> dict`; `bt_cumulative_delta(md) -> dict`; `bt_aggressive_buyer(md) -> dict`; `bt_footprint(md) -> dict`; `bt_cvd_divergence(md) -> dict`; `bt_absorption(md) -> dict`; `bt_order_book_imbalance(md) -> dict`; `_mm_sim() -> dict`; `bt_avellaneda_stoikov(md) -> dict`; `bt_passive_bid_ask(md) -> dict`; `bt_inventory_based(md) -> dict`; `bt_gueant_lehalle(md) -> dict`; `bt_dynamic_spread(md) -> dict`; `bt_microprice(md) -> dict`
+- **imports:** __future__, numpy, pandas, trading.strategy.library, warnings
+
+## `trading/strategy/library/catalog/alternative_data.py`
+_catalog/alternative_data.py — alternative-data alpha (Level-3 institutional, data-gated)._
+- **functions:** `_g(name, family, logic, segments, data_req, oss, notes)`
+- **imports:** __future__, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/breakout.py`
+_catalog/breakout.py — Breakout / volatility-expansion family (executable on OHLCV)._
+- **functions:** `_bb_squeeze(f)`; `_ttm_squeeze(f)`; `_atr_channel(f)`; `_lw_volatility(f)`; `_range_expansion(f)`; `_inside_bar(f)`; `_gap_and_go(f)`; `_donchian_stop(f)`; `_mk(name, family, logic, signal, oss, tf)`; `_opening_range_sig(f)`; `_cpr_pivot_sig(f)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/event_macro.py`
+_catalog/event_macro.py — event-driven, macro, fundamental-factor & seasonal families (data-gated)._
+- **functions:** `_g(name, category, family, logic, segments, data_req, oss, tf, notes)`
+- **imports:** __future__, trading.strategy.library.base, trading.strategy.library.catalog
+
+## `trading/strategy/library/catalog/high_frequency.py`
+_catalog/high_frequency.py — HFT / market-microstructure family (data-gated)._
+- **functions:** `_g(name, family, logic, segments, data_req, oss, notes)`
+- **imports:** __future__, trading.strategy.library.base, trading.strategy.library.catalog
+
+## `trading/strategy/library/catalog/machine_learning.py`
+_catalog/machine_learning.py — ML / RL / regime family._
+- **functions:** `_regime_hmm(f) -> pd.Series`; `_g(name, family, logic, segments, oss, data_req, notes, tf)`
+- **imports:** __future__, numpy, pandas, trading.strategy.library.base, trading.strategy.library.catalog
+
+## `trading/strategy/library/catalog/market_making.py`
+_catalog/market_making.py — liquidity-provision / market-making family (data-gated)._
+- **functions:** `_g(name, family, logic, segments, data_req, oss, notes)`
+- **imports:** __future__, trading.strategy.library.base, trading.strategy.library.catalog
+
+## `trading/strategy/library/catalog/mean_reversion.py`
+_catalog/mean_reversion.py — Mean-Reversion family (executable on OHLCV)._
+- **functions:** `_rsi_rev(f)`; `_rsi2_connors(f)`; `_bb_rev(f)`; `_pctb_rev(f)`; `_zscore_rev(f)`; `_vwap_rev(f)`; `_stoch_rev(f)`; `_stochrsi_rev(f)`; `_willr_rev(f)`; `_cci_rev(f)`; `_mfi_rev(f)`; `_keltner_rev(f)`; `_atr_overext(f)`; `_ultosc_rev(f)`; `_mk(name, family, logic, signal, oss, tf)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/meta_systems.py`
+_catalog/meta_systems.py — Level-11 meta-strategy systems (data-gated portfolio layers)._
+- **functions:** `_g(name, family, logic, data_req, oss, notes)`
+- **imports:** __future__, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/momentum.py`
+_catalog/momentum.py — Momentum family (executable on OHLCV)._
+- **functions:** `_roc(f)`; `_tsmom(f)`; `_rsi_mom(f)`; `_macd_accel(f)`; `_cmo(f)`; `_ppo(f)`; `_trix(f)`; `_rvol_mom(f)`; `_obv_mom(f)`; `_breakout_mom(f)`; `_ignition(f)`; `_stoch_mom(f)`; `_mk(name, family, logic, signal, oss, tf)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/multi_indicator.py`
+_catalog/multi_indicator.py — multi-indicator confluence family (executable on OHLCV)._
+- **functions:** `_rsi_macd(f)`; `_pullback_cont(f)`; `_adx_gated_cross(f)`; `_triple_screen(f)`; `_bb_rsi(f)`; `_supertrend_rsi(f)`; `_vwap_rsi(f)`; `_ema_cloud(f)`; `_trend_day(f)`; `_dca_accumulate(f)`; `_grid_range(f)`; `_mk(name, family, logic, signal, oss, cat, tf, segs, short)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/options.py`
+_catalog/options.py — options & options-volatility family (data-gated)._
+- **functions:** `_g(name, family, logic, segments, data_req, oss, tf, notes)`
+- **imports:** __future__, trading.strategy.library.base, trading.strategy.library.catalog
+
+## `trading/strategy/library/catalog/order_flow.py`
+_catalog/order_flow.py — tick-level order-flow family (data-gated)._
+- **functions:** `_g(name, family, logic, segments, data_req, oss, notes, backtest)`
+- **imports:** __future__, trading.strategy.library.base, trading.strategy.library.catalog
+
+## `trading/strategy/library/catalog/pattern.py`
+_catalog/pattern.py — candlestick / price-action family (executable on OHLCV)._
+- **functions:** `_bull_engulf(f)`; `_hammer(f)`; `_doji_break(f)`; `_three_bar_reversal(f)`; `_marubozu(f)`; `_harami(f)`; `_mk(name, family, logic, signal, oss)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/statistical_arbitrage.py`
+_catalog/statistical_arbitrage.py — stat-arb / relative-value / cross-asset arbitrage._
+- **functions:** `_g(name, category, family, logic, segments, data_req, oss, tf, notes, backtest)`
+- **imports:** __future__, trading.strategy.library.base, trading.strategy.library.catalog
+
+## `trading/strategy/library/catalog/trend.py`
+_catalog/trend.py — Trend-Following family (executable on OHLCV)._
+- **functions:** `_ma_cross(fast, slow)`; `_sig_supertrend(f)`; `_sig_adx_di(f)`; `_sig_macd(f)`; `_sig_macd_zero(f)`; `_sig_donchian(f)`; `_sig_turtle_55(f)`; `_sig_aroon(f)`; `_sig_psar(f)`; `_sig_slope(f)`; `_sig_sma200(f)`; `_sig_kama(f)`; `_sig_tema(f)`; `_sig_triple_ma(f)`; `_sig_st_macd(f)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/volatility.py`
+_catalog/volatility.py — realized-volatility regime family (executable on OHLCV)._
+- **functions:** `_vol_expansion_trend(f)`; `_lowvol_meanrev(f)`; `_bb_width_expansion(f)`; `_vol_compression_anticipation(f)`; `_mk(name, family, logic, signal, oss, tf)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/catalog/volume_flow.py`
+_catalog/volume_flow.py — volume / money-flow family (executable on OHLCV+volume)._
+- **functions:** `_obv_trend(f)`; `_adosc(f)`; `_volume_breakout(f)`; `_rvol_shock(f)`; `_vwap_trend(f)`; `_mfi_trend(f)`; `_accumulation(f)`; `_mk(name, family, logic, signal, oss, tf)`
+- **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/data_sources/__init__.py`
+_trading/strategy/library/data_sources/ — REAL data fetchers for the library strategies._
+- **functions:** `cache_path(name) -> str`
+- **imports:** __future__, os
+
+## `trading/strategy/library/data_sources/crypto_deriv.py`
+_data_sources/crypto_deriv.py — ccxt crypto-derivatives data (funding, OHLCV, OI, basis)._
+- **functions:** `_ccxt(exchange, market_type)`; `_ohlcv_df(rows) -> pd.DataFrame`; `fetch_ohlcv(symbol) -> pd.DataFrame`; `fetch_funding_history(symbol) -> pd.Series`; `fetch_open_interest_history(symbol) -> pd.Series`; `load_market(symbol) -> MarketData`
+- **imports:** __future__, numpy, pandas, time, trading.strategy.library.data_sources, trading.strategy.library.marketdata
+
+## `trading/strategy/library/data_sources/deribit_options.py`
+_data_sources/deribit_options.py — REAL free Deribit option-chain + IV/RV data (Wave 1B)._
+- **functions:** `_ccxt_deribit()`; `_cached(key, ttl, fn)`; `load_chain(currency) -> pd.DataFrame`; `_dvol(currency) -> pd.Series`; `_realized_vol(currency) -> pd.Series`; `iv_rv_series(currency) -> pd.DataFrame`
+- **imports:** __future__, numpy, pandas, time
+
+## `trading/strategy/library/data_sources/multi_asset.py`
+_data_sources/multi_asset.py — REAL multi-symbol crypto price panel (Wave 1C)._
+- **functions:** `load_panel(symbols) -> pd.DataFrame`
+- **imports:** __future__, numpy, pandas, time
+
+## `trading/strategy/library/data_sources/nse_fundamentals.py`
+_data_sources/nse_fundamentals.py — REAL NSE fundamentals + price panel (Wave 2, free via yfinance)._
+- **functions:** `price_panel(tickers) -> pd.DataFrame`; `fundamentals(tickers) -> pd.DataFrame`
+- **imports:** __future__, numpy, pandas, time
+
+## `trading/strategy/library/data_sources/orderflow.py`
+_data_sources/orderflow.py — REAL order-flow + L2 snapshot data (Wave 3)._
+- **functions:** `_binance()`; `flow_series(symbol) -> pd.DataFrame`; `order_book_snapshot(symbol) -> dict | None`
+- **imports:** __future__, numpy, pandas, time
+
+## `trading/strategy/library/evaluators.py`
+_trading/strategy/library/evaluators.py — backtest evaluators for data-backed strategies._
+- **functions:** `metrics_from_returns(rets) -> dict`; `carry_metrics(funding) -> dict`; `basis_convergence_metrics(basis) -> dict`; `signal_returns_metrics(close, signal) -> dict`
+- **imports:** __future__, numpy, pandas
+
+## `trading/strategy/library/features_ext.py`
+_trading/strategy/library/features_ext.py — extended causal indicator frame (TA-Lib)._
+- **functions:** `_supertrend(high, low, close, atr, mult) -> tuple[pd.Series, pd.Series]`; `compute_features_ext(ohlcv) -> pd.DataFrame`; `_pandas_fallback(df, o, h, l, c, v, fast, slow, mom_n, bb_n, bb_k)`
+- **imports:** __future__, numpy, pandas
+
+## `trading/strategy/library/marketdata.py`
+_trading/strategy/library/marketdata.py — multi-input data context for library strategies._
+- **classes:** MarketData
+- **imports:** __future__, dataclasses, pandas
+
+## `trading/strategy/library/registry.py`
+_trading/strategy/library/registry.py — collect the catalog + coverage stats._
+- **classes:** LibraryRegistry
+- **functions:** `_load_all() -> list[LibraryStrategy]`; `get_registry() -> LibraryRegistry`; `all_strategies() -> list[LibraryStrategy]`
+- **imports:** __future__, dataclasses, importlib, trading.strategy.library.base
+
+## `trading/strategy/library/run.py`
+_trading/strategy/library/run.py — backtest the executable library + rank a leaderboard._
+- **functions:** `synth_ohlcv(n, seed) -> pd.DataFrame`; `_oos_tail(feats)`; `_score_one(strat, feats) -> dict`; `_rank_key(m) -> tuple`; `_pick_market(strat) -> str`; `run_library(ohlcv_by_market) -> dict`; `build_library_snapshot() -> dict`; `_fmt(m) -> str`; `main() -> int`
+- **imports:** __future__, numpy, pandas, trading.strategy.backtest, trading.strategy.library.features_ext, trading.strategy.library.registry, warnings
+
 ## `trading/strategy/operators.py`
 _trading/strategy/operators.py — mutation + crossover via DEAP gp (T8.1, reuse-first)._
 - **functions:** `market_features(market) -> list[str]`; `_safe_expr(pset, type_)`; `_mutate_tree(src, pset, rng)`; `mutate(strategy, features, rng) -> Strategy`; `crossover(a, b, rng) -> tuple`
@@ -1829,6 +2597,12 @@ _trading/strategy/registry.py — promote evolved strategies to NodeProtocol nod
 - **functions:** `promote(strategy, features) -> StrategyNode`
 - **imports:** __future__, core.node_protocol, dataclasses, numpy, pandas, trading.strategy.genome
 
+## `trading/strategy/self_evolve.py`
+_trading/strategy/self_evolve.py — the lifelong self-evolving strategy loop._
+- **classes:** SelfEvolvingLoop, SelfEvolveNode
+- **functions:** `register_self_evolve(loop) -> SelfEvolveNode`
+- **imports:** __future__, core.node_protocol, numpy, pandas, trading.brain.skills, trading.strategy.control, trading.strategy.evolve, trading.strategy.fitness, trading.strategy.genome
+
 ## `trading/tick_cache.py`
 _trading/tick_cache.py — per-symbol real-time price cache (T1 §5)._
 - **classes:** Tick, TickCache, MarketFeed
@@ -1838,56 +2612,3 @@ _trading/tick_cache.py — per-symbol real-time price cache (T1 §5)._
 _trading/watchlist.py — persisted NSE watchlist (T1 §6)._
 - **classes:** WatchItem, Watchlist
 - **imports:** __future__, dataclasses, trading, trading.instruments, trading.tick_cache
-
-## `vendor/__init__.py`
-_(no summary)_
-
-## `vendor/generative_agents_memory/__init__.py`
-_Vendored Generative-Agents "Memory Stream" (Stanford joonspk-research)._
-- **imports:** memory_stream
-
-## `vendor/generative_agents_memory/memory_stream.py`
-_Generative Agents "Memory Stream" -- vendored, decoupled, offline-capable._
-- **classes:** ConceptNode, AssociativeMemory
-- **functions:** `default_importance_fn(text) -> int`; `default_embed_fn(text, dim) -> list[float]`; `default_synthesize_fn(statements) -> list[str]`; `cos_sim(a, b)`; `normalize_dict_floats(d, target_min, target_max)`; `top_highest_x_values(d, x)`; `extract_recency(nodes, recency_decay)`; `extract_importance(nodes)`; `extract_relevance(memory, nodes, focal_pt)`
-- **imports:** __future__, datetime, hashlib, math, re
-
-## `vendor/gplearn/__init__.py`
-_Genetic Programming in Python, with a scikit-learn inspired API_
-
-## `vendor/gplearn/_program.py`
-_The underlying data structure used in gplearn._
-- **classes:** _Program
-- **imports:** copy, functions, numpy, sklearn.utils.random, utils
-
-## `vendor/gplearn/fitness.py`
-_Metrics to evaluate the fitness of a program._
-- **classes:** _Fitness
-- **functions:** `make_fitness()`; `_weighted_pearson(y, y_pred, w)`; `_weighted_spearman(y, y_pred, w)`; `_mean_absolute_error(y, y_pred, w)`; `_mean_square_error(y, y_pred, w)`; `_root_mean_square_error(y, y_pred, w)`; `_log_loss(y, y_pred, w)`
-- **imports:** joblib, numbers, numpy, scipy.stats
-
-## `vendor/gplearn/functions.py`
-_The functions used to create programs._
-- **classes:** _Function
-- **functions:** `make_function()`; `_protected_division(x1, x2)`; `_protected_sqrt(x1)`; `_protected_log(x1)`; `_protected_inverse(x1)`; `_sigmoid(x1)`
-- **imports:** joblib, numpy
-
-## `vendor/gplearn/genetic.py`
-_Genetic Programming in Python, with a scikit-learn inspired API_
-- **classes:** BaseSymbolic, SymbolicRegressor, SymbolicClassifier, SymbolicTransformer
-- **functions:** `_parallel_evolve(n_programs, parents, X, y, sample_weight, seeds, params)`
-- **imports:** _program, abc, fitness, functions, itertools, joblib, numpy, scipy.stats, sklearn.base, sklearn.exceptions, sklearn.utils, sklearn.utils.multiclass, sklearn.utils.validation, time, utils, warnings
-
-## `vendor/gplearn/utils.py`
-_Utilities that are required by gplearn._
-- **functions:** `check_random_state(seed)`; `_get_n_jobs(n_jobs)`; `_partition_estimators(n_estimators, n_jobs)`
-- **imports:** joblib, numbers, numpy
-
-## `vendor/vaderSentiment/__init__.py`
-_(no summary)_
-
-## `vendor/vaderSentiment/vaderSentiment.py`
-_If you use the VADER sentiment analysis tools, please cite:_
-- **classes:** SentiText, SentimentIntensityAnalyzer
-- **functions:** `negated(input_words, include_nt)`; `normalize(score, alpha)`; `allcap_differential(words)`; `scalar_inc_dec(word, valence, is_cap_diff)`
-- **imports:** codecs, inspect, io, itertools, json, math, os, re, string
