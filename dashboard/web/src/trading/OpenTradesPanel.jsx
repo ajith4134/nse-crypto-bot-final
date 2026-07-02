@@ -152,6 +152,7 @@ export default function OpenTradesPanel({ columns, rows, totals }) {
                   let color = T.text
                   let weight = 400
 
+                  const cl = String(c || '').toLowerCase()
                   if (isPnlColumn(c)) {
                     color = pnlColor(toNumber(raw))
                     weight = 600
@@ -160,6 +161,10 @@ export default function OpenTradesPanel({ columns, rows, totals }) {
                     if (v.includes('LONG') || v === 'BUY') color = T.good
                     else if (v.includes('SHORT') || v === 'SELL') color = T.bad
                     weight = 600
+                  } else if (!cl.includes('time') && (cl.includes('peak_profit') || cl === 'mfe')) {
+                    color = T.good; weight = 600   // peak profit / MFE magnitude → green
+                  } else if (!cl.includes('time') && (cl.includes('peak_loss') || cl === 'mae')) {
+                    color = T.bad; weight = 600    // peak loss / MAE magnitude → red
                   }
 
                   return (

@@ -27,11 +27,15 @@ _CRYPTO = {"CRYPTO", "BINANCE", "BYBIT"}
 class MarketSession:
     """Session/calendar awareness per market → LIVE vs REPLAY mode."""
 
-    def __init__(self, market: str = "NSE", *, calendar: str = "XNSE"):
+    def __init__(self, market: str = "NSE", *, calendar: str = "XNSE",
+                 commodities: bool = False):
         self.market = market.upper()
         self.is_crypto = self.market in _CRYPTO
+        # MCX commodities trade far later than NSE equity (≈09:00–23:30 IST) — they must NOT
+        # share the equity calendar/hours (research: nse-commodities-mcx). Use a clock window.
+        self.commodities = bool(commodities)
         self._cal = None
-        if not self.is_crypto and _HAVE_MCAL:
+        if not self.is_crypto and not self.commodities and _HAVE_MCAL:
             try:
                 self._cal = mcal.get_calendar(calendar)
             except Exception:
@@ -49,7 +53,7 @@ class MarketSession:
         if when.tzinfo is None:
             when = when.replace(tzinfo=IST)
         if self._cal is None:                            # no calendar → fall back to clock
-            return self._clock_open(when)
+            return self._clock_open(when, commodities=self.commodities)
         day = when.astimezone(IST).date()
         try:
             sched = self._cal.schedule(start_date=day, end_date=day)
@@ -61,12 +65,15 @@ class MarketSession:
             return self._clock_open(when)
 
     @staticmethod
-    def _clock_open(when: datetime) -> bool:
-        """Fallback: NSE 09:15–15:30 IST, Mon–Fri (ignores holidays)."""
+    def _clock_open(when: datetime, *, commodities: bool = False) -> bool:
+        """Fallback clock: NSE equity 09:15–15:30 IST; MCX commodities 09:00–23:30 IST.
+        Mon–Fri (ignores holidays)."""
         t = when.astimezone(IST)
         if t.weekday() >= 5:
             return False
         mins = t.hour * 60 + t.minute
+        if commodities:
+            return 9 * 60 <= mins <= 23 * 60 + 30
         return 9 * 60 + 15 <= mins <= 15 * 60 + 30
 
     def mode(self, when: datetime | None = None) -> str:
@@ -94,4 +101,5 @@ class MarketSession:
         return {"market": self.market, "is_crypto": self.is_crypto,
                 "is_open": self.is_open(when), "mode": self.mode(when),
                 "calendar": "XNSE" if self._cal is not None else
-                ("24/7" if self.is_crypto else "clock-fallback")}
+                ("24/7" if self.is_crypto else
+                 "MCX-clock(09:00–23:30)" if self.commodities else "clock-fallback")}

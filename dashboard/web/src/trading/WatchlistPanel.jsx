@@ -3,9 +3,50 @@
 // symbols the loop is trading plus the screened "candidates" sub-list, grouped by
 // segment with a small segment chip. Inline-styled via ./theme.js, robust to missing
 // props (optional chaining everywhere; tasteful "screener warming up" empty state).
+import { useEffect, useState } from 'react'
 import { T } from './theme.js'
 
 const MARKETS = ['NSE', 'CRYPTO']
+
+// Screener filter bar — narrows candidates by min %change (NSE) / min quote volume (crypto).
+// Persists via the same set_strategy action the Strategy card uses (filters live in loop cfg).
+function FilterBar({ config, onAction }) {
+  const cfg = config || {}
+  const [minPct, setMinPct] = useState('')
+  const [minVol, setMinVol] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (cfg.screen_min_pct != null) setMinPct(String(cfg.screen_min_pct))
+    if (cfg.screen_min_quote_volume != null) setMinVol(String(cfg.screen_min_quote_volume))
+  }, [cfg.screen_min_pct, cfg.screen_min_quote_volume])
+  const n = (v) => (v == null || v === '' ? null : (Number.isFinite(+v) ? +v : null))
+  const apply = async () => {
+    if (busy || !onAction) return
+    setBusy(true)
+    try {
+      await onAction({ action: 'set_strategy', screen_min_pct: n(minPct), screen_min_quote_volume: n(minVol) })
+    } finally { setBusy(false) }
+  }
+  const inp = { background: T.panel2, color: T.text, border: `1px solid ${T.border}`,
+    borderRadius: 8, padding: '5px 8px', fontSize: 12, width: 110 }
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+        Min %change (NSE + crypto)
+        <input type="number" step="0.5" min="0" value={minPct} onChange={(e) => setMinPct(e.target.value)} placeholder="0" style={inp} />
+      </label>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+        Min volume (crypto)
+        <input type="number" step="1000000" min="0" value={minVol} onChange={(e) => setMinVol(e.target.value)} placeholder="0" style={inp} />
+      </label>
+      <button onClick={apply} disabled={busy}
+        style={{ background: T.panel2, color: busy ? T.muted : T.accent, border: `1px solid ${busy ? T.border : T.accent}`,
+          borderRadius: 8, padding: '6px 14px', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700 }}>
+        Apply filters
+      </button>
+    </div>
+  )
+}
 
 // Best-effort numeric parse (handles numbers, "1,234.5", "₹50", null).
 function num(v) {
@@ -208,7 +249,7 @@ function MarketColumn({ market, watchlist, candidates }) {
   )
 }
 
-export default function WatchlistPanel({ watchlist, candidates }) {
+export default function WatchlistPanel({ watchlist, candidates, config, onAction }) {
   const wl = watchlist || {}
   const cand = candidates || {}
 
@@ -218,6 +259,8 @@ export default function WatchlistPanel({ watchlist, candidates }) {
         <span style={{ fontWeight: 700, fontSize: 15, color: T.text }}>Watchlist / Screener</span>
         <span style={{ fontSize: 11, color: T.muted }}>symbols traded + screened candidates</span>
       </div>
+
+      <FilterBar config={config} onAction={onAction} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
         {MARKETS.map((m) => (

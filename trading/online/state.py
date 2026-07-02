@@ -31,11 +31,25 @@ class TradingState(str, Enum):
 
 
 # Selectable trade-type SEGMENTS per market — only SELECTED segments are traded.
+# NSE F&O is split into two INDEPENDENT segments: `futures` (index/stock FUT) and
+# `options` (single-leg CE/PE) — each with its own selection + min-trades-per-segment.
 SEGMENTS = {
-    "NSE": ["intraday", "mtf", "fno", "commodities"],   # MIS · MTF · F&O · MCX
-    "CRYPTO": ["spot", "futures", "options"],            # spot · USDⓢ-M perp · options
+    "NSE": ["intraday", "mtf", "futures", "options", "commodities"],   # MIS · MTF · FUT · OPT · MCX
+    # Phase F: crypto SPOT + FUTURES moved to Freqtrade/FreqUI; the dashboard keeps only OPTIONS
+    # (Freqtrade can't trade options — they stay on the ccxt path).
+    "CRYPTO": ["options"],                               # options only (spot/futures → Freqtrade)
 }
-_DEFAULT_SEGMENTS = {"NSE": ["intraday"], "CRYPTO": ["spot"]}   # safe minimal default
+_DEFAULT_SEGMENTS = {"NSE": ["intraday"], "CRYPTO": ["options"]}   # safe minimal default
+
+# Legacy → current segment aliases. The old combined "fno" segment became "futures";
+# migrate it on read so saved online_markets.json / strategy_config.json keep working.
+_SEGMENT_ALIASES = {"fno": "futures"}
+
+
+def normalize_segment(seg: str) -> str:
+    """Lower-case + migrate legacy segment names (fno → futures)."""
+    s = (seg or "").lower()
+    return _SEGMENT_ALIASES.get(s, s)
 
 
 @dataclass
@@ -55,17 +69,19 @@ class MarketState:
         valid = SEGMENTS.get(self.market, [])
         if self.segments is None:
             self.segments = list(_DEFAULT_SEGMENTS.get(self.market, valid[:1]))
-        else:                              # keep only valid segments for this market
-            self.segments = [s for s in self.segments if s in valid]
+        else:                              # migrate legacy names + keep only valid segments
+            self.segments = [normalize_segment(s) for s in self.segments]
+            self.segments = [s for s in dict.fromkeys(self.segments) if s in valid]
 
     # ── segment selection (the trade-type buttons) ──────────────────────────────
     def set_segments(self, segs: list) -> "MarketState":
         valid = SEGMENTS.get(self.market, [])
-        self.segments = [s for s in segs if s in valid]
+        segs = [normalize_segment(s) for s in (segs or [])]
+        self.segments = [s for s in dict.fromkeys(segs) if s in valid]
         return self
 
     def toggle_segment(self, seg: str) -> "MarketState":
-        seg = seg.lower()
+        seg = normalize_segment(seg)
         if seg not in SEGMENTS.get(self.market, []):
             return self
         if seg in self.segments:
@@ -75,7 +91,7 @@ class MarketState:
         return self
 
     def has_segment(self, seg: str) -> bool:
-        return seg.lower() in self.segments
+        return normalize_segment(seg) in self.segments
 
     # ── toggles ─────────────────────────────────────────────────────────────────
     def enable(self) -> "MarketState":

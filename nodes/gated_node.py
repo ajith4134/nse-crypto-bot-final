@@ -81,7 +81,9 @@ def gate_train(Xz: np.ndarray, meta: np.ndarray, y: np.ndarray, cls: bool,
         else:
             loss = torch.nn.functional.mse_loss(combined[:, 0], yt)
         importance = w.sum(0)                                   # Switch-style load balance
-        bal = (importance.std() / (importance.mean() + 1e-9)) ** 2
+        # std() is unbiased (n-1) → NaN for a single expert; no load to balance then.
+        bal = ((importance.std() / (importance.mean() + 1e-9)) ** 2 if E > 1
+               else importance.sum() * 0.0)
         (loss + balance_coef * bal).backward()
         opt.step()
     return gate, noise

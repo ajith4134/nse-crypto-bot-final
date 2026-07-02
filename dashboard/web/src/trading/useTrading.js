@@ -17,6 +17,8 @@ const ENDPOINTS = {
   watchlist: '/api/trading/watchlist',       // {watchlist:{NSE:[{symbol,segment,last}],CRYPTO:[...]}, candidates:{NSE:[{symbol,segment,market,score,reason,metrics}],...}, live}
   loop: '/api/trading/online/loop',          // {..., config:{trail_atr_mult,sizing_method,max_risk_pct,max_position_pct,kelly_fraction}, selected_segments}
   brainPredict: '/api/trading/brain/predict', // {model:{engine,trained,oof_accuracy,n_train,...}, open_predictions:[...], closed_replay:[...]}
+  strategyLibrary: '/api/trading/strategy/library', // {coverage:{total,n_executable,n_data_gated,by_category,by_segment}, leaderboard:[{rank,name,category,metrics}], data_gated:{total,by_gating_need,sample}, evolution_status}
+  guiAgent: '/api/trading/gui/status?observe=1',  // {targets, perception_capabilities, action_capabilities, skills:{n_skills,n_practiced,skills:[...]}, reflections:{n_lessons,recent:[...]}, last_perception:{reachable,n_controls,charts}, available, note}
 }
 
 async function getJSON(url) {
@@ -32,19 +34,21 @@ export function useTrading(intervalMs = 4000) {
 
   useEffect(() => {
     let alive = true
-    const tick = async () => {
-      try {
-        const entries = await Promise.all(
-          Object.entries(ENDPOINTS).map(async ([k, url]) => {
-            try { return [k, await getJSON(url)] } catch (e) { return [k, { error: String(e) }] }
+    // Each endpoint refreshes INDEPENDENTLY and merges into state by key — so one slow
+    // endpoint (e.g. brain/predict trains the NN, brain/status builds a pipeline) never
+    // stalls or blanks the other panels. (A single Promise.all batch made the whole
+    // dashboard flicker empty every tick whenever any one endpoint was slow.)
+    const tick = () => {
+      Object.entries(ENDPOINTS).forEach(([k, url]) => {
+        getJSON(url)
+          .then((v) => { if (alive) { setData((d) => ({ ...d, [k]: v })); setErr(null) } })
+          .catch((e) => {
+            if (alive) {
+              setData((d) => ({ ...d, [k]: { ...(d[k] || {}), error: String(e) } }))
+              setErr(String(e))
+            }
           })
-        )
-        if (!alive) return
-        setData(Object.fromEntries(entries))
-        setErr(null)
-      } catch (e) {
-        if (alive) setErr(String(e))
-      }
+      })
     }
     tick()
     timer.current = setInterval(tick, intervalMs)

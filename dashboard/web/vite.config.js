@@ -11,7 +11,11 @@ export default defineConfig({
   build: {
     outDir: '../static',
     emptyOutDir: false,
-    assetsDir: 'assets',
+    // Unique asset dir (NOT 'assets') so the dashboard's hashed chunks never
+    // collide with OpenAlgo's /assets/*. The gateway then routes /assets/* →
+    // OpenAlgo :5000 DIRECTLY (no fragile dashboard-first two-hop that blanked
+    // OpenAlgo when the bounded dashboard server choked under parallel load).
+    assetsDir: 'dash-assets',
     chunkSizeWarningLimit: 2000,
   },
   server: { port: 5173 },

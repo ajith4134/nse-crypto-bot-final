@@ -16,9 +16,10 @@ class TestChat(unittest.TestCase):
     def test_provider_table_wellformed(self):
         self.assertTrue(llm.PROVIDERS)
         for row in llm.PROVIDERS:
-            self.assertEqual(len(row), 3)              # (config key, model, litellm env var)
-            key, model, env = row
-            self.assertTrue(key and model and env)
+            self.assertEqual(len(row), 4)              # (config key, model, litellm env var, api_base)
+            key, model, env, api_base = row
+            self.assertTrue(key and model)
+            self.assertTrue(env or api_base)           # native providers set env; OpenAI-compat set api_base
             self.assertIn("/", model)                  # litellm "provider/model" form
 
     def test_active_model_no_crash(self):

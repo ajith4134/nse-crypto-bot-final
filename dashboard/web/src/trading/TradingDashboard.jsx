@@ -14,15 +14,21 @@ import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
 import BrainPanel from './BrainPanel.jsx'
 import BrainOutcomeNet from './BrainOutcomeNet.jsx'
-import OnlineControlPanel from './OnlineControlPanel.jsx'
-import WatchlistPanel from './WatchlistPanel.jsx'
-import StrategyControls from './StrategyControls.jsx'
+import WorldModelPanel from './WorldModelPanel.jsx'
+import HypothesesPanel from './HypothesesPanel.jsx'
+import EvolvePanel from './EvolvePanel.jsx'
+import FreqtradeCryptoPanel from './FreqtradeCryptoPanel.jsx'
+import CryptoMarketsPanel from './CryptoMarketsPanel.jsx'
+import StrategyLibraryPanel from './StrategyLibraryPanel.jsx'
+import FoundryPanel from './FoundryPanel.jsx'
+import BrainLearningPanel from './BrainLearningPanel.jsx'
+import ComputerUsePanel from './ComputerUsePanel.jsx'
 
 function Card({ title, hint, children, right }) {
   return (
-    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 14 }}>
+    <div data-card style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 14 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 15, color: T.text }}>{title}</h2>
+        <h2 style={{ margin: 0, fontSize: 15, color: T.text, fontWeight: 700, letterSpacing: 0.2 }}>{title}</h2>
         {hint && <span style={{ color: T.muted, fontSize: 12 }}>{hint}</span>}
         <div style={{ flex: 1 }} />
         {right}
@@ -68,22 +74,27 @@ export default function TradingDashboard() {
       {err && <div style={{ color: T.warn, fontSize: 12 }}>trading feed: {err}</div>}
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button style={btn} onClick={() => openMarketWindow('nse')}>↗ Open NSE Window</button>
+        {/* NSE controls live INSIDE OpenAlgo now (/paper). This entry opens that page
+            rather than the old in-dash NSE control window. Crypto is independent and
+            unchanged — its own workspace below. */}
+        <button style={btn} onClick={() => window.open('/auto-trading', 'nse-openalgo')}>🧪 NSE Auto Trading (OpenAlgo)</button>
         <button style={btn} onClick={() => openMarketWindow('crypto')}>↗ Open Crypto Window</button>
       </div>
 
-      <Card title="Online Control (Start/Stop · Paper/Real · Balance)" hint="Phase O5 — primary live-trading switchboard">
-        <OnlineControlPanel />
+      {/* Online Control panel removed — NSE paper start/stop/segments/wallet now live
+          in OpenAlgo (/paper page); crypto controls live in the Freqtrade panel below.
+          This kills the duplicated start/stop clusters the operator flagged. */}
+      <Card title="Crypto Markets — live screener (brain pick universe)" hint="Binance-style: icon · segment · live price · 24h% · volatility · funding — sort by volume / movers / volatility / funding">
+        <CryptoMarketsPanel />
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
-        <Card title="Watchlist / Screener" hint="symbols traded + screened candidates">
-          <WatchlistPanel watchlist={data?.watchlist?.watchlist} candidates={data?.watchlist?.candidates} />
-        </Card>
-        <Card title="Strategy & Sizing" hint="position-sizing · risk · trailing">
-          <StrategyControls config={data?.loop?.config} onAction={postControl} />
-        </Card>
-      </div>
+      <Card title="Freqtrade Crypto — trades + controls" hint="open/closed (capital · P&L USDT · peak MFE/MAE · leverage) + paper balance / max trades / stake / leverage / spot↔futures">
+        <FreqtradeCryptoPanel />
+      </Card>
+
+      {/* Watchlist/Screener + Strategy & Sizing cards removed — duplicated controls now
+          live in OpenAlgo's /paper page (NSE) and the Freqtrade panel (crypto); the
+          crypto screener remains as the Crypto Markets panel above. */}
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
         <Card title="Price" hint="TradingView Lightweight Charts v5">
@@ -103,13 +114,25 @@ export default function TradingDashboard() {
         </Card>
       </div>
 
-      <Card title="Open Trades" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols`}>
+      <Card title="Open Trades — unified (paper loop + Freqtrade + OpenAlgo)" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols · Trade Type column shows the engine`}>
         <OpenTradesPanel columns={openT.columns || []} rows={openT.rows || []} totals={openT.totals} />
       </Card>
 
-      <Card title="Closed Trades" hint={`${(closedT.rows || []).length} trades · ${(closedT.columns || []).length}-col journal · click a row to drill down`}>
+      <Card title="Closed Trades — unified (journal + Freqtrade + OpenAlgo)" hint={`${(closedT.rows || []).length} trades · ${(closedT.columns || []).length}-col journal · click a row to drill down`}>
         <ClosedTradesTable columns={closedT.columns || []} rows={closedT.rows || []} totals={closedT.totals}
           onRowClick={(row) => setDrill(row)} />
+      </Card>
+
+      <Card title="Strategy Library (institutional templates)" hint="239 named strategies · OOS leaderboard · evolution gated OFF">
+        <StrategyLibraryPanel data={data?.strategyLibrary} />
+      </Card>
+
+      <Card title="Strategy Foundry — brain discovers & keeps the best" hint="institutional catalog per segment · unique id · online research · real-performance leaderboard · promote best">
+        <FoundryPanel />
+      </Card>
+
+      <Card title="Brain Learning & Web — reads, browses, self-evaluates" hint="reads books/papers → KnowledgeBrain · read-only web screening + Google gap-browse · answer login requests · ephemeral activity">
+        <BrainLearningPanel />
       </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -120,6 +143,22 @@ export default function TradingDashboard() {
           <BrainOutcomeNet data={data?.brainPredict} />
         </Card>
       </div>
+
+      <Card title="Imagination — World-Model + MuZero planning" hint="learned market dynamics · MCTS plans entry/direction/stop/trailing in imagined R">
+        <WorldModelPanel />
+      </Card>
+
+      <Card title="Hypothesis Ledger — AI-Scientist research loop" hint="propose → experiment on the journal → Bayesian credence → confirm/refute">
+        <HypothesesPanel />
+      </Card>
+
+      <Card title="Self-Evolving Loop — lifelong strategy evolution" hint="evolve → admit guardrail-passed winners into the growing skill library (gated OFF · library-first)">
+        <EvolvePanel />
+      </Card>
+
+      <Card title="Computer-Use Agent — sees & operates the dashboards" hint="reads panels/charts/buttons (own + Freqtrade/FreqUI), presses them paper-first, experiments, reflects (Reflexion) & grows a skill library (Voyager)">
+        <ComputerUsePanel />
+      </Card>
 
       <TradeDrilldown trade={drill} onClose={() => setDrill(null)} />
     </div>

@@ -203,6 +203,7 @@ class TradeOutcomeNet:
     def __init__(self) -> None:
         self.model = None
         self.engine = "untrained"
+        self.fallback_reason = ""        # why gated_moe was skipped (honest observability)
         self.trained = False
         self.n_train = 0
         self.oof_accuracy: float | None = None
@@ -250,7 +251,8 @@ class TradeOutcomeNet:
             node.fit(X, y)
             self.engine = "gated_moe"
             return node
-        except Exception:
+        except Exception as e:
+            self.fallback_reason = f"{type(e).__name__}: {str(e)[:120]}"
             m = _NumpyLogReg().fit(X, y)
             self.engine = "numpy_logreg"
             return m
@@ -307,6 +309,7 @@ class TradeOutcomeNet:
         return {"engine": self.engine, "trained": self.trained, "n_train": self.n_train,
                 "oof_accuracy": self.oof_accuracy, "base_rate": self.base_rate,
                 "avg_win_R": self.avg_win_r, "avg_loss_R": self.avg_loss_r,
+                "fallback_reason": self.fallback_reason,
                 "features": FEATURE_NAMES, "min_samples": self.MIN_SAMPLES}
 
 

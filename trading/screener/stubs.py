@@ -24,12 +24,17 @@ _STUB: dict[tuple[str, str], list[tuple]] = {
         ("LT", 0.72, "stub: MTF-eligible capex", {"pct_change": 1.0}),
         ("ITC", 0.66, "stub: MTF-eligible FMCG", {"pct_change": 0.8}),
     ],
-    ("NSE", "fno"): [
-        ("NIFTY", 0.93, "stub: index option-chain (PCR bullish)", {"pcr_oi": 1.3}),
-        ("BANKNIFTY", 0.88, "stub: bank index chain", {"pcr_oi": 1.1}),
-        ("RELIANCE", 0.80, "stub: stock F&O long-buildup", {"oi_buildup": "long_buildup"}),
-        ("HDFCBANK", 0.73, "stub: stock F&O", {"oi_buildup": "short_covering"}),
-        ("INFY", 0.66, "stub: stock F&O", {"oi_buildup": "neutral"}),
+    ("NSE", "futures"): [
+        ("NIFTY", 0.93, "stub: index future (PCR bullish)", {"pcr_oi": 1.3}),
+        ("BANKNIFTY", 0.88, "stub: bank index future", {"pcr_oi": 1.1}),
+        ("RELIANCE", 0.80, "stub: stock future long-buildup", {"oi_buildup": "long_buildup"}),
+        ("HDFCBANK", 0.73, "stub: stock future", {"oi_buildup": "short_covering"}),
+        ("INFY", 0.66, "stub: stock future", {"oi_buildup": "neutral"}),
+    ],
+    ("NSE", "options"): [
+        ("NIFTY", 0.93, "stub: ATM index option (CE/PE)", {"pcr_oi": 1.3}),
+        ("BANKNIFTY", 0.88, "stub: ATM bank-index option", {"pcr_oi": 1.1}),
+        ("RELIANCE", 0.78, "stub: stock ATM option", {"oi_buildup": "long_buildup"}),
     ],
     ("NSE", "commodities"): [
         ("GOLD", 0.90, "stub: MCX bullion", {"atr_pct": 1.1}),

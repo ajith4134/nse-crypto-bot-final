@@ -225,7 +225,7 @@ def build_demo_evolution() -> dict:
         result = evolve(ohlcv, market=_EVO_MARKET, features=feats,
                         pop_size=_EVO_POP, generations=_EVO_GENS, seed=_EVO_SEED,
                         n_folds=_N_FOLDS, dsr_min=_EVO_DSR_MIN, min_trades=5,
-                        promote_top=_EVO_PROMOTE_TOP)
+                        promote_top=_EVO_PROMOTE_TOP, force=True)  # offline demo bypasses the gate
         _DEMO_EVOLUTION = result.as_dict()
     return _DEMO_EVOLUTION
 
@@ -389,7 +389,7 @@ def main() -> int:
     result = evolve(evo_ohlcv, market=_EVO_MARKET, features=evo_feats,
                     pop_size=_EVO_POP, generations=_EVO_GENS, seed=_EVO_SEED,
                     n_folds=_N_FOLDS, dsr_min=_EVO_DSR_MIN, min_trades=5,
-                    promote_top=_EVO_PROMOTE_TOP)
+                    promote_top=_EVO_PROMOTE_TOP, force=True)  # offline demo bypasses the gate
 
     print(f"  gen   best_score   mean_score   best OOS Sharpe   best OOS return")
     for h in result.history:

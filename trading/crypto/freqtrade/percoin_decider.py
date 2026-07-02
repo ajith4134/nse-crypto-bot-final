@@ -1,0 +1,192 @@
+"""trading/crypto/freqtrade/percoin_decider.py — brain picks the BEST strategy PER COIN (Phase G+).
+
+Where `LibraryBrainDecider` blends EVERY library strategy into one majority vote per symbol, this
+decider instead, for each coin:
+
+  1. vectorized-backtests every executable crypto signal strategy on THAT coin's recent 5m bars
+     (position formed at bar i from the signal known at i, earns the i→i+1 return — no lookahead),
+     scoring each by annualized Sharpe of its strategy-returns (+ win-rate, + activity guard),
+  2. re-weights each candidate by the BRAIN's confidence (TradeOutcomeNet trained on the closed
+     journal): final = sharpe · brain_weight  ("blend both"),
+  3. picks the single best strategy IF its final score clears a minimum threshold AND its CURRENT
+     signal is actionable — otherwise STAYS FLAT (no ensemble fallback),
+  4. returns the same decision dict the executor already routes to Freqtrade, carrying the chosen
+     strategy name as `tag` (→ Freqtrade enter_tag → visible per-coin on both dashboards).
+
+Reuses `LibraryBrainDecider` for the live OHLCV feed, feature build and strategy set — so it stays
+honest/offline-safe (FLAT when data or strategies are absent) and inherits the same caching.
+"""
+from __future__ import annotations
+
+import math
+
+import numpy as np
+
+from trading.crypto.freqtrade.brain_executor import LibraryBrainDecider
+
+# 5-minute bars → periods per year for Sharpe annualization (12/h · 24 · 365).
+_PERIODS_PER_YEAR = 12 * 24 * 365
+_MIN_ACTIVE_BARS = 5          # a strategy must have held a position on ≥ this many bars to be scored
+_MIN_FINAL_SCORE = 0.5        # below this blended score → stay flat (no trade)
+
+
+class PerCoinBrainDecider(LibraryBrainDecider):
+    """Pick the best-scoring strategy for each coin (backtest × brain), or stay flat."""
+
+    def __init__(self, *args, min_final_score: float = _MIN_FINAL_SCORE,
+                 min_active_bars: int = _MIN_ACTIVE_BARS, use_brain: bool = True, **kw):
+        # Need a real backtest WINDOW, not just the latest bar: compute_features_ext burns ~200 bars
+        # of warmup, so fetch plenty more (default 720 = 60h of 5m) → ~500 usable feature rows.
+        kw.setdefault("lookback", 720)
+        super().__init__(*args, **kw)
+        self._min_final = float(min_final_score)
+        self._min_active = int(min_active_bars)
+        self._use_brain = bool(use_brain)
+        self._net = None            # lazily-built TradeOutcomeNet (cached by closed-trade count)
+        self._net_count = -1
+
+    # ── brain confidence (global skill learned from the closed journal) ──────────
+    def _brain_net(self):
+        """TradeOutcomeNet over the crypto closed journal. None when unavailable/insufficient."""
+        if not self._use_brain:
+            return None
+        try:
+            from trading.crypto.freqtrade_ingest import map_trade
+            from trading.brain.trade_features import get_outcome_net
+            # Build LABELLED rows: map each native Freqtrade closed trade onto the journal schema and
+            # stamp net_pnl from its realized profit_abs — without this the outcome label is uniform
+            # (all None) and the net can never train (needs BOTH win & loss classes).
+            native = self.client_for_brain().closed_trades()
+            rows = []
+            for ft in native:
+                if not isinstance(ft, dict):
+                    continue
+                r = map_trade(ft).to_dict()
+                pnl = ft.get("profit_abs")
+                if pnl is not None:
+                    r["net_pnl"] = float(pnl)
+                    r["net_pnl_crypto"] = float(pnl)
+                rows.append(r)
+            if len(rows) != self._net_count:
+                self._net = get_outcome_net(rows)
+                self._net_count = len(rows)
+            return self._net
+        except Exception:
+            return None
+
+    def client_for_brain(self):
+        # the brain net trains on Freqtrade's own closed trades (independent of the dark dashboard)
+        from trading.crypto.engine_client import CryptoEngineClient
+        if getattr(self, "_brain_client", None) is None:
+            self._brain_client = CryptoEngineClient()
+        return self._brain_client
+
+    def _brain_weight(self, symbol: str, direction: str, last_price: float) -> tuple[float, dict]:
+        """Map the brain's win-probability for a coin+direction into a [0.5, 1.5] multiplier.
+
+        Trained → use the predicted p_win for a synthetic entry; untrained → neutral 1.0 (so the
+        per-coin backtest alone decides, honestly). Never raises."""
+        net = self._brain_net()
+        if net is None or not getattr(net, "trained", False):
+            return 1.0, {"engine": getattr(net, "engine", "none"), "p_win": None}
+        try:
+            row = {"symbol": symbol, "direction": direction, "instrument_type": "PERP",
+                   "entry_price": last_price, "current_price": last_price, "leverage": 1.0}
+            p = net.predict_one(row).get("p_win")
+            if p is None:
+                return 1.0, {"engine": net.engine, "p_win": None}
+            return float(0.5 + max(0.0, min(1.0, p))), {"engine": net.engine, "p_win": round(p, 4)}
+        except Exception:
+            return 1.0, {"engine": getattr(net, "engine", "none"), "p_win": None}
+
+    # ── per-coin backtest of one strategy ────────────────────────────────────────
+    @staticmethod
+    def _backtest(signal: np.ndarray, close: np.ndarray, min_active: int) -> dict | None:
+        """Sharpe + win-rate of following `signal` on `close`. Position at bar i (known at i) earns
+        the i→i+1 return — strictly causal, no lookahead. None if too few active bars / degenerate."""
+        n = min(len(signal), len(close))
+        if n < min_active + 2:
+            return None
+        sig = np.asarray(signal[-n:], dtype=float)
+        px = np.asarray(close[-n:], dtype=float)
+        ret = np.diff(px) / np.where(px[:-1] == 0, np.nan, px[:-1])   # len n-1, i→i+1
+        pos = sig[:-1]                                                # signal known at i
+        strat_ret = pos * ret
+        finite = np.isfinite(strat_ret)
+        series = strat_ret[finite]                                   # full series (0 on flat bars)
+        traded = strat_ret[finite & (pos != 0)]                      # only bars actually holding
+        n_active = int(traded.size)
+        if n_active < min_active or series.size < min_active:
+            return None
+        sd = float(np.std(series))
+        if sd == 0.0:
+            return None
+        sharpe = float(np.mean(series)) / sd * math.sqrt(_PERIODS_PER_YEAR)
+        wins = int(np.count_nonzero(traded > 0))
+        win_rate = round(wins / n_active, 4)
+        return {"sharpe": round(sharpe, 4), "win_rate": win_rate,
+                "n_active": n_active, "cum_return": round(float(np.sum(series)), 6)}
+
+    # ── the instruction: best strategy per coin, or flat ─────────────────────────
+    def decide(self, market: str, symbol: str, price, *, in_position: bool) -> dict:
+        if str(market).upper() != "CRYPTO":
+            return {"action": "FLAT"}
+        df = self._ohlcv(symbol)
+        if df is None or len(df) < 40:
+            return {"action": "FLAT", "_brain": {"reason": "no live bars"}}
+        from trading.strategy.library.features_ext import compute_features_ext
+        try:
+            feats = compute_features_ext(df[["open", "high", "low", "close", "volume"]])
+        except Exception:
+            return {"action": "FLAT", "_brain": {"reason": "feature build failed"}}
+
+        close = df["close"].to_numpy(dtype=float)
+        last_price = float(close[-1])
+        ranked = []
+        for s in self.strategies():
+            try:
+                sig = np.asarray(s.make_signal(feats), dtype=float)
+            except Exception:
+                continue
+            bt = self._backtest(sig, close, self._min_active)
+            if bt is None:
+                continue
+            last = int(np.sign(sig[-1])) if len(sig) else 0
+            direction = "LONG" if (last > 0 or bt["sharpe"] >= 0) else "SHORT"
+            bw, binfo = self._brain_weight(symbol, ("LONG" if last >= 0 else "SHORT"), last_price)
+            final = bt["sharpe"] * bw
+            ranked.append({"name": s.name, "last": last, "final": round(final, 4),
+                           "brain_weight": round(bw, 3), "p_win": binfo.get("p_win"), **bt})
+
+        if not ranked:
+            return {"action": "FLAT", "_brain": {"reason": "no scorable strategy", "n_candidates": 0}}
+        ranked.sort(key=lambda r: r["final"], reverse=True)
+        best = ranked[0]
+
+        # gate: the winner must clear the score floor; if in a position, exit when the best
+        # strategy no longer says long (net signal turned non-positive).
+        meta = {"source": "per_coin_best", "chosen_strategy": best["name"],
+                "final_score": best["final"], "sharpe": best["sharpe"], "win_rate": best["win_rate"],
+                "brain_weight": best["brain_weight"], "p_win": best["p_win"],
+                "n_candidates": len(ranked), "threshold": self._min_final,
+                "runners_up": [r["name"] for r in ranked[1:4]],
+                "confidence": round(min(1.0, max(0.0, best["final"] / max(self._min_final, 1e-9) / 4.0)), 3)}
+
+        if in_position:
+            action = "FLAT" if (best["final"] >= self._min_final and best["last"] > 0) else "EXIT"
+            meta["action"] = "UP" if action == "FLAT" else "EXIT"
+            return {"action": action, "size": 1.0, "tag": best["name"], "_brain": meta}
+
+        if best["final"] < self._min_final or best["last"] == 0:
+            meta["action"] = "NEUTRAL"
+            meta["reason"] = ("below threshold" if best["final"] < self._min_final else "winner flat now")
+            return {"action": "FLAT", "size": 1.0, "tag": best["name"], "_brain": meta}
+
+        action = "LONG" if best["last"] > 0 else "SHORT"
+        meta["action"] = "UP" if action == "LONG" else "DOWN"
+        return {"action": action, "size": 1.0, "tag": best["name"], "_brain": meta}
+
+
+def per_coin_brain_decider(**kw):
+    """Factory returning a decide_fn compatible with LiveTradeLoop(decide_fn=...)."""
+    return PerCoinBrainDecider(**kw).decide

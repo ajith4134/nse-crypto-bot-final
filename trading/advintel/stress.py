@@ -45,7 +45,8 @@ def _norm_asset_class(ac: Optional[str]) -> str:
     a = str(ac).strip().lower()
     aliases = {
         "stock": "equity", "stocks": "equity", "eq": "equity", "nse": "equity",
-        "index": "equity", "futures": "equity", "fno": "equity", "option": "equity",
+        "index": "equity", "futures": "equity", "fno": "equity",
+        "option": "equity", "options": "equity",
         "crypto": "crypto", "coin": "crypto", "perp": "crypto", "spot": "crypto",
         "btc": "crypto", "eth": "crypto", "future_crypto": "crypto",
         "commodity": "commodity", "comm": "commodity", "mcx": "commodity",

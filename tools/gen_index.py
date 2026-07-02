@@ -13,7 +13,11 @@ import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKIP_DIRS = {".git", "__pycache__", "dashboard/static", ".venv", "venv", "node_modules",
-             "srv", "openalgo", "catboost_info", ".pytensor"}
+             "srv", "openalgo", "catboost_info", ".pytensor",
+             # vendored OSS trees are external source we reuse, not project modules to index —
+             # excluding them keeps the context-loaded INDEX.md lean (vendor/ is documented in
+             # vendor/README.md instead).
+             "vendor"}
 PKG_DIRS = ("core", "nodes", "eval", "tools", "tests", "dashboard")
 
 
@@ -24,8 +28,13 @@ def _sig(fn: ast.FunctionDef) -> str:
 
 
 def _summarize(path: str) -> dict:
-    with open(path, encoding="utf-8") as f:
-        tree = ast.parse(f.read(), filename=path)
+    try:
+        with open(path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=path)
+    except (SyntaxError, UnicodeDecodeError, OSError) as e:
+        # never let one unparseable file (e.g. a vendored test fixture) crash the whole index
+        return {"summary": f"(unparseable: {type(e).__name__})", "classes": [], "funcs": [],
+                "imports": []}
     doc = (ast.get_docstring(tree) or "").strip().splitlines()
     classes, funcs, imports = [], [], []
     for node in tree.body:

@@ -161,7 +161,12 @@ def test_candidates_uses_live_source_when_available():
     assert sc.status()["last_modes"]["NSE:intraday"] == "live"
 
 
-def test_candidates_falls_back_to_stub_when_source_empty():
+def test_candidates_falls_back_to_stub_when_source_empty(monkeypatch):
+    # Commodities resolve via the OpenAlgo broker; simulate the offline case (no broker)
+    # so the deterministic stub fallback is exercised with NO network.
+    from trading.screener import commodities as _C
+    monkeypatch.setattr(_C, "_broker", lambda: None)
+
     class Empty:
         name = "empty"
         def __getattr__(self, _):
@@ -209,3 +214,48 @@ def test_status_snapshot_shape():
     assert st["ok"] is True
     assert "segments" in st and "CRYPTO" in st["segments"]
     assert st["nse_source"] is None             # demo is offline
+
+
+# ── MCX commodities: resolve base names → broker near-month FUT symbols ────────
+class FakeMCXClient:
+    """Stubs OpenAlgo's broker `search` for MCX — mimics the real row shape."""
+
+    def search(self, query=None, exchange=None):
+        assert exchange == "MCX"
+        rows = {
+            "GOLD": [
+                {"symbol": "GOLD05AUG26FUT", "instrumenttype": "FUT", "expiry": "05-AUG-26"},
+                {"symbol": "GOLD05OCT26FUT", "instrumenttype": "FUT", "expiry": "05-OCT-26"},
+                {"symbol": "GOLDM05AUG26FUT", "instrumenttype": "FUT", "expiry": "05-AUG-26"},
+                {"symbol": "GOLD05AUG2614000CE", "instrumenttype": "CE", "expiry": "05-AUG-26"},
+            ],
+            "CRUDEOIL": [
+                {"symbol": "CRUDEOIL19AUG26FUT", "instrumenttype": "FUT", "expiry": "19-AUG-26"},
+                {"symbol": "CRUDEOIL20JUL26FUT", "instrumenttype": "FUT", "expiry": "20-JUL-26"},
+            ],
+        }
+        return {"data": rows.get(str(query).upper(), [])}
+
+
+def test_resolve_near_month_fut_picks_nearest_and_exact_base(monkeypatch):
+    from trading.screener import commodities as C
+
+    client = FakeMCXClient()
+    gold = C.resolve_near_month_fut(client, "GOLD")
+    # nearest expiry FUT, and NOT the GOLDM look-alike, and NOT the CE option
+    assert gold["symbol"] == "GOLD05AUG26FUT"
+    crude = C.resolve_near_month_fut(client, "CRUDEOIL")
+    assert crude["symbol"] == "CRUDEOIL20JUL26FUT"     # 20-JUL before 19-AUG
+
+
+def test_screen_mcx_commodities_emits_dated_fut_symbols(monkeypatch):
+    from trading.screener import commodities as C
+
+    monkeypatch.setattr(C, "_broker", lambda: FakeMCXClient())
+    monkeypatch.setattr(C, "MCX_UNDERLYINGS", ["GOLD", "CRUDEOIL"])
+    out = C.screen_mcx_commodities(limit=5)
+    syms = [c["symbol"] for c in out]
+    assert syms == ["GOLD05AUG26FUT", "CRUDEOIL20JUL26FUT"]
+    assert all(c["segment"] == "commodities" and c["market"] == "NSE" for c in out)
+    # a bare base name must NEVER be emitted (that was the 400 "not found" bug)
+    assert "GOLD" not in syms and "CRUDEOIL" not in syms

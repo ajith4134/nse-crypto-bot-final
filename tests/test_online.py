@@ -91,6 +91,39 @@ class TestMarketSession(unittest.TestCase):
         self.assertEqual(st["mode"], "LIVE")
         json.dumps(st)
 
+    def test_commodities_use_mcx_clock_and_are_open_evening(self):
+        # MCX commodities trade 09:00–23:30 IST — LIVE at 16:30 when equity is closed.
+        s = MarketSession("NSE", commodities=True)
+        self.assertEqual(s.mode(TUE_OFFHOURS), "LIVE")
+        self.assertTrue(s.is_open(TUE_OFFHOURS))
+        self.assertEqual(MarketSession("NSE").mode(TUE_OFFHOURS), "REPLAY")  # equity closed
+
+
+# ── O5: per-segment quote exchange (commodities → MCX, F&O → NFO, equity → NSE) ──
+class TestPriceQuoteExchange(unittest.TestCase):
+    def test_price_quotes_each_segment_on_its_exchange(self):
+        from trading.online.live_loop import LiveTradeLoop
+
+        loop = LiveTradeLoop.__new__(LiveTradeLoop)          # bare instance — skip full __init__
+        loop.ticks = 999                            # past any auth backoff window
+        loop._nse_skip_until = 0
+        loop._nse_price = None                      # force the OpenAlgo-quote path
+        captured = {}
+
+        class _FakeOA:
+            def quote(self, symbol, exchange="NSE"):
+                captured["exchange"] = exchange
+                return {"data": {"ltp": 100.0}}
+
+        loop._openalgo = lambda: _FakeOA()
+        # commodities symbol must be quoted on MCX (was hardcoded NSE → always failed)
+        loop._price("NSE", "GOLD", "LIVE", "commodities")
+        self.assertEqual(captured["exchange"], "MCX")
+        loop._price("NSE", "BANKNIFTYFUT", "LIVE", "futures")
+        self.assertEqual(captured["exchange"], "NFO")
+        loop._price("NSE", "SBIN", "LIVE", "intraday")
+        self.assertEqual(captured["exchange"], "NSE")
+
 
 # ── O1: state ──────────────────────────────────────────────────────────────────
 class TestTradingState(unittest.TestCase):

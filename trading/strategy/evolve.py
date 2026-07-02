@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from deap import base, creator, tools
 
+from trading.strategy.control import require_evolution_enabled
 from trading.strategy.features import compute_features
 from trading.strategy.fitness import fitness
 from trading.strategy.genome import Strategy, random_strategy
@@ -69,8 +70,14 @@ def evolve(ohlcv: pd.DataFrame, *, market: str = "CRYPTO", features: pd.DataFram
            pop_size: int = 24, generations: int = 6, seed: int = 0, n_folds: int = 4,
            cx_pb: float = 0.6, mut_pb: float = 0.4, promote_top: int = 10,
            dsr_min: float = 0.6, min_trades: int = 10,
-           guardrail_trials: int | None = None) -> EvolutionResult:
-    """Evolve a population for `generations` and promote guardrail-passing survivors."""
+           guardrail_trials: int | None = None, force: bool = False) -> EvolutionResult:
+    """Evolve a population for `generations` and promote guardrail-passing survivors.
+
+    Gated: raises StrategyEvolutionDisabled unless the engine is enabled (env
+    STRATEGY_EVOLUTION_ENABLED=1 / set_evolution_enabled(True)) or `force=True` is passed
+    (used by the offline demo). See trading.strategy.control.
+    """
+    require_evolution_enabled(force=force)
     rng = np.random.default_rng(seed)
     feats = features if features is not None else compute_features(ohlcv)
     flist = market_features(market)

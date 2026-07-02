@@ -14,16 +14,37 @@ import { TotalsBar } from './OpenTradesPanel.jsx'
 
 // Default ~15-column subset to show first (matched case-insensitively, in order).
 // Anything else stays hidden until the user opts in via the column chooser.
+// NOTE: keys are matched case-insensitively against the REAL backend column names
+// (journal schema + the friendly summary columns the endpoint prepends). Earlier names
+// like entry_time/qty/strategy/instrument did NOT exist in the schema, so those columns
+// rendered empty — fixed here to entry_datetime/quantity/strategy_name/instrument_type.
 const DEFAULT_VISIBLE = [
-  'id', 'trade_id', 'symbol', 'instrument', 'direction', 'side',
-  'entry_time', 'exit_time', 'entry_price', 'exit_price', 'qty', 'quantity',
-  'net_pnl', 'pnl', 'net_pnl_pct', 'r_multiple', 'strategy',
+  // friendly summary columns the backend prepends (spaces lower-cased)
+  'trade type', 'symbol', 'currency', 'instrument_type', 'direction',
+  'entry_datetime', 'exit_datetime', 'entry_price', 'exit_price', 'quantity',
+  'num_lots', 'lot_size',
+  'capital', 'notional', 'fees', 'total_charges',
+  'net p&l', 'net_pnl', 'net_pnl_pct', 'r_multiple', 'peak p/l', 'strategy_name',
+  // peak profit/loss (USDT) + the time each peak occurred (crypto MFE/MAE excursions)
+  'peak_profit_usdt', 'peak_profit_time', 'peak_loss_usdt', 'peak_loss_time',
+  // brain / node-network metadata (the closed-trade equivalent of the live NN output)
+  'brain_confidence_entry', 'brain_prediction', 'brain_correct', 'signal_source',
 ]
 
 function isPnlLike(name) {
   if (!name) return false
   const n = String(name).toLowerCase()
   return n.includes('pnl') || n.includes('p&l') || n.includes('r_multiple') || n === 'r' || n.includes('rmultiple')
+}
+
+// Fixed semantic color for excursion magnitudes (always-positive, so pnlColor can't infer sign):
+// peak profit / MFE → green, peak loss / MAE → red. Their *_time columns stay neutral.
+function fixedColor(name) {
+  const n = String(name || '').toLowerCase()
+  if (n.includes('time')) return null
+  if (n.includes('peak_profit') || n === 'mfe') return T.good
+  if (n.includes('peak_loss') || n === 'mae') return T.bad
+  return null
 }
 
 function toNumber(v) {
@@ -56,13 +77,13 @@ function csvEscape(v) {
   return s
 }
 
-export default function ClosedTradesTable({ columns, rows, onRowClick, totals }) {
+export default function ClosedTradesTable({ columns, rows, onRowClick, totals, defaultShowAll = false }) {
   const allCols = Array.isArray(columns) ? columns : []
   const data = Array.isArray(rows) ? rows : []
 
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState({ col: null, dir: 1 }) // dir: 1 asc, -1 desc, 0 none
-  const [showAll, setShowAll] = useState(false)
+  const [showAll, setShowAll] = useState(defaultShowAll)
   const [chooserOpen, setChooserOpen] = useState(false)
   // Explicit per-column visibility overrides; undefined → fall back to default rule.
   const [overrides, setOverrides] = useState({})
@@ -320,14 +341,15 @@ export default function ClosedTradesTable({ columns, rows, onRowClick, totals })
                 {visibleCols.map((c) => {
                   const raw = row ? row[c] : undefined
                   const pnl = isPnlLike(c)
+                  const fixed = fixedColor(c)
                   return (
                     <td
                       key={c}
                       style={{
                         padding: '6px 10px',
                         whiteSpace: 'nowrap',
-                        color: pnl ? pnlColor(toNumber(raw)) : T.text,
-                        fontWeight: pnl ? 600 : 400,
+                        color: pnl ? pnlColor(toNumber(raw)) : (fixed || T.text),
+                        fontWeight: pnl || fixed ? 600 : 400,
                       }}
                     >
                       {fmtCell(raw)}

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import Graph3D from './Graph3D.jsx'
 import SigmaNetwork from './SigmaNetwork.jsx'
+import ColumnsPanel from './ColumnsPanel.jsx'
 import { AccuracyBars, NoiseSweep } from './Charts.jsx'
 import ChatPanel from './ChatPanel.jsx'
 import StreamOfMind from './StreamOfMind.jsx'
@@ -21,10 +22,16 @@ function Kpi({ label, value, sub, pct }) {
 }
 
 export default function App() {
-  // Pop-out NSE/Crypto market window: render only that workspace, no brain chrome.
+  // Pop-out market window: render only that workspace, no brain chrome.
+  // NSE control now lives INSIDE OpenAlgo (/paper) — send any ?win=nse there so no
+  // NSE control panel renders outside OpenAlgo. Crypto stays its own independent window.
   const winParam = new URLSearchParams(window.location.search).get('win')
-  if (winParam === 'nse' || winParam === 'crypto') {
-    return <MarketWindow market={winParam} />
+  if (winParam === 'nse') {
+    window.location.replace('/auto-trading')
+    return null
+  }
+  if (winParam === 'crypto') {
+    return <MarketWindow market="crypto" />
   }
 
   const [view, setView] = useState('brain')   // 'brain' | 'trading'
@@ -153,6 +160,8 @@ export default function App() {
           </>
         )}
       </section>
+
+      <ColumnsPanel state={state} />
 
       <section className="grid">
         <div className="card graphwrap-card" style={{ padding: 0 }}>

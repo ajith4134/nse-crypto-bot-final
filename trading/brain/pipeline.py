@@ -23,7 +23,9 @@ from trading.brain.experience import ExperienceBank
 from trading.brain.news import NewsResearcher, NewsSentimentNode
 from trading.brain.observability import BrainTracer
 from trading.brain.patterns import PatternScanner
+from trading.brain.hypothesis import HypothesisLedger
 from trading.brain.regime import RegimeModel
+from trading.brain.worldmodel import ImaginationPlanner
 from trading.strategy.features import compute_features
 
 
@@ -39,6 +41,8 @@ class BrainTradingPipeline:
     experience: ExperienceBank | None = None
     entryexit: EntryExitPolicy | None = None
     tracer: BrainTracer | None = None
+    planner: ImaginationPlanner | None = None       # world-model imagination, optional
+    hypotheses: HypothesisLedger | None = None      # confirmed-hypothesis support, optional
     kill_switch: object = None                      # T3 KillSwitch, optional
     breaker: object = None                          # T3 DailyCircuitBreaker, optional
 
@@ -101,6 +105,35 @@ class BrainTradingPipeline:
             recall_bias, recall_conf = rc.bias, rc.confidence
             tr.record("experience_recall", outputs={"bias": recall_bias, "n": rc.n})
 
+        # 5.5) imagination — roll the learned world-model forward (MuZero MCTS) to
+        #      test entry/direction/stop/trailing in imagined R BEFORE acting. Advisory:
+        #      it is recorded + surfaced and lightly nudges confidence; it never overrides
+        #      the safety gate or the entry/exit policy.
+        imagination = None
+        if self.planner is not None:
+            try:
+                imagination = self.planner.plan(ohlcv, position_side=position_side)
+                tr.record("imagination", outputs={"action": imagination["action"],
+                                                  "expected_R": imagination["expected_R"],
+                                                  "backend": imagination["backend"]})
+            except Exception as e:                       # never let imagination break a decision
+                tr.record("imagination", outputs={"error": str(e)[:120]})
+
+        # 5.6) confirmed-hypothesis support — does the brain's evidence-backed research
+        #      (HypothesisLedger) endorse this regime/direction? Advisory: recorded +
+        #      lightly nudges confidence; never overrides safety or entry/exit.
+        hypothesis_support = None
+        if self.hypotheses is not None:
+            try:
+                ctx = {"market": self.market, "symbol": symbol,
+                       "market_regime_entry": regime,
+                       "direction": "LONG" if signal > 0 else ("SHORT" if signal < 0 else "")}
+                hypothesis_support = self.hypotheses.support(ctx)
+                tr.record("hypothesis_support", outputs={"bias": hypothesis_support["bias"],
+                                                         "n": hypothesis_support["n"]})
+            except Exception as e:
+                tr.record("hypothesis_support", outputs={"error": str(e)[:120]})
+
         # 6) safety gate (T3) — blocks both entries and (forces) exits
         blocked, reason = self._safety_blocked()
 
@@ -132,12 +165,30 @@ class BrainTradingPipeline:
         confidence = round(max(0.0, min(1.0,
                           0.5 * conviction + 0.3 * news_support + 0.2 * recall_support)), 4)
 
+        # imagination nudge: if the world-model agrees with the action direction and
+        # imagines positive R, lift confidence slightly; if it imagines negative R, trim it.
+        imagined_R = float(imagination["expected_R"]) if imagination else 0.0
+        if imagination is not None and action not in ("FLAT", "HOLD"):
+            agree = (imagination["action"] in (action, f"ENTER_{action}")) or imagined_R > 0
+            confidence = round(max(0.0, min(1.0,
+                              confidence + (0.05 if agree and imagined_R > 0 else
+                                            -0.05 if imagined_R < 0 else 0.0))), 4)
+
+        # hypothesis nudge: confirmed evidence aligned with the action direction lifts
+        # confidence in proportion to its bias (advisory, capped at ±0.05).
+        if hypothesis_support is not None and hypothesis_support["n"] and direction != 0:
+            confidence = round(max(0.0, min(1.0,
+                              confidence + max(-0.05, min(0.05,
+                                  0.05 * hypothesis_support["bias"] * direction)))), 4)
+
         decision = {
             "symbol": symbol, "market": self.market, "regime": regime,
             "position_side": position_side,
             "anomaly_score": anomaly, "news_compound": news_compound, "news_p": round(news_p, 4),
             "signal": signal, "recall_bias": recall_bias, "recall_confidence": recall_conf,
             "entry": entry, "action": action, "confidence": confidence,
+            "imagination": imagination,
+            "hypothesis_support": hypothesis_support,
             "safety_blocked": blocked, "safety_reason": reason,
         }
         tr.record("decision", outputs={"action": action, "confidence": confidence,
@@ -174,6 +225,8 @@ class BrainTradingPipeline:
             "has_regime_model": self.regime_model is not None,
             "has_news": self.news is not None,
             "has_experience": self.experience is not None,
+            "has_imagination": self.planner is not None,
+            "has_hypotheses": self.hypotheses is not None,
             "safety": self.safety_review(),
             "stream_of_mind": self.tracer.stream_of_mind(10),
         }

@@ -15,19 +15,28 @@ import os
 
 from config import settings
 
-# (config key in .env, litellm model id, env var litellm expects).
-# Priority order: fast/generous free tiers first.
+# (config key in .env, litellm model id, env var litellm expects, optional api_base for
+# OpenAI-compatible providers litellm has no native prefix for).
+# Priority order = the failover chain: confirmed fast/reliable free tiers first, then
+# generous-but-rate-limited, then the rest. `chat()` walks this order and moves to the
+# next provider on ANY error (rate limit / quota / timeout / model-not-found), so a
+# throttled or exhausted key never blocks the brain — it just falls through. (Ranked from
+# a 2026-07-02 live health-check: Groq 0.21s and SambaNova 1.3s were the fastest working.)
 PROVIDERS = [
-    ("CEREBRAS_API_KEY", "cerebras/llama-3.3-70b", "CEREBRAS_API_KEY"),
-    ("GROQ_API_KEY", "groq/llama-3.3-70b-versatile", "GROQ_API_KEY"),
-    ("OPENROUTER_API_KEY", "openrouter/meta-llama/llama-3.3-70b-instruct:free", "OPENROUTER_API_KEY"),
-    ("GOOGLE_AISTUDIO_API_KEY", "gemini/gemini-2.0-flash", "GEMINI_API_KEY"),
-    ("SAMBANOVA_API_KEY", "sambanova/Meta-Llama-3.3-70B-Instruct", "SAMBANOVA_API_KEY"),
-    ("NVIDIA_API_KEY", "nvidia_nim/meta/llama-3.3-70b-instruct", "NVIDIA_NIM_API_KEY"),
-    ("DEEPINFRA_API_KEY", "deepinfra/meta-llama/Llama-3.3-70B-Instruct", "DEEPINFRA_API_KEY"),
-    ("FIREWORKS_API_KEY", "fireworks_ai/accounts/fireworks/models/llama-v3p3-70b-instruct", "FIREWORKS_AI_API_KEY"),
-    ("MISTRAL_API_KEY", "mistral/mistral-large-latest", "MISTRAL_API_KEY"),
-    ("DEEPSEEK_API_KEY", "deepseek/deepseek-chat", "DEEPSEEK_API_KEY"),
+    ("GROQ_API_KEY", "groq/llama-3.3-70b-versatile", "GROQ_API_KEY", None),
+    ("CEREBRAS_API_KEY", "cerebras/llama-3.3-70b", "CEREBRAS_API_KEY", None),
+    ("SAMBANOVA_API_KEY", "sambanova/Meta-Llama-3.3-70B-Instruct", "SAMBANOVA_API_KEY", None),
+    ("GOOGLE_AISTUDIO_API_KEY", "gemini/gemini-2.0-flash", "GEMINI_API_KEY", None),
+    ("OPENROUTER_API_KEY", "openrouter/meta-llama/llama-3.3-70b-instruct:free", "OPENROUTER_API_KEY", None),
+    ("DEEPSEEK_API_KEY", "deepseek/deepseek-chat", "DEEPSEEK_API_KEY", None),
+    ("DEEPINFRA_API_KEY", "deepinfra/meta-llama/Llama-3.3-70B-Instruct", "DEEPINFRA_API_KEY", None),
+    ("FIREWORKS_API_KEY", "fireworks_ai/accounts/fireworks/models/llama-v3p3-70b-instruct", "FIREWORKS_AI_API_KEY", None),
+    ("MISTRAL_API_KEY", "mistral/mistral-large-latest", "MISTRAL_API_KEY", None),
+    ("NVIDIA_API_KEY", "nvidia_nim/meta/llama-3.3-70b-instruct", "NVIDIA_NIM_API_KEY", None),
+    # OpenAI-compatible endpoints (litellm 'openai/<model>' + api_base + api_key):
+    ("ZAI_API_KEY", "openai/glm-4-flash", None, "https://api.z.ai/api/paas/v4"),
+    ("ALIBABA_API_KEY", "openai/qwen-plus", None,
+     "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
 ]
 
 
@@ -38,12 +47,15 @@ class NoLLMConfigured(RuntimeError):
 def _candidates() -> list[tuple[str, dict]]:
     """Ordered (model, extra_kwargs) list of usable providers — cloud first, local last."""
     out: list[tuple[str, dict]] = []
-    for key, model, env in PROVIDERS:
+    for key, model, env, api_base in PROVIDERS:
         val = settings.get(key)
         if val:
-            if not os.getenv(env):           # map our key name to the one litellm expects
-                os.environ[env] = val
-            out.append((model, {}))
+            if api_base:                     # OpenAI-compatible provider → pass key+base inline
+                out.append((model, {"api_base": api_base, "api_key": val}))
+            else:
+                if not os.getenv(env):       # map our key name to the one litellm expects
+                    os.environ[env] = val
+                out.append((model, {}))
     base = settings.get("LOCAL_LLM_BASE_URL")
     if base:                                  # Ollama / llama.cpp OpenAI-compatible fallback
         model = "openai/" + (os.getenv("LOCAL_LLM_MODEL") or "llama3")

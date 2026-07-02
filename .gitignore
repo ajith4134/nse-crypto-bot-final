@@ -103,3 +103,33 @@ catboost_info/
 .dspy_cache/
 .mem0/
 cloudflared.log
+
+# Freqtrade (crypto engine) — generated config holds the REST password; runtime data is local.
+trading/crypto/freqtrade/config.json
+trading/crypto/freqtrade/user_data/*.sqlite
+trading/crypto/freqtrade/user_data/logs/
+trading/crypto/freqtrade/user_data/backtest_results/
+trading/crypto/freqtrade/user_data/plot/
+trading/crypto/freqtrade/start.sh
+trading/crypto/freqtrade/user_data/strategies/lib_*.py
+trading/crypto/freqtrade/config_freqai.json
+vendor/frequi/node_modules
+vendor/frequi/dist
+
+# Brain credential vault (NEVER commit)
+trading/state/credentials.enc
+trading/state/.vault_key
+
+# Freqtrade runtime data (regenerated; never commit) — closes the user_data sprawl
+trading/crypto/freqtrade/user_data/data/
+trading/crypto/freqtrade/user_data/backtest_results/
+trading/crypto/freqtrade/user_data/hyperopt_results/
+trading/crypto/freqtrade/user_data/logs/
+trading/crypto/freqtrade/user_data/models/
+trading/crypto/freqtrade/user_data/freqaimodels/
+trading/crypto/freqtrade/user_data/plot/
+trading/crypto/freqtrade/user_data/notebooks/
+trading/crypto/freqtrade/user_data/*.log
+trading/crypto/freqtrade/user_data/*.pid
+trading/crypto/freqtrade/user_data/*.sqlite*
+trading/crypto/freqtrade/*.log

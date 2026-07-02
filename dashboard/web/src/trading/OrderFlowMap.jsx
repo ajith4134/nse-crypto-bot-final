@@ -175,6 +175,36 @@ export default function OrderFlowMap({ bids, asks, height = 320, symbol = 'BTCUS
           ))}
         </div>
       </div>
+
+      {/* Buy/Sell depth-imbalance ratio bar (cumulative bid vs ask depth) */}
+      <RatioBar bidDepth={runB} askDepth={runA} />
+    </div>
+  )
+}
+
+function RatioBar({ bidDepth, askDepth }) {
+  const total = bidDepth + askDepth || 1e-9
+  const bidPct = (bidDepth / total) * 100
+  const askPct = 100 - bidPct
+  return (
+    <div style={{ borderTop: `1px solid ${T.border}` }}>
+      <div style={{ display: 'flex', height: 6 }}>
+        <div style={{ width: `${bidPct}%`, background: T.good }} />
+        <div style={{ width: `${askPct}%`, background: T.bad }} />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          padding: '3px 10px 6px',
+          fontSize: 11,
+          fontWeight: 600,
+        }}
+      >
+        <span style={{ color: T.good }}>{bidPct.toFixed(2)}%</span>
+        <span style={{ color: T.muted, fontWeight: 400 }}>buy / sell</span>
+        <span style={{ color: T.bad }}>{askPct.toFixed(2)}%</span>
+      </div>
     </div>
   )
 }

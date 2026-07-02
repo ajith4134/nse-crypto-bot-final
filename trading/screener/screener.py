@@ -24,7 +24,7 @@ from trading.screener.stubs import stub_candidates
 
 # valid segments mirror trading/online/state.py SEGMENTS
 SEGMENTS = {
-    "NSE": ["intraday", "mtf", "fno", "commodities"],
+    "NSE": ["intraday", "mtf", "futures", "options", "commodities"],
     "CRYPTO": ["spot", "futures", "options"],
 }
 
@@ -113,13 +113,28 @@ def screen_nse_fno(source: Any, *, limit: int = 5, filters: dict | None = None) 
         sym = str(r.get("symbol") or r.get("underlying") or "").upper()
         if not sym:
             continue
-        out.append(_cand(sym, "fno", "NSE", F._get(r, "volume"),
-                         f"NSE fno: active underlying {sym}",
+        out.append(_cand(sym, "futures", "NSE", F._get(r, "volume"),
+                         f"NSE futures: active underlying {sym}",
                          {"volume": F._get(r, "volume")}, "nselib"))
     # re-rank 0..1-ish by volume order
     for i, c in enumerate(out):
         c["score"] = round(1.0 - i / max(len(out), 1) * 0.5, 6)
     return out
+
+
+def screen_nse_options(source: Any, *, limit: int = 5, filters: dict | None = None) -> list[dict]:
+    """Rank single-leg NSE option (CE/PE) candidates.
+
+    Implemented in Phase 2 (trading/screener/options.py) — generates ATM/OTM CE&PE
+    contracts for index + top-liquid F&O underlyings via the OpenAlgo broker path
+    (nselib's live option-chain endpoint is IP-blocked from the server). Wired here so
+    the `options` segment routes correctly; returns [] until Phase 2 is active.
+    """
+    try:
+        from trading.screener.options import screen_nse_options as _impl
+        return _impl(source, limit=limit, filters=filters)
+    except Exception:
+        return []
 
 
 # ── standalone crypto composables ─────────────────────────────────────────────
@@ -155,6 +170,9 @@ def screen_crypto_spot(source: Any, *, limit: int = 5,
         return []
     rows = F.volume_filter(rows, key="quote_volume",
                            min_value=filters.get("min_quote_volume"))
+    mp = filters.get("min_pct_change")
+    if mp:
+        rows = [r for r in rows if abs(r.get("pct_change") or 0.0) >= float(mp)]
 
     # rank: volume order gives the base, |%change| momentum adds the kicker
     top = rows[: max(limit * 3, limit)]
@@ -183,7 +201,12 @@ def screen_crypto_futures(source: Any, *, limit: int = 5,
     rows = [r for r in rows if ":" in r["symbol"] or r["symbol"].endswith("USDT")]
     if not rows:
         return []
-    rows = F.volume_filter(rows, key="quote_volume")[: max(limit * 3, limit)]
+    rows = F.volume_filter(rows, key="quote_volume",
+                           min_value=filters.get("min_quote_volume"))
+    mp = filters.get("min_pct_change")
+    if mp:
+        rows = [r for r in rows if abs(r.get("pct_change") or 0.0) >= float(mp)]
+    rows = rows[: max(limit * 3, limit)]
     vmax = max((r["quote_volume"] for r in rows), default=1.0) or 1.0
     out = []
     for r in rows:
@@ -243,13 +266,21 @@ class Screener:
     def _live(self, market: str, segment: str, limit: int,
               filters: dict | None) -> list[dict]:
         m, s = market.upper(), segment.lower()
+        if s == "fno":
+            s = "futures"   # legacy alias: the old combined F&O segment == futures now
         if m == "NSE":
             if s in ("intraday", "mtf"):
                 return screen_nse_movers(self.nse, s, limit=limit, filters=filters)
-            if s == "fno":
+            if s == "futures":
                 return screen_nse_fno(self.nse, limit=limit, filters=filters)
+            if s == "options":
+                return screen_nse_options(self.nse, limit=limit, filters=filters)
             if s == "commodities":
-                return []   # no free MCX movers feed → stub (research §2.4)
+                # MCX commodities trade as DATED FUTURES (GOLD05AUG26FUT) — resolve each
+                # base name to the broker's exact near-month FUT symbol via OpenAlgo search.
+                # Bare "GOLD" quotes 400'd → commodities never traded (research §2.4 fix).
+                from trading.screener.commodities import screen_mcx_commodities
+                return screen_mcx_commodities(self.nse, limit=limit, filters=filters)
         elif m == "CRYPTO":
             if s == "spot":
                 return screen_crypto_spot(self.crypto, limit=limit, filters=filters)
@@ -280,12 +311,15 @@ class Screener:
         return stub_candidates(m, s, limit=limit)
 
     def watchlist(self, market: str, segments: list[str], *,
-                  per_segment: int = 3) -> list[dict]:
-        """Deduped union of candidates across the selected segments (varied basket)."""
+                  per_segment: int = 3, filters: dict | None = None) -> list[dict]:
+        """Deduped union of candidates across the selected segments (varied basket).
+
+        `filters` (e.g. {min_pct_change, min_quote_volume}) are forwarded to each
+        per-segment screener so the dashboard filter bar narrows the candidate set."""
         seen: set[str] = set()
         out: list[dict] = []
         for seg in segments:
-            for c in self.candidates(market, seg, limit=per_segment):
+            for c in self.candidates(market, seg, limit=per_segment, filters=filters):
                 k = f"{c['market']}:{c['segment']}:{c['symbol']}"
                 if k in seen:
                     continue

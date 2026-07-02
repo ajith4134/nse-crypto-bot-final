@@ -17,6 +17,12 @@ T8.1 pieces:
 from __future__ import annotations
 
 from trading.strategy.backtest import BacktestResult, backtest_signal, walk_forward_folds
+from trading.strategy.control import (
+    StrategyEvolutionDisabled,
+    evolution_enabled,
+    require_evolution_enabled,
+    set_evolution_enabled,
+)
 from trading.strategy.features import FEATURE_NAMES, compute_features
 from trading.strategy.genome import (
     Strategy,
@@ -45,6 +51,8 @@ __all__ = [
     "passes_guardrails", "GuardrailReport", "deflated_sharpe_ratio",
     "probabilistic_sharpe_ratio", "pbo_cscv", "information_coefficient",
     "evolve", "EvolutionResult", "promote", "StrategyNode", "StrategyRegistry",
+    "evolution_enabled", "set_evolution_enabled", "require_evolution_enabled",
+    "StrategyEvolutionDisabled",
 ]
 
 from trading.strategy.evolve import EvolutionResult, evolve

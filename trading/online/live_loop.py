@@ -12,11 +12,13 @@ What it does each tick (default 5s), per enabled market:
   2. ask ``decide_fn`` for an action — the T8 Brain pipeline if it loads, else a real built-in
      momentum strategy (price vs its SMA) — so trades visibly happen,
   3. pass it through the SAME central trading-state gate (`registry.allow_order`),
-  4. for PAPER: book entries on the per-market `PaperWallet`, and on a position CLOSE build a
-     full `ClosedTrade` and persist it to the 110-column `TradeJournal` (this is what was
-     missing — closes are now real and journaled),
-  5. for REAL: BLOCKED by design here (paper-only execution per the operator's choice) — the
-     allow_live+confirm gate is honoured but no real broker order is placed.
+  4. for PAPER: book entries on the per-market `PaperWallet` (the accounting ledger) AND route
+     each NSE order through OpenAlgo's SANDBOX so it appears in the real engine's order book —
+     paper NSE is no longer a pure in-process sim. On a position CLOSE build a full `ClosedTrade`
+     (with the OpenAlgo entry/exit order ids) and persist it to the 110-column `TradeJournal`,
+  5. for REAL crypto: BLOCKED by design here (crypto execution moves to Freqtrade in Phase E).
+     NSE order routing honours OpenAlgo's own live guard (allow_live) — paper hits the sandbox,
+     live hits the real broker only when explicitly armed.
 
 Reuses the shared, persisted singletons (`controls.registry()` / `controls.book()`) so the
 dashboard's Start/Stop/mode/balance controls drive THIS loop live. Thread-based; start()/stop().
@@ -224,7 +226,7 @@ class LiveTradeLoop:
 
     def __init__(self, *, interval: float = 5.0, symbols: dict | None = None,
                  decide_fn=None, journal=None, registry=None, book=None,
-                 crypto_price=None, nse_price=None):
+                 crypto_price=None, nse_price=None, crypto_engine=None):
         self.interval = float(interval)
         self.symbols = symbols or dict(_SYMBOLS)
         self.registry = registry or controls.registry()
@@ -234,22 +236,54 @@ class LiveTradeLoop:
         self._journal = journal
         self._crypto_price = crypto_price          # injectable for tests; else lazy ccxt
         self._nse_price = nse_price                # injectable for tests; else lazy OpenAlgo
+        # Phase B seam (not yet active): a CryptoEngineClient (Freqtrade) to route crypto fills
+        # in Phase E. For now crypto stays on the wallet/ccxt paper path; this is just wired in.
+        self._crypto_engine = crypto_engine
         self._sessions: dict[str, MarketSession] = {}
         self._symbol_segments: dict = {}           # (MARKET, symbol) -> segment (Phase 2 screener)
+        self._symbol_score: dict = {}              # (MARKET, symbol) -> screener score (auto-open rank)
         self._open: dict[str, dict] = {}           # (market:symbol) -> open trade dict
         self._marks: dict[str, dict] = {}          # market -> {symbol: price}
         self._last_brain: dict[str, dict] = {}     # symbol -> latest brain decision dict
         # P2 screener (dynamic watchlist) · P4 sizer · P3 trailing exits — all lazy + offline-safe
         self._screener = None
         self._sizer = None
-        self._refresh_every = 60                    # re-screen the watchlist every ~60 ticks (5 min)
+        self._refresh_every = 12                    # re-screen the watchlist every ~12 ticks (~1 min)
+        self._ingest_every = 24                     # ingest Freqtrade closed crypto trades ~every 2 min
         self._atr: dict = {}                        # symbol -> recent ATR estimate (for sizing/trailing)
         # user-tunable strategy config — persisted. Defaults tuned to HOLD trades (intraday,
         # minutes→hours): a wide percentage trailing stop that rides up + a far take-profit cap.
         self.cfg = {"trail_mode": "pct",          # "pct" (wide, predictable) | "atr" (volatility)
-                    "trail_pct": 0.035,           # 3.5% wide trailing stop — rides up, locks gains
+                    "trail_pct": 0.035,           # 3.5% trailing distance — rides up, locks gains
                     "take_profit_pct": 0.07,      # 7% far take-profit cap (0 = none, ride trail only)
                     "trail_atr_mult": 2.5,        # used only when trail_mode == "atr"
+                    # AUTO-OPEN basket mode (temporary, until the brain takes over): open trades
+                    # on the SCREENED candidates with a wide initial stop + profit-tail gating.
+                    # Primary = open the TOP-N ranked per segment; FALLBACK = if a segment has
+                    # fewer than `min_open_per_segment` open positions, keep opening screened
+                    # candidates until that minimum is filled.
+                    "enter_all": False,           # master toggle: True → auto-open screened trades
+                    "exit_mode": "trail_stop",    # "trail_stop" (has stop) | "profit_only" (no stop)
+                    "basket_deploy_pct": 85.0,    # % of cash to spread equally across the basket
+                    "top_n_per_segment": 2,       # primary: open this many top-ranked per segment
+                    "min_open_per_segment": 0,    # DEFAULT fallback floor: ≥ this many open / segment
+                    "min_open_by_segment": {},    # PER-SEGMENT overrides {segment: floor} (beats default)
+                    "min_total_open": 0,          # global floor: fill to ≥ this many open trades total
+                    "min_capital_per_trade": 0.0, # each trade deploys at least this much capital
+                    # brain handoff: manual sliders drive trading NOW; the brain auto-takes over
+                    # once the journal has ≥ this many CLOSED trades to learn from.
+                    "brain_handoff_trades": 30,
+                    # per-segment leverage overrides {segment: x} — beats the built-in defaults.
+                    "leverage_by_segment": {},
+                    # per-segment LOT SIZE overrides {segment: lot} for lot-based instruments
+                    # (F&O / options / commodities) — beats the representative defaults.
+                    "lot_size_by_segment": {},
+                    # screener filters (surfaced in the UI) — forwarded to the screeners.
+                    "screen_min_pct": 0.0,        # min |%change| (NSE movers)
+                    "screen_min_quote_volume": 0.0,  # min quote volume (crypto)
+                    # NSE options segment: how CE/PE candidates are generated —
+                    # "atm" (ATM CE+PE) | "ladder" (ATM + OTM each side) | "chain" (whole chain).
+                    "option_mode": "atm",
                     "sizing_method": "kelly_atr",
                     "max_risk_pct": 1.0, "max_position_pct": 25.0, "kelly_fraction": 0.5}
         try:
@@ -283,7 +317,7 @@ class LiveTradeLoop:
         return self._journal
 
     # ── real price sources (lazy, guarded) ──────────────────────────────────────────
-    def _price(self, market: str, symbol: str, mode: str):
+    def _price(self, market: str, symbol: str, mode: str, segment: str = ""):
         m = market.upper()
         try:
             if m == "CRYPTO":
@@ -301,10 +335,12 @@ class LiveTradeLoop:
                 return None                         # off-hours: no live NSE feed → skip
             if self.ticks < self._nse_skip_until:   # backing off after a broker-auth failure
                 return None
-            from trading.openalgo_client import OpenAlgoClient
-            if not hasattr(self, "_oa"):
-                self._oa = OpenAlgoClient()
-            q = self._oa.quote(symbol, exchange="NSE")
+            # Quote on the RIGHT exchange for this segment: equity→NSE, F&O→NFO,
+            # commodities→MCX. Hardcoding "NSE" meant MCX commodities (GOLD/CRUDEOIL…) and
+            # NFO futures/options were quoted on NSE, always failed → "no price" → those
+            # segments never traded even while their market was open (commodities bug).
+            oa_exch = self._OA_EXCHANGE.get((segment or "").lower(), "NSE")
+            q = self._openalgo().quote(symbol, exchange=oa_exch)
             self._nse_auth_ok = True
             # OpenAlgo returns {"data": {"ltp": ...}, "status": "success"}
             d = q.get("data", q) if isinstance(q, dict) else {}
@@ -320,6 +356,113 @@ class LiveTradeLoop:
             else:
                 self._note_error(f"{m} price: {type(e).__name__}: {str(e)[:60]}")
             return None
+
+    # ── OpenAlgo order routing (NSE) — sandbox in paper, real broker in live ──────────
+    # OpenAlgo exchange code per segment (equity→NSE, F&O/options→NFO, commodities→MCX).
+    _OA_EXCHANGE = {"intraday": "NSE", "mtf": "NSE", "delivery": "NSE",
+                    "futures": "NFO", "fno": "NFO", "options": "NFO", "commodities": "MCX"}
+    # OpenAlgo product code (valid set MIS/CNC/NRML); MTF≈leveraged delivery→CNC.
+    _OA_PRODUCT = {"MIS": "MIS", "MTF": "CNC", "CNC": "CNC", "NRML": "NRML"}
+
+    def _openalgo(self):
+        """Lazy OpenAlgoClient, synced ONCE so its analyzer (sandbox) matches TRADING_MODE
+        (paper→sandbox ON, live→sandbox OFF). Reused by _price() and order routing."""
+        if getattr(self, "_oa", None) is None:
+            from trading.openalgo_client import OpenAlgoClient
+            self._oa = OpenAlgoClient()
+        if not getattr(self, "_oa_synced", False):
+            try:
+                self._oa.sync_mode()
+                self._oa_synced = True
+            except Exception:
+                pass                          # server may be down; _submit_nse_order stays honest
+        return self._oa
+
+    def _submit_nse_order(self, symbol, action, segment, qty, product, *, allow_live) -> tuple:
+        """Best-effort route an NSE order through OpenAlgo. Paper mode hits OpenAlgo's SANDBOX
+        (no broker); live hits the real broker (guarded by allow_live). NEVER raises — returns
+        (order_id, status) so the loop/journal stay honest when OpenAlgo is down/unconfigured."""
+        from trading.config import trading_config
+        if not trading_config.is_configured:
+            return "", "sim-only (OpenAlgo not configured)"
+        exch = self._OA_EXCHANGE.get((segment or "").lower(), "NSE")
+        prod = self._OA_PRODUCT.get((product or "MIS").upper(), "MIS")
+        try:
+            resp = self._openalgo().place_order(
+                symbol=symbol, action=str(action).upper(), exchange=exch,
+                quantity=int(max(1, round(float(qty)))), product=prod,
+                price_type="MARKET", allow_live=bool(allow_live))
+            oid = str((resp or {}).get("orderid") or (resp or {}).get("order_id") or "")
+            tag = "sandbox" if not trading_config.is_live else "live"
+            return oid, (f"{tag}:{oid}" if oid else tag)
+        except Exception as e:
+            self._note_error(f"NSE order via OpenAlgo failed: {type(e).__name__}: {str(e)[:60]}")
+            return "", f"sim-only ({type(e).__name__})"
+
+    def _ingest_freqtrade(self) -> dict:
+        """Record any new Freqtrade closed crypto trades into the journal (trade→NN bridge).
+        Skipped when CRYPTO is disabled; never raises."""
+        try:
+            if not self.registry.get("CRYPTO").enabled:
+                return {"ingested": 0, "skipped": 0, "seen": 0, "detail": "CRYPTO disabled"}
+        except Exception:
+            pass
+        from trading.crypto.freqtrade_ingest import ingest_closed
+        res = ingest_closed(self.journal(), self._crypto_engine)
+        if res.get("ingested"):
+            self.trades_closed += int(res["ingested"])   # reflect crypto closes in the counters
+        return res
+
+    # ── Phase E: crypto execution is owned by Freqtrade (retire the home-grown wallet sim) ──
+    def _crypto_engine_client(self):
+        """The Freqtrade CryptoEngineClient — injected (tests) or lazily built. None if absent."""
+        if self._crypto_engine is None:
+            try:
+                from trading.crypto.engine_client import CryptoEngineClient
+                self._crypto_engine = CryptoEngineClient()
+            except Exception:
+                self._crypto_engine = False
+        return self._crypto_engine or None
+
+    def _crypto_exec_enabled(self) -> bool:
+        """True when Freqtrade should own crypto execution: REST creds present AND reachable.
+        Reachability + open-pairs are cached for ~12 ticks (don't ping every tick/symbol)."""
+        try:
+            from trading.crypto.config import crypto_config
+            if not crypto_config.ft_configured:
+                return False
+        except Exception:
+            return False
+        if not hasattr(self, "_ft_reach") or getattr(self, "_ft_reach_tick", -999) + 12 <= self.ticks:
+            eng = self._crypto_engine_client()
+            self._ft_reach = bool(eng and eng.ping().connected)
+            self._ft_reach_tick = self.ticks
+            self._ft_open_pairs = set(eng.open_pairs()) if self._ft_reach else set()
+        return self._ft_reach
+
+    def _route_crypto_engine(self, symbol, seg, want_open, do_exit, decision) -> dict:
+        """Route a crypto brain/momentum signal to Freqtrade. forceenter on entry, force-close on
+        exit. crypto_options stays on the ccxt path (Freqtrade is spot/perp only). Never raises."""
+        if (seg or "").lower() == "options":
+            return {"skipped": "crypto_options on ccxt (Freqtrade = spot/perp only)"}
+        eng = self._crypto_engine_client()
+        if eng is None:
+            return {"skipped": "engine unavailable"}
+        open_pairs = getattr(self, "_ft_open_pairs", set())
+        try:
+            if want_open and symbol not in open_pairs:
+                side = "short" if decision.get("action") == "SHORT" else "long"
+                eng.place_order(symbol=symbol, action="BUY", side=side)
+                open_pairs.add(symbol)
+                return {"forceenter": symbol, "side": side, "ok": True}
+            if do_exit and symbol in open_pairs:
+                eng.close_pair(symbol)
+                open_pairs.discard(symbol)
+                return {"forceexit": symbol, "ok": True}
+        except Exception as e:
+            self._note_error(f"crypto engine {symbol}: {type(e).__name__}: {str(e)[:50]}")
+            return {"error": type(e).__name__}
+        return {"noop": True, "open_in_engine": symbol in open_pairs}
 
     def _decide(self, market: str, symbol: str, price, *, in_position: bool) -> dict:
         if self._brain is not None:
@@ -340,6 +483,185 @@ class LiveTradeLoop:
     def _segment_of(self, market: str, symbol: str) -> str:
         return self._symbol_segments.get((market.upper(), symbol),
                                          self._SEG_DEFAULT.get(market.upper(), ""))
+
+    # per-segment leverage (paper, honest defaults). 1.0 = unleveraged (spot/CNC delivery).
+    _LEVERAGE = {("CRYPTO", "spot"): 1.0, ("CRYPTO", "futures"): 3.0, ("CRYPTO", "options"): 1.0,
+                 ("NSE", "intraday"): 5.0, ("NSE", "mtf"): 4.0, ("NSE", "delivery"): 1.0,
+                 ("NSE", "futures"): 5.0, ("NSE", "fno"): 5.0, ("NSE", "options"): 1.0,
+                 ("NSE", "commodities"): 5.0}
+    # MAX leverage allowed per segment in LIVE markets — user overrides are clamped to these.
+    #   NSE equity intraday ≈5× (post-SEBI peak-margin); MTF ≈5×; index/stock futures ≈10×;
+    #   MCX commodities ≈10×; long options/spot = 1× (no margin leverage); crypto perp up to
+    #   the Binance USDⓢ-M ceiling 125× (research: crypto-futures-perp). Honest live caps.
+    #   crypto SPOT margin up to 5× (Binance cross/isolated margin borrowing).
+    # MARKET-AWARE so NSE `futures` (≤10×) never inherits crypto `futures` (125×).
+    _MAX_LEVERAGE = {
+        ("NSE", "intraday"): 5.0, ("NSE", "mtf"): 5.0, ("NSE", "delivery"): 1.0,
+        ("NSE", "futures"): 10.0, ("NSE", "fno"): 10.0, ("NSE", "options"): 1.0,
+        ("NSE", "commodities"): 10.0,
+        ("CRYPTO", "spot"): 5.0, ("CRYPTO", "futures"): 125.0, ("CRYPTO", "options"): 1.0,
+    }
+
+    def max_leverage_of(self, segment: str, market: str = "NSE") -> float:
+        return float(self._MAX_LEVERAGE.get((market.upper(), (segment or "").lower()), 10.0))
+
+    def _leverage_of(self, market: str, segment: str) -> float:
+        """Per-segment leverage — the user override (cfg['leverage_by_segment']) if set, else
+        the built-in default. Segment names are unique across markets so a flat dict is safe."""
+        seg = (segment or "").lower()
+        by = self.cfg.get("leverage_by_segment") or {}
+        if isinstance(by, dict) and seg in by:
+            try:
+                return max(1.0, min(float(by[seg]), self.max_leverage_of(seg, market)))
+            except (TypeError, ValueError):
+                pass
+        return float(self._LEVERAGE.get((market.upper(), seg), 1.0))
+
+    def _session_for(self, market: str, segment: str) -> MarketSession:
+        """Per-segment market session. NSE commodities (MCX) get a LATER session window
+        (≈09:00–23:30 IST) instead of equity hours, so the bot doesn't treat them as closed
+        at 15:30 like the other NSE segments."""
+        m = market.upper()
+        is_comm = (m == "NSE" and (segment or "").lower() == "commodities")
+        key = f"{m}:COMMODITIES" if is_comm else m
+        s = self._sessions.get(key)
+        if s is None:
+            s = MarketSession(market, commodities=is_comm)
+            self._sessions[key] = s
+        return s
+
+    def _holds_overnight(self, market: str, segment: str) -> bool:
+        """Can this trade type be carried overnight? Crypto is 24/7; NSE intraday (MIS)
+        MUST be squared off by market close — everything else (delivery/mtf/fno/commodities)
+        carries. Drives the at-close square-off (research: online-nse-offhours-paper-trading)."""
+        if market.upper() == "CRYPTO":
+            return True
+        return (segment or "").lower() != "intraday"
+
+    # map a trade segment → the charges.py NSE segment key (eq_intraday/eq_delivery/fut/opt).
+    _CHARGE_SEG = {"intraday": "eq_intraday", "mtf": "eq_delivery", "delivery": "eq_delivery",
+                   "fno": "fut", "futures": "fut", "commodities": "fut", "options": "opt"}
+
+    def _est_charges(self, market: str, segment: str, notional: float) -> float:
+        """Estimated ROUND-TRIP transaction cost for an open trade (entry+exit), so the
+        dashboard can show a Fees column. Reuses trading/journal/charges.py (the same math
+        that finalises closed trades). Best-effort: 0.0 if anything is off."""
+        try:
+            from trading.journal import charges as _ch
+            if market.upper() == "CRYPTO":
+                return float(_ch.crypto_charges(entry_notional=notional,
+                                                exit_notional=notional)["total_charges"])
+            seg = self._CHARGE_SEG.get((segment or "").lower(), "eq_intraday")
+            return float(_ch.nse_charges(seg, buy_value=notional,
+                                         sell_value=notional)["total_charges"])
+        except Exception:
+            return 0.0
+
+    # ── brain handoff: manual sliders now → brain takes over once it has learned ──────
+    def brain_in_control(self) -> bool:
+        """True once the brain decider is wired AND the journal has enough CLOSED trades
+        to have learned from (>= cfg['brain_handoff_trades']). Until then trading follows
+        the operator's manual Strategy & Sizing settings (and the auto-open basket)."""
+        try:
+            need = int(self.cfg.get("brain_handoff_trades", 30) or 0)
+        except Exception:
+            need = 30
+        return bool(self._brain is not None and need > 0 and self.trades_closed >= need)
+
+    def _screen_filters(self) -> dict:
+        """Build the screener filter dict from the user-tunable config (UI filter bar)."""
+        f = {}
+        try:
+            mp = float(self.cfg.get("screen_min_pct", 0.0) or 0.0)
+            if mp > 0:
+                f["min_pct_change"] = mp
+            mv = float(self.cfg.get("screen_min_quote_volume", 0.0) or 0.0)
+            if mv > 0:
+                f["min_quote_volume"] = mv
+        except Exception:
+            pass
+        # NSE options CE/PE generation mode → forwarded to screen_nse_options.
+        f["option_mode"] = str(self.cfg.get("option_mode", "atm") or "atm").lower()
+        return f
+
+    # ── auto-open basket (manual phase) ──────────────────────────────────────────────
+    def _auto_open_active(self) -> bool:
+        """Basket auto-open runs while the operator is in control (enter_all on) and the
+        brain has NOT yet taken over. Once the brain is in control its own LONG signals
+        drive entries (and this stays off)."""
+        return bool(self.cfg.get("enter_all")) and not self.brain_in_control()
+
+    def _min_open_for(self, seg: str) -> int:
+        """Per-segment min-open floor: the explicit override for this segment if set,
+        else the global default (min_open_per_segment)."""
+        by = self.cfg.get("min_open_by_segment") or {}
+        if isinstance(by, dict) and seg in by:
+            try:
+                return int(by[seg] or 0)
+            except (TypeError, ValueError):
+                pass
+        return int(self.cfg.get("min_open_per_segment", 0) or 0)
+
+    def _segment_open_count(self, market: str, seg: str) -> int:
+        return sum(1 for ot in self._open.values()
+                   if ot.get("market") == market.upper() and (ot.get("segment") or "") == seg)
+
+    def _is_top_ranked(self, market: str, symbol: str, seg: str, n: int) -> bool:
+        syms = [s for s in (self.symbols.get(market) or [])
+                if self._segment_of(market, s) == seg]
+        syms.sort(key=lambda s: self._symbol_score.get((market.upper(), s), 0.0), reverse=True)
+        return symbol in syms[:max(1, n)]
+
+    def _basket_wants(self, market: str, symbol: str, seg: str) -> bool:
+        """Open this screened symbol now? PRIMARY = the top-N ranked per segment; FALLBACK =
+        if the segment has fewer than `min_open_per_segment` open positions, keep opening
+        screened candidates until that floor is filled (operator's two-tier request)."""
+        if not seg:
+            return False
+        # GLOBAL floor: keep opening best-ranked screened candidates until the total number
+        # of open trades reaches min_total_open (across all markets/segments).
+        if len(self._open) < int(self.cfg.get("min_total_open", 0) or 0):
+            return True
+        count = self._segment_open_count(market, seg)
+        floor = self._min_open_for(seg)
+        topn = int(self.cfg.get("top_n_per_segment", 2) or 0)
+        if count < floor:
+            return True                                  # fallback: fill segment to the minimum
+        if topn > 0 and count < topn and self._is_top_ranked(market, symbol, seg, topn):
+            return True                                  # primary: open the top-N ranked
+        return False
+
+    def close_all(self, *, reason: str = "manual close-all") -> dict:
+        """Flatten EVERY open position at the last known mark (operator 'close all' button).
+        Journals each close like any normal exit. Returns a summary."""
+        closed = []
+        for key, ot in list(self._open.items()):
+            market, sym = ot.get("market", ""), ot.get("symbol", "")
+            mark = self._marks.get(market, {}).get(sym, ot.get("entry_price"))
+            res = self._close_trade(market, sym, mark, ot.get("mode", "LIVE"))
+            if isinstance(res, dict) and res.get("ok"):
+                res["exit_reason"] = reason
+                closed.append({"symbol": sym, "market": market, **res})
+        return {"ok": True, "closed": len(closed), "trades": closed}
+
+    def _square_off_intraday(self, when=None) -> list[dict]:
+        """Force-flat NSE INTRADAY (MIS) positions once the market is closed — they cannot
+        be carried overnight. Overnight-allowed trade types (delivery/mtf/fno/commodities)
+        and crypto (24/7) are left to hold. Closes at the last known mark."""
+        done = []
+        for key, ot in list(self._open.items()):
+            market = ot.get("market", "")
+            if market == "CRYPTO" or ot.get("holds_overnight", True):
+                continue
+            sess = self._session_for(market, ot.get("segment"))
+            if sess.is_open(when):
+                continue                                 # market open → normal exit handling
+            mark = self._marks.get(market, {}).get(ot["symbol"], ot["entry_price"])
+            res = self._close_trade(market, ot["symbol"], mark, "REPLAY")
+            if isinstance(res, dict) and res.get("ok"):
+                res["exit_reason"] = "market-close square-off (intraday)"
+                done.append({"symbol": ot["symbol"], "market": market, **res})
+        return done
 
     # ── P2 screener / P4 sizer (lazy, offline-safe) ────────────────────────────────
     def screener(self):
@@ -366,10 +688,36 @@ class LiveTradeLoop:
     def set_config(self, **kw) -> dict:
         """Update strategy config (trail_atr_mult / sizing_method / max_risk_pct /
         max_position_pct / kelly_fraction), rebuild the sizer, and persist."""
-        _str_keys = ("sizing_method", "trail_mode")
+        _str_keys = ("sizing_method", "trail_mode", "exit_mode", "option_mode")
+        _int_keys = ("top_n_per_segment", "min_open_per_segment", "min_total_open",
+                     "brain_handoff_trades")
+        _bool_keys = ("enter_all",)
         for k, v in kw.items():
             if k in self.cfg and v is not None:
-                self.cfg[k] = str(v) if k in _str_keys else float(v)
+                if k in ("min_open_by_segment", "leverage_by_segment", "lot_size_by_segment"):
+                    # {segment: number} — coerce values, drop blanks/invalid
+                    if isinstance(v, dict):
+                        clean = {}
+                        for seg, n in v.items():
+                            try:
+                                if k == "min_open_by_segment":
+                                    clean[str(seg)] = max(0, int(float(n)))
+                                elif k == "lot_size_by_segment":
+                                    clean[str(seg)] = max(1, int(float(n)))
+                                else:   # leverage: clamp to [1, per-segment live max]
+                                    clean[str(seg)] = max(1.0, min(float(n),
+                                                                   self.max_leverage_of(seg)))
+                            except (TypeError, ValueError):
+                                continue
+                        self.cfg[k] = clean
+                elif k in _str_keys:
+                    self.cfg[k] = str(v)
+                elif k in _bool_keys:
+                    self.cfg[k] = bool(v) if isinstance(v, bool) else str(v).lower() in ("1", "true", "yes", "on")
+                elif k in _int_keys:
+                    self.cfg[k] = max(0, int(float(v)))
+                else:
+                    self.cfg[k] = float(v)
         self._sizer = None                          # rebuild with new params on next use
         try:
             from trading import state as _st
@@ -423,7 +771,7 @@ class LiveTradeLoop:
             if not ms.enabled or not segs:
                 continue
             try:
-                wl = sc.watchlist(market, segs, per_segment=3)
+                wl = sc.watchlist(market, segs, per_segment=6, filters=self._screen_filters())
             except Exception:
                 continue
             syms = []
@@ -432,8 +780,9 @@ class LiveTradeLoop:
                 if sym:
                     syms.append(sym)
                     self._symbol_segments[(market.upper(), sym)] = seg
+                    self._symbol_score[(market.upper(), sym)] = float(c.get("score") or 0.0)
             if syms:
-                self.symbols[market] = syms[:8]      # cap the per-market watchlist
+                self.symbols[market] = syms[:16]     # cap the per-market watchlist
 
     # ── one tick ─────────────────────────────────────────────────────────────────────
     def tick(self, *, when=None) -> dict:
@@ -444,6 +793,19 @@ class LiveTradeLoop:
                 self._refresh_watchlist()
             except Exception:
                 pass
+        # Phase D: pull Freqtrade's CLOSED crypto trades into the journal so the trade→NN bridge
+        # keeps learning from crypto (idempotent; only when CRYPTO is enabled). Best-effort.
+        if self._ingest_every and self.ticks % self._ingest_every == 0:
+            try:
+                self._ingest_freqtrade()
+            except Exception:
+                pass
+        # square off NSE intraday (MIS) positions when the market is closed (overnight types hold)
+        squared = []
+        try:
+            squared = self._square_off_intraday(when)
+        except Exception:
+            pass
         results = []
         for market, symbol in self._pairs():
             ms = self.registry.get(market)
@@ -456,9 +818,9 @@ class LiveTradeLoop:
             if seg and not ms.has_segment(seg):
                 results.append({"market": market, "segment": seg, "skipped": "segment off"})
                 continue
-            sess = self._sessions.setdefault(market.upper(), MarketSession(market))
+            sess = self._session_for(market, seg)
             mode = sess.mode(when)
-            price = self._price(market, symbol, mode)
+            price = self._price(market, symbol, mode, seg)
             if price is None:
                 results.append({"market": market, "mode": mode, "skipped": "no price"})
                 continue
@@ -496,14 +858,28 @@ class LiveTradeLoop:
             # positions open meaningfully (observable) instead of scalping out in seconds.
             has_trail = in_pos and self._open.get(key, {}).get("trail") is not None
             do_exit = bool(trail_exit) or (action == "EXIT" and not has_trail)
-            reduces = action in ("EXIT", "FLAT") or bool(trail_exit)
+            # AUTO-OPEN: open on a momentum/brain LONG, OR (manual phase) when the basket
+            # wants this screened candidate — top-N ranked per segment + min-open-floor fill.
+            want_open = (action == "LONG")
+            if not in_pos and not want_open and not do_exit and self._auto_open_active():
+                want_open = self._basket_wants(market, symbol, seg)
+            reduces = do_exit
             gate = self.registry.allow_order(market, reduces_position=reduces, is_real=ms.is_real)
             routed = None
+            # Phase E/F: Freqtrade owns crypto SPOT+FUTURES execution — route brain signals there,
+            # NOT the home-grown wallet sim. crypto OPTIONS stay on the ccxt/wallet path (Freqtrade
+            # can't trade them). NSE keeps the wallet ledger + OpenAlgo.
+            if (market.upper() == "CRYPTO" and (seg or "").lower() != "options"
+                    and gate["ok"] and self._crypto_exec_enabled()):
+                routed = self._route_crypto_engine(symbol, seg, want_open, do_exit, decision)
+                results.append({"market": market, "mode": mode, "price": round(price, 4),
+                                "action": action, "engine": "freqtrade", "routed": routed})
+                continue
             if ms.is_real:
                 # paper-only execution by operator choice: honour the gate but never place real orders
                 routed = {"mode": "REAL", "blocked": True,
                           "detail": "real-money execution disabled (paper-only build)"}
-            elif action == "LONG" and not in_pos and gate["ok"]:
+            elif want_open and not in_pos and gate["ok"]:
                 routed = self._open_trade(market, symbol, "LONG", price, size, mode, atr=atr,
                                           brain=decision.get("_brain"))
             elif do_exit and in_pos and gate["ok"]:
@@ -513,7 +889,10 @@ class LiveTradeLoop:
             results.append({"market": market, "mode": mode, "price": round(price, 4),
                             "action": action, "in_position": in_pos,
                             "gate_ok": gate["ok"], "routed": routed})
-        self.last_tick = {"tick": self.ticks, "results": results}
+        self.last_tick = {"tick": self.ticks, "results": results,
+                          "squared_off": squared,
+                          "auto_open": self._auto_open_active(),
+                          "control": "BRAIN" if self.brain_in_control() else "MANUAL"}
         return self.last_tick
 
     def _size_trade(self, market, symbol, direction, price, atr, brain) -> float | None:
@@ -596,18 +975,97 @@ class LiveTradeLoop:
                 ctx["regime_confidence"] = float(rc)
         return ctx
 
+    def _instrument_product(self, market: str, segment: str) -> tuple[str, str]:
+        """Map the screened SEGMENT → (instrument, product) so trade_type/leverage/charges
+        reflect the real trade class (intraday MIS · MTF · delivery CNC · F&O · crypto perp)."""
+        m, s = market.upper(), (segment or "").lower()
+        if m == "CRYPTO":
+            return {"spot": ("SPOT", "SPOT"), "futures": ("PERP", "PERP"),
+                    "options": ("OPT", "OPT")}.get(s, ("SPOT", "SPOT"))
+        return {"intraday": ("EQ", "MIS"), "mtf": ("EQ", "MTF"), "delivery": ("EQ", "CNC"),
+                "futures": ("FUT", "NRML"), "fno": ("FUT", "NRML"), "commodities": ("FUT", "NRML"),
+                "options": ("OPT", "NRML")}.get(s, ("EQ", "MIS"))
+
+    # Representative LOT SIZES for lot-based NSE segments (tunable via cfg['lot_size_by_segment']).
+    # Real lot sizes vary per underlying (NIFTY 75 · BANKNIFTY 35 · stock-fut 250–1200 · MCX per
+    # commodity) and change on expiry; these are sane defaults the operator can override per segment.
+    _DEFAULT_LOT = {"futures": 50, "fno": 50, "options": 50, "commodities": 100}
+
+    def _is_lot_based(self, market: str, segment: str) -> bool:
+        """F&O / options / commodities trade in whole LOTS (qty = num_lots × lot_size).
+        Equity is whole shares (lot 1); crypto is continuous (fractional, no lot rounding)."""
+        return market.upper() == "NSE" and (segment or "").lower() in (
+            "futures", "fno", "options", "commodities")
+
+    def _lot_size_of(self, market: str, segment: str) -> int:
+        """Lot size for the segment: user override → representative default. 1 for equity."""
+        seg = (segment or "").lower()
+        if not self._is_lot_based(market, seg):
+            return 1
+        by = self.cfg.get("lot_size_by_segment") or {}
+        if isinstance(by, dict) and seg in by:
+            try:
+                return max(1, int(float(by[seg])))
+            except (TypeError, ValueError):
+                pass
+        return int(self._DEFAULT_LOT.get(seg, 1))
+
     def _open_trade(self, market, symbol, direction, price, size, mode, *, atr=None, brain=None) -> dict:
+        is_crypto = market.upper() == "CRYPTO"
+        seg = self._segment_of(market, symbol)
+        instrument, product = self._instrument_product(market, seg)
+        leverage = self._leverage_of(market, seg)
         # P4: size the trade with the PositionSizer (capital, ATR-stop, edge) — not a fixed 1.
         size = self._size_trade(market, symbol, direction, price, atr, brain) or size
         w = self.book.wallet(market)
+        # MINIMUM CAPITAL per trade (interpreted as min MARGIN) → bump size to meet it,
+        # then cap by available cash so the basket can't over-deploy (budget guard).
         try:
-            w.record_fill(symbol, "buy" if direction == "LONG" else "sell", size, price)
+            cash = float(w.cash())
+        except Exception:
+            cash = 0.0
+        min_cap = float(self.cfg.get("min_capital_per_trade", 0.0) or 0.0)
+        if price > 0:
+            if min_cap > 0 and price * size < min_cap * leverage:
+                size = (min_cap * leverage) / price            # ≥ min margin
+            if cash > 0 and price * size > cash * leverage:
+                size = (cash * leverage) / price               # ≤ affordable margin
+        # LOT SIZING: F&O / options / commodities trade in whole lots; equity in whole shares;
+        # crypto stays fractional. num_lots × lot_size = the order quantity.
+        lot = self._lot_size_of(market, seg)
+        num_lots = None
+        if self._is_lot_based(market, seg):
+            num_lots = int(size // lot)                        # whole lots only
+            if num_lots < 1:
+                # round UP to 1 lot only if affordable (margin ≤ cash), else can't trade it
+                one_lot_margin = (lot * price) / leverage if leverage else lot * price
+                if cash <= 0 or one_lot_margin <= cash:
+                    num_lots = 1
+                else:
+                    return {"ok": False,
+                            "detail": f"1 lot ({lot}×{symbol}) needs {one_lot_margin:.0f} > cash {cash:.0f}"}
+            size = num_lots * lot
+        elif not is_crypto:
+            size = float(int(size))                            # NSE equity = whole shares
+            if size < 1:
+                size = 1.0
+        if size <= 0:
+            return {"ok": False, "detail": "no size / insufficient capital"}
+        try:
+            # crypto engine genuinely reserves margin (= notional/leverage); NSE is a cash ledger
+            w.record_fill(symbol, "buy" if direction == "LONG" else "sell", size, price,
+                          leverage=leverage)
         except Exception as e:
             return {"ok": False, "detail": str(e)[:80]}
+        # Route NSE entries through OpenAlgo (sandbox in paper, real broker when armed); crypto
+        # stays on the wallet ledger until Phase E (Freqtrade). Best-effort — wallet is truth.
+        entry_order_id, broker_status = "", "paper-wallet"
+        if not is_crypto:
+            ms = self.registry.get(market)
+            entry_order_id, broker_status = self._submit_nse_order(
+                symbol, "BUY" if direction == "LONG" else "SELL", seg, size, product,
+                allow_live=bool(getattr(ms, "allow_live", False)))
         import datetime as _dt
-        is_crypto = market.upper() == "CRYPTO"
-        instrument = "SPOT" if is_crypto else "EQ"
-        product = "SPOT" if is_crypto else "MIS"
         # P3: attach the direction-aware trailing STOP exit (ATR-multiple) for this position
         trail = self._make_trail(direction, price, atr)
         sgn = 1.0 if direction == "LONG" else -1.0
@@ -615,14 +1073,22 @@ class LiveTradeLoop:
         stop_dist = (atr * float(self.cfg.get("trail_atr_mult", 2.5))) if atr else (price * 0.01)
         initial_sl = round(price - sgn * stop_dist, 6)
         initial_target = round(price + sgn * stop_dist * 2.0, 6)
-        leverage = 1.0                               # paper spot/CNC: unleveraged (honest)
+        notional = price * size                       # full position value (Capital)
+        margin = notional / leverage if leverage else notional   # capital actually locked
+        overnight = self._holds_overnight(market, seg)
         self._open[f"{market.upper()}:{symbol}"] = {
             "market": market.upper(), "symbol": symbol, "direction": direction,
             "quantity": size, "entry_price": price, "entry_dt": _dt.datetime.now().isoformat(),
-            "mode": mode,
+            "mode": mode, "segment": seg,
+            "entry_order_id": entry_order_id, "broker_status": broker_status,
+            "lot_size": lot, "num_lots": (num_lots if num_lots is not None else None),
             "instrument": instrument, "product": product,
             "trade_type": trade_type(market, instrument, product, _EXCHANGE.get(market.upper(), "")),
-            "capital": round(price * size, 2),       # capital placed on the trade (notional)
+            "capital": round(notional, 2),            # CAPITAL = full position value (notional)
+            "notional": round(notional, 2),
+            "margin": round(margin, 2),               # MARGIN = capital locked (notional/leverage)
+            "est_charges": round(self._est_charges(market, seg, notional), 4),  # round-trip fee est
+            "holds_overnight": overnight,
             "peak_profit": 0.0, "peak_loss": 0.0,     # MFE / MAE in currency (tracked live)
             "trail": trail, "stop_level": initial_sl,
             "leverage": leverage, "margin_mode": "isolated" if is_crypto else "",
@@ -647,12 +1113,22 @@ class LiveTradeLoop:
         except Exception as e:
             self._open[key] = ot
             return {"ok": False, "detail": str(e)[:80]}
+        # Route the NSE exit through OpenAlgo too (sandbox/live), mirroring the entry.
+        exit_order_id, exit_status = "", "paper-wallet"
+        if ot["market"] != "CRYPTO":
+            ms = self.registry.get(ot["market"])
+            exit_order_id, exit_status = self._submit_nse_order(
+                symbol, close_side.upper(), ot.get("segment"), ot["quantity"],
+                ot.get("product", "MIS"), allow_live=bool(getattr(ms, "allow_live", False)))
         self.trades_closed += 1
-        self._journal_close(ot, price, fill.get("realized_pnl"))
+        self._journal_close(ot, price, fill.get("realized_pnl"),
+                            entry_order_id=ot.get("entry_order_id", ""),
+                            exit_order_id=exit_order_id)
         return {"ok": True, "closed": ot["direction"], "exit": price,
-                "realized": fill.get("realized_pnl")}
+                "realized": fill.get("realized_pnl"), "broker_status": exit_status}
 
-    def _journal_close(self, ot: dict, exit_price: float, realized) -> None:
+    def _journal_close(self, ot: dict, exit_price: float, realized,
+                       *, entry_order_id: str = "", exit_order_id: str = "") -> None:
         """Build a full ClosedTrade and persist it to the 110-column journal."""
         try:
             import datetime as _dt
@@ -680,12 +1156,17 @@ class LiveTradeLoop:
                 exit_price=float(exit_price),
                 entry_order_type="MARKET", exit_order_type="MARKET",
             )
+            # OpenAlgo order references (empty when crypto / sim-only) — honest audit trail
+            if entry_order_id:
+                t.entry_order_id = str(entry_order_id)
+            if exit_order_id:
+                t.exit_order_id = str(exit_order_id)
             if realized is not None:
                 t.gross_pnl = float(realized)
             # peak profit (MFE) / peak loss (MAE, stored positive) + capital placed — tracked live
             t.mfe = round(float(ot.get("peak_profit", 0.0)), 4)
             t.mae = round(abs(float(ot.get("peak_loss", 0.0))), 4)
-            t.margin_used = float(ot.get("capital", ot["entry_price"] * ot["quantity"]))
+            t.margin_used = float(ot.get("margin", ot.get("capital", ot["entry_price"] * ot["quantity"])))
             # ── risk & sizing (enables quality.py r_multiple / efficiency / RR) ──
             if ot.get("initial_sl") is not None:
                 t.initial_sl_price = float(ot["initial_sl"])
@@ -693,6 +1174,10 @@ class LiveTradeLoop:
                 t.initial_target_price = float(ot["initial_target"])
             t.leverage = float(ot.get("leverage", 1.0))
             t.margin_mode = ot.get("margin_mode", "")
+            if ot.get("lot_size") is not None:
+                t.lot_size = int(ot["lot_size"])
+            if ot.get("num_lots") is not None:
+                t.num_lots = float(ot["num_lots"])
             if ot.get("capital_at_risk") is not None:
                 t.capital_at_risk = float(ot["capital_at_risk"])
             if ot.get("risk_reward") is not None:
@@ -747,6 +1232,12 @@ class LiveTradeLoop:
         for market in self.symbols:
             try:
                 self.book.wallet(market)
+            except Exception:
+                pass
+        # ensure OpenAlgo's analyzer (sandbox) matches TRADING_MODE before the first NSE order
+        if "NSE" in self.symbols:
+            try:
+                self._openalgo()
             except Exception:
                 pass
         self._stop.clear()
@@ -808,6 +1299,21 @@ class LiveTradeLoop:
                 "screener": "active" if self.screener() else "off",
                 "sizer": "active" if self.sizer() else "off",
                 "trailing_exits": "ATR trailing-stop per position",
+                # brain handoff: MANUAL (operator sliders + auto-open basket) until the brain
+                # has learned from enough closed trades, then BRAIN takes control.
+                "control": "BRAIN" if self.brain_in_control() else "MANUAL",
+                "auto_open": self._auto_open_active(),
+                # per-segment leverage: live max caps + current defaults (UI shows/enforces these)
+                # NOTE: both dicts are keyed by a (market, segment) TUPLE — flatten to
+                # "MARKET:segment" strings; a tuple key makes json.dumps raise
+                # "keys must be str ... not tuple", which 500'd the whole loop endpoint.
+                "leverage_limits": {f"{m}:{s}": v for (m, s), v in self._MAX_LEVERAGE.items()},
+                "leverage_defaults": {f"{m}:{s}": v for (m, s), v in self._LEVERAGE.items()},
+                # lot-based segments (F&O/options/commodities) + representative default lots
+                "lot_defaults": dict(self._DEFAULT_LOT),
+                "handoff": {"closed": self.trades_closed,
+                            "needed": int(self.cfg.get("brain_handoff_trades", 30) or 0),
+                            "in_control": self.brain_in_control()},
                 "config": dict(self.cfg),
                 "nse_broker_auth": nse_auth, "crypto_feed": "ccxt (live)",
                 "errors": self.errors[-5:], "last_tick": self.last_tick}

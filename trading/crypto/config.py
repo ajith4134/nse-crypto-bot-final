@@ -47,10 +47,45 @@ class CryptoConfig:
     default_exchange: str
     quote: str
     _keys: dict[str, ExchangeKeys] = field(default_factory=dict)
+    # crypto execution engine (T-split B): Freqtrade runs as a separate self-hosted process.
+    engine: str = "freqtrade"
+    ft_host: str = "http://127.0.0.1:8080"
+    _ft_user: str | None = field(repr=False, default=None)
+    _ft_pass: str | None = field(repr=False, default=None)
+    trading_mode: str = "spot"          # "spot" (long-only) | "futures" (perp, shorting allowed)
+    # operator-adjustable Freqtrade params (applied via the guarded restart) — dashboard controls
+    paper_balance: float = 10000.0      # dry_run_wallet (paper starting capital, USDT)
+    max_open_trades: int = 5            # max concurrent open positions
+    stake_amount: float = 0.0           # per-trade capital (USDT); 0 = "unlimited"
+    leverage: float = 1.0               # futures leverage (ignored in spot)
 
     @property
     def is_live(self) -> bool:
         return self.mode == "live"
+
+    @property
+    def is_futures(self) -> bool:
+        return self.trading_mode == "futures"
+
+    @property
+    def ft_username(self) -> str:
+        return self._ft_user or "freqtrader"
+
+    @property
+    def ft_password(self) -> str:
+        return self._ft_pass or ""
+
+    @property
+    def ft_configured(self) -> bool:
+        """True once Freqtrade REST creds are present (password set)."""
+        return bool(self._ft_pass)
+
+    ft_public_url: str = ""             # public FreqUI url (cloudflared tunnel); else use ft_host
+
+    @property
+    def freqtrade_url(self) -> str:
+        """Where to open FreqUI from a browser — the public tunnel if set, else the local host."""
+        return self.ft_public_url or self.ft_host
 
     def keys_for(self, exchange: str) -> ExchangeKeys:
         return self._keys.get(exchange, ExchangeKeys(exchange))
@@ -67,11 +102,17 @@ class CryptoConfig:
             "default_exchange": self.default_exchange,
             "quote": self.quote,
             "keys_present": {ex: self.has_keys(ex) for ex in self.exchanges},
+            "engine": self.engine,
+            "ft_host": self.ft_host,
+            "ft_configured": self.ft_configured,
+            "trading_mode": self.trading_mode,
         }
 
 
 def _load() -> CryptoConfig:
-    raw_mode = (settings.get("TRADING_MODE") or "paper").strip().lower()
+    # CRYPTO_MODE lets crypto go paper/live INDEPENDENTLY of NSE (TRADING_MODE drives OpenAlgo).
+    # Falls back to the shared TRADING_MODE when unset.
+    raw_mode = (settings.get("CRYPTO_MODE") or settings.get("TRADING_MODE") or "paper").strip().lower()
     mode = raw_mode if raw_mode in VALID_MODES else "paper"
 
     raw_ex = (settings.get("CRYPTO_EXCHANGES") or "binance,bybit").strip()
@@ -98,6 +139,17 @@ def _load() -> CryptoConfig:
         default_exchange=default_ex,
         quote=(settings.get("CRYPTO_QUOTE") or "USDT").strip().upper(),
         _keys=keys,
+        engine=(settings.get("CRYPTO_ENGINE") or "freqtrade").strip().lower(),
+        ft_host=(settings.get("FREQTRADE_HOST") or "http://127.0.0.1:8080").rstrip("/"),
+        _ft_user=settings.get("FREQTRADE_USERNAME"),
+        _ft_pass=settings.get("FREQTRADE_PASSWORD"),
+        trading_mode=("futures" if (settings.get("CRYPTO_TRADING_MODE") or "spot").strip().lower()
+                      == "futures" else "spot"),
+        ft_public_url=(settings.get("FREQTRADE_PUBLIC_URL") or "").strip().rstrip("/"),
+        paper_balance=float(settings.get("CRYPTO_PAPER_BALANCE") or 10000.0),
+        max_open_trades=int(float(settings.get("CRYPTO_MAX_OPEN_TRADES") or 5)),
+        stake_amount=float(settings.get("CRYPTO_STAKE_AMOUNT") or 0.0),
+        leverage=float(settings.get("CRYPTO_LEVERAGE") or 1.0),
     )
 
 
