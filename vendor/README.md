@@ -59,3 +59,41 @@ unique id in trading/state/strategy_foundry.json.
 - **gamma-scalping** @ c80b5e3 — github.com/alpacahq/gamma-scalping — options greeks + delta-hedge
   engine (engine/delta_engine.py) → nse_options "Gamma Scalping".
 - **hmmlearn** (pip 0.3.3) — github.com/hmmlearn/hmmlearn — GaussianHMM regimes → "HMM Regime Switching".
+
+## Brain ultra-upgrade donors (2026-07-02)
+- `hipporag/` — https://github.com/OSU-NLP-Group/HippoRAG @ ef2f14c — KG + Personalized PageRank associative retrieval (neurobiological memory).
+- `a_mem/` — https://github.com/agiresearch/A-mem @ ceffb86 — Zettelkasten agentic memory: dynamic note linking + memory evolution.
+- `nanogpt/` — https://github.com/karpathy/nanoGPT @ 3adf61e — minimal trainable GPT (tokens→embeddings→attention); basis of micro_transformer_node.
+- `llama2_c/` — https://github.com/karpathy/llama2.c @ 350e04f — pure-C Llama-2 micro-LLM inference (polyglot hot path).
+
+## Trader-psychology donors (2026-07-02, research/trader-psychology-stitch-map.md)
+- `lob_regime_scanner/` — https://github.com/CameronScarpati/lob-regime-scanner @ 5658da5 — L2 microstructure feature library (multi-level OFI, book imbalance, spread bps, Kyle λ, flowrisk VPIN); src/features.py loaded by path in trading/brain/psychology.py.
+- `microprice/` — https://github.com/sstoikov/microprice @ 4e5f29a — Stoikov's canonical microprice estimator notebook; ported to the online StoikovMicroprice class.
+- `crypto_whale_watching/` — https://github.com/pmaji/crypto-whale-watching-app @ 304959b — whale buy/sell-wall + ladder detection over REST depth snapshots; adapted as detect_walls().
+- `lob_deep_learning/` — https://github.com/Jeonghwan-Cheon/lob-deep-learning @ 91b8d2e — PyTorch DeepLOB (lighten=5-level) price-direction model; wrapped by trading/brain/psych_deeplob.py.
+
+## freqtrade
+- origin: https://github.com/freqtrade/freqtrade
+- tag: 2026.6 (matches installed pip version)
+- commit: b604e2fd70539f7f73d3c62c16ce0b155bbab319
+- purpose: deep fork — single-process multi-segment engine (futures/spot/options/prediction) behind one URL; local divergences carry '# mlnb:' comments
+
+## Decision-memory donors (2026-07-03, research/decision-memory-stitch-map.md)
+- `finmem/` — https://github.com/pipiku915/FinMem-LLM-StockTrading @ be814aa — layered episodic memory (shallow/intermediate/deep) with importance + recency decay and P&L feedback re-weighting; layer/decay/feedback semantics adapted into trading/brain/decision_memory.py.
+- `tradingagents/` — https://github.com/TauricResearch/TradingAgents @ 85946c2 — decision log resolved with realized returns + reflection injected into future prompts; outcome-closure + reflection prompt shape adapted into decision_memory.resolve().
+- **shap** (pip 0.48.0) — github.com/shap/shap — per-decision feature attribution engine → trading/brain/attribution.py.
+
+## Time-series foundation models (git-vendored 2026-07-03)
+
+Three heavy TS foundation models that are NOT cleanly pip-installable on this Python 3.13
+CPU env (they force pandas 3.0 / a CUDA torch, or fail metadata-generation). Git-cloned and
+imported via sys.path insertion (nodes/foundation_nodes.py `_add_vendor_path`). Wrapped as
+gated foundation nodes (TinyTimeMixerNode / MoiraiNode / LagLlamaNode).
+
+| dir | repo | commit | node | local patches |
+|---|---|---|---|---|
+| granite_tsfm | ibm-granite/granite-tsfm | f87e8bf | TinyTimeMixerNode | none (imports clean from vendored path) |
+| uni2ts | SalesforceAIResearch/uni2ts | cfd46d4 | MoiraiNode | none (needs pip: hydra-core, einops, jaxtyping) |
+| lag_llama | time-series-foundation-models/lag-llama | df7531a | LagLlamaNode | (1) `_gluonts_compat.py` shim re-implements the removed `gluonts.torch.modules.loss.{DistributionLoss,NegativeLogLikelihood}`; (2) two import lines repointed to it; (3) `data/`→`ll_data/` rename + import fix to avoid collision with the project's own `data/` package; (4) node aliases the shim into `sys.modules['gluonts.torch.modules.loss']` so the published checkpoint unpickles. |
+
+All three verified end-to-end (real checkpoints, CPU): TTM ~9s, Moirai ~11s, Lag-Llama ~6s.

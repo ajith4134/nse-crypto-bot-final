@@ -8,6 +8,7 @@ import TickerTape from './TickerTape.jsx'
 import PriceChart from './PriceChart.jsx'
 import OrderFlowMap from './OrderFlowMap.jsx'
 import OpenTradesPanel from './OpenTradesPanel.jsx'
+import ScorecardPanel from './ScorecardPanel.jsx'
 import ClosedTradesTable from './ClosedTradesTable.jsx'
 import TradeDrilldown from './TradeDrilldown.jsx'
 import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
@@ -15,6 +16,7 @@ import ContextPanel from './ContextPanel.jsx'
 import BrainPanel from './BrainPanel.jsx'
 import BrainOutcomeNet from './BrainOutcomeNet.jsx'
 import WorldModelPanel from './WorldModelPanel.jsx'
+import PsychologyPanel from './PsychologyPanel.jsx'
 import HypothesesPanel from './HypothesesPanel.jsx'
 import EvolvePanel from './EvolvePanel.jsx'
 import FreqtradeCryptoPanel from './FreqtradeCryptoPanel.jsx'
@@ -22,7 +24,10 @@ import CryptoMarketsPanel from './CryptoMarketsPanel.jsx'
 import StrategyLibraryPanel from './StrategyLibraryPanel.jsx'
 import FoundryPanel from './FoundryPanel.jsx'
 import BrainLearningPanel from './BrainLearningPanel.jsx'
+import BrainUltraPanel from './BrainUltraPanel.jsx'
+import DecisionMemoryPanel from './DecisionMemoryPanel.jsx'
 import ComputerUsePanel from './ComputerUsePanel.jsx'
+import LLMProvidersPanel from './LLMProvidersPanel.jsx'
 
 function Card({ title, hint, children, right }) {
   return (
@@ -114,7 +119,18 @@ export default function TradingDashboard() {
         </Card>
       </div>
 
-      <Card title="Open Trades — unified (paper loop + Freqtrade + OpenAlgo)" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols · Trade Type column shows the engine`}>
+      <Card title="Segment Scorecard — NSE · Crypto · Prediction" hint="per-segment score: total profit (closed) + current profit (open) — same sources as the tables below">
+        <ScorecardPanel scorecard={data?.scorecard} />
+      </Card>
+
+      <Card title="Open Trades — unified (paper loop + Freqtrade + OpenAlgo)" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols · Trade Type column shows the engine`}
+        right={<button style={{ ...btn, color: '#ff6b6b', padding: '4px 10px', fontSize: 12 }}
+          onClick={() => {
+            if (!window.confirm('Close ALL open trades on every engine (paper loop + Freqtrade + OpenAlgo sandbox)?')) return
+            postControl({ action: 'close_all' })
+              .then((r) => alert(r?.detail || JSON.stringify(r)))
+              .catch((e) => alert(`close_all failed: ${e}`))
+          }}>✖ Close All</button>}>
         <OpenTradesPanel columns={openT.columns || []} rows={openT.rows || []} totals={openT.totals} />
       </Card>
 
@@ -135,6 +151,14 @@ export default function TradingDashboard() {
         <BrainLearningPanel />
       </Card>
 
+      <Card title="Brain Ultra — associative memory · micro-LLM · perception · continual" hint="HippoRAG+A-MEM recall · Claude-style file memory · cloned nanoGPT/llama2.c · Docling reads docs · Avalanche no-forgetting">
+        <BrainUltraPanel />
+      </Card>
+
+      <Card title="LLM Providers — cloud-LLM failover telemetry" hint="per-provider hit-rate · free calls used · failures/rate-limits · last latency · reload cooldown — real core.llm.chat call stats">
+        <LLMProvidersPanel />
+      </Card>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <Card title="AI Brain (T8)" hint="evolution · self-eval · skills · end-to-end decision">
           <BrainPanel />
@@ -143,6 +167,14 @@ export default function TradingDashboard() {
           <BrainOutcomeNet data={data?.brainPredict} />
         </Card>
       </div>
+
+      <Card title="Trader Psychology — order-book depth crowd signal" hint="OBI · OFI · Stoikov microprice · whale walls · fear (spread/λ/VPIN) — live entry signal + journal columns the brain learns from">
+        <PsychologyPanel />
+      </Card>
+
+      <Card title="Decision Memory — episodes · attribution · reflections" hint="FinMem layered episodes (shallow/mid/deep) · SHAP 'which data drove it' · TradingAgents outcome-closure lessons recalled before new entries">
+        <DecisionMemoryPanel />
+      </Card>
 
       <Card title="Imagination — World-Model + MuZero planning" hint="learned market dynamics · MCTS plans entry/direction/stop/trailing in imagined R">
         <WorldModelPanel />

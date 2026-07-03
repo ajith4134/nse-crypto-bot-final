@@ -14,6 +14,8 @@ used as the fallback (graceful degradation, same NodeProtocol either way).
 """
 from __future__ import annotations
 
+import os
+
 from nodes.base_learners import DecisionStumpNode, KNNNode, LogisticRegressionNode
 from nodes.chaos_nodes import ChaosFeatureNode, RecurrenceNode
 from nodes.phase2_nodes import GaussianNBNode, MLPNode, ReservoirNode
@@ -76,8 +78,117 @@ def _oss_candidates():
     ]
 
 
+def _micro_llm_candidates():
+    """Cloned-LLM node (vendor/nanogpt): the brain's own micro-transformer (Phase C)."""
+    try:
+        from nodes.micro_transformer_node import MicroTransformerNode
+        import torch  # noqa: F401 — nanoGPT path needs torch
+    except Exception:
+        return []
+    return [(lambda: MicroTransformerNode(name="micro_llm", epochs=30), "micro_llm")]
+
+
+def _foundation_candidates():
+    """Tier-1 foundation / SOTA model nodes (nodes/foundation_nodes.py, groups A–E).
+    Returns [] if the OSS stack (torch + chronos/neuralforecast/gpytorch/PyG/tigramite)
+    is absent — each node self-guards its own heavy import too."""
+    try:
+        from nodes import foundation_nodes as F
+        import torch  # noqa: F401
+    except Exception:
+        return []
+    cands = [
+        (lambda: F.ChronosNode(name="chronos"), "chronos"),
+        (lambda: F.TimesFMNode(name="timesfm"), "timesfm"),
+        (lambda: F.TinyTimeMixerNode(name="tinytimemixer"), "tinytimemixer"),
+        (lambda: F.MoiraiNode(name="moirai"), "moirai"),
+        (lambda: F.LagLlamaNode(name="lag_llama"), "lag_llama"),
+        (lambda: F.PatchTSTNode(name="patchtst"), "patchtst"),
+        (lambda: F.ITransformerNode(name="itransformer"), "itransformer"),
+        (lambda: F.TFTNode(name="tft"), "tft"),
+        (lambda: F.GPyTorchGPNode(name="gpytorch_gp"), "gpytorch_gp"),
+        (lambda: F.GluonTSDeepARNode(name="gluonts_deepar"), "gluonts_deepar"),
+        (lambda: F.CrossAssetGNNNode(name="graphsage_xasset"), "graphsage_xasset"),
+        (lambda: F.TigramiteCausalNode(name="tigramite_pcmci"), "tigramite_pcmci"),
+    ]
+    try:                                                    # Tier-2 nodes (nodes/tier2_nodes.py)
+        from nodes import tier2_nodes as T2
+        cands += [
+            (lambda: T2.KANNode(name="kan"), "kan"),
+            (lambda: T2.XLSTMNode(name="xlstm"), "xlstm"),
+            (lambda: T2.LiquidLTCNode(name="liquid_ltc"), "liquid_ltc"),
+            (lambda: T2.NeuralCDENode(name="neural_cde"), "neural_cde"),
+            (lambda: T2.QuantLibGreeksNode(name="quantlib_greeks"), "quantlib_greeks"),
+            (lambda: T2.MarkovRegimeNode(name="markov_regime"), "markov_regime"),
+        ]
+    except Exception:
+        pass
+    try:                                                    # cloud-LLM forecaster (nodes/llm_forecast_node.py)
+        from nodes.llm_forecast_node import LLMForecastNode
+        cands.append((lambda: LLMForecastNode(name="llm_forecast"), "llm_forecast"))
+    except Exception:
+        pass
+    try:                                                    # Tier-2b remainder (nodes/tier2b_nodes.py)
+        from nodes import tier2b_nodes as T2B
+        cands += [
+            (lambda: T2B.TiDENode(name="tide"), "tide"),
+            (lambda: T2B.TimesNetNode(name="timesnet"), "timesnet"),
+            (lambda: T2B.TimeMixerNode(name="timemixer"), "timemixer"),
+            (lambda: T2B.MambaNode(name="mamba"), "mamba"),
+            (lambda: T2B.NormFlowNode(name="normflow"), "normflow"),
+            (lambda: T2B.BayesianTorchNode(name="bayesian_nn"), "bayesian_nn"),
+            (lambda: T2B.LiNGAMNode(name="lingam"), "lingam"),
+        ]
+    except Exception:
+        pass
+    try:                                                    # Tier-3 nodes (nodes/tier3_nodes.py)
+        from nodes import tier3_nodes as T3
+        cands += [
+            (lambda: T3.SB3RLExecNode(name="sb3_ppo_exec"), "sb3_ppo_exec"),
+            (lambda: T3.Alpha360Node(name="alpha360"), "alpha360"),
+            (lambda: T3.PyGODAnomalyNode(name="pygod_anomaly"), "pygod_anomaly"),
+            (lambda: T3.TemporalGraphNode(name="temporal_graph"), "temporal_graph"),
+        ]
+    except Exception:
+        pass
+    return cands
+
+
+def foundation_panel_candidates(panel):
+    """Group-F portfolio-optimizer nodes — need a panel dict (returns/close/target),
+    so they're built on demand by the panel-aware caller, not the per-row pool."""
+    try:
+        from nodes import foundation_nodes as F
+    except Exception:
+        return []
+    return [
+        (lambda: F.RiskfolioWeightNode(panel), "riskfolio_w"),
+        (lambda: F.PyPortfolioOptWeightNode(panel), "pypfopt_w"),
+    ]
+
+
+FOUNDATION_CANDIDATES = _foundation_candidates()
+
+
+def foundation_factories():
+    return [c[0] for c in FOUNDATION_CANDIDATES]
+
+
+def foundation_names():
+    return [c[1] for c in FOUNDATION_CANDIDATES]
+
+
 _OSS = _oss_candidates()
 USING_OSS = bool(_OSS)
+if _OSS:
+    _OSS.extend(_micro_llm_candidates())
+    # Foundation/neural-forecaster nodes are EXPENSIVE to fit (real neural training
+    # per candidate) and would slow greedy forward-selection just like NoldsChaosNode.
+    # They stay fully importable + available via foundation_factories(); they only join
+    # the default growth pool when explicitly opted in. (See percoin/decision-memory
+    # gated-on-purpose precedents.)
+    if os.environ.get("MLNB_FOUNDATION_NODES") == "1":
+        _OSS.extend(FOUNDATION_CANDIDATES)
 
 # OSS pool is primary; falls back to the stdlib miniatures if the stack is absent.
 CANDIDATES = _OSS if USING_OSS else STDLIB_CANDIDATES

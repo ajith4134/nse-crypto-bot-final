@@ -2,6 +2,9 @@
 
 Regenerate with `make index` (parses the source via AST).
 
+## `.cache/huggingface/hub/models--amazon--chronos-t5-tiny/.no_exist/29d808298f1a62493e7b9a5e08529d0d930fa189/custom_generate/generate.py`
+_(no summary)_
+
 ## `.cache/huggingface/hub/models--vikhyatk--moondream2/snapshots/6b714b26eea5cbd9f31e4edb2541c170afa935ba/config.py`
 _(no summary)_
 - **classes:** TextConfig, VisionConfig, RegionConfig, TokenizerConfig, MoondreamConfig
@@ -460,16 +463,32 @@ _Column taxonomy — the SINGLE SOURCE OF TRUTH that groups the ~320 nodes._
 - **functions:** `column_for(name, kind) -> str`; `get_column(key) -> Column`; `group_factories(factories, names, kinds) -> dict[str, list[tuple]]`; `layout_for(grouped) -> list[dict]`
 - **imports:** __future__, dataclasses
 
+## `core/drift.py`
+_Drift monitoring (Tier-3 infra, group K of the model catalog)._
+- **classes:** StreamingDriftDetector
+- **functions:** `data_drift(reference, current, threshold) -> dict`; `_extract_evidently_share(d)`
+- **imports:** __future__, numpy, warnings
+
 ## `core/heads.py`
 _Output heads — the multi-output contract for the prediction-graph network._
 - **classes:** OutputHead
 - **imports:** __future__, dataclasses
 
+## `core/hpo.py`
+_Optuna-backed hyperparameter optimization (Tier-2/3 infra, group H of the model catalog)._
+- **functions:** `_suggest(trial, name, spec)`; `_rand_sample(rng, spec)`; `_optimize_optuna(objective, space, n_trials, direction, seed)`; `_optimize_nevergrad(objective, space, n_trials, direction, seed)`; `_optimize_cmaes(objective, space, n_trials, direction, seed)`; `_optimize_random(objective, space, n_trials, direction, seed)`; `optimize(objective, space, n_trials, direction, seed, backend) -> dict`; `tune_node(node_factory, space, X, y, n_trials, val_frac, seed, task) -> dict`
+- **imports:** __future__, numpy, typing
+
 ## `core/llm.py`
 _core/llm.py — P4.1 cloud-LLM access (the brain's "mouth"), reuse-first via LiteLLM._
 - **classes:** NoLLMConfigured
-- **functions:** `_candidates() -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `chat(messages, max_tokens, temperature, timeout) -> str`; `chat_stream(messages, max_tokens, temperature, timeout)`
-- **imports:** __future__, config, os
+- **functions:** `_candidates() -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `chat(messages, max_tokens, temperature, timeout) -> str`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
+- **imports:** __future__, config, os, time
+
+## `core/llm_telemetry.py`
+_Per-provider cloud-LLM telemetry (real call stats for the dashboard)._
+- **functions:** `_blank() -> dict`; `_load() -> dict`; `_save(d) -> None`; `_is_rate_limit(err) -> bool`; `record(provider, ok, latency_ms, error) -> None`; `snapshot(order) -> dict`; `reset() -> None`
+- **imports:** __future__, json, os, tempfile, threading, time
 
 ## `core/node_protocol.py`
 _Node interface contracts for the prediction-graph network._
@@ -495,7 +514,7 @@ _dashboard/brain_live.py — LIVE brain snapshots from REAL data._
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler, BoundedHTTPServer
-- **functions:** `_brain_agent()`; `_gui_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_trade_outcome_net()`; `_confidence_book() -> dict`; `_get_cache_ttl(path)`; `_cached_body(key, ttl, producer)`; `_bg_snapshot(key, producer, ttl) -> bytes`; `_warm_snapshots()`; `_enrich_predictions() -> None`; `_ccxt_spot()`; `_openalgo_positions() -> list`; `_openalgo_tradebook() -> list`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **functions:** `_brain_agent()`; `_gui_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_ft_entry_psych(t)`; `_psych_cells(ps) -> dict`; `_trade_outcome_net()`; `_confidence_book() -> dict`; `_swr_refresh_async(path) -> None`; `_get_cache_ttl(path)`; `_cached_body(key, ttl, producer)`; `_bg_snapshot(key, producer, ttl) -> bytes`; `_warm_snapshots()`; `_enrich_predictions() -> None`; `_ccxt_spot()`; `_openalgo_positions() -> list`; `_openalgo_tradebook() -> list`; `_trade_segment(r) -> tuple[str, str]`; `_scorecard() -> dict`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys, threading, time
 
 ## `dashboard/verify_render.py`
@@ -556,11 +575,23 @@ _Golden datasets + evaluation — the 'known input->output first' discipline._
 ## `memory/__init__.py`
 _(no summary)_
 
+## `memory/associative.py`
+_memory/associative.py — associative "connect-the-dots" memory (brain ultra-upgrade, Phase A)._
+- **classes:** Note, AssociativeMemory
+- **functions:** `_words(text) -> list[str]`; `_jaccard(a, b) -> float`; `_parse_json(reply) -> dict | None`
+- **imports:** __future__, dataclasses, json, memory.graph, pathlib, re, uuid
+
 ## `memory/brain.py`
 _KnowledgeBrain — the Phase-4 brain/memory layer._
 - **classes:** KnowledgeBrain
-- **functions:** `_slug(s) -> str`; `_chunk(text, words) -> list[str]`; `_read_pdf(path) -> str`; `_html_to_text(raw) -> str`
+- **functions:** `_slug(s) -> str`; `_chunk(text, words) -> list[str]`; `_read_pdf(path) -> str`; `_html_to_text(raw) -> str`; `get_brain() -> KnowledgeBrain`
 - **imports:** __future__, collections, html, itertools, math, memory.graph, memory.store, os, re, urllib.request
+
+## `memory/file_memory.py`
+_memory/file_memory.py — durable one-fact-per-file memory, Claude-Code style (Phase B)._
+- **classes:** FileMemory
+- **functions:** `_slug(text) -> str`
+- **imports:** __future__, pathlib, re
 
 ## `memory/graph.py`
 _KnowledgeGraph — concept graph backed by NetworkX (reuse-first)._
@@ -577,7 +608,7 @@ _memory/human_memory.py — human-like memory: decay, tiers, dreaming (Phase P4.
 _memory/hybrid_memory.py — hybrid human memory (Phase P4.2), wired to REAL projects._
 - **classes:** HybridMemory
 - **functions:** `_default_llm()`
-- **imports:** __future__, dataclasses, memory.human_memory, re, vendor.generative_agents_memory
+- **imports:** __future__, dataclasses, memory.associative, memory.human_memory, re, vendor.generative_agents_memory
 
 ## `memory/knowledge_tracing.py`
 _memory/knowledge_tracing.py — EduKTM Deep Knowledge Tracing mastery (Phase P4.4, 2nd model)._
@@ -692,6 +723,12 @@ _Nonlinear-dynamics / chaos / physics nodes — the reuse-first dynamics layer._
 - **functions:** `sindy_node(name, col, W) -> SINDyNode`; `rqa_node(name, col, W) -> RQANode`; `permentropy_node(name, col, W) -> PermEntropyNode`; `antropy_node(name, col, W) -> AntropyNode`; `dmd_node(name, col, W) -> DMDNode`; `transfer_entropy_node(name, col, col2, W) -> TransferEntropyNode`
 - **imports:** __future__, core.node_protocol, numpy, warnings
 
+## `nodes/foundation_nodes.py`
+_Tier-1 foundation / SOTA model nodes (groups A–F of research/model-catalog-22parts.md)._
+- **classes:** _ExternalForecastBase, ChronosNode, TimesFMNode, TinyTimeMixerNode, MoiraiNode, LagLlamaNode, _NFForecastBase, PatchTSTNode, ITransformerNode, TFTNode, GPyTorchGPNode, _TorchLoadTrusted, GluonTSDeepARNode, CrossAssetGNNNode, TigramiteCausalNode, RiskfolioWeightNode, PyPortfolioOptWeightNode
+- **functions:** `_add_vendor_path()`
+- **imports:** __future__, core.node_protocol, nodes.cross_sectional_nodes, nodes.dl_nodes, nodes.quant_nodes, numpy, os, sys, warnings
+
 ## `nodes/frontier_nodes.py`
 _Frontier nodes: quantum-inspired kernels, a reinforcement-learning policy, and_
 - **classes:** QuantumKernelNode, RLPolicyNode, OptionIVNode
@@ -727,6 +764,16 @@ _GitHub-tier-2 predictor / probabilistic / dynamics nodes (T2)._
 - **classes:** _HeadBase, _Aug, _ForecastBase, MLForecastNode, FunctimeNode, AutoTSNode, FLAMLNode, DeeptimeNode, PomegranateHMMNode, PgmpyBayesNetNode, EconMLNode, PykalmanNode, SimdKalmanNode
 - **functions:** `_readout(task)`; `mlforecast_node()`; `functime_node()`; `flaml_node()`; `autots_node()`; `deeptime_node()`; `pomegranate_hmm_node()`; `pgmpy_bayesnet_node()`; `econml_node()`; `pykalman_node()`; `simdkalman_node()`
 - **imports:** __future__, core.node_protocol, datetime, numpy, os, warnings
+
+## `nodes/llm_forecast_node.py`
+_LLMForecastNode — cloud-LLM as a reasoning-based directional forecaster._
+- **classes:** LLMForecastNode
+- **imports:** __future__, json, nodes.quant_nodes, numpy, re, warnings
+
+## `nodes/micro_transformer_node.py`
+_nodes/micro_transformer_node.py — the brain's OWN micro-LLM (Phase C, clone-and-extend)._
+- **classes:** StreamTokenizer, MicroTransformerNode, CInferenceKernel
+- **imports:** __future__, core.node_protocol, math, pathlib, subprocess
 
 ## `nodes/ml_nodes.py`
 _Advanced ML / topology / control nodes — the reuse-first expansion of the_
@@ -765,8 +812,8 @@ _Phase-2b node families (pure-Python): Random Forest + Regime-Gated._
 
 ## `nodes/pool.py`
 _Shared candidate pool of node families + hyperparameter variants._
-- **functions:** `_oss_candidates()`; `factories()`; `names()`
-- **imports:** __future__, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes
+- **functions:** `_oss_candidates()`; `_micro_llm_candidates()`; `_foundation_candidates()`; `foundation_panel_candidates(panel)`; `foundation_factories()`; `foundation_names()`; `factories()`; `names()`
+- **imports:** __future__, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, os
 
 ## `nodes/probabilistic_nodes.py`
 _Uncertainty / probabilistic / symbolic / fuzzy / survival nodes._
@@ -837,6 +884,22 @@ _StructureSearchNode — P3.9: LEARN THE WIRING (differentiable architecture sea
 _PySRNode — the plan's Phase-5 equation-discovery node._
 - **classes:** PySRNode
 - **imports:** __future__, core.node_protocol, numpy
+
+## `nodes/tier2_nodes.py`
+_Tier-2 model nodes (groups G/J/K of research/model-catalog-22parts.md)._
+- **classes:** KANNode, XLSTMNode, LiquidLTCNode, NeuralCDENode, QuantLibGreeksNode, MarkovRegimeNode
+- **functions:** `_standardize(A)`
+- **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, warnings
+
+## `nodes/tier2b_nodes.py`
+_Remaining catalog ADDs (the MED/LOW-priority nodes skipped in passes 1–4)._
+- **classes:** TiDENode, TimesNetNode, TimeMixerNode, MambaNode, NormFlowNode, BayesianTorchNode, LiNGAMNode
+- **imports:** __future__, core.node_protocol, nodes.foundation_nodes, nodes.quant_nodes, numpy, warnings
+
+## `nodes/tier3_nodes.py`
+_Tier-3 infra nodes (groups D/I/J of research/model-catalog-22parts.md)._
+- **classes:** SB3RLExecNode, Alpha360Node, PyGODAnomalyNode, TemporalGraphNode
+- **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, warnings
 
 ## `nodes/universal_node.py`
 _UniversalNode — builds a NodeProtocol node from any AlgoSpec (core/algo_registry)._
@@ -930,7 +993,7 @@ _Walk-forward (chronological) on Binance INTRADAY klines — more samples/struct
 ## `run_journal_t5.py`
 _run_journal_t5.py — Trading Phase T5 (Brain Confidence + Trade Journal) offline demo + status._
 - **functions:** `_hdr(title) -> None`; `build_demo_journal() -> TradeJournal`; `_print_trade(t) -> None`; `main() -> int`
-- **imports:** __future__, json, os, sys, trading.journal, trading.journal.behavior, trading.journal.tearsheet
+- **imports:** __future__, json, os, sys, tempfile, trading.journal, trading.journal.behavior, trading.journal.tearsheet
 
 ## `run_knowledge.py`
 _Phase 4 demo: build the knowledge brain, ingest docs, and recall._
@@ -1047,6 +1110,9 @@ _(2) Fold regime-routing into the main learned_router._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
 - **imports:** __future__, core, data.benchmarks, eval.golden, json, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, nodes.router_node, os, random, time
 
+## `tests/__init__.py`
+_(no summary)_
+
 ## `tests/test_advintel.py`
 _Trading Phase T8 (Advanced Intelligence) acceptance tests — fully offline._
 - **classes:** TestPortfolioRisk, TestStress, TestFiiDii, TestNseAnnouncements, TestOnChain, TestLiquidations, TestArbitrage
@@ -1059,6 +1125,11 @@ _Trading Phase T7 (Telegram Alerts & Automation) acceptance tests — fully offl
 - **functions:** `_disabled_config() -> AlertConfig`; `_enabled_config() -> AlertConfig`; `_utc(y, mo, d, h, mi) -> float`
 - **imports:** __future__, datetime, trading.alerts.channels, trading.alerts.commands, trading.alerts.config, trading.alerts.dedup, trading.alerts.dispatcher, trading.alerts.events, trading.alerts.formatter, trading.alerts.scheduler, unittest
 
+## `tests/test_associative_memory.py`
+_Tests for memory/associative.py — HippoRAG PPR recall + A-MEM evolution (offline path)._
+- **functions:** `_seed(mem)`; `test_add_links_related_notes()`; `test_recall_is_associative_multihop()`; `test_persistence_across_instances(tmp_path)`; `test_llm_path_used_when_available()`
+- **imports:** json, memory.associative
+
 ## `tests/test_brain_agent.py`
 _Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + deterministic._
 - **classes:** StubBrain, RecorderChat, TestLLMPath, TestHistory, TestOfflineFallback, TestRecallK, TestStatus, TestDeterminism
@@ -1070,6 +1141,17 @@ _Trading Phase T8 (Brain engines, deferred A2/A3) acceptance tests — fully off
 - **classes:** TestAutonomousResearcher, TestQLearningExit
 - **functions:** `_stub_searcher(query)`; `_stub_summarizer(prompt)`; `_raising_summarizer(prompt)`; `_empty_summarizer(prompt)`; `_trajectories()`
 - **imports:** __future__, json, trading.brain.researcher, trading.brain.rl_exit, unittest, warnings
+
+## `tests/test_brain_forcing.py`
+_Forcing tests for brain paths the audit (2026-07-03) found under-exercised._
+- **functions:** `test_file_memory_recall_keyword_fallback(tmp_path)`; `_planted_trades(n, seed) -> list[dict]`; `test_gui_agent_experiment_runs_hypothesis_cycle()`; `test_knowledge_brain_recall_without_embeddings()`; `test_online_node_drift_then_replay_retrain_adapts()`; `test_c_inference_kernel_available()`; `test_knowledge_brain_persists_across_instances(monkeypatch, tmp_path)`
+- **imports:** numpy, pathlib, pytest, tempfile, trading.state
+
+## `tests/test_brain_segment_cycles.py`
+_Unit tests for BrainExecutor's options/prediction segment cycles (audit gap 4)._
+- **classes:** FakeClient, FakeDecider, TestOptionParse, TestOptionsCycle, TestPredictionCycle, TestPerSegmentMaxOpenTrades
+- **functions:** `_candles(closes)`
+- **imports:** trading.crypto.freqtrade.brain_executor, unittest
 
 ## `tests/test_chat.py`
 _P4.1 acceptance tests: the brain-chat plumbing is well-formed and degrades gracefully._
@@ -1087,6 +1169,11 @@ _tests/test_computer_use.py — the brain's computer-use / GUI agent (trading/br
 - **functions:** `isolated_state(tmp_path, monkeypatch)`; `test_default_targets_are_own_and_freqtrade(isolated_state)`; `test_html_controls_parse()`; `test_chart_reader_reads_trend()`; `test_dry_run_plans_without_firing(isolated_state)`; `test_live_affecting_refused_unless_armed(isolated_state)`; `test_skill_retrieval_and_success_compounding(isolated_state)`; `test_reflector_distils_and_recalls(isolated_state)`; `test_agent_step_and_practice(isolated_state)`; `test_agent_aborts_into_halted_market(isolated_state, monkeypatch)`; `test_node_conforms_and_registers(isolated_state)`
 - **imports:** __future__, core.node_protocol, pytest
 
+## `tests/test_continual_learning.py`
+_Tests for Phase E — Avalanche ContinualLearner + world-model continual update._
+- **functions:** `_regime(seed, w, n)`; `test_learns_sequential_regimes_without_forgetting()`; `_ohlcv(seed, n, drift)`; `test_worldmodel_updates_online_with_replay()`
+- **imports:** numpy, pandas, pytest, trading.brain.continual, trading.brain.worldmodel
+
 ## `tests/test_continual_t8.py`
 _Trading Phase T8.5 (Continual Learning + Auto-Quiz + Meta-Init + Reflexion) tests._
 - **classes:** TestOnlineNode, TestReplayBuffer, TestReplayRetrain, TestAutoQuiz, TestMetaLearner, TestReflexion
@@ -1097,6 +1184,11 @@ _Trading Phase T8.5 (Continual Learning + Auto-Quiz + Meta-Init + Reflexion) tes
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
 - **classes:** TestConfig, TestLiquidation, TestOrderBookFill, TestPaperEngine, TestFundingSpread, TestCryptoWatchlist
 - **imports:** __future__, pathlib, tempfile, trading.crypto.config, trading.crypto.funding, trading.crypto.liquidation, trading.crypto.paper_engine, trading.crypto.watchlist, trading.state, unittest
+
+## `tests/test_decision_memory.py`
+_Decision-memory subsystem (trading/brain/decision_memory.py + attribution.py) and the_
+- **classes:** _IsolatedState, TestDecisionMemory, TestAttribution, TestFreqtradeIngestFixes
+- **imports:** datetime, pathlib, tempfile, time, trading.state, unittest
 
 ## `tests/test_dl_nodes.py`
 _DL-node acceptance tests: the darts neural forecasters, the PyTorch_
@@ -1118,7 +1210,13 @@ _Phase P4.8 (Multimodal + identity + society + affect) acceptance tests._
 _Trading Phase T8.3 (DEAP NSGA-II evolution loop + promotion) acceptance tests — offline._
 - **classes:** TestEvolveRuns, TestEvolveDeterminism, TestPromotionNodeProtocol, TestRegistry
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`; `_run_evolve() -> EvolutionResult`
-- **imports:** __future__, core.node_protocol, json, numpy, pandas, trading.strategy.evolve, trading.strategy.features, trading.strategy.operators, trading.strategy.registry, unittest, warnings
+- **imports:** __future__, core.node_protocol, json, numpy, pandas, trading.strategy.control, trading.strategy.evolve, trading.strategy.features, trading.strategy.operators, trading.strategy.registry, unittest, warnings
+
+## `tests/test_exchange_pool.py`
+_Multi-venue market-data pool (trading/crypto/exchange_pool.py) — ban-proofing._
+- **classes:** _FakeCcxt
+- **functions:** `_pool(specs)`; `test_round_robin_spreads_calls()`; `test_failover_skips_broken_venue()`; `test_ban_error_triggers_long_cooldown_and_budget_is_hard()`; `test_transient_error_gets_short_backoff_only()`; `test_norm_appends_settle_for_swap()`; `test_all_venues_down_raises()`; `test_crypto_options_screener_drops_expiring_contracts()`
+- **imports:** pathlib, tempfile, time, trading.crypto.exchange_pool, trading.state
 
 ## `tests/test_execution_t3.py`
 _Trading Phase T3 (Trade Execution Engine) acceptance tests — fully offline._
@@ -1131,11 +1229,33 @@ _Trading Phase T8.4 (episodic experience bank + semantic memory) acceptance test
 - **functions:** `_trade() -> ClosedTrade`; `_long_low_vix_winner(i) -> ClosedTrade`; `_long_high_vix_loser(i) -> ClosedTrade`
 - **imports:** __future__, json, tempfile, trading.brain.experience, trading.brain.semantic, trading.journal.journal, trading.journal.schema, unittest, warnings
 
+## `tests/test_file_memory.py`
+_Tests for memory/file_memory.py — Claude-style durable file memory (Phase B)._
+- **functions:** `test_write_creates_note_and_index(tmp_path)`; `test_persists_across_processes_and_recalls(tmp_path)`; `test_keyword_fallback_without_associative(tmp_path)`
+- **imports:** memory.associative, memory.file_memory
+
+## `tests/test_foundation_nodes.py`
+_Tier-1 foundation / SOTA model nodes (nodes/foundation_nodes.py, groups A–F)._
+- **classes:** TestFoundationNodes
+- **functions:** `_synth(n, seed)`; `_panel(T, N, seed)`; `_try_import()`
+- **imports:** __future__, numpy, unittest, warnings
+
+## `tests/test_futures_options_symbols.py`
+_Regression: NSE futures/options screeners must emit BROKER-TRADABLE symbols._
+- **classes:** _FakeClient
+- **functions:** `test_ltp_uses_rest_quotes_not_websocket_get_ltp()`; `test_nse_futures_resolve_to_near_month_contract(monkeypatch)`; `test_min_open_legacy_fno_key_lands_on_futures()`; `test_lot_size_prefers_real_master_contract_over_segment_default()`; `test_lot_size_falls_back_when_openalgo_unreachable()`
+- **imports:** pathlib, tempfile, trading.state
+
 ## `tests/test_guardrails_t8.py`
 _Trading Phase T8.2 acceptance tests — journal-fitness + overfitting guardrails._
 - **classes:** TestProbabilisticDeflatedSharpe, TestPBO, TestInformationCoefficient, TestFitness, TestGuardrailGate
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, json, numpy, pandas, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, unittest, warnings
+
+## `tests/test_hpo.py`
+_Optuna HPO utility (core/hpo.py, Tier-2/3 infra group H)._
+- **classes:** TestHPO
+- **imports:** __future__, core.hpo, numpy, unittest, warnings
 
 ## `tests/test_human_memory.py`
 _Phase P4.2 (human-like memory layer) acceptance tests — fully offline + deterministic._
@@ -1170,21 +1290,42 @@ _Phase P4.4 (2nd mastery model) acceptance tests — EduKTM Deep Knowledge Traci
 - **functions:** `_muted()`; `_quiet_fit(tracer)`
 - **imports:** __future__, contextlib, io, json, memory.knowledge_tracing, memory.self_quiz, unittest, warnings
 
+## `tests/test_learn_loop.py`
+_Continuous learning loop (trading/brain/learn_loop.py) — deterministic unit tests._
+- **classes:** _StubLearner
+- **functions:** `_fresh_loop()`; `test_queue_topic_learned_first_then_curriculum()`; `test_errors_recorded_and_status_honest()`; `test_self_eval_fires_on_schedule()`; `test_enabled_flag_persists_across_instances()`
+- **imports:** pathlib, tempfile, trading.state
+
 ## `tests/test_librarian.py`
 _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & deterministic._
 - **classes:** StubBrain, TestDiscover, TestIngestItem, TestDedup, TestFeed, TestPersistence, TestStatusAndDeterminism
 - **functions:** `make_web(items, recorder)`; `make_arxiv(items, recorder)`; `make_rss(items, recorder)`; `make_extractor(text, recorder)`; `_lib(brain)`
 - **imports:** __future__, json, memory.librarian, os, tempfile, unittest, warnings
 
+## `tests/test_llm_telemetry.py`
+_Cloud-LLM telemetry (core/llm_telemetry.py) + LLMForecastNode (nodes/llm_forecast_node.py)._
+- **classes:** TestLLMTelemetry, TestLLMForecastNode
+- **imports:** __future__, numpy, os, tempfile, unittest, warnings
+
 ## `tests/test_memory_assoc.py`
 _P4.2 acceptance: human-like ASSOCIATIVE recall (Personalized-PageRank + RRF fusion)._
 - **classes:** TestAssociativeRecall
 - **imports:** __future__, memory.brain, unittest
 
+## `tests/test_micro_transformer.py`
+_Tests for nodes/micro_transformer_node.py — cloned-LLM node (Phase C)._
+- **functions:** `_toy(n, seed)`; `test_tokenizer_handles_any_data()`; `test_satisfies_node_protocol_and_learns()`; `test_c_kernel_generates_with_own_weights(tmp_path)`
+- **imports:** core.node_protocol, nodes.micro_transformer_node, pytest, random
+
 ## `tests/test_multihead.py`
 _Acceptance test (multi-output): every output head must beat its task baseline._
 - **classes:** TestMultiHead
 - **imports:** __future__, run_multi, unittest
+
+## `tests/test_multisegment.py`
+_Tests for the multi-segment Freqtrade fork (vendor/freqtrade) + its glue._
+- **classes:** TestSegmentIsolation, TestOptionRank, TestSegmentConfigFanout
+- **imports:** datetime, os, unittest
 
 ## `tests/test_news_t8.py`
 _Trading Phase T8.7 (Autonomous news research + sentiment) acceptance tests — fully offline._
@@ -1200,7 +1341,7 @@ _Trading Phase O1–O4 (Always-Online Supervisor) acceptance tests — fully off
 ## `tests/test_options_screener.py`
 _Phase 2: pure CE/PE generation logic (no live broker/market needed)._
 - **functions:** `_chain(expiry)`; `test_atm_strike_picks_nearest_listed()`; `test_nearest_expiry()`; `test_atm_mode_gives_one_ce_one_pe_at_atm()`; `test_ladder_mode_adds_otm_strikes()`; `test_chain_mode_returns_capped_chain()`; `test_picks_only_nearest_expiry()`; `test_norm_rows_derives_opt_type_from_symbol_suffix()`; `test_no_broker_returns_empty(monkeypatch)`
-- **imports:** tempfile, trading.screener, trading.state
+- **imports:** pathlib, tempfile, trading.screener, trading.state
 
 ## `tests/test_options_t4.py`
 _Trading Phase T4 (Options Intelligence) acceptance tests — fully offline._
@@ -1212,6 +1353,11 @@ _Trading Phase T8.6 acceptance tests — fully offline + deterministic._
 - **classes:** TestSyntheticData, TestPatterns, TestRegime, TestPicking, TestEntryExit
 - **functions:** `_synthetic_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, numpy, pandas, trading.brain.continual, trading.brain.entryexit, trading.brain.patterns, trading.brain.picking, trading.brain.regime, unittest, warnings
+
+## `tests/test_perception_research.py`
+_Tests for trading/brain/perception.py + researcher.deep_research (Phase D, offline)._
+- **functions:** `test_read_any_plain_and_csv(tmp_path)`; `test_read_any_feeds_memory(tmp_path)`; `test_perception_status_reports_engines()`; `test_deep_research_falls_back_offline()`
+- **imports:** memory.associative, trading.brain.perception, trading.brain.researcher
 
 ## `tests/test_percoin_decider.py`
 _tests/test_percoin_decider.py — brain picks the best strategy PER COIN (offline, no network)._
@@ -1236,6 +1382,12 @@ _Trading Phase T8.9 (end-to-end brain trading pipeline + safety) acceptance test
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`; `_stub_news()`; `_strategy(market, seed)`; `_full_pipeline(market)`; `_assert_no_numpy(case, obj, path)`
 - **imports:** __future__, json, numpy, pandas, trading.brain.entryexit, trading.brain.experience, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.pipeline, trading.brain.regime, trading.execution.circuit_breaker, trading.execution.kill_switch, trading.strategy.genome, trading.strategy.operators, unittest, warnings
 
+## `tests/test_psychology.py`
+_Trader-psychology engine (order-book depth) — pure-computation tests._
+- **classes:** TestSnapshots, TestSignals, TestJournalWiring, TestDeepLob
+- **functions:** `_snap(mid, bid_boost, ask_boost, ts, levels)`; `_ring(n, bid_boost, ask_boost, seed)`
+- **imports:** collections, pathlib, random, tempfile, time, trading.brain.psychology, trading.state, unittest
+
 ## `tests/test_reset_closed.py`
 _tests/test_reset_closed.py — closed-trade reset is brain-safe + isolated._
 - **classes:** _FakeRest, _FakeClient
@@ -1247,6 +1399,12 @@ _Acceptance test (hardening): the router-grown brain must beat the naive_
 - **classes:** TestRobust
 - **imports:** __future__, run_robust, unittest
 
+## `tests/test_scorecard.py`
+_Regression tests for the segment scorecard's (market, segment) derivation_
+- **classes:** TestTradeSegment
+- **functions:** `_load_server()`
+- **imports:** importlib.util, os, unittest
+
 ## `tests/test_screener.py`
 _tests/test_screener.py — per-segment screener: offline-safe, deterministic._
 - **classes:** FakeNSESource, FakeCryptoSource, FakeMCXClient
@@ -1256,7 +1414,7 @@ _tests/test_screener.py — per-segment screener: offline-safe, deterministic._
 ## `tests/test_segment_split.py`
 _Phase 1 regression: NSE `fno` segment split into `futures` + `options`._
 - **functions:** `test_nse_segments_are_split()`; `test_legacy_fno_normalizes_to_futures()`; `test_marketstate_migrates_saved_fno()`; `test_loop_maps_cover_futures_and_options()`; `test_max_leverage_is_market_aware()`; `test_screener_routes_options()`
-- **imports:** tempfile, trading.state
+- **imports:** pathlib, tempfile, trading.state
 
 ## `tests/test_self_coding_p47.py`
 _Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandboxed._
@@ -1282,7 +1440,7 @@ _Tests for trading/sizing -- per-trade position/capital sizer._
 _Trading Phase T8.8 (skill library + observability + self-improvement) tests — offline._
 - **classes:** TestSkillRoundTrip, TestSkillLibraryGate, TestSkillLibraryRetrieval, TestAdmitStrategy, TestSkillPersistence, TestBrainTracer, TestSelfImprover, TestDSPyOptimizerGatedOff
 - **functions:** `_skill(name, market, metric)`
-- **imports:** __future__, itertools, numpy, os, trading, trading.brain.observability, trading.brain.selfimprove, trading.brain.skills, unittest, warnings
+- **imports:** __future__, itertools, numpy, os, trading, trading.brain.observability, trading.brain.selfimprove, trading.brain.skills, trading.strategy.control, unittest, warnings
 
 ## `tests/test_strategy_t8.py`
 _Trading Phase T8.1 (Strategy-Evolution Engine) acceptance tests — fully offline._
@@ -1301,6 +1459,24 @@ _Phase P4.5 (Thinking + knowing-what-it-knows) acceptance tests — fully offlin
 - **classes:** _Graph, _Brain, TestActiveInference, TestReasoning, TestSymbolic, TestCausal, TestCalibration, TestConstitution, TestThinker, TestBrainAgentIntegration, TestDemo
 - **functions:** `_abstainer(level)`
 - **imports:** __future__, cognition, cognition.reasoning, numpy, unittest, warnings
+
+## `tests/test_tier2_nodes.py`
+_Tier-2 model nodes (nodes/tier2_nodes.py, groups G/J/K)._
+- **classes:** TestTier2Nodes
+- **functions:** `_synth(n, seed)`; `_imp()`
+- **imports:** __future__, numpy, unittest, warnings
+
+## `tests/test_tier2b_nodes.py`
+_Remaining catalog-ADD nodes (nodes/tier2b_nodes.py) — the MED/LOW ADDs completed._
+- **classes:** TestTier2bNodes
+- **functions:** `_synth(n, seed)`; `_imp()`
+- **imports:** __future__, numpy, unittest, warnings
+
+## `tests/test_tier3_nodes.py`
+_Tier-3 infra nodes (nodes/tier3_nodes.py) + drift utility (core/drift.py)._
+- **classes:** TestTier3Nodes, TestDrift
+- **functions:** `_synth(n, seed)`; `_imp()`
+- **imports:** __future__, numpy, unittest, warnings
 
 ## `tests/test_trade_features.py`
 _tests/test_trade_features.py — the trade-row → node-network bridge (TradeOutcomeNet)._
@@ -1443,9 +1619,14 @@ _trading/brain/activity_feed.py — the brain's EPHEMERAL transparency feed (cro
 - **functions:** `_load() -> dict`; `_save(d) -> None`; `_expire(events) -> list`; `emit(kind, title, detail) -> dict`; `peek(limit) -> list[dict]`; `drain(limit) -> list[dict]`; `status() -> dict`
 - **imports:** __future__, threading, time
 
+## `trading/brain/attribution.py`
+_Per-trade feature attribution — WHICH data led to this decision and HOW MUCH._
+- **functions:** `_background(closed_rows) -> list[list[float]]`; `explain_trade(trade, closed_rows) -> dict`
+- **imports:** __future__, trading.brain.trade_features
+
 ## `trading/brain/continual.py`
 _trading/brain/continual.py — online/continual learning + experience replay (T8.5)._
-- **classes:** OnlineNode, ReplayBuffer
+- **classes:** OnlineNode, ReplayBuffer, ContinualLearner
 - **functions:** `_row_dict(features, row) -> dict`; `_new_model()`; `replay_retrain(features, new_samples, buffer, rng) -> OnlineNode`; `clone_model(model)`
 - **imports:** __future__, copy, core.node_protocol, dataclasses, numpy, river
 
@@ -1454,6 +1635,12 @@ _trading/brain/credentials.py — the brain's ENCRYPTED credential vault + chat-
 - **classes:** CredentialVault
 - **functions:** `_fernet()`; `get_vault() -> CredentialVault`
 - **imports:** __future__, os, stat, time
+
+## `trading/brain/decision_memory.py`
+_Decision memory — every trade is a fully-provenanced EPISODE the brain recalls and learns from._
+- **classes:** DecisionMemory
+- **functions:** `_tokens(text) -> set`; `get_memory() -> DecisionMemory`
+- **imports:** __future__, math, random, time, trading
 
 ## `trading/brain/entryexit.py`
 _trading/brain/entryexit.py — regime/pattern-gated entry + learned exit (T8.6)._
@@ -1517,6 +1704,12 @@ _trading/brain/hypothesis.py — the brain's hypothesis → experiment → belie
 - **functions:** `_metric_values(trades, metric) -> np.ndarray`; `_win_rate(vals) -> float`; `_bayes_ab(cond, ctrl, draws, seed) -> float`; `register_hypothesis_ledger(ledger) -> HypothesisNode`
 - **imports:** __future__, core.node_protocol, dataclasses, hashlib, numpy
 
+## `trading/brain/learn_loop.py`
+_trading/brain/learn_loop.py — CONTINUOUS autonomous learning loop._
+- **classes:** LearnLoop
+- **functions:** `get_learn_loop() -> LearnLoop`; `ensure_started() -> None`
+- **imports:** __future__, os, threading, time
+
 ## `trading/brain/learner.py`
 _trading/brain/learner.py — the brain's self-directed LEARNING + SELF-EVALUATION._
 - **classes:** KnowledgeLearner
@@ -1545,6 +1738,11 @@ _trading/brain/patterns.py — pattern + anomaly discovery (T8.6, reuse-first)._
 - **functions:** `matrix_profile(series, m)`; `find_anomalies(series, m, k) -> list[dict]`; `find_motifs(series, m, k) -> list[dict]`; `anomaly_score(series, m) -> float`; `candlestick_patterns(ohlcv, names) -> dict`; `candles_firing(ohlcv) -> dict`
 - **imports:** __future__, numpy, pandas
 
+## `trading/brain/perception.py`
+_trading/brain/perception.py — read ANY document/image into structured text (Phase D)._
+- **functions:** `_docling_convert(path) -> dict | None`; `_plain_read(path) -> dict | None`; `read_any(source) -> dict`; `status() -> dict`
+- **imports:** __future__, json, pathlib
+
 ## `trading/brain/picking.py`
 _trading/brain/picking.py — cross-sectional asset picking (T8.6)._
 - **classes:** CrossSectionalRanker, GPLearnFactorMiner, AssetPicker
@@ -1555,6 +1753,17 @@ _trading/brain/picking.py — cross-sectional asset picking (T8.6)._
 _trading/brain/pipeline.py — end-to-end brain trading pipeline (T8.9 finale)._
 - **classes:** BrainTradingPipeline
 - **imports:** __future__, dataclasses, pandas, trading.brain.entryexit, trading.brain.experience, trading.brain.hypothesis, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.regime, trading.brain.worldmodel, trading.strategy.features
+
+## `trading/brain/psych_deeplob.py`
+_DeepLOB price-direction prediction from recorded depth snapshots (CPU)._
+- **functions:** `_snapshot_vec(row) -> list[float] | None`; `load_series(path) -> np.ndarray`; `make_samples(series) -> tuple[np.ndarray, np.ndarray]`; `_model()`; `train(epochs, lr, batch) -> dict`; `predict_prob_up(ring) -> float | None`
+- **imports:** __future__, json, logging, numpy, pathlib
+
+## `trading/brain/psychology.py`
+_Trader-psychology engine: crowd sentiment from live order-book depth._
+- **classes:** BookSnapshot, StoikovMicroprice, TraderPsychology
+- **functions:** `_load_lob_features()`; `ring_to_frame(ring, levels) -> pd.DataFrame`; `detect_walls(snap, band, min_frac) -> dict`; `depth_slope_bias(snap) -> float`; `evaluate_ring(ring, micro, weights) -> dict | None`; `get_engine() -> TraderPsychology`; `psych_columns(result) -> dict`
+- **imports:** __future__, collections, dataclasses, importlib.util, json, logging, math, numpy, pandas, pathlib, threading, time, typing
 
 ## `trading/brain/regime.py`
 _trading/brain/regime.py — market-regime detection + regime-gated activation (T8.6)._
@@ -1607,6 +1816,11 @@ _trading/brain/trade_features.py — trade rows → ML network inputs → outcom
 - **functions:** `_f(v, default)`; `_is_crypto(trade) -> bool`; `_brain_telemetry(trade) -> dict`; `_entry_hour(trade) -> int | None`; `_regime(trade) -> str`; `trade_feature_row(trade) -> list[float]`; `_won(trade) -> int`; `get_outcome_net(closed_rows) -> TradeOutcomeNet`
 - **imports:** __future__, datetime, math
 
+## `trading/brain/ultra.py`
+_trading/brain/ultra.py — glue singleton for the brain ultra-upgrade (Phases A–E)._
+- **functions:** `file_memory()`; `remember(name, description, body, type) -> dict`; `recall(query, k) -> list[dict]`; `set_llm_node(node) -> None`; `status() -> dict`
+- **imports:** __future__, pathlib
+
 ## `trading/brain/worldmodel.py`
 _trading/brain/worldmodel.py — learned market world-model + imagination planner._
 - **classes:** MarketWorldModel, _MinMax, _MCTSNode, PositionState, ImaginationPlanner, WorldModelNode
@@ -1639,6 +1853,12 @@ _trading/crypto/exchange_client.py — thin ccxt wrapper (T2)._
 - **classes:** ExchangeError, Reachable, ExchangeClient
 - **imports:** __future__, dataclasses, trading.crypto.config, typing
 
+## `trading/crypto/exchange_pool.py`
+_trading/crypto/exchange_pool.py — multi-venue market-DATA pool (ban-proofing)._
+- **classes:** _TokenBucket, _Venue, ExchangePool
+- **functions:** `get_pool(market_type, quote, preferred) -> ExchangePool`; `pool_enabled() -> bool`
+- **imports:** __future__, os, threading, time, typing
+
 ## `trading/crypto/feed.py`
 _trading/crypto/feed.py — crypto market feed (T2)._
 - **classes:** CryptoFeed
@@ -1665,13 +1885,18 @@ _trading/crypto/freqtrade/candle_updater.py — keep OHLCV candle data continuou
 
 ## `trading/crypto/freqtrade/config_template.py`
 _trading/crypto/freqtrade/config_template.py — build a Freqtrade config from OUR config._
-- **functions:** `_pairs(cfg) -> list[str]`; `_freqai_block() -> dict`; `build_config(cfg) -> dict`; `write_config(path, cfg, dry_run_wallet) -> str`
+- **functions:** `_pairs(cfg) -> list[str]`; `_freqai_block() -> dict`; `enabled_segments() -> list[str]`; `_seg_max_open(segment) -> dict`; `_segments_block(cfg) -> dict`; `build_config(cfg) -> dict`; `write_config(path, cfg, dry_run_wallet) -> str`
 - **imports:** __future__, json, os, secrets, trading.crypto.config
 
 ## `trading/crypto/freqtrade/control.py`
 _trading/crypto/freqtrade/control.py — guarded paper↔live & spot↔futures switch (Phase F)._
-- **functions:** `_cfg()`; `_config_json() -> dict`; `_bot_running() -> bool`; `status() -> dict`; `_set_env_keys(updates) -> None`; `_wait_port_free(host, port, timeout) -> bool`; `restart_bot() -> dict`; `switch() -> dict`; `set_params() -> dict`; `main(argv) -> int`
+- **functions:** `_cfg()`; `_config_json() -> dict`; `_bot_running() -> bool`; `status() -> dict`; `_set_env_keys(updates) -> None`; `_wait_port_free(host, port, timeout) -> bool`; `restart_bot() -> dict`; `switch() -> dict`; `set_params() -> dict`; `set_segments_enabled(segments) -> dict`; `main(argv) -> int`
 - **imports:** __future__, dataclasses, json, os, re, socket, subprocess, time
+
+## `trading/crypto/freqtrade/entry_meta.py`
+_Sidecar store for per-entry brain metadata (trader psychology + decision snapshot)._
+- **functions:** `_key(pair, segment) -> str`; `_parse_ts(iso) -> float | None`; `record(pair, segment, meta) -> None`; `lookup(pair, segment, open_date) -> dict | None`
+- **imports:** __future__, datetime, time, trading
 
 ## `trading/crypto/freqtrade/launch.py`
 _trading/crypto/freqtrade/launch.py — generate the config and print the launch command._
@@ -2276,7 +2501,7 @@ _trading/online/ — "Go online": continuous paper/live trading with safe switch
 
 ## `trading/online/controls.py`
 _trading/online/controls.py — shared, persisted control surface (O5)._
-- **functions:** `registry() -> MarketRegistry`; `book() -> PaperWalletBook`; `reset_singletons() -> None`; `_ms_dict(market) -> dict`; `start(market) -> dict`; `stop(market) -> dict`; `pause(market) -> dict`; `halt(market) -> dict`; `set_mode(market, mode) -> dict`; `set_allow_live(market, allow) -> dict`; `set_segments(market, segments) -> dict`; `toggle_segment(market, segment) -> dict`; `set_balance(market, amount, portfolio_id) -> dict`; `top_up(market, amount, portfolio_id) -> dict`; `reset_wallet(market, portfolio_id) -> dict`; `panic(note) -> dict`; `status() -> dict`; `_fmt_state(d) -> str`; `_fmt_status() -> str`; `_cmd_balance(args) -> str`; `build_online_command_router() -> dict`; `handle_command(command, args) -> str`
+- **functions:** `registry() -> MarketRegistry`; `book() -> PaperWalletBook`; `reset_singletons() -> None`; `_ms_dict(market) -> dict`; `start(market) -> dict`; `stop(market) -> dict`; `pause(market) -> dict`; `halt(market) -> dict`; `set_mode(market, mode) -> dict`; `set_allow_live(market, allow) -> dict`; `set_segments(market, segments) -> dict`; `toggle_segment(market, segment) -> dict`; `_flush_loop_positions(market) -> None`; `set_balance(market, amount, portfolio_id) -> dict`; `top_up(market, amount, portfolio_id) -> dict`; `reset_wallet(market, portfolio_id) -> dict`; `panic(note) -> dict`; `status() -> dict`; `_fmt_state(d) -> str`; `_fmt_status() -> str`; `_cmd_balance(args) -> str`; `build_online_command_router() -> dict`; `handle_command(command, args) -> str`
 - **imports:** __future__, trading.online.state, trading.online.wallet
 
 ## `trading/online/live_loop.py`
@@ -2384,6 +2609,11 @@ _trading/screener/filters.py — standalone, composable screener filter algorith
 _trading/screener/options.py — single-leg NSE option (CE/PE) candidate generation._
 - **functions:** `atm_strike(ltp, strikes) -> Optional[float]`; `_strike_step(strikes) -> float`; `nearest_expiry(expiries) -> Optional[str]`; `pick_contracts(rows, ltp, mode, otm_depth, chain_cap) -> list[dict]`; `_norm_rows(raw) -> list[dict]`; `_broker()`; `_ltp(client, underlying) -> float`; `_search_options(client, underlying) -> list[dict]`; `screen_nse_options(source) -> list[dict]`
 - **imports:** __future__, typing
+
+## `trading/screener/prediction.py`
+_Prediction-market screener — scans ALL live event markets and ranks them for the loop._
+- **functions:** `_fetch(limit) -> list[dict]`; `scan(limit) -> list[dict]`; `last_price(symbol) -> float | None`; `screen_crypto_prediction(limit, filters) -> list[dict]`
+- **imports:** __future__, json, time, urllib.request
 
 ## `trading/screener/screener.py`
 _trading/screener/screener.py — per-segment ranked screeners (the live-loop entry)._

@@ -12,6 +12,7 @@ None and callers degrade gracefully (the chat reports "no LLM key configured").
 from __future__ import annotations
 
 import os
+import time
 
 from config import settings
 
@@ -83,13 +84,31 @@ def chat(messages: list[dict], max_tokens: int = 600, temperature: float = 0.4,
         raise NoLLMConfigured("no LLM provider configured")
     last: Exception | None = None
     for model, extra in cands:
+        prov = provider_name(model)
+        t0 = time.time()
         try:
             r = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,
                                    temperature=temperature, timeout=timeout, **extra)
+            _telemetry("record", prov, True, (time.time() - t0) * 1000.0, None)
             return r["choices"][0]["message"]["content"]
         except Exception as e:                # try the next provider in the chain
+            _telemetry("record", prov, False, (time.time() - t0) * 1000.0, str(e))
             last = e
     raise last if last else NoLLMConfigured("all providers failed")
+
+
+def _telemetry(_fn, provider, ok, latency_ms, err):
+    """Record a provider attempt (best-effort; never breaks the call)."""
+    try:
+        from core import llm_telemetry
+        llm_telemetry.record(provider, ok, latency_ms, err)
+    except Exception:
+        pass
+
+
+def configured_order() -> list[str]:
+    """Provider names in failover priority order (only those with a key present)."""
+    return [provider_name(m) for m, _ in _candidates()]
 
 
 def chat_stream(messages: list[dict], max_tokens: int = 600, temperature: float = 0.4,

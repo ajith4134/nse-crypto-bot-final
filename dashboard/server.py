@@ -171,7 +171,28 @@ OPEN_TRADE_COLUMNS = [
     "Liq Price", "Hold Time", "Confidence",
     # T-wire: the project node network's outcome call on THIS open trade (trade row → NN)
     "Win Prob", "NN Verdict", "Exp R",
+    # order-book trader psychology at entry (trading/brain/psychology.py)
+    "Psychology", "Psych Label",
 ]
+
+
+def _ft_entry_psych(t: dict):
+    """Entry-time psychology for a Freqtrade open trade from the brain-loop sidecar store."""
+    try:
+        from trading.crypto.freqtrade import entry_meta
+        seg = "spot" if (t.get("instrument_type") or "").upper() == "SPOT" else "futures"
+        meta = entry_meta.lookup(t.get("symbol", ""), seg, str(t.get("entry_datetime") or ""))
+        return (meta or {}).get("psychology")
+    except Exception:
+        return None
+
+
+def _psych_cells(ps) -> dict:
+    """Psychology columns for a trade row from its entry psych dict (— when absent)."""
+    if not isinstance(ps, dict) or ps.get("trader_psychology") is None:
+        return {"Psychology": "—", "Psych Label": "—"}
+    return {"Psychology": f"{float(ps['trader_psychology']):+.2f}",
+            "Psych Label": ps.get("psych_label") or "—"}
 
 
 # Give request threads fair GIL slices while the outcome-net trains in the
@@ -248,6 +269,52 @@ _PRED_MAP_CACHE = None  # (ts, body) cache for /api/trading/crypto/predictions
 _ENDPOINT_CACHE: dict = {}          # key -> (ts, body_bytes)
 _ENDPOINT_LOCKS: dict = {}          # key -> threading.Lock
 _ENDPOINT_CACHE_LOCK = threading.Lock()
+_SWR_REFRESHING: set = set()        # paths with an in-flight background refresh
+_SWR_PORT: int | None = None        # set in main() — loopback target for refreshes
+
+
+def _swr_refresh_async(path: str) -> None:
+    """Stale-while-revalidate: refresh `path` in ONE background daemon thread via a
+    loopback request (X-SWR-Refresh header bypasses the cache read and re-stores).
+    Callers keep serving the stale body instantly — nobody blocks on a 19s screener."""
+    with _ENDPOINT_CACHE_LOCK:
+        if path in _SWR_REFRESHING or _SWR_PORT is None:
+            return
+        _SWR_REFRESHING.add(path)
+
+    def _run():
+        try:
+            import base64
+            import urllib.request
+            req = urllib.request.Request(f"http://127.0.0.1:{_SWR_PORT}{path}",
+                                         headers={"X-SWR-Refresh": "1"})
+            if AUTH_PASS:
+                tok = base64.b64encode(f"{AUTH_USER}:{AUTH_PASS}".encode()).decode()
+                req.add_header("Authorization", f"Basic {tok}")
+            urllib.request.urlopen(req, timeout=120).read()
+        except Exception:
+            pass                                  # stale body keeps serving; retry next poll
+        finally:
+            with _ENDPOINT_CACHE_LOCK:
+                _SWR_REFRESHING.discard(path)
+
+    threading.Thread(target=_run, daemon=True, name=f"swr:{path}").start()
+
+
+# Heavy read endpoints measured 3–19s each (2026-07-03 audit: watchlist 19s,
+# opentrades 15s, scorecard 14s, psychology 10s, crypto/markets 3s) — they run live
+# screeners / engine round-trips per hit and froze every panel. Each gets an explicit
+# TTL and is refreshed in the BACKGROUND (stale-while-revalidate below), so requests
+# always return in milliseconds once warm.
+_HEAVY_TTL = {
+    "/api/trading/watchlist": 30.0,
+    "/api/trading/opentrades": 10.0,
+    "/api/trading/scorecard": 30.0,
+    "/api/trading/psychology": 15.0,
+    "/api/trading/crypto/markets": 60.0,
+    "/api/trading/orderbook": 8.0,
+    "/api/trading/foundry": 30.0,
+}
 
 
 def _get_cache_ttl(path: str):
@@ -256,6 +323,8 @@ def _get_cache_ttl(path: str):
     file/state/stream/chat endpoints uncached (cheap or must stay live)."""
     if path.endswith("/status"):
         return 8.0
+    if path in _HEAVY_TTL:
+        return _HEAVY_TTL[path]
     if path in ("/api/brain/worldmodel", "/api/brain/hypotheses",
                 "/api/trading/confidence", "/api/trading/crypto/predictions",
                 "/api/trading/brain/predict"):
@@ -336,7 +405,16 @@ def _warm_snapshots():
                 continue
             try:
                 with _SNAPSHOT_BUILD_SEM:
-                    body = json.dumps(producer(), default=str).encode()
+                    out = producer()
+                # Producers may return a dict OR pre-encoded JSON bytes/str — encoding
+                # bytes with json.dumps stringified the whole payload ("b'{...}'") and
+                # broke the Brain-Ultra/Evolve panels (observed 2026-07-03).
+                if isinstance(out, (bytes, bytearray)):
+                    body = bytes(out)
+                elif isinstance(out, str):
+                    body = out.encode()
+                else:
+                    body = json.dumps(out, default=str).encode()
             except Exception as e:
                 body = json.dumps({"available": False,
                                    "error": f"{type(e).__name__}: {e}"}).encode()
@@ -394,6 +472,12 @@ def _ccxt_spot():
 _FX_CACHE: dict = {}          # "USDINR" -> (ts, rate)
 _CT_CACHE: dict = {}          # "/api/trading/crypto/trades" body -> (ts, bytes); NN retrains on
                               # journal growth are minutes-long, so the 8s poll must reuse bodies
+# Single-flight: only ONE thread may rebuild an expired heavy cache; concurrent polls get the
+# stale snapshot instantly. Without this, every poll that hits an expired cache started its own
+# ~20s+ rebuild (OHLCV per open trade + NN predict/retrain) — with 40+ no-limit open trades the
+# rebuilds outlasted the poll interval, handler threads avalanched (390+) and the server wedged.
+_CT_LOCK = threading.Lock()
+_PRED_MAP_LOCK = threading.Lock()
 
 # currency per market: crypto settles in USDT ($), NSE in INR (₹). NEVER add them blindly.
 CCY = {"CRYPTO": ("USD", "$"), "NSE": ("INR", "₹")}
@@ -425,6 +509,144 @@ def _openalgo_tradebook() -> list:
     except Exception:
         pass
     return []
+
+
+_CRYPTO_EXCHANGES = ("binance", "bybit", "okx", "kucoin", "coinbase", "kraken",
+                     "deribit", "predictionpaper")
+
+
+def _trade_segment(r: dict) -> tuple[str, str]:
+    """(market, segment) for a journal/OpenAlgo trade row — the scorecard's grouping key.
+    Crypto rows land in the journal without an explicit segment, so derive it from
+    exchange + instrument_type + symbol shape; NSE rows likewise from instrument/exchange.
+    Prediction is its own market group (operator wants it scored separately)."""
+    ex = (r.get("exchange") or "").lower()
+    it = (r.get("instrument_type") or "").upper()
+    sym = str(r.get("symbol") or "")
+    if ex in _CRYPTO_EXCHANGES:
+        if ex == "predictionpaper" or it == "PRED" or sym.startswith(("PRED:", "WILL-")):
+            return ("PREDICTION", "prediction")
+        if ex == "deribit" or it == "OPT" or (sym.count("-") >= 2 and sym[-2:] in ("-C", "-P")):
+            return ("CRYPTO", "options")
+        if it == "SPOT" or ":" not in sym:
+            return ("CRYPTO", "spot")
+        return ("CRYPTO", "futures")
+    if ex == "mcx" or "COM" in it:
+        return ("NSE", "commodities")
+    if it in ("CE", "PE") or it.startswith("OPT"):
+        return ("NSE", "options")
+    if it.startswith("FUT"):
+        return ("NSE", "futures")
+    if it == "MTF" or (r.get("product_type") or "").upper() == "MTF":
+        return ("NSE", "mtf")
+    return ("NSE", "intraday")
+
+
+def _scorecard() -> dict:
+    """Per-segment score: realized (closed journal + OpenAlgo round-trips) and current
+    (open positions across loop + Freqtrade + OpenAlgo), grouped NSE / CRYPTO / PREDICTION.
+    Same sources as the unified open/closed tables so the numbers always reconcile."""
+    groups = {
+        "NSE": {"currency": "₹", "segments": ["intraday", "mtf", "futures", "options",
+                                              "commodities"]},
+        "CRYPTO": {"currency": "$", "segments": ["futures", "spot", "options"]},
+        "PREDICTION": {"currency": "$", "segments": ["prediction"]},
+    }
+    cards: dict[tuple, dict] = {}
+    for mkt, g in groups.items():
+        for seg in g["segments"]:
+            cards[(mkt, seg)] = {"market": mkt, "segment": seg, "currency": g["currency"],
+                                 "realized": 0.0, "unrealized": 0.0, "total": 0.0,
+                                 "open_count": 0, "closed_count": 0}
+
+    def bump(key, field, pnl):
+        c = cards.get(key)
+        if c is None:      # unexpected segment name — still count it, honestly
+            mkt, seg = key
+            ccy = groups.get(mkt, {}).get("currency", "$")
+            c = cards[key] = {"market": mkt, "segment": seg, "currency": ccy,
+                              "realized": 0.0, "unrealized": 0.0, "total": 0.0,
+                              "open_count": 0, "closed_count": 0}
+        c[field] += float(pnl or 0.0)
+        c["open_count" if field == "unrealized" else "closed_count"] += 1
+
+    # realized — the persisted journal is the single closed-trades source (it already
+    # ingests Freqtrade closures, so summing Freqtrade again would double count)
+    try:
+        from trading.journal.journal import TradeJournal
+        for t in TradeJournal(state_file="journal.json", persist=True)._trades:
+            r = t.to_dict()
+            bump(_trade_segment(r), "realized", r.get("net_pnl"))
+    except Exception:
+        pass
+    # realized — OpenAlgo sandbox round-trips (flat rows carry pnl); NSE-side only
+    try:
+        for p in _openalgo_positions():
+            if float(p.get("quantity") or 0.0):
+                continue
+            bump(_trade_segment({"exchange": p.get("exchange", "NSE"),
+                                 "instrument_type": p.get("product", ""),
+                                 "symbol": p.get("symbol")}), "realized", p.get("pnl"))
+    except Exception:
+        pass
+    # current — live paper loop open positions (rows carry market + segment natively)
+    try:
+        from trading.online.live_loop import get_loop
+        for p in get_loop().open_positions():
+            mkt = "CRYPTO" if p.get("market") == "CRYPTO" else "NSE"
+            seg = p.get("segment") or ("futures" if mkt == "CRYPTO" else "intraday")
+            if seg == "prediction":
+                mkt = "PREDICTION"
+            bump((mkt, seg), "unrealized", p.get("unrealized_pnl"))
+    except Exception:
+        pass
+    # current — Freqtrade engine open trades (bot_segment from the multi-segment fork)
+    try:
+        from trading.crypto.engine_client import CryptoEngineClient
+        from trading.crypto.freqtrade_ingest import open_trades_view
+        for t in open_trades_view(CryptoEngineClient()):
+            seg = t.get("segment") or "futures"
+            bump(("PREDICTION" if seg == "prediction" else "CRYPTO", seg),
+                 "unrealized", t.get("unrealized_pnl_usdt"))
+    except Exception:
+        pass
+    # current — OpenAlgo open positions (qty != 0)
+    try:
+        for p in _openalgo_positions():
+            qty = float(p.get("quantity") or 0.0)
+            if not qty:
+                continue
+            avg = float(p.get("average_price") or 0.0)
+            ltp = float(p.get("ltp") or avg)
+            upnl = float(p.get("pnl") if p.get("pnl") is not None else (ltp - avg) * qty)
+            bump(_trade_segment({"exchange": p.get("exchange", "NSE"),
+                                 "instrument_type": p.get("product", ""),
+                                 "symbol": p.get("symbol")}), "unrealized", upnl)
+    except Exception:
+        pass
+
+    rate = _usdinr()
+    out_groups = []
+    for mkt, g in groups.items():
+        segs = [cards[k] for k in cards if k[0] == mkt]
+        segs.sort(key=lambda c: g["segments"].index(c["segment"])
+                  if c["segment"] in g["segments"] else 99)
+        for c in segs:
+            c["realized"] = round(c["realized"], 2)
+            c["unrealized"] = round(c["unrealized"], 2)
+            c["total"] = round(c["realized"] + c["unrealized"], 2)
+        out_groups.append({"market": mkt, "currency": g["currency"], "cards": segs,
+                           "realized": round(sum(c["realized"] for c in segs), 2),
+                           "unrealized": round(sum(c["unrealized"] for c in segs), 2),
+                           "total": round(sum(c["total"] for c in segs), 2)})
+    inr_total = 0.0
+    for og in out_groups:
+        inr_total += og["total"] * (1.0 if og["currency"] == "₹" else rate)
+    return {"groups": out_groups, "usdinr": round(rate, 2),
+            "grand_total_inr": round(inr_total, 2), "live": True,
+            "note": "realized = closed journal + OpenAlgo round-trips; current = open "
+                    "positions across loop + Freqtrade + OpenAlgo (same sources as the "
+                    "unified tables)"}
 
 
 def _usdinr() -> float:
@@ -593,15 +815,21 @@ class Handler(BaseHTTPRequestHandler):
         ttl = _get_cache_ttl(path)
         if ttl is None:
             return self._do_GET_impl(path)
+        is_refresh = bool(self.headers.get("X-SWR-Refresh"))
         hit = _ENDPOINT_CACHE.get(path)
-        if hit and (time.time() - hit[0]) < ttl:
+        if hit and not is_refresh:
+            # STALE-WHILE-REVALIDATE (2026-07-03): once a body exists it is ALWAYS served
+            # instantly; if past TTL, one background thread recomputes it via loopback.
+            # Panels went from 3–19s blocking waits to constant-millisecond responses.
+            if (time.time() - hit[0]) >= ttl:
+                _swr_refresh_async(path)
             c = hit[1]
             return self._send(c[0], c[1], c[2])
         with _ENDPOINT_CACHE_LOCK:
             lock = _ENDPOINT_LOCKS.setdefault(path, threading.Lock())
         with lock:
             hit = _ENDPOINT_CACHE.get(path)                 # re-check after acquiring
-            if hit and (time.time() - hit[0]) < ttl:
+            if hit and not is_refresh and (time.time() - hit[0]) < ttl:
                 c = hit[1]
                 return self._send(c[0], c[1], c[2])
             self._capture_want = True
@@ -641,6 +869,19 @@ class Handler(BaseHTTPRequestHandler):
                 with open(kp, "rb") as f:
                     return self._send(200, f.read(), "application/json")
             return self._send(200, b'{"nodes":[],"edges":[],"stats":{}}', "application/json")
+        if path == "/api/llm/telemetry":
+            # Real per-provider cloud-LLM call stats (hit-rate / free calls used / cooldown),
+            # recorded inside core.llm.chat's failover loop. Never fabricated.
+            try:
+                from core import llm, llm_telemetry
+                try:
+                    order = llm.configured_order()
+                except Exception:
+                    order = None
+                snap = llm_telemetry.snapshot(order)
+            except Exception as e:
+                snap = {"providers": [], "totals": {}, "error": str(e)[:120]}
+            return self._send(200, json.dumps(snap).encode(), "application/json")
         if path == "/api/brain/agent/status":
             # P4.1 LangGraph BrainAgent status: engine, has_memory, active LLM (or null
             # offline), recall_k. Degrades to an error payload (never crashes the server).
@@ -862,34 +1103,45 @@ class Handler(BaseHTTPRequestHandler):
             _hit = _CT_CACHE.get(path)
             if _hit and (_ct_t.time() - _hit[0]) < 30:
                 return self._send(200, _hit[1], "application/json")
+            # Single-flight: if a stale snapshot exists and another thread is already rebuilding,
+            # serve the stale snapshot immediately instead of stacking another rebuild.
+            if not _CT_LOCK.acquire(blocking=(_hit is None)):
+                return self._send(200, _hit[1], "application/json")
             try:
-                from trading.crypto.engine_client import CryptoEngineClient
-                from trading.crypto import freqtrade_ingest as _fi
-                from trading.crypto.freqtrade_ingest import open_trades_view, closed_view
-                from trading.crypto.freqtrade import control as _ctl
-                cli = CryptoEngineClient()
-                openrows = open_trades_view(cli)
-                closed = closed_view(cli)
-                # Enrich with strategy + brain + NN predictions. NN runs on all OPEN rows but
-                # only the newest closed rows — predicting a 1000+-row history every poll is
-                # what made this endpoint stall (open trades are the actionable ones).
-                _enrich_predictions(openrows, closed[:80])
-                for r in closed[80:]:
-                    r["strategy_label"] = (r.get("enter_tag") or r.get("strategy")
-                                           or r.get("strategy_name") or "—")
-                    r["brain_pred"] = r.get("direction") or "—"
-                    r["nn_pred"] = "—"
-                # FIXED column schemas (not data-derived) so the dashboard column count is
-                # stable as trades open/close — same contract as the dark dashboard.
-                out = {"open": openrows, "closed": closed,
-                       "open_columns": _fi.OPEN_VIEW_COLUMNS + PREDICTION_COLUMNS,
-                       "closed_columns": _fi.CLOSED_VIEW_COLUMNS + PREDICTION_COLUMNS,
-                       "params": _ctl.status(), "n_open": len(openrows), "n_closed": len(closed)}
-            except Exception as e:
-                out = {"open": [], "closed": [], "error": f"{type(e).__name__}: {e}"}
-            _body = json.dumps(out, default=str).encode()
-            if not out.get("error"):
-                _CT_CACHE[path] = (_ct_t.time(), _body)
+                # Re-check after acquiring — the previous builder may have just refreshed it.
+                _hit = _CT_CACHE.get(path)
+                if _hit and (_ct_t.time() - _hit[0]) < 30:
+                    return self._send(200, _hit[1], "application/json")
+                try:
+                    from trading.crypto.engine_client import CryptoEngineClient
+                    from trading.crypto import freqtrade_ingest as _fi
+                    from trading.crypto.freqtrade_ingest import open_trades_view, closed_view
+                    from trading.crypto.freqtrade import control as _ctl
+                    cli = CryptoEngineClient()
+                    openrows = open_trades_view(cli)
+                    closed = closed_view(cli)
+                    # Enrich with strategy + brain + NN predictions. NN runs on all OPEN rows but
+                    # only the newest closed rows — predicting a 1000+-row history every poll is
+                    # what made this endpoint stall (open trades are the actionable ones).
+                    _enrich_predictions(openrows, closed[:80])
+                    for r in closed[80:]:
+                        r["strategy_label"] = (r.get("enter_tag") or r.get("strategy")
+                                               or r.get("strategy_name") or "—")
+                        r["brain_pred"] = r.get("direction") or "—"
+                        r["nn_pred"] = "—"
+                    # FIXED column schemas (not data-derived) so the dashboard column count is
+                    # stable as trades open/close — same contract as the dark dashboard.
+                    out = {"open": openrows, "closed": closed,
+                           "open_columns": _fi.OPEN_VIEW_COLUMNS + PREDICTION_COLUMNS,
+                           "closed_columns": _fi.CLOSED_VIEW_COLUMNS + PREDICTION_COLUMNS,
+                           "params": _ctl.status(), "n_open": len(openrows), "n_closed": len(closed)}
+                except Exception as e:
+                    out = {"open": [], "closed": [], "error": f"{type(e).__name__}: {e}"}
+                _body = json.dumps(out, default=str).encode()
+                if not out.get("error"):
+                    _CT_CACHE[path] = (_ct_t.time(), _body)
+            finally:
+                _CT_LOCK.release()
             return self._send(200, _body, "application/json")
         if path == "/api/trading/crypto/predictions":
             # LIGHTWEIGHT per-trade Strategy/Brain/NN map keyed by trade_id, for overlaying onto the
@@ -901,30 +1153,40 @@ class Handler(BaseHTTPRequestHandler):
             hit = _PRED_MAP_CACHE
             if hit and (_pt.time() - hit[0]) < 15:
                 return self._send(200, hit[1], "application/json")
+            # Single-flight (same avalanche fix as /crypto/trades): stale + rebuild-in-progress
+            # → serve stale now; only one thread pays the enrichment cost.
+            if not _PRED_MAP_LOCK.acquire(blocking=(hit is None)):
+                return self._send(200, hit[1], "application/json")
             try:
-                from trading.crypto.engine_client import CryptoEngineClient
-                from trading.crypto.freqtrade_ingest import open_trades_view, map_trade
-                cli = CryptoEngineClient()
-                openrows = open_trades_view(cli)
+                hit = _PRED_MAP_CACHE
+                if hit and (_pt.time() - hit[0]) < 15:
+                    return self._send(200, hit[1], "application/json")
                 try:
-                    # Only the most recent ~120 closed trades are visible in the native table's first
-                    # pages; enriching all 500 makes net.predict ~26s. Newest-first by trade_id.
-                    raw = [ft for ft in cli.closed_trades() if isinstance(ft, dict)]
-                    raw.sort(key=lambda ft: ft.get("trade_id") or 0, reverse=True)
-                    closed_light = [map_trade(ft).to_dict() for ft in raw[:120]]
-                except Exception:
-                    closed_light = []
-                _enrich_predictions(openrows, closed_light)
-                pmap = {}
-                for r in [*openrows, *closed_light]:
-                    tid = str(r.get("trade_id", "")).replace("FT-", "")
-                    if tid:
-                        pmap[tid] = {"strategy_label": r.get("strategy_label"),
-                                     "brain_pred": r.get("brain_pred"), "nn_pred": r.get("nn_pred")}
-                body = json.dumps({"map": pmap, "n": len(pmap)}, default=str).encode()
-            except Exception as e:
-                body = json.dumps({"map": {}, "error": f"{type(e).__name__}: {e}"}).encode()
-            _PRED_MAP_CACHE = (_pt.time(), body)
+                    from trading.crypto.engine_client import CryptoEngineClient
+                    from trading.crypto.freqtrade_ingest import open_trades_view, map_trade
+                    cli = CryptoEngineClient()
+                    openrows = open_trades_view(cli)
+                    try:
+                        # Only the most recent ~120 closed trades are visible in the native table's first
+                        # pages; enriching all 500 makes net.predict ~26s. Newest-first by trade_id.
+                        raw = [ft for ft in cli.closed_trades() if isinstance(ft, dict)]
+                        raw.sort(key=lambda ft: ft.get("trade_id") or 0, reverse=True)
+                        closed_light = [map_trade(ft).to_dict() for ft in raw[:120]]
+                    except Exception:
+                        closed_light = []
+                    _enrich_predictions(openrows, closed_light)
+                    pmap = {}
+                    for r in [*openrows, *closed_light]:
+                        tid = str(r.get("trade_id", "")).replace("FT-", "")
+                        if tid:
+                            pmap[tid] = {"strategy_label": r.get("strategy_label"),
+                                         "brain_pred": r.get("brain_pred"), "nn_pred": r.get("nn_pred")}
+                    body = json.dumps({"map": pmap, "n": len(pmap)}, default=str).encode()
+                except Exception as e:
+                    body = json.dumps({"map": {}, "error": f"{type(e).__name__}: {e}"}).encode()
+                _PRED_MAP_CACHE = (_pt.time(), body)
+            finally:
+                _PRED_MAP_LOCK.release()
             return self._send(200, body, "application/json")
         if path == "/api/trading/crypto/markets":
             # Binance-style live markets/screener feed the brain picks from. Query: segment
@@ -1110,6 +1372,11 @@ class Handler(BaseHTTPRequestHandler):
                     out["pending_logins"] = get_vault().pending()
                 except Exception:
                     out["pending_logins"] = []
+                try:
+                    from trading.brain.learn_loop import get_learn_loop
+                    out["loop"] = get_learn_loop().status()
+                except Exception:
+                    out["loop"] = {"enabled": False, "running": False}
                 return json.dumps(out, default=str).encode()
             return self._send(200, _cached_body("brain/learning", 6.0, _p_learning),
                               "application/json")
@@ -1549,6 +1816,15 @@ class Handler(BaseHTTPRequestHandler):
                     "note": f"live order book unavailable ({type(e).__name__}: {str(e)[:80]}) — demo book",
                 }, default=str).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/trading/scorecard":
+            # Per-segment score card: realized + current P&L for every NSE / crypto /
+            # prediction segment, from the SAME sources as the unified open/closed tables.
+            try:
+                body = json.dumps(_scorecard(), default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False,
+                                   "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/opentrades":
             # T6 Open Trades table: LIVE open PAPER positions from the running trade loop
             # (marked at last price). Empty → rows:[] (honest: no open positions right now).
@@ -1644,7 +1920,7 @@ class Handler(BaseHTTPRequestHandler):
                         "Exit Policy": exit_policy, "Liq Price": liq_txt, "Hold Time": hold,
                         "Confidence": conf_txt,
                         "Win Prob": win_txt, "NN Verdict": pr.get("verdict", "—"),
-                        "Exp R": expr_txt})
+                        "Exp R": expr_txt, **_psych_cells(p.get("psych"))})
                 # —— UNIFIED TABLE: Freqtrade OPEN trades (engine-owned crypto) ——
                 try:
                     from trading.crypto.engine_client import CryptoEngineClient
@@ -1683,7 +1959,9 @@ class Handler(BaseHTTPRequestHandler):
                             "Exchange": t.get("exchange", "binance"),
                             "Exit Policy": "freqtrade-managed", "Liq Price": "—",
                             "Hold Time": hold, "Confidence": "—", "Win Prob": "—",
-                            "NN Verdict": "—", "Exp R": "—"})
+                            "NN Verdict": "—", "Exp R": "—",
+                            # entry-time psychology from the brain-loop sidecar store
+                            **_psych_cells(_ft_entry_psych(t))})
                 except Exception:
                     pass
                 # —— UNIFIED TABLE: OpenAlgo sandbox (NSE paper) open positions ——
@@ -1713,7 +1991,8 @@ class Handler(BaseHTTPRequestHandler):
                             "Exchange": p.get("exchange", "NSE"),
                             "Exit Policy": "openalgo-managed", "Liq Price": "—",
                             "Hold Time": "—", "Confidence": "—", "Win Prob": "—",
-                            "NN Verdict": "—", "Exp R": "—"})
+                            "NN Verdict": "—", "Exp R": "—",
+                            "Psychology": "—", "Psych Label": "—"})
                 except Exception:
                     pass
                 rate = _usdinr()
@@ -1887,6 +2166,116 @@ class Handler(BaseHTTPRequestHandler):
                     "hint": "hypothesis loop via trading/brain/hypothesis.py (HypothesisLedger).",
                 }).encode()
             return self._send(200, body, "application/json")
+        if path == "/api/trading/psychology":
+            # Trader Psychology (order-book depth): LIVE crowd metrics per symbol — OBI, OFI,
+            # Stoikov microprice drift, depth-slope, whale walls, spread/λ/VPIN fear and the
+            # composite score/label (trading/brain/psychology.py, stitched from vendored
+            # lob-regime-scanner + microprice + crypto-whale-watching + lob-deep-learning).
+            # ?market=CRYPTO|NSE&symbol=X&segment=Y evaluates ONE symbol on demand; default =
+            # every currently OPEN position (loop + Freqtrade) — real books only, no demo rows.
+            try:
+                from urllib.parse import parse_qs, urlparse
+                from trading.brain.psychology import get_engine
+                qs = parse_qs(urlparse(self.path).query)
+                eng = get_engine()
+                out, errors = [], []
+                sym = (qs.get("symbol", [""])[0] or "").strip()
+                if sym:
+                    mkt = (qs.get("market", ["CRYPTO"])[0] or "CRYPTO").upper()
+                    seg = (qs.get("segment", [""])[0] or None)
+                    r = eng.evaluate(mkt, sym, segment=seg)
+                    if r:
+                        out.append(r)
+                    else:
+                        errors.append(f"no depth for {mkt}:{sym}")
+                else:
+                    targets = []
+                    try:
+                        from trading.online.live_loop import get_loop
+                        targets += [(p["market"], p["symbol"], p.get("segment"))
+                                    for p in get_loop().open_positions()]
+                    except Exception:
+                        pass
+                    try:
+                        from trading.crypto.engine_client import CryptoEngineClient
+                        from trading.crypto.freqtrade_ingest import open_trades_view
+                        targets += [("CRYPTO", t.get("symbol"), "futures")
+                                    for t in open_trades_view(CryptoEngineClient())]
+                    except Exception:
+                        pass
+                    seen = set()
+                    for mkt, s, seg in targets[:12]:      # cap per request; engine caches 5s
+                        if not s or (mkt, s) in seen:
+                            continue
+                        seen.add((mkt, s))
+                        r = eng.evaluate(mkt, s, segment=seg)
+                        if r:
+                            out.append(r)
+                body = json.dumps({"available": True, "rows": out, "errors": errors},
+                                  default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False,
+                                   "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/trading/brain/ultra":
+            # Brain ultra-upgrade (Phases A–E, 2026-07-02): REAL statuses of the new stack —
+            # associative memory (HippoRAG PPR + A-MEM evolution over the knowledge graph),
+            # Claude-style file memory (brain_memory/), the cloned micro-LLM (nanoGPT node +
+            # llama2.c C kernel), Docling/Surya perception, Avalanche continual learning and
+            # the gpt-researcher deep-research engine. ?q=... also runs a LIVE associative
+            # recall so the panel shows actual multi-hop hits, never canned JSON.
+            try:
+                from urllib.parse import parse_qs, urlparse
+                from trading.brain import ultra
+                qs = parse_qs(urlparse(self.path).query)
+
+                def _p_ultra():
+                    st = ultra.status()
+                    return json.dumps({**st, "available": True}, default=str).encode()
+                q = (qs.get("q", [""])[0] or "").strip()
+                if q:
+                    body = json.dumps({"query": q, "hits": ultra.recall(q, k=6),
+                                       "available": True}, default=str).encode()
+                else:
+                    # _bg_snapshot, NOT _cached_body: ultra.status() first-run does LLM
+                    # calls + file-memory init IN the request thread — 6+ pollers stuck
+                    # there was half of the post-restart 503 wedge (2026-07-03).
+                    body = _bg_snapshot("brain/ultra", _p_ultra, ttl=300.0)
+            except Exception as e:
+                body = json.dumps({"available": False,
+                                   "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/trading/brain/decisions":
+            # Decision memory (trading/brain/decision_memory.py — FinMem layers +
+            # TradingAgents outcome-closure + SHAP attribution): REAL episodes only.
+            # ?symbol=X&q=... runs a live recall; default returns stats + newest episodes.
+            try:
+                from urllib.parse import parse_qs, urlparse
+                from trading.brain.decision_memory import get_memory
+                dm = get_memory()
+                qs = parse_qs(urlparse(self.path).query)
+                sym = (qs.get("symbol", [""])[0] or "").strip()
+                q = (qs.get("q", [""])[0] or "").strip()
+
+                def _trim(ep):
+                    out = {k: ep.get(k) for k in
+                           ("episode_id", "trade_id", "engine", "ts", "symbol", "market",
+                            "segment", "direction", "entry_price", "strategy", "outcome",
+                            "reflection", "pending", "layer", "importance", "recency",
+                            "_score")}
+                    out["attribution_top"] = (ep.get("attribution") or {}).get("top", [])
+                    return out
+                if sym or q:
+                    eps = dm.recall(symbol=sym, query=q, k=12, resolved_only=False)
+                else:
+                    eps = [dict(e) for e in dm.episodes[-40:]][::-1]
+                body = json.dumps({"available": True, "stats": dm.stats(),
+                                   "episodes": [_trim(e) for e in eps]},
+                                  default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False,
+                                   "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/gui/status":
             # Computer-use / GUI agent (trading/brain/gui): the brain SEEING dashboards (own +
             # Freqtrade/FreqUI), pressing their buttons, experimenting, reflecting (Reflexion)
@@ -1926,37 +2315,44 @@ class Handler(BaseHTTPRequestHandler):
             # (library-first); we run a FORCED offline demo over a synthetic series so the
             # panel shows the loop working, and report the real gate status honestly.
             try:
-                import numpy as _np
-                import pandas as _pd
-                from trading.strategy.control import evolution_enabled
-                from trading.strategy.self_evolve import (SelfEvolvingLoop,
-                                                          register_self_evolve)
-                rng = _np.random.default_rng(5); n = 360
-                ret = rng.normal(0.0006, 0.012, n) + 0.003 * _np.sin(_np.arange(n) / 18)
-                close = 100 * _np.exp(_np.cumsum(ret))
-                ohlcv = _pd.DataFrame({"open": close,
-                                       "high": close * (1 + _np.abs(rng.normal(0, 0.004, n))),
-                                       "low": close * (1 - _np.abs(rng.normal(0, 0.004, n))),
-                                       "close": close, "volume": rng.uniform(1e3, 9e3, n)})
-                # persist=False so the demo never writes to the live library/history
-                loop = SelfEvolvingLoop(persist=False)
-                run = loop.run_generation(ohlcv, market="CRYPTO", generations=4,
-                                          pop_size=14, seed=5, force=True)
-                register_self_evolve(loop)               # dashboard-sync: node graph
-                body = json.dumps({
-                    "gate_enabled": evolution_enabled(),     # real production gate status
-                    "demo_forced": True,
-                    "run": {k: run.get(k) for k in ("ran", "evaluated", "promoted",
-                                                    "admitted", "best_score", "pbo",
-                                                    "gen_history", "admitted_skills")},
-                    "library": run.get("library"),
-                    "status": loop.status(),
-                    "note": ("lifelong loop (trading/strategy/self_evolve.py): DEAP NSGA-II "
-                             "evolves a population → guardrail-passed survivors are admitted "
-                             "into the persisted SkillLibrary (Voyager-style growth) → "
-                             "reevaluate() retires stale skills. gate_enabled=false means the "
-                             "engine is OFF in production (library-first); this is a forced demo."),
-                }, default=str).encode()
+                # _bg_snapshot, NOT inline: this demo runs DEAP GP evolution + dozens of
+                # vectorbt backtests (~minutes of GIL-bound compute). Running it inside
+                # every cold-cache GET meant a UI polling burst after each restart put
+                # 10+ handler threads into backtests and 503-wedged the whole server
+                # for ~10 min (2026-07-03). The warmer builds it ONCE, serially.
+                def _p_evolve():
+                    import numpy as _np
+                    import pandas as _pd
+                    from trading.strategy.control import evolution_enabled
+                    from trading.strategy.self_evolve import (SelfEvolvingLoop,
+                                                              register_self_evolve)
+                    rng = _np.random.default_rng(5); n = 360
+                    ret = rng.normal(0.0006, 0.012, n) + 0.003 * _np.sin(_np.arange(n) / 18)
+                    close = 100 * _np.exp(_np.cumsum(ret))
+                    ohlcv = _pd.DataFrame({"open": close,
+                                           "high": close * (1 + _np.abs(rng.normal(0, 0.004, n))),
+                                           "low": close * (1 - _np.abs(rng.normal(0, 0.004, n))),
+                                           "close": close, "volume": rng.uniform(1e3, 9e3, n)})
+                    # persist=False so the demo never writes to the live library/history
+                    loop = SelfEvolvingLoop(persist=False)
+                    run = loop.run_generation(ohlcv, market="CRYPTO", generations=4,
+                                              pop_size=14, seed=5, force=True)
+                    register_self_evolve(loop)           # dashboard-sync: node graph
+                    return json.dumps({
+                        "gate_enabled": evolution_enabled(),  # real production gate status
+                        "demo_forced": True,
+                        "run": {k: run.get(k) for k in ("ran", "evaluated", "promoted",
+                                                        "admitted", "best_score", "pbo",
+                                                        "gen_history", "admitted_skills")},
+                        "library": run.get("library"),
+                        "status": loop.status(),
+                        "note": ("lifelong loop (trading/strategy/self_evolve.py): DEAP NSGA-II "
+                                 "evolves a population → guardrail-passed survivors are admitted "
+                                 "into the persisted SkillLibrary (Voyager-style growth) → "
+                                 "reevaluate() retires stale skills. gate_enabled=false means the "
+                                 "engine is OFF in production (library-first); this is a forced demo."),
+                    }, default=str).encode()
+                body = _bg_snapshot("brain/evolve", _p_evolve)
             except Exception as e:
                 body = json.dumps({
                     "available": False, "error": f"{type(e).__name__}: {e}",
@@ -2285,6 +2681,14 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authed():
             return
         path = self.path.split("?", 1)[0]
+        # Any POST can change trading/brain state → mark the read-cache STALE (ts=0),
+        # not deleted: the next poll still serves instantly from the old body while a
+        # background SWR refresh recomputes it. Deleting instead forced the next reader
+        # into a synchronous 10–19s rebuild — every stray POST (chat, GUI-agent, FreqUI
+        # overlay) silently re-froze the panels (observed 2026-07-03).
+        with _ENDPOINT_CACHE_LOCK:
+            for k, v in list(_ENDPOINT_CACHE.items()):
+                _ENDPOINT_CACHE[k] = (0.0, v[1])
         if path == "/api/trading/credentials":
             # Credential vault control. Body {op, site, ...}: op=submit {site, values{}} stores
             # (encrypted) the operator's answer to a brain login request; op=request {site,
@@ -2318,7 +2722,21 @@ class Handler(BaseHTTPRequestHandler):
                 data = json.loads(self.rfile.read(n) or b"{}")
                 from trading.brain.learner import get_learner
                 L = get_learner(); op = str(data.get("op", "")).lower()
-                if op == "self_eval":
+                if op in ("loop_on", "loop_off", "queue", "loop_status"):
+                    # CONTINUOUS learning loop control (trading/brain/learn_loop.py):
+                    # loop_on/off toggles autonomous interval learning; queue adds a topic
+                    # the loop studies next; state persists across restarts.
+                    from trading.brain.learn_loop import get_learn_loop
+                    lp = get_learn_loop()
+                    if op == "loop_on":
+                        out = lp.enable(True)
+                    elif op == "loop_off":
+                        out = lp.enable(False)
+                    elif op == "queue":
+                        out = lp.queue_topic(str(data.get("topic", "")))
+                    else:
+                        out = lp.status()
+                elif op == "self_eval":
                     out = L.self_evaluate(data.get("topics"))
                 else:
                     import threading as _th
@@ -2550,6 +2968,19 @@ class Handler(BaseHTTPRequestHandler):
                     controls.set_segments(market, data.get("segments") or data.get("value") or [])
                 elif action == "toggle_segment":      # flip one trade-type on/off
                     controls.toggle_segment(market, data.get("segment") or data.get("value") or "")
+                # CRYPTO segment changes also reconfigure the multi-segment Freqtrade engine
+                # (vendor/freqtrade fork): persist CRYPTO_SEGMENTS + rewrite config + restart.
+                if str(market).upper() == "CRYPTO" and action in ("segments", "toggle_segment"):
+                    try:
+                        sel = ((controls.status().get("markets") or {})
+                               .get("CRYPTO") or {}).get("segments") or []
+                        from trading.crypto.freqtrade import control as _ctl
+                        _ctl.set_segments_enabled(sel)
+                    except Exception as e:
+                        out = {"ok": True, "action": action, "engine_sync": f"failed: {e}",
+                               "status": controls.status()}
+                        return self._send(200, json.dumps(out, default=str).encode(),
+                                          "application/json")
                 elif action == "set_balance":
                     controls.set_balance(market, float(data.get("amount", 0.0)),
                                          data.get("portfolio_id", "default"))
@@ -2579,14 +3010,45 @@ class Handler(BaseHTTPRequestHandler):
                         min_total_open=data.get("min_total_open"),
                         min_capital_per_trade=data.get("min_capital_per_trade"),
                         brain_handoff_trades=data.get("brain_handoff_trades"),
+                        brain_unlimited=data.get("brain_unlimited"),
                         screen_min_pct=data.get("screen_min_pct"),
                         screen_min_quote_volume=data.get("screen_min_quote_volume"))
                     out = {"ok": True, "action": action, "config": cfg}
                     return self._send(200, json.dumps(out, default=str).encode(), "application/json")
                 elif action == "close_all":           # flatten every open position now
+                    # ALL engines, best-effort: (1) the loop's own paper book, (2) every
+                    # Freqtrade-owned crypto trade (forceexit per open pair), (3) every
+                    # OpenAlgo sandbox position (covers trades opened outside the loop).
                     from trading.online.live_loop import get_loop
                     res = get_loop().close_all()
-                    out = {"ok": True, "action": action, "result": res}
+                    ft_closed, ft_err = 0, ""
+                    try:
+                        from trading.crypto.engine_client import CryptoEngineClient
+                        eng = CryptoEngineClient()
+                        if eng.ping().connected:
+                            for pair in list(eng.open_pairs() or []):
+                                try:
+                                    eng.close_pair(pair)
+                                    ft_closed += 1
+                                except Exception as e:
+                                    ft_err = f"{type(e).__name__}: {e}"[:80]
+                    except Exception as e:
+                        ft_err = f"{type(e).__name__}: {e}"[:80]
+                    oa_res, oa_err = {}, ""
+                    try:
+                        from trading.openalgo_client import OpenAlgoClient
+                        oa = OpenAlgoClient()
+                        if not oa.config.is_live:      # paper only — never flatten a live book here
+                            oa_res = oa._check(oa._client().closeposition(
+                                strategy="dashboard-close-all"), "closeposition")
+                    except Exception as e:
+                        oa_err = f"{type(e).__name__}: {e}"[:80]
+                    out = {"ok": True, "action": action, "result": res,
+                           "freqtrade": {"closed_pairs": ft_closed, "error": ft_err},
+                           "openalgo": {**oa_res, "error": oa_err},
+                           "detail": (f"loop closed {res.get('closed', 0)} · Freqtrade closed "
+                                      f"{ft_closed} pairs · OpenAlgo "
+                                      f"{oa_res.get('closed_positions', 0)} positions")}
                     return self._send(200, json.dumps(out, default=str).encode(), "application/json")
                 elif action == "panic":
                     controls.panic()
@@ -2599,6 +3061,22 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
             return self._send(200, json.dumps(out, default=str).encode(), "application/json")
+        if path == "/api/trading/brain/ultra/remember":
+            # Write a durable Claude-style memory note (one fact per file in brain_memory/,
+            # indexed + associatively linked). Body {name, description, body, type}.
+            try:
+                n = int(self.headers.get("Content-Length", 0) or 0)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                from trading.brain import ultra
+                out = ultra.remember(str(data.get("name", "note")),
+                                     str(data.get("description", "")),
+                                     str(data.get("body", "")),
+                                     type=str(data.get("type", "lesson")))
+                body = json.dumps({"ok": True, **out}).encode()
+            except Exception as e:
+                body = json.dumps({"ok": False,
+                                   "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/trading/gui/action":
             # Drive the computer-use / GUI agent. JSON body {op, ...}:
             #   op=observe   {target}                      → SEE a dashboard (live read)
@@ -2664,24 +3142,55 @@ class Handler(BaseHTTPRequestHandler):
 class BoundedHTTPServer(ThreadingHTTPServer):
     """ThreadingHTTPServer that CAPS concurrent request threads so slow upstream calls (ccxt /
     OpenAlgo) can't accumulate threads and wedge the server (the recurring thread-leak fix).
-    Excess requests are dropped fast instead of piling up; daemon threads die with the process."""
+    Excess requests QUEUE (bounded) instead of being reset: the old drop-on-full close() made
+    Caddy report 'connection reset by peer' → 502, so the UI's once-a-minute polling burst
+    (~30 parallel GETs) randomly killed control POSTs (toggle segment / set sizing limits).
+    Waiting threads are blocked on a semaphore — no GIL cost — so queuing is cheap; only past
+    the hard backlog cap do we shed load, and then with a real 503, never a silent reset."""
     daemon_threads = True
-    _sem = __import__("threading").Semaphore(120)
+    # 32, not 120: handlers are GIL-bound Python; 120 concurrent heavy handlers each get ~1/120
+    # of one core and ALL time out. With the single-flight caches most requests are cheap
+    # cache-serves, so 32 concurrent is ample and keeps the box responsive under storm.
+    _sem = __import__("threading").Semaphore(32)
+    # Hard cap on QUEUED requests beyond the 32 running (thread pile-up backstop).
+    _backlog = __import__("threading").Semaphore(224)
+    # Accept-queue: the BaseHTTPServer default is 5 — a browser reconnect storm overflows it and
+    # new TCP connections are dropped before Python ever sees them (curl → 000 while LISTENing).
+    request_queue_size = 128
+
+    @staticmethod
+    def _refuse(request):
+        try:
+            request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nRetry-After: 2\r\n"
+                            b"Content-Length: 0\r\nConnection: close\r\n\r\n")
+        except Exception:
+            pass
+        try:
+            request.close()
+        except Exception:
+            pass
 
     def process_request(self, request, client_address):
-        if not self._sem.acquire(timeout=0.05):
-            try:
-                request.close()
-            except Exception:
-                pass
+        # Never block the accept loop: only the cheap backlog check happens here; the
+        # potentially-slow handler-slot wait happens inside the per-request thread.
+        if not self._backlog.acquire(blocking=False):
+            self._refuse(request)
             return
         super().process_request(request, client_address)
 
     def process_request_thread(self, request, client_address):
         try:
-            super().process_request_thread(request, client_address)
+            # Wait for a handler slot instead of resetting the connection. 20s < the 25s
+            # per-request socket timeout and well under the tunnel's upstream timeout.
+            if not self._sem.acquire(timeout=20):
+                self._refuse(request)
+                return
+            try:
+                super().process_request_thread(request, client_address)
+            finally:
+                self._sem.release()
         finally:
-            self._sem.release()
+            self._backlog.release()
 
 
 def main() -> None:
@@ -2700,6 +3209,33 @@ def main() -> None:
             pass
     Handler.timeout = 25                       # per-request socket timeout → hung reads release
     srv = BoundedHTTPServer(("0.0.0.0", port), Handler)
+    # SWR: loopback port for background refreshes + prewarm the measured-heavy endpoints
+    # (staggered, one at a time) so the FIRST page load after boot already hits warm cache.
+    global _SWR_PORT
+    _SWR_PORT = port
+
+    def _prewarm():
+        import time as _t
+        _t.sleep(3)                            # let serve_forever start
+        for p in (*_HEAVY_TTL, "/api/trading/crypto/status", "/api/trading/strategy/status",
+                  "/api/trading/online/status", "/api/trading/execution/status"):
+            _swr_refresh_async(p)
+            _t.sleep(1.5)                      # stagger: don't stampede the GIL at boot
+        # warm the PERSISTENT KnowledgeBrain (loads the embedding model + rehydrates the
+        # on-disk collection) so the Brain Learning panel shows the surviving documents
+        # right after a restart instead of 0/warming until the first learn.
+        try:
+            from memory.brain import get_brain
+            from trading.brain.learner import get_learner
+            get_learner()._brain = get_brain()
+        except Exception:
+            pass
+        try:
+            from trading.brain.learn_loop import ensure_started
+            ensure_started()               # resume continuous learning across restarts
+        except Exception:
+            pass
+    threading.Thread(target=_prewarm, daemon=True, name="swr-prewarm").start()
 
     # Write live markets to a JSON file inside Freqtrade's served UI dir so the forked FreqUI
     # pairlist reads it SAME-ORIGIN (no CORS / no dashboard-URL config — bulletproof overlay).
@@ -2713,14 +3249,28 @@ def main() -> None:
         from trading.crypto.markets import live_markets
 
         def _dash_url():
-            # dashboard's own public tunnel URL → FreqUI POSTs control changes back here (CORS)
+            # dashboard's own public tunnel URL → FreqUI POSTs control changes back here (CORS
+            # fallback; same-origin via the Caddy gateway is the primary path). Truth order:
+            # public_link.txt (written by start_all.sh, always the LIVE link) → the live
+            # logs/cloudflared.log → legacy root cloudflared.log. The old code read only the
+            # stale root log → dead trycloudflare URL → every FreqUI control POST "failed".
+            import re
             try:
-                import re
-                with open(os.path.join(ROOT, "cloudflared.log")) as f:
-                    urls = re.findall(r"https://[a-z0-9-]+\.trycloudflare\.com", f.read())
-                return urls[-1] if urls else ""
+                with open(os.path.join(ROOT, "public_link.txt")) as f:
+                    u = f.read().strip()
+                if u.startswith("https://"):
+                    return u.rstrip("/")
             except Exception:
-                return ""
+                pass
+            for lf in ("logs/cloudflared.log", "cloudflared.log"):
+                try:
+                    with open(os.path.join(ROOT, lf)) as f:
+                        urls = re.findall(r"https://[a-z0-9-]+\.trycloudflare\.com", f.read())
+                    if urls:
+                        return urls[-1]
+                except Exception:
+                    continue
+            return ""
         while True:
             try:
                 rows = live_markets(segment="perp", sort="volume", limit=300)
@@ -2731,8 +3281,24 @@ def main() -> None:
                 pass
             try:
                 from trading.crypto.freqtrade import control as _ctl
+                # Selected trade-type segments (Futures/Spot/Options/Prediction buttons in the
+                # FreqUI overlay) — same persisted registry the dashboard panel uses.
+                try:
+                    from trading.online import controls as _oc
+                    _cs = _oc.registry().get("CRYPTO")
+                    seg = {"selected": list(_cs.segments),
+                           "available": list(__import__("trading.online.state", fromlist=["SEGMENTS"]).SEGMENTS.get("CRYPTO", []))}
+                except Exception:
+                    seg = {}
+                # 🤖 AI-Brain unlimited flag for the FreqUI toggle (loop cfg is the truth).
+                try:
+                    from trading.online.live_loop import get_loop
+                    brain_unl = bool(get_loop().cfg.get("brain_unlimited"))
+                except Exception:
+                    brain_unl = False
                 with open(os.path.join(uidir, "mlnb_status.json"), "w") as f:
-                    json.dump({"params": _ctl.status(), "dashboard_url": _dash_url()}, f)
+                    json.dump({"params": _ctl.status(), "dashboard_url": _dash_url(),
+                               "segments": seg, "brain_unlimited": brain_unl}, f)
             except Exception:
                 pass
             _t.sleep(10)
