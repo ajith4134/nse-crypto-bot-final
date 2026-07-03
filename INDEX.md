@@ -1169,6 +1169,12 @@ _tests/test_computer_use.py — the brain's computer-use / GUI agent (trading/br
 - **functions:** `isolated_state(tmp_path, monkeypatch)`; `test_default_targets_are_own_and_freqtrade(isolated_state)`; `test_html_controls_parse()`; `test_chart_reader_reads_trend()`; `test_dry_run_plans_without_firing(isolated_state)`; `test_live_affecting_refused_unless_armed(isolated_state)`; `test_skill_retrieval_and_success_compounding(isolated_state)`; `test_reflector_distils_and_recalls(isolated_state)`; `test_agent_step_and_practice(isolated_state)`; `test_agent_aborts_into_halted_market(isolated_state, monkeypatch)`; `test_node_conforms_and_registers(isolated_state)`
 - **imports:** __future__, core.node_protocol, pytest
 
+## `tests/test_concept_discovery.py`
+_Concept Discovery Engine (trading/brain/discovery/) — pure-self feature invention._
+- **classes:** TestConceptDiscovery
+- **functions:** `_ohlcv(n, seed)`
+- **imports:** __future__, numpy, os, tempfile, unittest, warnings
+
 ## `tests/test_continual_learning.py`
 _Tests for Phase E — Avalanche ContinualLearner + world-model continual update._
 - **functions:** `_regime(seed, w, n)`; `test_learns_sequential_regimes_without_forgetting()`; `_ohlcv(seed, n, drift)`; `test_worldmodel_updates_online_with_replay()`
@@ -1641,6 +1647,36 @@ _Decision memory — every trade is a fully-provenanced EPISODE the brain recall
 - **classes:** DecisionMemory
 - **functions:** `_tokens(text) -> set`; `get_memory() -> DecisionMemory`
 - **imports:** __future__, math, random, time, trading
+
+## `trading/brain/discovery/__init__.py`
+_Concept Discovery Engine — pure-self market-feature invention (idea-discovery mode)._
+- **imports:** engine
+
+## `trading/brain/discovery/encoders.py`
+_Self-supervised market-window encoder — the net that INVENTS its own features._
+- **classes:** WindowEncoder
+- **functions:** `make_windows(series, w, stride) -> np.ndarray`
+- **imports:** __future__, numpy, warnings
+
+## `trading/brain/discovery/engine.py`
+_Concept Discovery Engine — "idea discovery mode" (pure-self feature invention)._
+- **classes:** ConceptDiscoveryEngine
+- **imports:** __future__, encoders, json, manifold, namer, numpy, os, probe, time
+
+## `trading/brain/discovery/manifold.py`
+_Concept-space manifold: project the invented-feature space to 2-D and cluster it._
+- **functions:** `project(Z, seed) -> dict`
+- **imports:** __future__, numpy, warnings
+
+## `trading/brain/discovery/namer.py`
+_Name the discovered concepts — the auto-interp step._
+- **functions:** `_window_stats(win) -> dict`; `_fallback_name(stats, fid) -> dict`; `name_feature(fid, windows, use_llm) -> dict`
+- **imports:** __future__, json, numpy, re
+
+## `trading/brain/discovery/probe.py`
+_Read out the self-invented features: sparse-autoencoder probe over the encoder latent._
+- **classes:** SAEProbe
+- **imports:** __future__, numpy, warnings
 
 ## `trading/brain/entryexit.py`
 _trading/brain/entryexit.py — regime/pattern-gated entry + learned exit (T8.6)._

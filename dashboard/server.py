@@ -882,6 +882,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 snap = {"providers": [], "totals": {}, "error": str(e)[:120]}
             return self._send(200, json.dumps(snap).encode(), "application/json")
+        if path == "/api/trading/brain/discovery":
+            # Concept Discovery Engine: last run's self-invented features + concept manifold.
+            # Read-only (returns the persisted result); POST /run triggers a fresh discovery.
+            try:
+                from trading.brain.discovery import ConceptDiscoveryEngine
+                blob = ConceptDiscoveryEngine.load()
+            except Exception as e:
+                blob = {"features": [], "manifold": {"points": [], "n_clusters": 0},
+                        "stats": {}, "error": str(e)[:120]}
+            return self._send(200, json.dumps(blob).encode(), "application/json")
         if path == "/api/brain/agent/status":
             # P4.1 LangGraph BrainAgent status: engine, has_memory, active LLM (or null
             # offline), recall_k. Degrades to an error payload (never crashes the server).
@@ -2689,6 +2699,47 @@ class Handler(BaseHTTPRequestHandler):
         with _ENDPOINT_CACHE_LOCK:
             for k, v in list(_ENDPOINT_CACHE.items()):
                 _ENDPOINT_CACHE[k] = (0.0, v[1])
+        if path == "/api/trading/brain/discovery/run":
+            # Trigger a fresh concept-discovery run on REAL recent market data (public Binance
+            # klines). Body {symbol?, interval?, use_llm?}. Returns the discovered features +
+            # manifold and persists them for the panel. Never fabricates — needs real candles.
+            try:
+                n = int(self.headers.get("Content-Length", 0) or 0)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                symbol = str(data.get("symbol", "BTCUSDT")).upper().replace("/", "")
+                interval = str(data.get("interval", "1h"))
+                use_llm = bool(data.get("use_llm", False))
+                from data.binance import fetch_klines, load_klines
+                fetch_klines(symbol=symbol, interval=interval, total=800)
+                rows = load_klines(symbol=symbol, interval=interval)   # (date, close, volume)
+                import numpy as np
+                if len(rows) < 60:
+                    raise ValueError("not enough candles")
+                rows = rows[-400:]                                     # bound work for latency
+                closes = np.array([float(r[1]) for r in rows], float)
+                cv = np.array([[float(r[1]), float(r[2])] for r in rows], float)
+
+                def _run_discovery():
+                    try:
+                        from trading.brain.discovery import ConceptDiscoveryEngine
+                        eng = ConceptDiscoveryEngine(use_llm=use_llm)
+                        res = eng.discover(series=closes, ohlcv=cv)
+                        res["symbol"] = symbol
+                        res["interval"] = interval
+                        eng.save()
+                    except Exception:
+                        pass
+
+                # discovery (encoder+SAE+UMAP) is too heavy for a sync HTTP request — run it in
+                # the background and let the panel's GET poll pick up the saved result.
+                threading.Thread(target=_run_discovery, daemon=True).start()
+                return self._send(200, json.dumps(
+                    {"ok": True, "started": True, "symbol": symbol,
+                     "note": "discovery running — results appear in a few seconds"}).encode(),
+                    "application/json")
+            except Exception as e:
+                return self._send(200, json.dumps({"ok": False, "error": str(e)[:160]}).encode(),
+                                  "application/json")
         if path == "/api/trading/credentials":
             # Credential vault control. Body {op, site, ...}: op=submit {site, values{}} stores
             # (encrypted) the operator's answer to a brain login request; op=request {site,

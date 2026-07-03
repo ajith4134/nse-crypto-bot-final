@@ -28,6 +28,7 @@ import BrainUltraPanel from './BrainUltraPanel.jsx'
 import DecisionMemoryPanel from './DecisionMemoryPanel.jsx'
 import ComputerUsePanel from './ComputerUsePanel.jsx'
 import LLMProvidersPanel from './LLMProvidersPanel.jsx'
+import ConceptSpacePanel from './ConceptSpacePanel.jsx'
 
 function Card({ title, hint, children, right }) {
   return (
@@ -157,6 +158,10 @@ export default function TradingDashboard() {
 
       <Card title="LLM Providers — cloud-LLM failover telemetry" hint="per-provider hit-rate · free calls used · failures/rate-limits · last latency · reload cooldown — real core.llm.chat call stats">
         <LLMProvidersPanel />
+      </Card>
+
+      <Card title="Concept Discovery — idea-discovery mode (pure-self feature invention)" hint="self-supervised encoder invents features → sparse-autoencoder probe → LLM naming → concept manifold · experiment(ungated) + validated(gated) lanes">
+        <ConceptSpacePanel />
       </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
