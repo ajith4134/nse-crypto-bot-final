@@ -1,20 +1,46 @@
 import React, { useEffect, useRef, useState } from 'react'
 
-// P4.2 — Stream of Mind. The brain's live "state of mind": a vertical feed of
-// thought entries, NEWEST AT TOP. Each entry pulses on arrival, then fades
-// (CSS opacity transition) and is removed after a TTL. Timers are cleaned up
-// on unmount. Driven by a `thoughts` prop = [{id, text, ts}, ...].
+// P4.2 → ULTRA (2026-07-04) — Stream of Mind. Two real feeds in one panel:
+//  • think-cycle thoughts (AG-UI, via the `thoughts` prop) — ephemeral: pulse, fade, expire.
+//  • the brain-wide MIND EVENT BUS (GET /api/brain/mind/events, trading/brain/mind_events.py)
+//    — typed, durable events from the REAL subsystems: problems in the loop, discoveries
+//    ("found a profitable edge"), trade credit on open/close, online research, boss-directive
+//    progress ("target 50 → 23 open"), learning cycles and R&D inventions. Polled
+//    incrementally (?since=id); honest wiring — only renders what the bus actually holds.
 
-const TTL_MS = 18000      // total lifetime before removal
+const TTL_MS = 18000      // ephemeral thoughts: total lifetime before removal
 const FADE_LEAD_MS = 2000 // start the opacity fade this long before removal
+const POLL_MS = 5000
+const MAX_EVENTS = 80
+
+const KIND_META = {
+  problem:      { icon: '⚠',  label: 'problem' },
+  discovery:    { icon: '◆',  label: 'discovery' },
+  trade_credit: { icon: '₿',  label: 'trade' },
+  research:     { icon: '🔎', label: 'research' },
+  directive:    { icon: '🎯', label: 'directive' },
+  learning:     { icon: '📈', label: 'learning' },
+  invention:    { icon: '💡', label: 'invention' },
+  boss:         { icon: '👑', label: 'boss' },
+  thought:      { icon: '·',  label: 'thought' },
+}
+
+function fmtTime(ts) {
+  try {
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  } catch { return '' }
+}
 
 export default function StreamOfMind({ thoughts = [] }) {
   const [fading, setFading] = useState({})   // id -> true once fade has started
   const [expired, setExpired] = useState({}) // id -> true once it should be gone
+  const [events, setEvents] = useState([])   // mind-bus events, newest first
+  const [open, setOpen] = useState({})       // event id -> detail expanded
   const timers = useRef([])
   const seen = useRef(new Set())
+  const lastId = useRef(0)
 
-  // Schedule fade + removal for any newly-arrived thought.
+  // Schedule fade + removal for any newly-arrived ephemeral thought.
   useEffect(() => {
     thoughts.forEach((t) => {
       if (!t || seen.current.has(t.id)) return
@@ -31,6 +57,29 @@ export default function StreamOfMind({ thoughts = [] }) {
     })
   }, [thoughts])
 
+  // Poll the real mind-event bus incrementally.
+  useEffect(() => {
+    let alive = true
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/brain/mind/events?since=${lastId.current}`)
+        const j = await r.json()
+        const evs = Array.isArray(j.events) ? j.events : []
+        if (alive && evs.length > 0) {
+          lastId.current = Math.max(lastId.current, ...evs.map((e) => e.id || 0))
+          setEvents((cur) => {
+            const known = new Set(cur.map((e) => e.id))
+            const fresh = evs.filter((e) => !known.has(e.id))
+            return [...fresh.reverse(), ...cur].slice(0, MAX_EVENTS)
+          })
+        }
+      } catch { /* dashboard offline — keep whatever we have */ }
+    }
+    poll()
+    const t = setInterval(poll, POLL_MS)
+    return () => { alive = false; clearInterval(t) }
+  }, [])
+
   // Clean up every pending timer on unmount.
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
@@ -38,15 +87,32 @@ export default function StreamOfMind({ thoughts = [] }) {
 
   return (
     <div className="mind-feed">
-      {visible.length === 0 ? (
+      {visible.map((t) => (
+        <div key={`th-${t.id}`} className={`mind-entry${fading[t.id] ? ' fade' : ' arrive'}`}>
+          <span className="mind-spark" aria-hidden="true" />
+          <span className="mind-text">{t.text}</span>
+        </div>
+      ))}
+      {events.length === 0 && visible.length === 0 ? (
         <div className="mind-idle">… idle …</div>
       ) : (
-        visible.map((t) => (
-          <div key={t.id} className={`mind-entry${fading[t.id] ? ' fade' : ' arrive'}`}>
-            <span className="mind-spark" aria-hidden="true" />
-            <span className="mind-text">{t.text}</span>
-          </div>
-        ))
+        events.map((e) => {
+          const meta = KIND_META[e.kind] || KIND_META.thought
+          const salient = (e.salience || 0) >= 0.75
+          return (
+            <div
+              key={`ev-${e.id}`}
+              className={`mind-event kind-${e.kind}${salient ? ' salient' : ''}`}
+              onClick={() => e.detail && setOpen((o) => ({ ...o, [e.id]: !o[e.id] }))}
+              title={e.detail ? 'click for detail' : undefined}
+            >
+              <span className={`mind-badge kind-${e.kind}`}>{meta.icon} {meta.label}</span>
+              <span className="mind-text">{e.text}</span>
+              <span className="mind-when">{fmtTime(e.ts)}</span>
+              {open[e.id] && e.detail && <div className="mind-detail">{e.detail}</div>}
+            </div>
+          )
+        })
       )}
     </div>
   )

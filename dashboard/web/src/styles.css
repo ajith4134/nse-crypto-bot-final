@@ -182,6 +182,43 @@ body {
   100% { box-shadow: 0 0 8px 2px rgba(185,140,255,.5); transform: scale(1); }
 }
 
+/* ULTRA Stream of Mind — typed mind-bus events (real subsystems, categorized) */
+.mind-feed { max-height: 340px; overflow-y: auto; }
+.mind-event {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 11.5px; line-height: 1.45; color: var(--text);
+  padding: 3px 6px 3px 4px; border-left: 2px solid rgba(140,160,255,.3);
+  border-radius: 3px; cursor: default;
+}
+.mind-event.salient { background: rgba(185,140,255,.07); }
+.mind-event .mind-when { margin-left: auto; font-size: 10px; color: var(--muted); opacity: .7; }
+.mind-event .mind-detail {
+  flex-basis: 100%; font-size: 10.5px; color: var(--muted);
+  white-space: pre-wrap; padding: 4px 0 2px 2px; word-break: break-word;
+}
+.mind-badge {
+  flex: none; font-size: 10px; padding: 1px 6px; border-radius: 8px;
+  letter-spacing: .4px; text-transform: uppercase;
+  background: rgba(140,160,255,.12); color: var(--accent2);
+}
+.mind-event.kind-problem      { border-left-color: rgba(255,105,97,.6); }
+.mind-badge.kind-problem      { background: rgba(255,105,97,.15); color: #ff8d85; }
+.mind-event.kind-discovery    { border-left-color: rgba(80,220,160,.6); }
+.mind-badge.kind-discovery    { background: rgba(80,220,160,.14); color: #5fe6b0; }
+.mind-event.kind-trade_credit { border-left-color: rgba(255,200,90,.55); }
+.mind-badge.kind-trade_credit { background: rgba(255,200,90,.13); color: #ffcf6e; }
+.mind-event.kind-research     { border-left-color: rgba(100,190,255,.55); }
+.mind-badge.kind-research     { background: rgba(100,190,255,.13); color: #7cc8ff; }
+.mind-event.kind-directive    { border-left-color: rgba(185,140,255,.6); }
+.mind-badge.kind-directive    { background: rgba(185,140,255,.14); color: var(--accent2); }
+.mind-event.kind-learning     { border-left-color: rgba(140,255,170,.45); }
+.mind-badge.kind-learning     { background: rgba(140,255,170,.12); color: #98f0b2; }
+.mind-event.kind-invention    { border-left-color: rgba(255,150,220,.55); }
+.mind-badge.kind-invention    { background: rgba(255,150,220,.13); color: #ff9ade; }
+.mind-event.kind-boss         { border-left-color: rgba(255,215,0,.55); }
+.mind-badge.kind-boss         { background: rgba(255,215,0,.12); color: #ffd75e; }
+
 /* input row */
 .chat-input { display: flex; gap: 8px; align-items: flex-end; }
 .chat-input textarea {

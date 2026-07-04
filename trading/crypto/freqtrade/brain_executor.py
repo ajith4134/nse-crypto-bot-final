@@ -206,6 +206,15 @@ class BrainExecutor:
             open_pairs = set(cli.open_pairs(segment=self.segment))
         except Exception:
             open_pairs = set()
+        # Boss entry policy (trading/brain/boss.py): mode + below-target pressure decide how
+        # strict the safety gates are THIS cycle (profit = full strength; data_collect or
+        # "open at least N" pressure = gates advisory). Honest: bypasses are recorded.
+        try:
+            from trading.brain import boss as _boss
+            policy = _boss.entry_policy("CRYPTO", self.segment or "futures",
+                                        open_now=len(open_pairs))
+        except Exception:
+            policy = {"uq_advisory": False, "psych_veto": self._PSYCH_VETO, "pressure": False}
         entered, exited, skipped = [], [], 0
         picks: dict = {}
         vetoes: list = []
@@ -238,7 +247,8 @@ class BrainExecutor:
                 # order-book trader psychology: live entry signal (boost/dampen/veto)
                 psych = None
                 if act in ("LONG", "SHORT") and sym not in open_pairs:
-                    psych, act = self._apply_psychology(sym, act, brain)
+                    psych, act = self._apply_psychology(
+                        sym, act, brain, veto_at=policy.get("psych_veto", self._PSYCH_VETO))
                     if act == "FLAT":
                         vetoes.append(sym)
                         skipped += 1
@@ -249,9 +259,15 @@ class BrainExecutor:
                 if act in ("LONG", "SHORT") and sym not in open_pairs:
                     uq = self._assess_uq(sym, act, brain, psych)
                     if uq and uq.get("abstain"):
-                        vetoes.append(sym)
-                        skipped += 1
-                        continue
+                        if policy.get("uq_advisory"):
+                            # boss asked for volume (data_collect / below-target): the gate
+                            # LOGS its abstention but does not block — recorded honestly.
+                            if isinstance(brain, dict):
+                                brain["uq_advisory_bypass"] = policy.get("reason")
+                        else:
+                            vetoes.append(sym)
+                            skipped += 1
+                            continue
                 if act == "LONG" and sym not in open_pairs:
                     cli.place_order(symbol=sym, action="BUY", side="long", allow_live=allow_live,
                                     enter_tag=tag, segment=self.segment)
@@ -433,11 +449,14 @@ class BrainExecutor:
     # crowd-psychology veto threshold (mirrors LiveTradeLoop._PSYCH_VETO — full-signal mode)
     _PSYCH_VETO = 0.6
 
-    def _apply_psychology(self, sym: str, act: str, brain: dict) -> tuple[dict | None, str]:
+    def _apply_psychology(self, sym: str, act: str, brain: dict,
+                          veto_at: float | None = None) -> tuple[dict | None, str]:
         """Order-book trader psychology as a LIVE entry signal (trading/brain/psychology.py).
 
         Boosts/dampens the brain's confidence by crowd alignment and returns act='FLAT'
-        when the crowd strongly opposes the direction. Best-effort: no depth → unchanged."""
+        when the crowd strongly opposes the direction. `veto_at` overrides the veto
+        threshold (boss entry policy: profit mode tightens, pressure loosens).
+        Best-effort: no depth → unchanged."""
         try:
             from trading.brain.psychology import get_engine
             psych = get_engine().evaluate("CRYPTO", sym, segment=self.segment or "futures")
@@ -450,7 +469,7 @@ class BrainExecutor:
                 if brain.get("confidence") is not None:
                     brain["confidence"] = float(min(1.0, max(0.0,
                         float(brain["confidence"]) * (1.0 + 0.3 * alignment))))
-            if alignment < -self._PSYCH_VETO:
+            if alignment < -(self._PSYCH_VETO if veto_at is None else float(veto_at)):
                 return psych, "FLAT"
             return psych, act
         except Exception:

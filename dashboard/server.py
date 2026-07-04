@@ -1252,6 +1252,60 @@ class Handler(BaseHTTPRequestHandler):
                                 "via AG-UI (POST /api/agui). Langfuse offline no-op unless keys set")
                 return snap
             return self._send(200, _bg_snapshot("stream", _p_stream), "application/json")
+        if path == "/api/brain/mind/events":
+            # ULTRA Stream of Mind (2026-07-04): the brain-wide typed event bus
+            # (trading/brain/mind_events.py) — problems, discoveries, trade credit,
+            # research, boss-directive progress, learning, inventions. The panel polls
+            # incrementally with ?since=<last_id>. Real events only, cross-process.
+            try:
+                from urllib.parse import parse_qs, urlparse
+                from trading.brain import mind_events as _me
+                q = parse_qs(urlparse(self.path).query)
+                since_id = int((q.get("since") or ["0"])[0])
+                out = {"events": _me.since(since_id) if since_id else _me.peek(80)[::-1],
+                       **_me.status()}
+            except Exception as e:
+                out = {"events": [], "error": f"{type(e).__name__}: {e}"[:160]}
+            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
+        if path == "/api/brain/ops":
+            # Brain-Ops overview (2026-07-04, Wave-0 ④): surfaces the brain subsystems the audit
+            # found had backend endpoints but NO panel. REAL data where cheap (boss directives,
+            # R&D inventions, mind event-bus stats); the heavier subsystems are listed with an
+            # HONEST real/demo flag + their own path (fetched per-tile), never fabricated.
+            out = {"live": {}, "subsystems": []}
+            try:
+                from trading.brain import boss as _boss
+                from trading.brain import rnd as _rnd
+                from trading.brain import mind_events as _me
+                d = _boss.directives()
+                if isinstance(d, dict):
+                    d.pop("history", None)
+                out["live"] = {"boss": d, "rnd": _rnd.status(), "mind_bus": _me.status()}
+            except Exception as e:
+                out["error"] = f"{type(e).__name__}: {e}"[:160]
+            out["subsystems"] = [
+                {"key": "boss", "label": "Boss directives + R&D", "path": "/api/brain/boss/status", "real": True},
+                {"key": "mind", "label": "Mind event bus", "path": "/api/brain/mind/events", "real": True},
+                {"key": "agent", "label": "Brain agent", "path": "/api/brain/agent/status", "real": False},
+                {"key": "autonomy", "label": "Self-coding autonomy", "path": "/api/brain/autonomy/status", "real": False},
+                {"key": "memory", "label": "Human memory", "path": "/api/brain/memory/status", "real": False},
+                {"key": "hybrid", "label": "Hybrid memory", "path": "/api/brain/hybrid/status", "real": False},
+                {"key": "librarian", "label": "Librarian", "path": "/api/brain/librarian/status", "real": False},
+                {"key": "stream", "label": "Stream of mind", "path": "/api/brain/stream/status", "real": False},
+            ]
+            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
+        if path == "/api/brain/boss":
+            # Boss command engine: directives in force + R&D drive inventions. NOT named
+            # */status on purpose — that suffix gets the 8s dispatch cache, and this must
+            # reflect a just-executed boss command immediately (cheap state-file read).
+            try:
+                from trading.brain import boss as _boss
+                from trading.brain import rnd as _rnd
+                out = {"ok": True, "directives": _boss.directives(), "rnd": _rnd.status()}
+                out["directives"].pop("history", None)
+            except Exception as e:
+                out = {"ok": False, "error": f"{type(e).__name__}: {e}"[:160]}
+            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
         if path == "/api/brain/autonomy/status":
             # P4.7 Autonomy + self-coding: the brain INVENTS new model-nodes, fits + scores each
             # in a SANDBOX (isolated subprocess · CPU/mem rlimits · wall-clock timeout · no

@@ -244,6 +244,7 @@ class HypothesisLedger:
 
     # ---- test -------------------------------------------------------------
     def test(self, hyp: Hypothesis, trades: list[dict], seed: int = 0) -> Hypothesis:
+        prev_status = hyp.status
         ev = self.runner.from_journal(hyp, trades, seed=seed)
         hyp.n_cond, hyp.n_ctrl = ev["n_cond"], ev["n_ctrl"]
         hyp.credence = round(ev["credence"], 4)
@@ -254,6 +255,20 @@ class HypothesisLedger:
         hyp.source = ev["source"]
         hyp.status = self._verdict(hyp)
         self.hypotheses[hyp.hid] = hyp
+        # mind stream: a NEWLY confirmed hypothesis is exactly "found a way to increase
+        # profits" — announce it once, on the open→confirmed transition only.
+        if hyp.status == "confirmed" and prev_status != "confirmed":
+            try:
+                from trading.brain import mind_events
+                mind_events.emit(
+                    "discovery",
+                    f"Found a profitable edge: {hyp.statement} "
+                    f"(credence {hyp.credence:.2f}, effect +{hyp.effect_size:.3f} "
+                    f"{hyp.metric}, n={hyp.n_cond}) — now feeds my entry decisions",
+                    salience=0.9, data={"hid": hyp.hid, "credence": hyp.credence,
+                                        "effect_size": hyp.effect_size})
+            except Exception:
+                pass
         return hyp
 
     def _verdict(self, hyp: Hypothesis) -> str:

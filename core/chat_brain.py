@@ -95,10 +95,24 @@ def _brain():
     return None
 
 
+def _boss_route(message: str, history: list[dict] | None):
+    """Boss command engine first (trading/brain/boss.py): a command EXECUTES immediately
+    and returns its report; a question returns None and falls through to RAG chat."""
+    try:
+        from trading.brain import boss
+        return boss.handle(message, history)
+    except Exception:
+        return None
+
+
 def chat(message: str, history: list[dict] | None = None) -> dict:
     message = (message or "").strip()
     if not message:
         return {"reply": "", "sources": [], "thoughts": [], "error": "empty message"}
+
+    handled = _boss_route(message, history)
+    if handled is not None:
+        return handled
 
     thoughts = ["recalling memory…"]
     sources, context = [], ""
@@ -162,6 +176,14 @@ def chat_stream(message: str, history: list[dict] | None = None):
     message = (message or "").strip()
     if not message:
         yield {"type": "error", "error": "empty message"}
+        return
+
+    handled = _boss_route(message, history)
+    if handled is not None:
+        for t in handled.get("thoughts") or []:
+            yield {"type": "thought", "text": t}
+        yield {"type": "token", "text": handled.get("reply") or ""}
+        yield {"type": "done"}
         return
 
     yield {"type": "thought", "text": "recalling memory…"}

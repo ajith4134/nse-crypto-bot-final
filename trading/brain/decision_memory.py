@@ -135,6 +135,23 @@ class DecisionMemory:
         self._maybe_jump(ep)
         ep["reflection"] = self._reflect(ep, use_llm=use_llm)
         self._save()
+        # mind stream: credit assignment on close — WHICH learning/strategy drove this trade
+        # and what the brain took away from it (the reflection lesson).
+        try:
+            from trading.brain import mind_events
+            won = float(net_pnl) > 0
+            strat = ep.get("strategy") or (ep.get("decision") or {}).get("strategy") or "?"
+            mind_events.emit(
+                "trade_credit",
+                f"{'Profitable' if won else 'Losing'} close: {ep['symbol']} "
+                f"{ep['direction']} via {strat} → net {float(net_pnl):+.4f}"
+                + (f" (R {r_multiple})" if r_multiple is not None else ""),
+                detail=str(ep.get("reflection") or "")[:700],
+                salience=0.85 if won else 0.55,
+                data={"symbol": ep.get("symbol"), "strategy": strat,
+                      "net_pnl": float(net_pnl), "won": won})
+        except Exception:
+            pass
         return ep
 
     def _reflect(self, ep: dict, *, use_llm: bool) -> str:

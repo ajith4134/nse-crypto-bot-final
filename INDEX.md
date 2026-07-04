@@ -285,6 +285,36 @@ _Shared utilities for skill-creator scripts._
 - **functions:** `parse_skill_md(skill_path) -> tuple[str, str, str]`
 - **imports:** pathlib
 
+## `.claude/skills/ai-scientist/state_snapshot.py`
+_ai-scientist state snapshot — grounds ideation in REAL project state._
+- **functions:** `root_of(start) -> Path`; `read_head(p, n) -> str`; `git(root) -> str`; `deps(root)`; `module_inventory(root)`; `latest_audit(root)`; `idea_ledger(root)`; `vendored(root)`; `main()`
+- **imports:** __future__, argparse, collections, json, os, pathlib, re, subprocess, time
+
+## `.claude/skills/dashboard-visual-qa/hook_dashboard_edit.py`
+_PostToolUse hook: when an Edit/Write/MultiEdit touches dashboard / FreqUI / OpenAlgo_
+- **functions:** `is_dashboard_view(path) -> bool`; `main()`
+- **imports:** json, os, sys, time
+
+## `.claude/skills/dashboard-visual-qa/visual_qa.py`
+_dashboard-visual-qa — screenshot + before/after diff + load-perf + "landed" check_
+- **functions:** `views()`; `reachable(url) -> bool`; `capture(label, only)`; `_pixel_diff(base, cur)`; `compare()`; `promote()`; `lighthouse(url)`; `main()`
+- **imports:** __future__, argparse, json, os, pathlib, shutil, socket, subprocess, sys, time, urllib.parse
+
+## `.claude/skills/founder-intent/capture_journey.py`
+_founder-intent — gather the REAL build history + the owner's captured intent into one bundle._
+- **functions:** `sh()`; `read(p, n)`; `git_journey()`; `goal_pillars()`; `memories()`; `research_docs()`; `main()`
+- **imports:** __future__, glob, json, os, pathlib, re, subprocess, time
+
+## `.claude/skills/independent-audit/audit.py`
+_independent-audit — real code+architecture connectivity auditor (REPORT-ONLY)._
+- **functions:** `find_repo_root(start) -> Path`; `is_entrypoint(mod) -> bool`; `is_test(mod) -> bool`; `discover_python(root)`; `build_graph_grimp(pkgs)`; `_resolve(target, known, first_party_top)`; `build_graph_ast(root, modules)`; `is_pkg(mod, modules) -> bool`; `analyse_graph(nodes, edges, max_list)`; `_norm_path(p) -> str`; `audit_dashboard(root)`; `audit_dead_code(root, source_dirs, max_list)`; `audit_index_drift(root, modules, max_list)`; `write_report(root, data) -> Path`; `main()`
+- **imports:** __future__, argparse, ast, collections, json, os, pathlib, re, subprocess, sys, time
+
+## `.claude/skills/money-lens/money_lens.py`
+_money-lens — judge any step through the PRIME DIRECTIVE:_
+- **functions:** `detect_mode()`; `main()`
+- **imports:** __future__, argparse, glob, json, os, pathlib
+
 ## `.claude/skills/video-understand/ingest.py`
 _Video ingest for the video-understand skill._
 - **functions:** `run(cmd) -> subprocess.CompletedProcess`; `slugify(s) -> str`; `download(url, scratch) -> Path`; `duration_of(video) -> float`; `mmss(t) -> str`; `extract_frames(video, out, scene_th, cap, dur) -> list[dict]`; `transcribe(video, out_dir, model_size) -> dict`; `main() -> None`
@@ -468,7 +498,7 @@ _core/brain_agent.py — LangGraph brain agent: "talk to the brain" (Phase P4.1)
 
 ## `core/chat_brain.py`
 _core/chat_brain.py — P4.1: chat with the brain (RAG-grounded, cloud-LLM)._
-- **functions:** `_brain_state() -> str`; `_build_brain()`; `_brain()`; `chat(message, history) -> dict`; `_build_messages(message, context, history) -> list[dict]`; `chat_stream(message, history)`
+- **functions:** `_brain_state() -> str`; `_build_brain()`; `_brain()`; `_boss_route(message, history)`; `chat(message, history) -> dict`; `_build_messages(message, context, history) -> list[dict]`; `chat_stream(message, history)`
 - **imports:** __future__, core, glob, os, threading
 
 ## `core/columns.py`
@@ -859,7 +889,7 @@ _Phase-2b node families (pure-Python): Random Forest + Regime-Gated._
 
 ## `nodes/pool.py`
 _Shared candidate pool of node families + hyperparameter variants._
-- **functions:** `_oss_candidates()`; `_micro_llm_candidates()`; `_foundation_candidates()`; `foundation_panel_candidates(panel)`; `_foundation_candidates_cached()`; `foundation_factories()`; `foundation_names()`; `factories()`; `names()`
+- **functions:** `_oss_candidates()`; `_micro_llm_candidates()`; `_foundation_candidates()`; `foundation_panel_candidates(panel)`; `_foundation_candidates_cached()`; `foundation_factories()`; `foundation_names()`; `_extra_candidates()`; `factories()`; `names()`
 - **imports:** __future__, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, os
 
 ## `nodes/probabilistic_nodes.py`
@@ -1205,6 +1235,11 @@ _Pillar 20 — anti-overfitting backbone: CPCV, meta-labeling, and the mandatory
 _Tests for memory/associative.py — HippoRAG PPR recall + A-MEM evolution (offline path)._
 - **functions:** `_seed(mem)`; `test_add_links_related_notes()`; `test_recall_is_associative_multihop()`; `test_persistence_across_instances(tmp_path)`; `test_llm_path_used_when_available()`
 - **imports:** json, memory.associative
+
+## `tests/test_boss_command.py`
+_Boss command engine (trading/brain/boss.py) + mind-event bus (mind_events.py) + R&D drive_
+- **classes:** _IsolatedState, TestMindEvents, TestDeterministicParser, TestDirectivesAndPolicy, TestRnd, TestChatRouting
+- **imports:** pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_brain_agent.py`
 _Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + deterministic._
@@ -1787,6 +1822,12 @@ _Per-trade feature attribution — WHICH data led to this decision and HOW MUCH.
 - **functions:** `_background(closed_rows) -> list[list[float]]`; `explain_trade(trade, closed_rows) -> dict`
 - **imports:** __future__, trading.brain.trade_features
 
+## `trading/brain/boss.py`
+_trading/brain/boss.py — the BOSS COMMAND ENGINE: talk to the brain like a boss._
+- **classes:** BossRegistry
+- **functions:** `directives() -> dict`; `_save(d) -> None`; `segment_enabled(market, segment) -> bool | None`; `target_for(market, segment) -> int`; `is_paused(market) -> bool`; `focus_of(market) -> str | None`; `mode() -> str`; `intensity() -> float`; `entry_policy(market, segment) -> dict`; `report_progress(market, segment, open_now) -> None`; `_norm_market(market) -> str`; `_bg(fn) -> None`; `set_segments(market, enable, disable) -> dict`; `_engine_segments() -> list`; `set_target_open_trades(market, segment, target) -> dict`; `focus_segment(market, segment) -> dict`; `set_mode(mode) -> dict`; `set_intensity(level) -> dict`; `pause_trading(market) -> dict`; `resume_trading(market) -> dict`; `_set_paused(market, val) -> dict`; `research_online(topic) -> dict`; `add_goal(text) -> dict`; `get_status() -> dict`; `_looks_like_command(msg) -> bool`; `_market_in(msg) -> str`; `parse_deterministic(msg) -> list[dict]`; `parse_llm(msg) -> list[dict] | None`; `handle(message, history) -> dict | None`
+- **imports:** __future__, json, re, threading, time, trading.brain
+
 ## `trading/brain/continual.py`
 _trading/brain/continual.py — online/continual learning + experience replay (T8.5)._
 - **classes:** OnlineNode, ReplayBuffer, ContinualLearner
@@ -1925,6 +1966,11 @@ _trading/brain/metalearn.py — MAML-style meta-init for sample-efficiency (T8.5
 - **classes:** MetaLearner
 - **imports:** __future__, dataclasses, trading.brain.continual
 
+## `trading/brain/mind_events.py`
+_trading/brain/mind_events.py — the brain-wide ULTRA event bus behind Stream of Mind._
+- **functions:** `_load() -> dict`; `_save(d) -> None`; `_expire(events) -> list`; `emit(kind, text) -> dict`; `since(last_id, limit) -> list[dict]`; `peek(limit) -> list[dict]`; `status() -> dict`
+- **imports:** __future__, threading, time
+
 ## `trading/brain/news.py`
 _trading/brain/news.py — autonomous news research + sentiment nodes (T8.7)._
 - **classes:** NewsItem, NewsResearcher, NewsSentimentNode
@@ -1992,6 +2038,11 @@ _trading/brain/rl_exit.py — Phase-T8 deferred A3: RL exit policy (tabular Q-le
 - **classes:** QLearningExit
 - **functions:** `_r_bucket(unrealized_r) -> int`; `_bars_bucket(bars_held) -> int`; `_state_key(unrealized_r, bars_held, anomaly_high) -> tuple`; `deep_rl_available() -> dict`
 - **imports:** __future__, numpy
+
+## `trading/brain/rnd.py`
+_trading/brain/rnd.py — the AUTONOMOUS R&D DRIVE: the brain invents its own new_
+- **functions:** `_load() -> dict`; `_save(d) -> None`; `_interval() -> float`; `_pick_topic(d) -> tuple[str, str]`; `_invent_from(topic, summary) -> dict`; `run_once() -> dict`; `maybe_run() -> dict | None`; `status() -> dict`
+- **imports:** __future__, json, os, random, re, time, trading.brain
 
 ## `trading/brain/selfeval.py`
 _trading/brain/selfeval.py — auto-quiz + Reflexion self-critique (T8.5)._
