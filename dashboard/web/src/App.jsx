@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import Graph3D from './Graph3D.jsx'
 import SigmaNetwork from './SigmaNetwork.jsx'
-import ColumnsPanel from './ColumnsPanel.jsx'
+import NetworkPanel from './NetworkPanel.jsx'
 import { AccuracyBars, NoiseSweep } from './Charts.jsx'
 import ChatPanel from './ChatPanel.jsx'
 import StreamOfMind from './StreamOfMind.jsx'
@@ -161,7 +161,7 @@ export default function App() {
         )}
       </section>
 
-      <ColumnsPanel state={state} />
+      <NetworkPanel />
 
       <section className="grid">
         <div className="card graphwrap-card" style={{ padding: 0 }}>

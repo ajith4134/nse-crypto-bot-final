@@ -66,6 +66,7 @@ data/cache/
 tunnel.log
 dashboard/server.log
 state.json
+network_state.json
 knowledge_state.json
 robustness.json
 
@@ -133,3 +134,15 @@ trading/crypto/freqtrade/user_data/*.log
 trading/crypto/freqtrade/user_data/*.pid
 trading/crypto/freqtrade/user_data/*.sqlite*
 trading/crypto/freqtrade/*.log
+
+# ── runtime state / caches (2026-07-03 sweep — never commit) ──
+.avalanche/
+.paddlex/
+brain_memory/
+trading/data/
+tradesv3*.sqlite*
+public_link.txt
+gateway/*.log
+gateway/*.log.gz
+gateway/access*
+db/

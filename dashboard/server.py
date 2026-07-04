@@ -23,6 +23,75 @@ if ROOT not in sys.path:                      # so `from core.chat_brain import 
 STATIC = os.path.join(ROOT, "dashboard", "static")
 STATE = os.path.join(ROOT, "state.json")
 PHASE3 = os.path.join(ROOT, "phase3.json")  # routing/DGMG comparison (Hellsemble L2/L3, DESlib, etc.)
+NETWORK_STATE = os.path.join(ROOT, "network_state.json")  # CORTEX B7 unified feed (run_network.py)
+
+
+# ── CORTEX B7: /api/network/* helpers (pure functions → unit-testable) ─────────
+_NETWORK_REFRESH = {"proc": None, "last": 0.0}   # single in-flight run_network.py subprocess
+_NETWORK_REFRESH_MIN_S = 60.0
+
+
+def _network_state_payload(path: str = None, now: float = None) -> dict:
+    """network_state.json + state_age_s (mtime), or a friendly note when absent."""
+    path = path or NETWORK_STATE
+    now = time.time() if now is None else now
+    if not os.path.exists(path):
+        return {"note": "no network state yet — run `python run_network.py` "
+                        "or POST /api/network/refresh", "nodes": [], "edges": []}
+    try:
+        with open(path, encoding="utf-8") as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return {"note": f"network_state.json unreadable: {type(e).__name__}",
+                "nodes": [], "edges": []}
+    state["state_age_s"] = round(max(0.0, now - os.path.getmtime(path)), 1)
+    return state
+
+
+def _network_trust_payload(path: str = None) -> dict:
+    """TrustLedger JSON file (MLNB_TRUST_PATH default brain_memory/node_trust.json)."""
+    path = path or os.environ.get("MLNB_TRUST_PATH") or os.path.join(
+        ROOT, "brain_memory", "node_trust.json")
+    if not os.path.exists(path):
+        return {"note": "no trust ledger yet — trust accrues as the brain records "
+                        "node outcomes (core/trust.py)", "losses": {}, "counts": {}}
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return {"note": f"trust ledger unreadable: {type(e).__name__}",
+                "losses": {}, "counts": {}}
+
+
+def _network_refresh_allowed(now: float, last: float, running: bool,
+                             min_interval_s: float = _NETWORK_REFRESH_MIN_S
+                             ) -> tuple[bool, str]:
+    """Throttle rule for POST /api/network/refresh (pure, unit-tested)."""
+    if running:
+        return False, "refresh already running"
+    if now - last < min_interval_s:
+        return False, f"throttled — min interval {int(min_interval_s)}s"
+    return True, "started"
+
+
+def _network_refresh_start(now: float = None) -> dict:
+    """Kick run_network.py as a niced SUBPROCESS — NEVER train in-process (524)."""
+    now = time.time() if now is None else now
+    proc = _NETWORK_REFRESH.get("proc")
+    running = proc is not None and proc.poll() is None
+    ok, note = _network_refresh_allowed(now, _NETWORK_REFRESH.get("last", 0.0), running)
+    if not ok:
+        return {"started": False, "note": note}
+    import subprocess
+    kw = {"cwd": ROOT, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    try:
+        kw["preexec_fn"] = lambda: os.nice(15)
+    except Exception:
+        pass
+    _NETWORK_REFRESH["proc"] = subprocess.Popen(
+        [sys.executable, os.path.join(ROOT, "run_network.py")], **kw)
+    _NETWORK_REFRESH["last"] = now
+    return {"started": True, "note": note}
 
 # Basic auth: active only when DASH_PASS is set (so local dev stays frictionless).
 AUTH_USER = os.getenv("DASH_USER", "admin")
@@ -173,18 +242,37 @@ OPEN_TRADE_COLUMNS = [
     "Win Prob", "NN Verdict", "Exp R",
     # order-book trader psychology at entry (trading/brain/psychology.py)
     "Psychology", "Psych Label",
+    # Pillar 17 — calibrated uncertainty at entry (trading/uq/conformal.py)
+    "p_up", "Interval ±", "Self-Unc",
 ]
+
+
+def _ft_entry_meta(t: dict) -> dict:
+    """Entry-time sidecar meta (psychology + UQ) for a Freqtrade open trade."""
+    try:
+        from trading.crypto.freqtrade import entry_meta
+        seg = "spot" if (t.get("instrument_type") or "").upper() == "SPOT" else "futures"
+        return entry_meta.lookup(t.get("symbol", ""), seg,
+                                 str(t.get("entry_datetime") or "")) or {}
+    except Exception:
+        return {}
 
 
 def _ft_entry_psych(t: dict):
     """Entry-time psychology for a Freqtrade open trade from the brain-loop sidecar store."""
-    try:
-        from trading.crypto.freqtrade import entry_meta
-        seg = "spot" if (t.get("instrument_type") or "").upper() == "SPOT" else "futures"
-        meta = entry_meta.lookup(t.get("symbol", ""), seg, str(t.get("entry_datetime") or ""))
-        return (meta or {}).get("psychology")
-    except Exception:
-        return None
+    return _ft_entry_meta(t).get("psychology")
+
+
+def _uq_cells(uq) -> dict:
+    """Pillar-17 columns for a trade row from its entry UQ assessment (— when absent)."""
+    if not isinstance(uq, dict) or uq.get("p_up") is None:
+        return {"p_up": "—", "Interval ±": "—", "Self-Unc": "—"}
+    iv = uq.get("interval") or [None, None]
+    iv_txt = (f"[{iv[0]:+.1f}%, {iv[1]:+.1f}%]"
+              if iv[0] is not None and iv[1] is not None else "—")
+    su = uq.get("self_uncertainty")
+    return {"p_up": f"{float(uq['p_up']) * 100:.1f}%", "Interval ±": iv_txt,
+            "Self-Unc": f"{float(su):.2f}" if su is not None else "—"}
 
 
 def _psych_cells(ps) -> dict:
@@ -469,6 +557,31 @@ def _ccxt_spot():
         cli.load_markets()
         _SHARED_CCXT["binance"] = cli
     return cli
+
+
+def _pool_ohlcv(symbol: str, tf: str, limit: int) -> list:
+    """Recent OHLCV via the ban-proof multi-venue pool (binance/bybit/okx/kucoin round-robin
+    with per-venue budgets + failover) so dashboard reads never pile onto Binance and wedge
+    the thread pool when the trading bot has the IP rate-limited. Falls back to the shared
+    binance client only if the pool is disabled (MULTI_VENUE_POOL=0) or errors."""
+    try:
+        from trading.crypto.exchange_pool import get_pool, pool_enabled
+        if pool_enabled():
+            return get_pool("spot").ohlcv(symbol, timeframe=tf, limit=limit)
+    except Exception:
+        pass
+    return _ccxt_spot().fetch_ohlcv(symbol, timeframe=tf, limit=limit)
+
+
+def _pool_order_book(symbol: str, limit: int = 20) -> dict:
+    """Order book via the multi-venue pool (same rationale as _pool_ohlcv)."""
+    try:
+        from trading.crypto.exchange_pool import get_pool, pool_enabled
+        if pool_enabled():
+            return get_pool("spot").order_book(symbol, limit)
+    except Exception:
+        pass
+    return _ccxt_spot().fetch_order_book(symbol, limit=limit)
 _FX_CACHE: dict = {}          # "USDINR" -> (ts, rate)
 _CT_CACHE: dict = {}          # "/api/trading/crypto/trades" body -> (ts, bytes); NN retrains on
                               # journal growth are minutes-long, so the 8s poll must reuse bodies
@@ -678,7 +791,7 @@ def _candles(symbol: str, market: str, tf: str = "5m", limit: int = 200) -> list
         return hit[1]
     out: list[dict] = []
     if market.upper() == "CRYPTO":
-        raw = _ccxt_spot().fetch_ohlcv(symbol, timeframe=tf, limit=limit)
+        raw = _pool_ohlcv(symbol, tf, limit)
         out = [{"time": int(r[0] // 1000), "open": float(r[1]), "high": float(r[2]),
                 "low": float(r[3]), "close": float(r[4]), "volume": float(r[5])} for r in raw]
     else:
@@ -863,6 +976,14 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(
                 {"note": "no routing snapshot — run `python -m run_phase3` (writes phase3.json)",
                  "results": []}).encode(), "application/json")
+        if path == "/api/network/state":
+            # CORTEX B7 unified feed: network_state.json (run_network.py) + freshness.
+            return self._send(200, json.dumps(_network_state_payload()).encode(),
+                              "application/json")
+        if path == "/api/network/trust":
+            # Raw TrustLedger file (real per-node losses/counts — never fabricated).
+            return self._send(200, json.dumps(_network_trust_payload()).encode(),
+                              "application/json")
         if path == "/api/knowledge":
             kp = os.path.join(ROOT, "knowledge_state.json")
             if os.path.exists(kp):
@@ -882,6 +1003,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 snap = {"providers": [], "totals": {}, "error": str(e)[:120]}
             return self._send(200, json.dumps(snap).encode(), "application/json")
+        if path == "/api/trading/venues":
+            # Multi-venue market-DATA pool telemetry (ban-proofing): per-venue calls, errors,
+            # budget, and ban cooldown across binance/bybit/okx/kucoin — so you can SEE the pool
+            # spreading load and backing off banned venues. Read-only; never constructs a pool.
+            try:
+                from trading.crypto.exchange_pool import all_pools_status
+                blob = all_pools_status()
+            except Exception as e:
+                blob = {"enabled": None, "pools": [], "error": str(e)[:120]}
+            return self._send(200, json.dumps(blob).encode(), "application/json")
         if path == "/api/trading/brain/discovery":
             # Concept Discovery Engine: last run's self-invented features + concept manifold.
             # Read-only (returns the persisted result); POST /run triggers a fresh discovery.
@@ -1309,30 +1440,36 @@ class Handler(BaseHTTPRequestHandler):
             # (real genome/operators/backtest output). Metrics dicts only — NO equity
             # curves or full genome trees in the population list (kept JSON-light).
             def _p_strategy():
-                from run_strategy_t8 import build_demo_population
-                snap = build_demo_population()
-                pop = [{"id": p["id"], "market": p["market"], "metrics": p["metrics"],
-                        "fitness_score": float(p["fitness_score"]),
-                        "guardrail_passed": bool(p["guardrail"]["passed"])}
-                       for p in snap["population"]]
-                best = snap["best"]
-                pbo_v = snap.get("pbo", {}).get("pbo")
-                return {
-                    "population": pop,
-                    "best": ({"id": best["id"], "market": best["market"],
-                              "metrics": best["metrics"],
-                              "fitness_score": float(best["fitness_score"]),
-                              "guardrail_passed": bool(best["guardrail"]["passed"])}
-                             if best else None),
-                    "n": snap["n"],
-                    "guardrails": {"pbo": (float(pbo_v) if pbo_v is not None else None)},
-                    "demo": True,
-                    "note": ("offline demo population (run_strategy_t8 seeded synthetic "
-                             "OHLCV); no live evolution loop wired yet — real walk-forward "
-                             "OOS-scored genome metrics + T8.2 multi-objective fitness, "
-                             "deflated-Sharpe/min-trades/max-DD guardrail pass-flags, and "
-                             "population PBO (CSCV) only"),
-                }
+                # build_demo_population() is a HEAVY, GIL-holding pandas/backtest computation.
+                # Run it in a niced SUBPROCESS (its own GIL) so it never starves the dashboard's
+                # HTTP handler threads — running it in-process wedged the whole server (all 32
+                # handlers GIL-starved → Cloudflare 524, 2026-07-03; py-spy caught it in the
+                # snapshot-warmer). It's deterministic, so a subprocess result is identical.
+                import subprocess as _sp
+                import sys as _sys
+                code = (
+                    "import json;from run_strategy_t8 import build_demo_population as B;"
+                    "s=B();b=s['best'];pv=s.get('pbo',{}).get('pbo');"
+                    "P=[{'id':p['id'],'market':p['market'],'metrics':p['metrics'],"
+                    "'fitness_score':float(p['fitness_score']),"
+                    "'guardrail_passed':bool(p['guardrail']['passed'])} for p in s['population']];"
+                    "print(json.dumps({'population':P,'best':({'id':b['id'],'market':b['market'],"
+                    "'metrics':b['metrics'],'fitness_score':float(b['fitness_score']),"
+                    "'guardrail_passed':bool(b['guardrail']['passed'])} if b else None),"
+                    "'n':s['n'],'guardrails':{'pbo':(float(pv) if pv is not None else None)},"
+                    "'demo':True,'note':'offline demo population (subprocess-built, GIL-safe)'},default=str))"
+                )
+                try:
+                    kw = dict(cwd=ROOT, capture_output=True, text=True, timeout=180)
+                    try:
+                        kw["preexec_fn"] = lambda: __import__("os").nice(15)
+                    except Exception:
+                        pass
+                    r = _sp.run([_sys.executable, "-c", code], **kw)
+                    return json.loads(r.stdout.strip().splitlines()[-1])
+                except Exception as e:
+                    return {"population": [], "best": None, "n": 0, "demo": True,
+                            "error": f"{type(e).__name__}: {str(e)[:120]}"}
             return self._send(200, _bg_snapshot("strategy", _p_strategy), "application/json")
         if path == "/api/trading/foundry":
             # Strategy Foundry: the brain's institutional strategy catalog — discovered/created
@@ -1797,7 +1934,7 @@ class Handler(BaseHTTPRequestHandler):
                     bids = _norm(data.get("bids", []))
                     asks = _norm(data.get("asks", []))
                 else:
-                    ob = _ccxt_spot().fetch_order_book(symbol, limit=20)
+                    ob = _pool_order_book(symbol, 20)
                     bids = _norm(ob.get("bids", []))
                     asks = _norm(ob.get("asks", []))
                 if not bids or not asks:
@@ -1930,7 +2067,8 @@ class Handler(BaseHTTPRequestHandler):
                         "Exit Policy": exit_policy, "Liq Price": liq_txt, "Hold Time": hold,
                         "Confidence": conf_txt,
                         "Win Prob": win_txt, "NN Verdict": pr.get("verdict", "—"),
-                        "Exp R": expr_txt, **_psych_cells(p.get("psych"))})
+                        "Exp R": expr_txt, **_psych_cells(p.get("psych")),
+                        **_uq_cells(p.get("uq"))})
                 # —— UNIFIED TABLE: Freqtrade OPEN trades (engine-owned crypto) ——
                 try:
                     from trading.crypto.engine_client import CryptoEngineClient
@@ -1970,8 +2108,9 @@ class Handler(BaseHTTPRequestHandler):
                             "Exit Policy": "freqtrade-managed", "Liq Price": "—",
                             "Hold Time": hold, "Confidence": "—", "Win Prob": "—",
                             "NN Verdict": "—", "Exp R": "—",
-                            # entry-time psychology from the brain-loop sidecar store
-                            **_psych_cells(_ft_entry_psych(t))})
+                            # entry-time psychology + UQ from the brain-loop sidecar store
+                            **_psych_cells((_ftm := _ft_entry_meta(t)).get("psychology")),
+                            **_uq_cells(_ftm.get("uq"))})
                 except Exception:
                     pass
                 # —— UNIFIED TABLE: OpenAlgo sandbox (NSE paper) open positions ——
@@ -2002,7 +2141,8 @@ class Handler(BaseHTTPRequestHandler):
                             "Exit Policy": "openalgo-managed", "Liq Price": "—",
                             "Hold Time": "—", "Confidence": "—", "Win Prob": "—",
                             "NN Verdict": "—", "Exp R": "—",
-                            "Psychology": "—", "Psych Label": "—"})
+                            "Psychology": "—", "Psych Label": "—",
+                            "p_up": "—", "Interval ±": "—", "Self-Unc": "—"})
                 except Exception:
                     pass
                 rate = _usdinr()
@@ -2251,6 +2391,73 @@ class Handler(BaseHTTPRequestHandler):
                     # calls + file-memory init IN the request thread — 6+ pollers stuck
                     # there was half of the post-restart 503 wedge (2026-07-03).
                     body = _bg_snapshot("brain/ultra", _p_ultra, ttl=300.0)
+            except Exception as e:
+                body = json.dumps({"available": False,
+                                   "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/trading/brain/metacognition":
+            # Pillar 17 (trading/uq/conformal.py): REAL calibration state of the conformal
+            # UQ engine — crepes CPS coverage (static vs ACI-adapted), ECE, adaptive width
+            # cap, the reliability diagram bins (predicted p_up vs realized win-rate on the
+            # chronological holdout) and the first-class abstention log. ?recalibrate=1
+            # forces a refit (otherwise the learn-loop refits every 6h).
+            try:
+                from urllib.parse import parse_qs, urlparse
+                from trading.uq import get_uq
+                uq = get_uq()
+                qs = parse_qs(urlparse(self.path).query)
+                if (qs.get("recalibrate", ["0"])[0] or "0") in ("1", "true"):
+                    uq.recalibrate()
+
+                def _p_meta():
+                    st = uq.status()
+                    return json.dumps({"available": True, "status": st,
+                                       "reliability": st.get("reliability", []),
+                                       "abstentions": uq.abstentions(40)},
+                                      default=str).encode()
+                # background snapshot: the first fit reads the full journal + trains —
+                # never in the request thread (same wedge as brain/ultra)
+                body = _bg_snapshot("brain/metacognition", _p_meta, ttl=120.0)
+            except Exception as e:
+                body = json.dumps({"available": False,
+                                   "error": f"{type(e).__name__}: {e}"}).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/trading/brain/debate":
+            # Pillar 18 (trading/brain/debate_gate.py): adversarial bull/bear/risk debate +
+            # process-reward step verifier over a candidate trade. ?symbol=&direction=&p_up=&
+            # sharpe=&regime=&psychology= runs a live deliberation; returns the auditable
+            # decision_snapshot (votes, arguments, per-step verifier scores) + gate decision.
+            try:
+                from urllib.parse import parse_qs, urlparse
+                from trading.brain.debate_gate import get_debate_gate
+                qs = parse_qs(urlparse(self.path).query)
+
+                def _g(k, d=None):
+                    v = qs.get(k, [d])[0]
+                    return v if v not in (None, "") else d
+                symbol = _g("symbol", "BTC/USDT")
+                direction = _g("direction", "LONG")
+                feats = {}
+                for k in ("p_up", "sharpe", "atr", "volatility"):
+                    v = _g(k)
+                    if v is not None:
+                        try:
+                            feats[k] = float(v)
+                        except ValueError:
+                            pass
+                for k in ("regime", "psychology"):
+                    v = _g(k)
+                    if v is not None:
+                        feats[k] = v
+
+                def _p_debate():
+                    gate = get_debate_gate()
+                    res = gate.assess(symbol, direction, features=feats or None)
+                    return json.dumps({"available": True, "symbol": symbol,
+                                       "direction": direction, "features": feats,
+                                       **res}, default=str).encode()
+                # deliberation calls the LLM failover → run off the request thread
+                body = _bg_snapshot(f"brain/debate/{symbol}/{direction}", _p_debate, ttl=45.0)
             except Exception as e:
                 body = json.dumps({"available": False,
                                    "error": f"{type(e).__name__}: {e}"}).encode()
@@ -2699,6 +2906,11 @@ class Handler(BaseHTTPRequestHandler):
         with _ENDPOINT_CACHE_LOCK:
             for k, v in list(_ENDPOINT_CACHE.items()):
                 _ENDPOINT_CACHE[k] = (0.0, v[1])
+        if path == "/api/network/refresh":
+            # CORTEX B7: rebuild network_state.json via a niced run_network.py
+            # SUBPROCESS (throttled; never trains in the dashboard process — 524).
+            return self._send(200, json.dumps(_network_refresh_start()).encode(),
+                              "application/json")
         if path == "/api/trading/brain/discovery/run":
             # Trigger a fresh concept-discovery run on REAL recent market data (public Binance
             # klines). Body {symbol?, interval?, use_llm?}. Returns the discovered features +
