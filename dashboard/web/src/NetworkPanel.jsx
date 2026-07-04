@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import SigmaNetwork from './SigmaNetwork.jsx'
 
-// CORTEX B7 — the living cortex view (design §3, saved-plan Step 5).
-// Self-fetches /api/network/state (network_state.json written by run_network.py in a
-// SUBPROCESS — the dashboard never trains in-process) and renders the upgraded
-// SigmaNetwork plus a right-hand summary column: top-10 trust bars, reflex-arc
-// escalation stats, community count, and CANON-56 mini-charts IF the state carries a
-// fitness scorecard — skipped honestly when absent (no fake data, ever).
+// CORTEX B7 stats strip (design §3, saved-plan Step 5).
+// DESIGN LOCKED 2026-07-04 (user): the Whole-Brain System Map above is THE
+// network view; the animated SigmaNetwork force-graph was REMOVED from this
+// panel on user request ("lock this design and remove that below animation").
+// This panel keeps the useful, non-animated facts: Refresh control, holdout +
+// selective accuracy, top-10 trust, reflex compute, anti-overfit telemetry —
+// all from /api/network/* real state (no fake data, ever).
 
 const POLL_MS = 30000
 
@@ -120,11 +120,9 @@ export default function NetworkPanel() {
       )}
 
       {hasGraph && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 280px', gap: 14 }}>
-          <div className="graphwrap-card" style={{ padding: 0, minHeight: 480 }}>
-            <SigmaNetwork state={state} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
+        <div style={{ display: 'grid', gap: 14, fontSize: 13,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+          <div style={{ display: 'contents' }}>
             <div>
               <div style={{ color: '#8b96b8', marginBottom: 4 }}>network</div>
               <div>{nodes.length} nodes · {(state.edges || []).length} edges

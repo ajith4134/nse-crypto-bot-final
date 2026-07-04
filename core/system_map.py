@@ -26,7 +26,32 @@ STATE = os.path.join(ROOT, "trading", "state")
 DEPTH = os.path.join(ROOT, "trading", "data", "depth")
 FEATS = os.path.join(ROOT, "trading", "data", "brain_feats")
 
-LAYERS = ["data", "features", "neurons", "routing", "execution", "learning"]
+LAYERS = ["data", "features", "neurons", "routing", "execution", "learning",
+          "outputs"]
+
+_REGISTRY_COUNT: int | None = None
+
+
+def _registry_count() -> int:
+    """Count every node class/factory in nodes/*.py (the true on-disk model
+    registry) — computed once per process via AST, never guessed."""
+    global _REGISTRY_COUNT
+    if _REGISTRY_COUNT is not None:
+        return _REGISTRY_COUNT
+    import ast
+    total = 0
+    for f in glob.glob(os.path.join(ROOT, "nodes", "*.py")):
+        try:
+            tree = ast.parse(open(f).read())
+            n_cls = sum(1 for c in ast.walk(tree) if isinstance(c, ast.ClassDef)
+                        and c.name.endswith("Node"))
+            n_fac = sum(1 for c in ast.walk(tree) if isinstance(c, ast.FunctionDef)
+                        and c.name.endswith("_node"))
+            total += max(n_cls, n_fac)
+        except Exception:
+            continue
+    _REGISTRY_COUNT = total
+    return total
 
 
 def _age(path: str) -> float | None:
@@ -184,12 +209,21 @@ def system_map() -> dict:
             f"in trained graph: {lanes or 'pending next build'}",
             ["28-feature vector"], ["class prob (tier-2, escalation only)"]))
     catalog_in_graph = len(graph_nodes) > 40
-    N(_node("catalog108", "Full catalog (108 ML nodes: SINDy, RQA, DMD, wavelets…)", "neurons",
+    reg = _registry_count()
+    N(_node("catalog108",
+            f"Model catalog ({reg} node classes on disk · 108 routable experts)",
+            "neurons",
             "working" if catalog_in_graph else "standby",
-            (f"{len(graph_nodes)} nodes in trained graph"
+            (f"{len(graph_nodes)} in trained graph"
              if catalog_in_graph else
-             f"full-catalog training run in progress (graph now: {len(graph_nodes)} nodes)"),
+             f"full-catalog training in progress (graph now: {len(graph_nodes)}; "
+             f"SINDy, RQA, DMD, wavelets, transfer-entropy…)"),
             ["28-feature vector"], ["per-family predictions → hgate"]))
+    N(_node("strategy_lib", "Strategy library (239 institutional strategies)", "neurons",
+            "working" if _age(os.path.join(STATE, "strategy_config.json")) else "standby",
+            f"config {_fmt_age(_age(os.path.join(STATE, 'strategy_config.json')))} · "
+            f"foundry {_json_len(os.path.join(STATE, 'strategy_foundry.json'))} entries",
+            ["OHLCV + indicators"], ["per-strategy signals + OOS leaderboard"]))
     N(_node("foundation_heads", "Foundation TS heads (TTM/Chronos/TabPFN)", "neurons",
             "standby", "on-demand via /api/trading/forecast + heads.py (DM-gated)",
             ["close-price windows"], ["multi-horizon forecast paths, P(TP before SL)"]))
@@ -284,7 +318,40 @@ def system_map() -> dict:
             "standby", f"{gs} learned skills · acts when invoked (paper-first)",
             ["dashboard screenshots + DOM"], ["button presses, experiments, reflections"]))
 
+    # ── OUTPUTS (what the whole brain actually produces) ─────────────────────
+    st, ev = _fresh_status(j_age, 24 * 3600, "no recent closes")
+    N(_node("out_positions", "Positions & paper trades", "outputs",
+            "working" if ft_up else "standby",
+            f"Freqtrade {'live' if ft_up else 'down'} · journal {_fmt_age(j_age)}",
+            ["fills from both executors"], ["open/closed trade rows (85-col)"]))
+    w_age = _age(os.path.join(STATE, "paper_wallet_CRYPTO_default.json"))
+    st, ev = _fresh_status(w_age, 48 * 3600, "wallet unchanged")
+    N(_node("out_pnl", "P&L, wallets & scorecards", "outputs", st, ev,
+            ["journal + open positions"], ["per-segment scorecard, equity, win rate"]))
+    N(_node("out_forecast", "Forecast paths (PRED overlay)", "outputs", "standby",
+            "on-demand: /api/trading/forecast → chart overlay (research preview)",
+            ["foundation/ridge head rollouts"], ["k-step predicted path + disclaimer"]))
+    sh_age = _age(os.path.join(STATE, "cortex_shadow.json"))
+    st, ev = _fresh_status(sh_age, 900, "shadow idle")
+    N(_node("out_shadow", "Cortex shadow log (decision audit)", "outputs", st, ev,
+            ["cortex signal vs live decider, per bar"],
+            ["side/conf/experts/reason comparison rows"]))
+    tun = _age(os.path.expanduser("~/public_link.txt"))
+    N(_node("out_dash", "Dashboards (dark-pro + FreqUI + OpenAlgo, one link)", "outputs",
+            "working" if _probe(8100, "/") else "off",
+            f"gateway :8100 {'200' if _probe(8100, '/') else 'down'} · tunnel link {_fmt_age(tun)}",
+            ["every API above"], ["the live views you are reading now"]))
+
     edges = [
+        ("freqtrade", "out_positions", "fills"),
+        ("openalgo_exec", "out_positions", "fills"),
+        ("out_positions", "out_pnl", "realized+unrealized"),
+        ("journal", "out_pnl", "closed trades"),
+        ("foundation_heads", "out_forecast", "k-step rollout"),
+        ("brain_loop", "out_shadow", "decision comparison"),
+        ("out_pnl", "out_dash", "scorecards"),
+        ("out_shadow", "out_dash", "audit rows"),
+        ("strategy_lib", "decider", "per-coin strategy pick"),
         ("candles", "candle_ta", "1m→15m OHLCV"),
         ("candles", "mtf_block", "1h resample"),
         ("candles", "market_block", "BTC series"),

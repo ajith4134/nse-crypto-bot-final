@@ -528,7 +528,7 @@ _Market-segment taxonomy — the CORTEX overlay that tags every neuron with a_
 
 ## `core/system_map.py`
 _System map — the WHOLE brain as a wired graph with honest live statuses._
-- **functions:** `_age(path) -> float | None`; `_fmt_age(a) -> str`; `_json_len(path) -> int`; `_probe(port, path) -> bool`; `_proc_running(needle) -> bool`; `_env_on(name) -> bool`; `_node(id_, label, layer, status, evidence, inputs, outputs)`; `_fresh_status(age, window_s, standby_why)`; `system_map() -> dict`
+- **functions:** `_registry_count() -> int`; `_age(path) -> float | None`; `_fmt_age(a) -> str`; `_json_len(path) -> int`; `_probe(port, path) -> bool`; `_proc_running(needle) -> bool`; `_env_on(name) -> bool`; `_node(id_, label, layer, status, evidence, inputs, outputs)`; `_fresh_status(age, window_s, standby_why)`; `system_map() -> dict`
 - **imports:** __future__, glob, json, os, time
 
 ## `core/trust.py`

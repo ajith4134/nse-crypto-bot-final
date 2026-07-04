@@ -16,11 +16,13 @@ const STATUS = {
 const LAYER_LABEL = {
   data: 'Data senses', features: 'Feature bus', neurons: 'Neurons (ML models)',
   routing: 'Routing & decision', execution: 'Execution', learning: 'Learning',
+  outputs: 'Outputs',
 }
 
 export default function SystemMapPanel() {
   const [map, setMap] = useState(null)
-  const [sel, setSel] = useState(null)         // selected node id
+  const [sel, setSel] = useState(null)         // selected (clicked) node id
+  const [hover, setHover] = useState(null)     // hovered node id — same highlight
   const wrapRef = useRef(null)
   const nodeRefs = useRef({})
   const [lines, setLines] = useState([])
@@ -67,8 +69,9 @@ export default function SystemMapPanel() {
   if (!map) return <section className="card"><h2>Whole-Brain System Map</h2><div className="hint">loading…</div></section>
   if (map.note) return <section className="card"><h2>Whole-Brain System Map</h2><div className="hint">{map.note}</div></section>
 
+  const focus = sel || hover                   // click pins, hover previews
   const selNode = (map.nodes || []).find((n) => n.id === sel)
-  const touching = new Set(sel ? map.edges.filter((e) => e.source === sel || e.target === sel)
+  const touching = new Set(focus ? map.edges.filter((e) => e.source === focus || e.target === focus)
     .flatMap((e) => [e.source, e.target]) : [])
 
   return (
@@ -88,57 +91,76 @@ export default function SystemMapPanel() {
         Click a node to highlight its wiring + inputs/outputs.
       </div>
 
-      <div ref={wrapRef} style={{ position: 'relative' }}>
-        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
-          pointerEvents: 'none', zIndex: 0 }}>
-          {lines.map((l, i) => {
-            const active = sel && (l.source === sel || l.target === sel)
-            const mx = (l.sx + l.tx) / 2
-            return (
-              <g key={i}>
-                <path d={`M ${l.sx} ${l.sy} C ${mx} ${l.sy}, ${mx} ${l.ty}, ${l.tx} ${l.ty}`}
-                  fill="none" stroke={active ? '#4da3ff' : '#26314a'}
-                  strokeWidth={active ? 1.8 : 0.8} opacity={sel && !active ? 0.25 : 1} />
-                {active && (
-                  <text x={mx} y={(l.sy + l.ty) / 2 - 4} textAnchor="middle"
-                    style={{ fill: '#4da3ff', fontSize: 10 }}>{l.stream}</text>
-                )}
-              </g>
-            )
-          })}
-        </svg>
+      {/* auto-adjustable: 7 fixed layer columns with a minimum readable width;
+          the container scrolls horizontally instead of squishing (design locked) */}
+      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <div ref={wrapRef} style={{ position: 'relative',
+          minWidth: (map.layers || []).length * 178 }}>
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
+            pointerEvents: 'none', zIndex: 0 }}>
+            {lines.map((l, i) => {
+              const active = focus && (l.source === focus || l.target === focus)
+              const mx = (l.sx + l.tx) / 2
+              return (
+                <g key={i}>
+                  <path d={`M ${l.sx} ${l.sy} C ${mx} ${l.sy}, ${mx} ${l.ty}, ${l.tx} ${l.ty}`}
+                    fill="none" stroke={active ? '#4da3ff' : '#3a4a6b'}
+                    strokeWidth={active ? 2 : 1}
+                    opacity={focus ? (active ? 1 : 0.12) : 0.45} />
+                  {active && (
+                    <>
+                      <circle cx={l.tx} cy={l.ty} r="2.5" fill="#4da3ff" />
+                      <text x={mx} y={(l.sy + l.ty) / 2 - 4} textAnchor="middle"
+                        style={{ fill: '#7fc0ff', fontSize: 10, fontWeight: 600,
+                          paintOrder: 'stroke', stroke: '#0b1020', strokeWidth: 3 }}>
+                        {l.stream}</text>
+                    </>
+                  )}
+                </g>
+              )
+            })}
+          </svg>
 
-        <div style={{ display: 'grid', position: 'relative', zIndex: 1,
-          gridTemplateColumns: `repeat(${(map.layers || []).length}, minmax(0,1fr))`, gap: 10 }}>
-          {(map.layers || []).map((layer) => (
-            <div key={layer}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8,
-                color: '#8b96b8', marginBottom: 6 }}>{LAYER_LABEL[layer] || layer}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(byLayer[layer] || []).map((n) => {
-                  const st = STATUS[n.status] || STATUS.standby
-                  const dimmed = sel && n.id !== sel && !touching.has(n.id)
-                  return (
-                    <div key={n.id} ref={(el) => { nodeRefs.current[n.id] = el }}
-                      onClick={() => setSel(sel === n.id ? null : n.id)}
-                      title={n.evidence}
-                      style={{ background: '#121a2b', border: `1px solid ${n.id === sel ? '#4da3ff' : '#1e2837'}`,
-                        borderRadius: 8, padding: '6px 8px', cursor: 'pointer',
-                        opacity: dimmed ? 0.35 : 1, transition: 'opacity .15s',
-                        boxShadow: n.status === 'working' ? `0 0 10px ${st.color}33` : 'none' }}>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ width: 8, height: 8, borderRadius: 4, background: st.color,
-                          flexShrink: 0,
-                          animation: n.status === 'working' ? 'sysmap-pulse 2.2s infinite' : 'none' }} />
-                        <span style={{ fontSize: 11.5, lineHeight: 1.25 }}>{n.label}</span>
+          <div style={{ display: 'grid', position: 'relative', zIndex: 1,
+            gridTemplateColumns: `repeat(${(map.layers || []).length}, minmax(170px, 1fr))`,
+            gap: 12 }}>
+            {(map.layers || []).map((layer) => (
+              <div key={layer}>
+                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8,
+                  color: '#8b96b8', marginBottom: 6, position: 'sticky', top: 0 }}>
+                  {LAYER_LABEL[layer] || layer}
+                  <span style={{ marginLeft: 5, color: '#54617f' }}>({(byLayer[layer] || []).length})</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {(byLayer[layer] || []).map((n) => {
+                    const st = STATUS[n.status] || STATUS.standby
+                    const dimmed = focus && n.id !== focus && !touching.has(n.id)
+                    return (
+                      <div key={n.id} ref={(el) => { nodeRefs.current[n.id] = el }}
+                        onClick={() => setSel(sel === n.id ? null : n.id)}
+                        onMouseEnter={() => setHover(n.id)}
+                        onMouseLeave={() => setHover(null)}
+                        title={`${n.label}\n${n.evidence}\nin: ${n.inputs.join(' · ')}\nout: ${n.outputs.join(' · ')}`}
+                        style={{ background: '#121a2b', border: `1px solid ${n.id === sel ? '#4da3ff' : '#1e2837'}`,
+                          borderRadius: 8, padding: '5px 8px', cursor: 'pointer',
+                          opacity: dimmed ? 0.3 : 1, transition: 'opacity .15s',
+                          boxShadow: n.status === 'working' ? `0 0 10px ${st.color}33` : 'none' }}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 4, background: st.color,
+                            flexShrink: 0,
+                            animation: n.status === 'working' ? 'sysmap-pulse 2.2s infinite' : 'none' }} />
+                          <span style={{ fontSize: 11.5, lineHeight: 1.25 }}>{n.label}</span>
+                        </div>
+                        <div style={{ fontSize: 9.5, color: '#8b96b8', marginTop: 2,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {n.evidence}</div>
                       </div>
-                      <div style={{ fontSize: 9.5, color: '#8b96b8', marginTop: 2 }}>{n.evidence}</div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
