@@ -1228,6 +1228,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/watchlist":                  # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_watchlist(self)
+        if path == "/api/trading/onchain":                    # on-chain + whale alt-data lane (idea #11)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_onchain(self)
         if path == "/api/trading/online/loop":                # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_online_loop(self)

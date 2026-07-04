@@ -1566,6 +1566,16 @@ def handle_online_loop(h):
     return h._send(200, body, "application/json")
 
 
+def handle_onchain(h):
+    """GET /api/trading/onchain — idea #11 on-chain + whale alt-data lane: live composite flow/risk
+    signal from FREE keyless sources (Fear&Greed + blockchain.info avg-tx whale proxy + mempool.space).
+    Pairs with /api/trading/news/status as the full alt-data feed. Cached 60s (external HTTP)."""
+    def _p_onchain():
+        from trading.altdata.onchain import OnChainAltData
+        return json.dumps(OnChainAltData().snapshot(), default=str).encode()
+    return h._send(200, _srv(h)._cached_body("trading/onchain", 60.0, _p_onchain), "application/json")
+
+
 def handle_online_status(h):
     """GET /api/trading/online/status — honest O5 online-control snapshot: the SHARED persisted
     control surface (per-market enable/mode/allow_live/trading_state + editable paper wallets) +

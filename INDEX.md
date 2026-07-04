@@ -651,7 +651,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_online_status(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`
 - **imports:** json, sys, time
 
 ## `dashboard/server.py`
@@ -1660,6 +1660,12 @@ _Trading Phase T8.7 (Autonomous news research + sentiment) acceptance tests — 
 - **classes:** TestSentimentScorer, TestNewsItem, TestNewsResearcher, TestNewsSentimentNode
 - **imports:** __future__, core.node_protocol, os, trading.brain.news, trading.brain.sentiment, unittest, warnings
 
+## `tests/test_onchain_altdata.py`
+_AI-scientist idea #11 — on-chain + whale alt-data lane (hermetic, injected fetchers)._
+- **classes:** TestOnChainAltData
+- **functions:** `_stub_fetchers(fg, avg_tx, mempool)`
+- **imports:** trading.altdata.onchain, unittest
+
 ## `tests/test_online.py`
 _Trading Phase O1–O4 (Always-Online Supervisor) acceptance tests — fully offline._
 - **classes:** TestMarketSession, TestPriceQuoteExchange, TestTradingState, TestPaperWallet, TestReplay, TestOnlineSupervisor
@@ -1971,6 +1977,15 @@ _trading/alerts/formatter.py — render an AlertEvent to Telegram markdown (T7).
 _trading/alerts/scheduler.py — scheduled reports (T7 §3, §4)._
 - **classes:** Report, ReportScheduler
 - **imports:** __future__, dataclasses, datetime, typing
+
+## `trading/altdata/__init__.py`
+_(no summary)_
+
+## `trading/altdata/onchain.py`
+_AI-scientist idea #11 — on-chain + whale alt-data lane (live, free, keyless)._
+- **classes:** OnChainAltData
+- **functions:** `_get_json(url, timeout)`; `_get_text(url, timeout) -> str`; `_fetch_fear_greed() -> dict`; `_fetch_network() -> dict`; `_fetch_whale() -> dict`; `_default_fetchers() -> dict`; `_sat(x) -> float`; `_composite(fg, net, whale) -> float`
+- **imports:** __future__, json, math, urllib.request
 
 ## `trading/antioverfit.py`
 _Anti-overfit telemetry (CANON-43 / NNM-30)._
