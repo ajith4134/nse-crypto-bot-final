@@ -24,7 +24,11 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SLOW = {"test_dl_nodes", "test_cortex_b7"}  # Darts LSTM/GRU training · spawns run_network.py
+# --fast skips these known-heavy modules (each minutes-long; run them separately with a big
+# --timeout). test_multihead/phase3/robust exceed 8 min (candidates for optimization — likely a
+# grow-cascade / heavy-fit hot loop; see /hot-path).
+SLOW = {"test_dl_nodes", "test_cortex_b7",            # Darts DL training · spawns run_network.py
+        "test_multihead", "test_phase3", "test_robust", "test_pipeline_t8"}
 
 
 def run_module(mod: str, timeout: int):
