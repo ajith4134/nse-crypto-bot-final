@@ -880,6 +880,12 @@ _GitHub-tier-2 predictor / probabilistic / dynamics nodes (T2)._
 - **functions:** `_readout(task)`; `mlforecast_node()`; `functime_node()`; `flaml_node()`; `autots_node()`; `deeptime_node()`; `pomegranate_hmm_node()`; `pgmpy_bayesnet_node()`; `econml_node()`; `pykalman_node()`; `simdkalman_node()`
 - **imports:** __future__, core.node_protocol, datetime, numpy, os, warnings
 
+## `nodes/intermarket_gnn.py`
+_AI-scientist idea #10 — Intermarket Graph Neural Net (PyG)._
+- **classes:** IntermarketGNNNode
+- **functions:** `_knn_edges(corr, k) -> np.ndarray`; `intermarket_gnn_node(name) -> IntermarketGNNNode`
+- **imports:** __future__, core.node_protocol, numpy
+
 ## `nodes/llm_forecast_node.py`
 _LLMForecastNode — cloud-LLM as a reasoning-based directional forecaster._
 - **classes:** LLMForecastNode
@@ -1527,6 +1533,12 @@ _Phase P4.2 HybridMemory acceptance tests — fully OFFLINE + deterministic._
 _tests/test_hypothesis.py — the brain's hypothesis→experiment→belief loop._
 - **functions:** `isolated_state(tmp_path, monkeypatch)`; `_trades(n, seed) -> list[dict]`; `test_confirms_true_edge_and_refutes_false(isolated_state)`; `test_reflect_promotes_and_archives(isolated_state)`; `test_persists_and_reloads(isolated_state)`; `test_node_protocol_and_registry(isolated_state)`; `test_pipeline_integration_with_ledger(isolated_state)`
 - **imports:** __future__, core.node_protocol, numpy, pytest
+
+## `tests/test_intermarket_gnn.py`
+_AI-scientist idea #10 — Intermarket GNN (PyG GCN over the cross-feature graph)._
+- **classes:** TestIntermarketGNN
+- **functions:** `_graph_dataset(n, seed)`
+- **imports:** core.node_protocol, nodes.intermarket_gnn, numpy, unittest
 
 ## `tests/test_journal_t5.py`
 _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully offline._
