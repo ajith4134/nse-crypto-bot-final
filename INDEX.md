@@ -1074,7 +1074,7 @@ _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 
 ## `run_network.py`
 _run_network.py — CORTEX B7: unified network-state generator → network_state.json._
-- **functions:** `_split(X, y, frac, seed)`; `_split_chrono(X, y, frac)`; `_real_dataset(n_rows, tf_min, horizon_bars) -> dict`; `_deep_lane_factories() -> list[tuple]`; `_trust_ledger()`; `main() -> dict`
+- **functions:** `_split(X, y, frac, seed)`; `_split_chrono(X, y, frac)`; `_pair_block(path, n_rows, tf_min, horizon_bars) -> dict | None`; `_real_dataset_multi(rows_per_pair, max_pairs, tf_min, horizon_bars) -> dict`; `_real_dataset(n_rows, tf_min, horizon_bars) -> dict`; `_deep_lane_factories() -> list[tuple]`; `_trust_ledger()`; `main() -> dict`
 - **imports:** __future__, argparse, collections, core.columns, core.segments, data.benchmarks, eval.golden, json, nodes.active_subnet, nodes.reflex, numpy, os, random, run_columns, time
 
 ## `run_noise_router.py`
@@ -1312,7 +1312,7 @@ _CORTEX B8 acceptance tests — final integration (CANON-51/42)._
 
 ## `tests/test_cortex_b9_gaps.py`
 _CORTEX B9 — the 13 PARTIAL→FULL canon gap-closers._
-- **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestSelectiveAccuracy, TestDownloadersImportable
+- **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestSelectiveAccuracy, TestFeatureBus, TestDownloadersImportable
 - **imports:** numpy, os, pandas, tempfile, unittest
 
 ## `tests/test_crypto_t2.py`
@@ -1961,7 +1961,7 @@ _DeepLOB price-direction prediction from recorded depth snapshots (CPU)._
 ## `trading/brain/psychology.py`
 _Trader-psychology engine: crowd sentiment from live order-book depth._
 - **classes:** BookSnapshot, StoikovMicroprice, TraderPsychology
-- **functions:** `_load_lob_features()`; `ring_to_frame(ring, levels) -> pd.DataFrame`; `detect_walls(snap, band, min_frac) -> dict`; `gap_map(snap, depths) -> dict`; `depth_slope_bias(snap) -> float`; `evaluate_ring(ring, micro, weights) -> dict | None`; `get_engine() -> TraderPsychology`; `psych_columns(result) -> dict`
+- **functions:** `_load_lob_features()`; `ring_to_frame(ring, levels) -> pd.DataFrame`; `detect_walls(snap, band, min_frac) -> dict`; `gap_map(snap, depths) -> dict`; `depth_slope_bias(snap) -> float`; `snapshot_features(snap) -> list[float]`; `load_depth_features(pair, market, segment) -> tuple`; `evaluate_ring(ring, micro, weights) -> dict | None`; `get_engine() -> TraderPsychology`; `psych_columns(result) -> dict`
 - **imports:** __future__, collections, dataclasses, importlib.util, json, logging, math, numpy, pandas, pathlib, threading, time, typing
 
 ## `trading/brain/regime.py`
@@ -2046,8 +2046,8 @@ _trading/config.py — central trading configuration (T1)._
 ## `trading/cortex_signal.py`
 _CORTEX B8 — CortexSignalSource: the per-bar live signal pipeline (CANON-51)._
 - **classes:** CortexSignalSource
-- **functions:** `build_features(df) -> tuple[np.ndarray, np.ndarray]`; `default_arc()`; `get_cortex_source() -> CortexSignalSource`; `record_pending(symbol, side, experts_fired) -> None`; `record_shadow(segment, symbol, cortex, decider_action) -> None`; `apply_trust_feedback(closed_trades) -> int`
-- **imports:** __future__, numpy, time
+- **functions:** `_psych_block(feat, symbol) -> np.ndarray`; `build_features(df, symbol) -> tuple[np.ndarray, np.ndarray]`; `default_arc()`; `get_cortex_source() -> CortexSignalSource`; `record_pending(symbol, side, experts_fired) -> None`; `record_shadow(segment, symbol, cortex, decider_action) -> None`; `apply_trust_feedback(closed_trades) -> int`
+- **imports:** __future__, numpy, os, time, trading.feature_bus
 
 ## `trading/crypto/__init__.py`
 _trading/crypto/ — Trading Phase T2 (Crypto Foundation)._
@@ -2645,6 +2645,11 @@ _trading/exits/ — four separate trailing-exit components over one signed engin
 - **classes:** TrailingEngine, LongProfitTrail, LongStopTrail, ShortProfitTrail, ShortLossTrail
 - **functions:** `make_exit(direction, purpose)`; `status(engine) -> dict`; `build_demo_trailing() -> dict`
 - **imports:** __future__, trading.execution.trailing
+
+## `trading/feature_bus.py`
+_Feature bus — every data stream the brain owns, joined into ONE per-bar_
+- **functions:** `_bar_ts(feat) -> np.ndarray`; `mtf_block(feat) -> np.ndarray`; `_btc_series()`; `market_block(feat, symbol) -> np.ndarray`; `record_live(symbol, values) -> None`; `live_block(feat, symbol) -> np.ndarray`
+- **imports:** __future__, functools, json, numpy, os
 
 ## `trading/features_ta.py`
 _Technical-feature layer — thin pandas-ta-classic wrapper (CANON-24/25)._

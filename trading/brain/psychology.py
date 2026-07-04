@@ -366,6 +366,68 @@ def depth_slope_bias(snap: BookSnapshot) -> float:
     return (sb - sa) / (sb + sa) if (sb + sa) > 0 else 0.0
 
 
+# ── per-snapshot features for the CORTEX signal (train/serve parity) ─────────
+
+SNAPSHOT_FEATURE_NAMES = ["ob_obi5", "ob_spread_bps", "ob_slope_bias",
+                          "ob_wall_bias", "ob_gap_bias"]
+
+
+def snapshot_features(snap: BookSnapshot) -> list[float]:
+    """5 unitless order-book features from ONE snapshot, computed by the same
+    pure functions everywhere (recorded-history training AND the live path —
+    no train/serve skew): top-5 OBI, spread bps, depth-slope bias, wall bias,
+    gap-map bias. Returns zeros for an empty/half book."""
+    mid = snap.mid
+    if not mid:
+        return [0.0] * len(SNAPSHOT_FEATURE_NAMES)
+    bid5 = sum(q for _, q in snap.bids[:5])
+    ask5 = sum(q for _, q in snap.asks[:5])
+    obi = (bid5 - ask5) / (bid5 + ask5) if (bid5 + ask5) > 0 else 0.0
+    spread = (snap.asks[0][0] - snap.bids[0][0]) / mid * 10_000 \
+        if snap.bids and snap.asks else 0.0
+    return [round(float(obi), 6), round(float(spread), 4),
+            depth_slope_bias(snap), detect_walls(snap)["bias"],
+            gap_map(snap)["gap_map_bias"]]
+
+
+_DEPTH_FEAT_CACHE: dict = {}                    # path -> (mtime, size, ts, F)
+
+
+def load_depth_features(pair: str, market: str = "CRYPTO",
+                        segment: str = "futures") -> tuple:
+    """(ts_array, feature_matrix) from the recorded depth jsonl for `pair`
+    (the live engine appends these continuously). Empty arrays when the pair
+    has no recording yet — callers zero-fill honestly via a psych_ok flag.
+    Parsed result is cached per file mtime/size (the live loop calls this per
+    pair per bar — re-parsing 39MB of jsonl each time would stall it)."""
+    key = f"{market}:{segment}:{pair}".replace("/", "_").replace(":", "_")
+    f = DEPTH_DATA_DIR / (key + ".jsonl")
+    if f.exists():
+        st = f.stat()
+        hit = _DEPTH_FEAT_CACHE.get(str(f))
+        if hit and hit[0] == st.st_mtime and hit[1] == st.st_size:
+            return hit[2], hit[3]
+    ts, rows = [], []
+    if f.exists():
+        for line in f.read_text().splitlines():
+            try:
+                d = json.loads(line)
+                snap = BookSnapshot(ts=d["ts"],
+                                    bids=[tuple(b) for b in d.get("bids", [])],
+                                    asks=[tuple(a) for a in d.get("asks", [])])
+                ts.append(float(d["ts"]))
+                rows.append(snapshot_features(snap))
+            except Exception:
+                continue                                # skip torn lines, keep rest
+    out = (np.asarray(ts, dtype=float),
+           np.asarray(rows, dtype=float) if rows
+           else np.zeros((0, len(SNAPSHOT_FEATURE_NAMES))))
+    if f.exists():
+        st = f.stat()
+        _DEPTH_FEAT_CACHE[str(f)] = (st.st_mtime, st.st_size, out[0], out[1])
+    return out
+
+
 # ── composite evaluation ─────────────────────────────────────────────────────
 
 

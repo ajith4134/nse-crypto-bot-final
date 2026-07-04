@@ -28,6 +28,7 @@ from real closed trades.
 """
 from __future__ import annotations
 
+import os
 import time
 
 import numpy as np
@@ -35,19 +36,68 @@ import numpy as np
 FLAT_SIDE = "flat"
 
 # feature names (scale-invariant transforms of trading/features_ta indicators)
-FEATURE_NAMES = ["rsi", "d_ema_fast", "d_ema_mid", "d_ema_slow", "d_sma",
-                 "bb_pos", "ma_slope_n", "ret_1"]
+CANDLE_FEATURE_NAMES = ["rsi", "d_ema_fast", "d_ema_mid", "d_ema_slow", "d_sma",
+                        "bb_pos", "ma_slope_n", "ret_1"]
+# order-book psychology features (trading/brain/psychology.snapshot_features):
+# joined per-bar from the RECORDED depth history the live engine appends
+# continuously — the SAME file serves training and live rows (no serve skew).
+# psych_ok = 1 when a fresh-enough snapshot backed the bar, 0 when zero-filled.
+PSYCH_FEATURE_NAMES = ["ob_obi5", "ob_spread_bps", "ob_slope_bias",
+                       "ob_wall_bias", "ob_gap_bias", "psych_ok"]
+# the full brain feature bus (trading/feature_bus.py): higher-timeframe context,
+# BTC/cross-market context, and the live-recorded brain signals (regime probs,
+# learner bias, fear, LLM p_up) — every stream the brain owns, one vector.
+from trading.feature_bus import LIVE_NAMES as BUS_LIVE_NAMES
+from trading.feature_bus import MARKET_NAMES as BUS_MARKET_NAMES
+from trading.feature_bus import MTF_NAMES as BUS_MTF_NAMES
+FEATURE_NAMES = (CANDLE_FEATURE_NAMES + PSYCH_FEATURE_NAMES
+                 + BUS_MTF_NAMES + BUS_MARKET_NAMES + BUS_LIVE_NAMES)
+
+# pooled cross-pair fitting: refit the shared arc once this many distinct
+# pairs' feature histories have been seen (features are scale-invariant by
+# design, so one arc reads every pair honestly).
+POOL_MIN_PAIRS = int(os.environ.get("CORTEX_POOL_MIN", "8"))
 
 _PENDING_STATE = "cortex_pending.json"          # pair -> experts awaiting outcome
 _SHADOW_STATE = "cortex_shadow.json"            # last shadow decisions (dashboard)
 
 
 # ── feature build (CANON-24 warm-up gated, scale-invariant) ──────────────────
-def build_features(df) -> tuple[np.ndarray, np.ndarray]:
-    """(X (n,8), close (n,)) from an OHLCV DataFrame, warm-up rows dropped.
+def _psych_block(feat, symbol: str | None) -> np.ndarray:
+    """(n,6) psychology block for the gated feature frame: 5 order-book
+    features as-of-joined from the recorded depth history + psych_ok flag.
+    Bars without a fresh-enough snapshot (≤3 bar-widths old) are zero-filled
+    with psych_ok=0 — the net learns the flag, nothing is faked."""
+    n = len(feat)
+    block = np.zeros((n, len(PSYCH_FEATURE_NAMES)))
+    if symbol is None or "date" not in getattr(feat, "columns", []):
+        return block
+    try:
+        from trading.brain.psychology import load_depth_features
+        ts, F = load_depth_features(symbol)
+        if len(ts) == 0:
+            return block
+        import pandas as pd
+        bar_ts = pd.to_datetime(feat["date"]).astype("int64").to_numpy() / 1e9
+        width = float(np.median(np.diff(bar_ts))) if n > 2 else 900.0
+        idx = np.searchsorted(ts, bar_ts, side="right") - 1
+        for i in range(n):
+            j = idx[i]
+            if j >= 0 and (bar_ts[i] - ts[j]) <= 3 * width:
+                block[i, :5] = F[j]
+                block[i, 5] = 1.0
+    except Exception:
+        pass                                            # honest zero block on failure
+    return block
+
+
+def build_features(df, symbol: str | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """(X (n,14), close (n,)) from an OHLCV DataFrame, warm-up rows dropped.
 
     All features are unitless so an arc fitted on one coin's scale still reads
-    another coin honestly (relative distances to MAs, %B, 1-bar return)."""
+    another coin honestly (relative distances to MAs, %B, 1-bar return). When
+    `symbol` is given, the recorded order-book psychology block is joined
+    per bar (OBI/spread/slope/walls/gap + psych_ok flag)."""
     from trading.features_ta import add_indicators, gate_warmup
     feat = gate_warmup(add_indicators(df))
     if len(feat) == 0:
@@ -68,6 +118,10 @@ def build_features(df) -> tuple[np.ndarray, np.ndarray]:
             feat["ma_slope"].to_numpy(dtype=float) / np.where(c == 0, np.nan, c),
             ret_1,
         ])
+    from trading.feature_bus import live_block, market_block, mtf_block
+    X = np.column_stack([X, _psych_block(feat, symbol),
+                         mtf_block(feat), market_block(feat, symbol),
+                         live_block(feat, symbol)])
     good = np.isfinite(X).all(axis=1)
     return X[good], c[good]
 
@@ -110,14 +164,18 @@ class CortexSignalSource:
         self.auto_fit = bool(auto_fit)
         self.psych_fn = psych_fn            # optional callable(symbol) -> dict metadata
         self.last_error: str | None = None
+        # cross-pair pooling: per-pair (X,y) stash; once POOL_MIN_PAIRS distinct
+        # pairs have been seen the shared arc is refit on ALL of them pooled.
+        self._pool: dict = {}
+        self._pooled = False
 
     # ── fitting ──────────────────────────────────────────────────────────────
     def _fitted(self) -> bool:
         return self.arc is not None and hasattr(self.arc, "_tier0")
 
-    def fit(self, df) -> "CortexSignalSource":
+    def fit(self, df, symbol: str | None = None) -> "CortexSignalSource":
         """Fit the arc on next-bar-up labels from `df` (chronological, no leak)."""
-        X, close = build_features(df)
+        X, close = build_features(df, symbol)
         if len(X) < 20:
             raise ValueError(f"too few warm feature rows to fit ({len(X)})")
         y = (close[1:] > close[:-1]).astype(int)       # label for row i uses i+1
@@ -125,6 +183,26 @@ class CortexSignalSource:
             self.arc = default_arc()
         self.arc.fit(X[:-1].tolist(), y.tolist())
         return self
+
+    def _stash_and_maybe_pool(self, symbol: str, X, close) -> None:
+        """Stash this pair's (X,y) and, once POOL_MIN_PAIRS distinct pairs have
+        been seen, refit the shared arc on ALL pairs pooled (one-time, logged).
+        Features are scale-invariant so pooling is honest across coins."""
+        try:
+            y = (close[1:] > close[:-1]).astype(int)
+            self._pool[symbol] = (X[:-1][-800:], y[-800:])     # bounded memory
+            if not self._pooled and len(self._pool) >= POOL_MIN_PAIRS:
+                Xp = np.vstack([x for x, _ in self._pool.values()])
+                yp = np.concatenate([v for _, v in self._pool.values()])
+                arc = default_arc()
+                arc.fit(Xp.tolist(), yp.tolist())
+                self.arc = arc
+                self._pooled = True
+                print(f"[cortex] arc refit POOLED on {len(self._pool)} pairs "
+                      f"({len(yp)} rows, {Xp.shape[1]} features incl. order-book)",
+                      flush=True)
+        except Exception as e:
+            self.last_error = f"pool refit failed: {e!r}"
 
     # ── the per-bar decision ─────────────────────────────────────────────────
     def _flat(self, symbol: str, reason: str, **extra) -> dict:
@@ -155,7 +233,7 @@ class CortexSignalSource:
         if df is None or len(df) < self.min_bars:
             n = 0 if df is None else len(df)
             return self._flat(symbol, f"insufficient bars ({n} < {self.min_bars})")
-        X, close = build_features(df)
+        X, close = build_features(df, symbol)
         if len(X) == 0:
             return self._flat(symbol, "warm-up gating left no feature rows")
         if not self._fitted():
@@ -168,6 +246,8 @@ class CortexSignalSource:
                 self.arc.fit(X[:-1].tolist(), y.tolist())
             except Exception as e:
                 return self._flat(symbol, f"reflex arc fit failed: {e!r}")
+        # cross-pair pooling: every pair's history strengthens the shared arc
+        self._stash_and_maybe_pool(symbol, X, close)
 
         row = X[-1]
         regime_probs, regime_label = self._regime(row)
@@ -184,6 +264,21 @@ class CortexSignalSource:
                 base["psychology"] = self.psych_fn(symbol)
             except Exception:
                 base["psychology"] = None
+        # feature-bus recorder: today's brain signals become TOMORROW's
+        # trainable features (regime probs, fear) — history accrues per bar.
+        try:
+            from trading.feature_bus import record_live
+            rec = {}
+            if regime_probs:
+                for i, p in enumerate(regime_probs[:3]):
+                    rec[f"regime_p{i}"] = p
+            psy = base.get("psychology") or {}
+            if isinstance(psy, dict) and psy.get("psych_fear") is not None:
+                rec["psych_fear"] = psy["psych_fear"]
+            if rec:
+                record_live(symbol, rec)
+        except Exception:
+            pass
 
         if pred is None:                               # stay-flat ROUTING outcome
             return self._flat(symbol, "reflex arc stayed flat (calibrated abstention)",

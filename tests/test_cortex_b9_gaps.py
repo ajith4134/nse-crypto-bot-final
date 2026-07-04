@@ -136,6 +136,43 @@ class TestSelectiveAccuracy(unittest.TestCase):     # abstaining-trader metric
             self.assertEqual(r["n"], max(1, int(np.ceil(r["coverage"] * 400))))
 
 
+class TestFeatureBus(unittest.TestCase):        # brain feature bus (all data streams)
+    def _df(self, n=300):
+        rng = np.random.RandomState(3)
+        px = 100 + np.cumsum(rng.randn(n))
+        return pd.DataFrame({
+            "date": pd.date_range("2026-01-01", periods=n, freq="15min"),
+            "open": px, "high": px + 1, "low": px - 1, "close": px,
+            "volume": rng.rand(n) * 10})
+
+    def test_feature_vector_shape_and_names(self):
+        from trading.cortex_signal import FEATURE_NAMES, build_features
+        X, c = build_features(self._df(), "FAKE/PAIR")
+        self.assertEqual(X.shape[1], len(FEATURE_NAMES))
+        self.assertEqual(len(X), len(c))
+        # unknown pair → psych/live blocks zero-filled with ok flags = 0 (honest)
+        names = {n: i for i, n in enumerate(FEATURE_NAMES)}
+        self.assertTrue((X[:, names["psych_ok"]] == 0).all())
+        self.assertTrue((X[:, names["live_ok"]] == 0).all())
+
+    def test_live_recorder_roundtrip(self):
+        import tempfile
+        from trading import feature_bus as fb
+        with tempfile.TemporaryDirectory() as d:
+            old = fb._LIVE_DIR
+            fb._LIVE_DIR = d
+            try:
+                df = self._df(50)
+                ts = float(pd.to_datetime(df["date"].iloc[-1]).timestamp())
+                fb.record_live("X/Y", {"ts": ts, "regime_p0": 0.7, "psych_fear": 0.2})
+                block = fb.live_block(df, "X/Y")
+                self.assertEqual(block.shape, (50, len(fb.LIVE_NAMES)))
+                self.assertEqual(block[-1, -1], 1.0)          # live_ok on last bar
+                self.assertAlmostEqual(block[-1, 0], 0.7)     # regime_p0 joined
+            finally:
+                fb._LIVE_DIR = old
+
+
 class TestDownloadersImportable(unittest.TestCase):     # CANON-05 (offline-safe)
     def test_symbols_present(self):
         from data import downloads

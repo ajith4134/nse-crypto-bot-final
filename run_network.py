@@ -72,6 +72,74 @@ def _split_chrono(X, y, frac=0.7):
     return list(X[:cut]), list(y[:cut]), list(X[cut:]), list(y[cut:])
 
 
+def _pair_block(path: str, n_rows: int, tf_min: int, horizon_bars: int) -> dict | None:
+    """One pair's (X, y) block: 1m→tf resample → full feature-bus features
+    (candles + recorded order-book + MTF + BTC-context + live-recorded brain
+    signals) → vol-scaled barrier labels, UNCLEAR dropped. None when too short."""
+    import pandas as pd
+    from trading.cortex_signal import build_features
+    from trading.labels import barrier_label
+    parts = os.path.basename(path).split("-1m")[0].split("_")
+    pair = f"{parts[0]}/{parts[1]}" + (f":{parts[2]}" if len(parts) > 2 else "")
+    raw = pd.read_feather(path)
+    raw = raw.set_index(pd.to_datetime(raw["date"]))
+    df = raw.resample(f"{tf_min}min").agg({
+        "open": "first", "high": "max", "low": "min",
+        "close": "last", "volume": "sum"}).dropna().tail(n_rows * 2 + 400)
+    if len(df) < 400:
+        return None
+    X, close = build_features(df.reset_index(), pair)
+    if len(X) < 200:
+        return None
+    pip = 1.5 * float(np.median(np.abs(np.diff(close))))
+    if pip <= 0:
+        return None
+    y3 = barrier_label(close, pipdiff=pip, sl_tp_ratio=1.0, horizon_bars=horizon_bars)
+    keep = y3 != 1
+    X, y = X[keep], (y3[keep] == 2).astype(int)
+    if len(X) < 120:
+        return None
+    return {"pair": pair, "X": X[-n_rows:], "y": y[-n_rows:], "pip": round(pip, 4)}
+
+
+def _real_dataset_multi(rows_per_pair: int, max_pairs: int,
+                        tf_min: int = 15, horizon_bars: int = 16) -> dict:
+    """CROSS-PAIR pooled real dataset: every tradable pair on disk contributes a
+    chronological block (features are scale-invariant, so pooling is honest).
+    `max_pairs` bounds CPU time for the viz refresh — the cap is LOGGED, never
+    silent; the LIVE arc pools over whatever pairs the loop actually trades."""
+    from data.downloads import locate_freqtrade_1m
+    files = locate_freqtrade_1m()
+    futs = [f for f in files if "-futures" in f]
+    # deterministic order, biggest files (longest history) first
+    futs.sort(key=lambda f: -os.path.getsize(f))
+    blocks = []
+    for f in futs:
+        if len(blocks) >= max_pairs:
+            break
+        try:
+            b = _pair_block(f, rows_per_pair, tf_min, horizon_bars)
+        except Exception:
+            b = None
+        if b is not None:
+            blocks.append(b)
+    if not blocks:
+        raise RuntimeError("no usable real pair data on disk (never fake a dataset)")
+    dropped = len(futs) - len(blocks)
+    print(f"[dataset] pooled {len(blocks)} pairs × ~{rows_per_pair} bars "
+          f"({tf_min}m, barrier labels); {dropped} pairs beyond the "
+          f"ML_NETWORK_PAIRS={max_pairs} compute cap (raise the env to widen)",
+          flush=True)
+    n = sum(len(b["y"]) for b in blocks)
+    from trading.cortex_signal import FEATURE_NAMES
+    return {"name": f"{len(blocks)} pairs pooled {tf_min}m barrier (real candles + feature bus)",
+            "n": n, "blocks": blocks,
+            "features": len(FEATURE_NAMES), "feature_names": list(FEATURE_NAMES),
+            "timeframe": f"{tf_min}m", "horizon_bars": horizon_bars,
+            "pairs": [b["pair"] for b in blocks],
+            "source": f"freqtrade store, {len(blocks)} pairs (cap {max_pairs}, {dropped} dropped)"}
+
+
 def _real_dataset(n_rows: int, tf_min: int = 15, horizon_bars: int = 16) -> dict:
     """REAL market dataset (no demos): freqtrade 1m candles on disk → resampled
     to `tf_min`-minute bars (1m next-bar direction is near-pure noise; CANON-06
@@ -160,28 +228,37 @@ def main() -> dict:
         ds = make_regime_dataset(n=n_rows, noise_hi=0.15, seed=7)
         Xtr, ytr, Xte, yte = _split(ds["X"], ds["y"])
     else:
-        ds = _real_dataset(n_rows)
-        Xtr, ytr, Xte, yte = _split_chrono(ds["X"], ds["y"])   # CANON-30
+        ds = _real_dataset_multi(
+            rows_per_pair=int(os.environ.get("ML_NETWORK_ROWS", "400")),
+            max_pairs=int(os.environ.get("ML_NETWORK_PAIRS", "24")))
+        blocks = ds["blocks"]
+        # pooled chronological split per pair (CANON-30: no shuffle within a pair)
+        def _cat(frac_a, frac_b):
+            Xs, ys = [], []
+            for b in blocks:
+                i, j = int(len(b["y"]) * frac_a), int(len(b["y"]) * frac_b)
+                Xs += [list(map(float, r)) for r in b["X"][i:j]]
+                ys += [int(v) for v in b["y"][i:j]]
+            return Xs, ys
+        Xtr, ytr = _cat(0.0, 0.7)
+        Xte, yte = _cat(0.7, 1.0)
         # deep video lanes join the pool on real data (tier-2 experts)
         for nm, fac in _deep_lane_factories():
             if nm not in nms:
                 facs.append(fac)
                 nms.append(nm)
-        # WALK-FORWARD out-of-sample evaluation (3 sequential folds pooled):
-        # a single chronological cut is hostage to one regime window (observed:
-        # confident-wrong on a 4-day trend flip). Train on [0,a), test [a,b),
-        # rolling — the pooled preds give the honest headline + selective rows.
-        X_all, y_all = ds["X"], ds["y"]
-        cuts = [int(len(X_all) * f) for f in (0.4, 0.6, 0.8, 1.0)]
+        # WALK-FORWARD out-of-sample evaluation (3 sequential folds, PER PAIR,
+        # pooled): a single chronological cut is hostage to one regime window.
         pooled_p, pooled_y, fold_accs = [], [], []
-        for a, b in zip(cuts[:-1], cuts[1:]):
-            wf = HierarchicalGateNode(facs, epochs=epochs, folds=2).fit(
-                X_all[:a], y_all[:a])
-            p = [float(v) for v in wf.predict_proba(X_all[a:b])]
+        for a, b in ((0.4, 0.6), (0.6, 0.8), (0.8, 1.0)):
+            Xa, ya = _cat(0.0, a)
+            Xb, yb = _cat(a, b)
+            wf = HierarchicalGateNode(facs, epochs=epochs, folds=2).fit(Xa, ya)
+            p = [float(v) for v in wf.predict_proba(Xb)]
             preds = [1 if v >= 0.5 else 0 for v in p]
-            fold_accs.append(round(accuracy(preds, y_all[a:b]), 4))
+            fold_accs.append(round(accuracy(preds, yb), 4))
             pooled_p += p
-            pooled_y += list(y_all[a:b])
+            pooled_y += yb
         wf_preds = [1 if v >= 0.5 else 0 for v in pooled_p]
         share = sum(pooled_y) / len(pooled_y)
         walk_forward = {
@@ -273,7 +350,7 @@ def main() -> dict:
                     "source": ds.get("source", "synthetic (TINY test mode)"),
                     "real": not TINY,
                     **{k: ds[k] for k in ("timeframe", "barrier_pip", "horizon_bars",
-                                          "class_balance") if k in ds}},
+                                          "class_balance", "pairs") if k in ds}},
         "headline_accuracy": headline,
         "gate_accuracy": acc,
         "selective": selective,
