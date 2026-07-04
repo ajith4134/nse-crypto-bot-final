@@ -592,7 +592,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `handle_ops(h)`
+- **functions:** `handle_ops(h)`; `handle_mind_events(h)`
 - **imports:** json
 
 ## `dashboard/server.py`
@@ -1730,6 +1730,11 @@ _gen_index.py — auto-generate INDEX.md from the source tree (AST, stdlib only)
 _Live Binance L2 order-book snapshot collector (no key)._
 - **functions:** `snapshot(symbol, levels)`; `main(symbol, every)`
 - **imports:** __future__, json, os, sys, time, urllib.request
+
+## `tools/test_runner.py`
+_Parallel sharded test runner — runs each tests/test_*.py module in its OWN subprocess, N in_
+- **functions:** `run_module(mod, timeout)`; `main()`
+- **imports:** __future__, argparse, concurrent.futures, os, pathlib, re, subprocess, sys, time
 
 ## `trading/__init__.py`
 _trading/ — Trading Execution Phase (T1+)._

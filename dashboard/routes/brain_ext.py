@@ -24,7 +24,7 @@ def handle_ops(h):
     except Exception as e:
         out["error"] = f"{type(e).__name__}: {e}"[:160]
     out["subsystems"] = [
-        {"key": "boss", "label": "Boss directives + R&D", "path": "/api/brain/boss/status", "real": True},
+        {"key": "boss", "label": "Boss directives + R&D", "path": "/api/brain/ops", "real": True},
         {"key": "mind", "label": "Mind event bus", "path": "/api/brain/mind/events", "real": True},
         {"key": "agent", "label": "Brain agent", "path": "/api/brain/agent/status", "real": False},
         {"key": "autonomy", "label": "Self-coding autonomy", "path": "/api/brain/autonomy/status", "real": False},
@@ -33,4 +33,21 @@ def handle_ops(h):
         {"key": "librarian", "label": "Librarian", "path": "/api/brain/librarian/status", "real": False},
         {"key": "stream", "label": "Stream of mind", "path": "/api/brain/stream/status", "real": False},
     ]
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_mind_events(h):
+    """GET /api/brain/mind/events?since=<id> — the ULTRA Stream-of-Mind typed event bus
+    (trading/brain/mind_events.py): problems / discoveries / trade-credit / research / learning /
+    invention events, polled incrementally. Real events only, cross-process.
+    """
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.brain import mind_events as _me
+        q = parse_qs(urlparse(h.path).query)
+        since_id = int((q.get("since") or ["0"])[0])
+        out = {"events": _me.since(since_id) if since_id else _me.peek(80)[::-1],
+               **_me.status()}
+    except Exception as e:
+        out = {"events": [], "error": f"{type(e).__name__}: {e}"[:160]}
     return h._send(200, json.dumps(out, default=str).encode(), "application/json")

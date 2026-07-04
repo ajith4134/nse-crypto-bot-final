@@ -1252,21 +1252,9 @@ class Handler(BaseHTTPRequestHandler):
                                 "via AG-UI (POST /api/agui). Langfuse offline no-op unless keys set")
                 return snap
             return self._send(200, _bg_snapshot("stream", _p_stream), "application/json")
-        if path == "/api/brain/mind/events":
-            # ULTRA Stream of Mind (2026-07-04): the brain-wide typed event bus
-            # (trading/brain/mind_events.py) — problems, discoveries, trade credit,
-            # research, boss-directive progress, learning, inventions. The panel polls
-            # incrementally with ?since=<last_id>. Real events only, cross-process.
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.brain import mind_events as _me
-                q = parse_qs(urlparse(self.path).query)
-                since_id = int((q.get("since") or ["0"])[0])
-                out = {"events": _me.since(since_id) if since_id else _me.peek(80)[::-1],
-                       **_me.status()}
-            except Exception as e:
-                out = {"events": [], "error": f"{type(e).__name__}: {e}"[:160]}
-            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
+        if path == "/api/brain/mind/events":                  # body extracted → dashboard/routes/brain_ext.py (Wave0-⑤)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_mind_events(self)
         if path == "/api/brain/ops":                          # body extracted → dashboard/routes/brain_ext.py (Wave0-⑤ seam)
             from dashboard.routes import brain_ext
             return brain_ext.handle_ops(self)
