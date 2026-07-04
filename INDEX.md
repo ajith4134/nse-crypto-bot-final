@@ -1455,6 +1455,12 @@ _Trading Phase T8.2 acceptance tests — journal-fitness + overfitting guardrail
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, json, numpy, pandas, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, unittest, warnings
 
+## `tests/test_hotpath_metalabel.py`
+_Regression: the numba triple_barrier_labels hot path (Pillar 9) must EXACTLY equal the_
+- **classes:** TestTripleBarrierHotPath
+- **functions:** `_reference(ohlcv, signal)`; `_make(n, seed)`
+- **imports:** numpy, pandas, trading.strategy.metalabel, unittest
+
 ## `tests/test_hpo.py`
 _Optuna HPO utility (core/hpo.py, Tier-2/3 infra group H)._
 - **classes:** TestHPO
@@ -3256,7 +3262,7 @@ _trading/strategy/library/run.py — backtest the executable library + rank a le
 ## `trading/strategy/metalabel.py`
 _trading/strategy/metalabel.py — meta-labeling gate (Pillar 20, López de Prado ch. 3)._
 - **classes:** MetaLabeler
-- **functions:** `_atr(ohlcv, n) -> np.ndarray`; `triple_barrier_labels(ohlcv, signal) -> pd.DataFrame`; `_auc(y, p) -> float`; `_fit_logistic(X, y) -> dict`; `_predict_logistic(params, X) -> np.ndarray`
+- **functions:** `_atr(ohlcv, n) -> np.ndarray`; `_tb_core(close, atr, sig, pt, sl, max_hold)`; `triple_barrier_labels(ohlcv, signal) -> pd.DataFrame`; `_auc(y, p) -> float`; `_fit_logistic(X, y) -> dict`; `_predict_logistic(params, X) -> np.ndarray`
 - **imports:** __future__, dataclasses, numpy, pandas
 
 ## `trading/strategy/operators.py`
