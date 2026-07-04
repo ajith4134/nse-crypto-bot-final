@@ -1040,6 +1040,12 @@ _UniversalNode — builds a NodeProtocol node from any AlgoSpec (core/algo_regis
 - **functions:** `build_nodes(task) -> list`
 - **imports:** __future__, core.algo_registry, core.node_protocol, numpy, os, warnings
 
+## `nodes/vae_factor.py`
+_AI-scientist idea #9 — VAE synthetic factors + scenario generator (CPU torch)._
+- **classes:** VAEFactorNode, SyntheticScenarioGenerator
+- **functions:** `vae_factor_node(name) -> VAEFactorNode`
+- **imports:** __future__, core.node_protocol, numpy
+
 ## `nodes/video_lanes.py`
 _Video framework lanes — faithful implementations, every one a neuron._
 - **classes:** _LaneBase, TCNProbNode, EncoderTransformerNode, LSTMLaneNode, SkMLPLaneNode, TorchMLPLaneNode, DLinearNode
@@ -1740,6 +1746,12 @@ _Pillar 17 — conformal calibrated uncertainty (trading/uq) + sizing gate tests
 - **classes:** TestSelfUncertainty, TestTradeUQ, TestSizerConsumesUQ, TestJournalColumns
 - **functions:** `_synth_trades(n, seed) -> list[dict]`
 - **imports:** __future__, math, numpy, pathlib, tempfile, unittest
+
+## `tests/test_vae_factor.py`
+_AI-scientist idea #9 — VAE factor node + synthetic scenario generator._
+- **classes:** TestVAEFactor
+- **functions:** `_dataset(n, d, seed)`
+- **imports:** core.node_protocol, nodes.vae_factor, numpy, unittest
 
 ## `tests/test_worldmodel.py`
 _tests/test_worldmodel.py — world-model + MuZero imagination planner._
