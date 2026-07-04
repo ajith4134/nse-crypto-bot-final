@@ -511,3 +511,258 @@ def handle_crypto_predictions(h):
     finally:
         srv._PRED_MAP_LOCK.release()
     return h._send(200, body, "application/json")
+
+
+def handle_patterns_status(h):
+    """GET /api/trading/patterns/status — honest T8.6 pattern/regime + asset-picking + entry/exit
+    snapshot (STUMPY matrix-profile + TA-Lib candles, hmmlearn GaussianHMM regime + RegimeGate,
+    a learned vendored-gplearn symbolic factor, regime/anomaly-gated entry/exit). LIVE or demo."""
+    try:
+        import brain_live
+        snap = brain_live.live_patterns()
+        body = json.dumps({
+            "patterns": snap["patterns"],
+            "regime": snap["regime"],
+            "picking": snap["picking"],
+            "entryexit": snap["entryexit"],
+            "demo": snap.get("demo", False),
+            "symbol": snap.get("symbol"),
+            "note": (f"LIVE pattern/regime layer on real {snap.get('symbol')} {snap.get('tf')} OHLCV "
+                     f"(ccxt): STUMPY matrix-profile motifs/anomalies + hmmlearn GaussianHMM regime"
+                     if not snap.get("demo") else
+                     "offline demo pattern/regime layer (run_brain_t8: T8.6) on a "
+                     "deterministic synthetic OHLCV with an injected anomaly + "
+                     "bull/bear/neutral segments. PatternScanner = STUMPY matrix-"
+                     "profile motif/anomaly discovery + TA-Lib candlesticks; "
+                     "RegimeModel = hmmlearn GaussianHMM (bull/bear/neutral) with "
+                     "RegimeGate strategy activation; asset-picking ranks a universe "
+                     "by a LEARNED symbolic factor from VENDORED gplearn "
+                     "(vendor/gplearn, factor_source='gplearn'); EntryExitPolicy is "
+                     "regime/anomaly-gated — no live trade loop wired yet"),
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False,
+            "error": f"{type(e).__name__}: {e}",
+            "hint": "Trading T8.6 pattern/regime layer not importable "
+                    "(see trading/brain/ and trading-execution-blueprint.md §T8).",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_news_status(h):
+    """GET /api/trading/news/status — honest T8.7 autonomous-news-research + sentiment snapshot
+    (vendored-VADER finance-lexicon sentiment, per-symbol NewsResearcher, NewsSentimentNode
+    compound→p(bullish), gated GPT-Researcher hook). LIVE (RSS) or demo."""
+    try:
+        import brain_live
+        snap = brain_live.live_news()
+        body = json.dumps({
+            "scorer_backend": snap["scorer_backend"],
+            "research": snap["research"],
+            "autonomous": snap["autonomous"],
+            "node_p_bullish": snap["node_p_bullish"],
+            "demo": snap.get("demo", False),
+            "n_items": snap.get("n_items"),
+            "note": (f"LIVE news/sentiment — {snap.get('n_items')} real headlines via RSS "
+                     f"(cointelegraph + coindesk, feedparser) scored with VADER per symbol "
+                     f"(BTC/ETH/SOL); autonomous GPT-Researcher still gated (needs key)"
+                     if not snap.get("demo") else
+                     "offline demo news/sentiment layer (run_brain_t8: T8.7) over a "
+                     "FIXED NewsItem feed (no RSS/network). Sentiment = VENDORED VADER "
+                     "(vendor/vaderSentiment, finance-lexicon boosted), FinBERT optional "
+                     "if transformers installed (backend='finbert'); NewsResearcher "
+                     "aggregates per-symbol sentiment (feedparser RSS behind an injected "
+                     "fetcher in live use); NewsSentimentNode maps compound→p(bullish); "
+                     "autonomous_research is a gated GPT-Researcher hook (set "
+                     "GPT_RESEARCHER_ENABLED=1 + an LLM key) — no live news loop wired yet"),
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False,
+            "error": f"{type(e).__name__}: {e}",
+            "hint": "Trading T8.7 news/sentiment layer not importable "
+                    "(see trading/brain/ and trading-execution-blueprint.md §T8).",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_skills_status(h):
+    """GET /api/trading/skills/status — honest T8.8 skill-library + observability + self-improvement
+    snapshot (Voyager quality-gated SkillLibrary, BrainTracer Stream-of-Mind spans, a CPU
+    SelfImprover hill-climb, gated DSPy/GEPA optimiser). LIVE or demo."""
+    try:
+        import brain_live
+        snap = brain_live.live_skills()
+        body = json.dumps({
+            "skills": snap["skills"],
+            "skill_events": snap["skill_events"],
+            "best": snap["best"],
+            "stream_of_mind": snap["stream_of_mind"],
+            "tracer": snap["tracer"],
+            "self_improve": snap["self_improve"],
+            "dspy": snap["dspy"],
+            "demo": snap.get("demo", False),
+            "n_skills": snap.get("n_skills"),
+            "note": (f"LIVE Voyager skill library — {snap.get('n_skills')} validated skills from the "
+                     f"real persisted store (skill_library.json); grows when the self-evolve loop "
+                     f"is armed (Batch 3)" if not snap.get("demo") else
+                     "offline demo skill-library + self-improvement layer "
+                     "(run_brain_t8: T8.8). SkillLibrary is a Voyager-pattern "
+                     "quality-gated, growing store of validated strategy skills "
+                     "(persist=False here, so no disk state); BrainTracer records "
+                     "reasoning spans → Stream-of-Mind (local; exports to Langfuse "
+                     "when LANGFUSE_* keys set); SelfImprover is a REAL CPU "
+                     "hill-climb optimising EntryExitPolicy params against a toy "
+                     "T8.2-style fitness; DSPy/GEPA LLM-program optimiser is gated "
+                     "(set DSPY_ENABLED=1 + an OpenAI-compatible key to activate)"),
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False,
+            "error": f"{type(e).__name__}: {e}",
+            "hint": "Trading T8.8 skill-library layer not importable "
+                    "(see trading/brain/ and trading-execution-blueprint.md §T8).",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_brain_status(h):
+    """GET /api/trading/brain/status — honest T8.9 FINALE end-to-end brain pipeline + safety review
+    snapshot (BrainTradingPipeline drives CRYPTO + NSE off ONE path: features→regime→pattern/
+    anomaly→news→evolved-signal→experience-recall→gated entry, traced, safety-gated to FLAT)."""
+    try:
+        import brain_live
+        snap = brain_live.live_pipeline()
+        body = json.dumps({
+            "crypto": snap["crypto"],
+            "nse": snap["nse"],
+            "safety": snap["safety"],
+            "stream_of_mind": snap["stream_of_mind"],
+            "gate_demo": snap["gate_demo"],
+            "strategy_seeds": snap["strategy_seeds"],
+            "demo": snap.get("demo", False),
+            "n_trades": snap.get("n_trades"),
+            "note": (f"LIVE end-to-end brain pipeline on real {snap.get('n_trades')}-trade journal + "
+                     f"real BTC OHLCV — features→regime→pattern/anomaly→experience-recall→gated "
+                     f"decision, traced (Stream-of-Mind), safety-gated to FLAT (NSE leg reuses demo)"
+                     if not snap.get("demo") else
+                     "offline demo end-to-end brain pipeline (run_brain_t8: T8.9 "
+                     "FINALE). BrainTradingPipeline stitches the full T8 stack "
+                     "(features → regime → pattern/anomaly → news-sentiment → "
+                     "evolved-strategy signal → experience-recall → regime/anomaly-"
+                     "gated entry) into ONE traced decision per market, driving NSE "
+                     "+ Crypto from the SAME code path; every step is recorded by the "
+                     "BrainTracer → Stream-of-Mind, and the final action is SAFETY-"
+                     "GATED to FLAT whenever the T3 kill-switch is engaged or the "
+                     "DailyCircuitBreaker has tripped (paper-first; the gate_demo "
+                     "shows the forced-FLAT). Deterministic synthetic OHLCV + a FIXED "
+                     "offline news feed — no live market/news/order path wired"),
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False,
+            "error": f"{type(e).__name__}: {e}",
+            "hint": "Trading T8.9 end-to-end brain pipeline not importable "
+                    "(see trading/brain/ and trading-execution-blueprint.md §T8).",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_advintel_status(h):
+    """GET /api/trading/advintel/status — honest T8-DEFERRED advanced-intelligence snapshot
+    (PortfolioRisk VaR/CVaR/HRP/Kelly, StressTester, FII/DII + announcements, on-chain SOPR/MVRV
+    + Fear&Greed, liquidation heatmap, cross-exchange arb + funding-farm, autonomous researcher,
+    tabular-Q RL exit). All OFFLINE/deterministic via stub fetchers. Warmed snapshot."""
+    def _p_advintel():
+        from run_advintel import build_demo_advintel
+        snap = build_demo_advintel()
+        return {
+            "portfolio_risk": snap["portfolio_risk"],
+            "stress": snap["stress"],
+            "fii_dii": snap["fii_dii"],
+            "announcements": snap["announcements"],
+            "onchain": snap["onchain"],
+            "liquidations": snap["liquidations"],
+            "arbitrage": snap["arbitrage"],
+            "research": snap["research"],
+            "rl_exit": snap["rl_exit"],
+            "demo": True,
+            "note": ("offline demo advanced-intelligence layer (run_advintel: T8 "
+                     "DEFERRED). Group B: PortfolioRisk = Riskfolio-Lib/PyPortfolioOpt "
+                     "VaR/CVaR/HRP/Kelly over a seeded returns panel (numpy fallbacks); "
+                     "StressTester = first-order scenario analysis + a 'Nifty -5%' "
+                     "what-if; FII/DII + NSE-announcement scrapers, crypto on-chain "
+                     "SOPR/MVRV + Fear&Greed, and a Coinglass-style liquidation heatmap "
+                     "all run through INJECTED stub fetchers (live use needs public NSE "
+                     "endpoints / COINGLASS_API_KEY / BITCOINDATA_API_KEY); "
+                     "ArbitrageScanner = cross-exchange spot arb + funding-farm over stub "
+                     "price/funding sources. Group A: AutonomousResearcher (ddgs + "
+                     "core.llm in live use) over a stub searcher+summarizer, and a "
+                     "tabular Q-learning RL exit policy (CPU, no torch; deep-RL gated "
+                     "hook) — no live market/news/order path wired yet"),
+        }
+    return h._send(200, _srv(h)._bg_snapshot("advintel", _p_advintel), "application/json")
+
+
+def handle_tickers(h):
+    """GET /api/trading/tickers — T6 Dark-Pro ticker tape: LIVE last prices from the running trade
+    loop (real ccxt / OpenAlgo quotes). Falls back to demo constants if the loop has no ticks yet."""
+    try:
+        from trading.online.live_loop import get_loop
+        snap = get_loop().ticks_snapshot()
+        if snap:
+            tickers = [{"symbol": v["symbol"], "last": round(float(v["last"]), 2),
+                        "change": 0.0, "change_pct": 0.0, "market": v["market"]}
+                       for v in snap.values()]
+            body = json.dumps({"tickers": tickers, "demo": False, "live": True,
+                               "note": "live last prices from the trade loop"},
+                              default=str).encode()
+        else:
+            body = json.dumps({"tickers": _srv(h)._DEMO_TICKERS, "demo": True,
+                               "note": "loop has no live ticks yet (warming up)"},
+                              default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
+                           "hint": "live tickers via trading/online/live_loop.py"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_candles(h):
+    """GET /api/trading/candles — REAL OHLC candles for the price chart: crypto via ccxt, NSE via
+    OpenAlgo history. Query: symbol, market, tf."""
+    from urllib.parse import parse_qs, urlparse
+    qs = parse_qs(urlparse(h.path).query)
+    symbol = (qs.get("symbol", ["BTC/USDT"])[0])
+    market = (qs.get("market", ["CRYPTO"])[0])
+    tf = (qs.get("tf", ["5m"])[0])
+    try:
+        candles = _srv(h)._candles(symbol, market, tf=tf)
+        body = json.dumps({"symbol": symbol, "market": market, "tf": tf,
+                           "candles": candles, "demo": False, "live": True,
+                           "count": len(candles)}, default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False, "symbol": symbol, "market": market,
+                           "error": f"{type(e).__name__}: {str(e)[:80]}",
+                           "hint": "live candles via ccxt / OpenAlgo history"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_forecast(h):
+    """GET /api/trading/forecast — CANON-54 predicted-path overlay from trading/heads.py. CPU-cheap
+    + in-process-safe (numpy ridge in heads.RolloutHead does the k-step rollout; no torch — the
+    524-wedge rule). Query: symbol, market, tf, k. Honest research-preview output."""
+    from urllib.parse import parse_qs, urlparse
+    qs = parse_qs(urlparse(h.path).query)
+    symbol = (qs.get("symbol", ["BTC/USDT"])[0])
+    market = (qs.get("market", ["CRYPTO"])[0])
+    tf = (qs.get("tf", ["15m"])[0])
+    k = min(24, max(1, int((qs.get("k", ["8"])[0]) or 8)))
+    try:
+        candles = _srv(h)._candles(symbol, market, tf=tf)
+        body = json.dumps(_srv(h)._forecast_payload(candles, k, symbol, tf),
+                          default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False, "symbol": symbol,
+                           "error": f"{type(e).__name__}: {str(e)[:100]}"}).encode()
+    return h._send(200, body, "application/json")
