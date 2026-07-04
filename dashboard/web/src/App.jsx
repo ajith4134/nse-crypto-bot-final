@@ -144,6 +144,13 @@ export default function App() {
             <Kpi label="Reflex compute" value={`${Math.round((compute.escalation_rate || 0) * 100)}%`}
               sub={`escalation over ${compute.n_inputs} inputs · stay-flat is a routing outcome`} />
           )}
+          {net?.selective?.length > 0 && (() => {
+            const s = net.selective.find((r) => r.coverage === 0.3) || net.selective[0]
+            return <Kpi label={`Selective acc (top ${Math.round(s.coverage * 100)}%)`}
+              value={Number(s.accuracy).toFixed(3)}
+              sub={`acts on ${s.n} most-confident bars · subset baseline ${Number(s.baseline).toFixed(3)}`}
+              pct={s.accuracy * 100} />
+          })()}
         </section>
       )}
 

@@ -121,6 +121,21 @@ class TestAntiOverfit(unittest.TestCase):       # CANON-43
         self.assertEqual(pc["free_params"], 4)
 
 
+class TestSelectiveAccuracy(unittest.TestCase):     # abstaining-trader metric
+    def test_accuracy_rises_with_confidence(self):
+        from eval.golden import selective_accuracy
+        rng = np.random.RandomState(0)
+        y = rng.randint(0, 2, 400)
+        # informative but noisy proba: confident subset should score higher
+        p = np.clip(np.where(y == 1, 0.7, 0.3) + rng.randn(400) * 0.25, 0, 1)
+        rows = selective_accuracy(p, y, coverages=(0.5, 0.1))
+        self.assertEqual([r["coverage"] for r in rows], [0.5, 0.1])
+        self.assertGreater(rows[1]["accuracy"], rows[0]["accuracy"] - 1e-9)
+        for r in rows:
+            self.assertGreaterEqual(r["baseline"], 0.5)
+            self.assertEqual(r["n"], max(1, int(np.ceil(r["coverage"] * 400))))
+
+
 class TestDownloadersImportable(unittest.TestCase):     # CANON-05 (offline-safe)
     def test_symbols_present(self):
         from data import downloads

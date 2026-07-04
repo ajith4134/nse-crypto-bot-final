@@ -43,7 +43,7 @@ import numpy as np
 from core.columns import column_for, group_factories, layout_for
 from core.segments import get_segment, group_by_segment, segment_for, segment_layout
 from data.benchmarks import make_regime_dataset
-from eval.golden import accuracy
+from eval.golden import accuracy, selective_accuracy
 from nodes.active_subnet import HierarchicalGateNode
 from nodes.reflex import ReflexArc
 from run_columns import _pool
@@ -72,15 +72,19 @@ def _split_chrono(X, y, frac=0.7):
     return list(X[:cut]), list(y[:cut]), list(X[cut:]), list(y[cut:])
 
 
-def _real_dataset(n_rows: int) -> dict:
-    """REAL market dataset (no demos): freqtrade 1m candles on disk →
-    trading.cortex_signal.build_features (CANON-24 warm-up gated, the SAME
-    features the live shadow signal uses) → next-bar-up labels (CANON-27).
-    Raises if no real data is on disk — never silently falls back to synthetic
-    (honest-wiring / never-data-gate)."""
+def _real_dataset(n_rows: int, tf_min: int = 15, horizon_bars: int = 16) -> dict:
+    """REAL market dataset (no demos): freqtrade 1m candles on disk → resampled
+    to `tf_min`-minute bars (1m next-bar direction is near-pure noise; CANON-06
+    horizon arbitration) → trading.cortex_signal.build_features (CANON-24
+    warm-up gated, SAME features as the live shadow signal) → BARRIER labels
+    (CANON-28, ±vol-scaled barriers within `horizon_bars`): a far more learnable
+    target than next-bar-up. UNCLEAR bars are dropped (binary UP/DOWN task) and
+    the mandatory class-balance check is recorded. Raises if no real data is on
+    disk — never silently falls back to synthetic."""
     import pandas as pd
     from data.downloads import locate_freqtrade_1m
     from trading.cortex_signal import FEATURE_NAMES, build_features
+    from trading.labels import barrier_label, class_balance
     files = locate_freqtrade_1m()
     pick = ([f for f in files if "BTC_USDT_USDT-1m-futures" in f]
             or [f for f in files if "BTC_USDT" in f] or files)
@@ -88,19 +92,44 @@ def _real_dataset(n_rows: int) -> dict:
         raise RuntimeError("no real 1m candle data on disk — run the freqtrade "
                            "downloader first (never fake a dataset)")
     path = pick[0]
-    df = pd.read_feather(path).tail(n_rows + 400)     # +warm-up headroom
-    X, close = build_features(df)
-    if len(X) < 50:
+    raw = pd.read_feather(path)
+    # 1m → tf_min OHLCV resample (chronological; need headroom for warm-up + drops)
+    raw = raw.set_index(pd.to_datetime(raw["date"]))
+    df = raw.resample(f"{tf_min}min").agg({
+        "open": "first", "high": "max", "low": "min",
+        "close": "last", "volume": "sum"}).dropna().tail(n_rows * 2 + 400)
+    X, close = build_features(df.reset_index())
+    if len(X) < 200:
         raise RuntimeError(f"real dataset too short after warm-up gating: {len(X)} rows")
-    y = (close[1:] > close[:-1]).astype(int)          # label i = next-bar direction
-    X = X[:-1][-n_rows:]
-    y = y[-n_rows:]
+    # vol-scaled barriers: 1.5× the typical |15m move| within a ~4h horizon
+    pip = 1.5 * float(np.median(np.abs(np.diff(close))))
+    y3 = barrier_label(close, pipdiff=pip, sl_tp_ratio=1.0,
+                       horizon_bars=horizon_bars)
+    keep = y3 != 1                                     # drop UNCLEAR → binary task
+    X, y = X[keep], (y3[keep] == 2).astype(int)        # UP=1, DOWN=0
+    X, y = X[-n_rows:], y[-n_rows:]
+    bal = class_balance(y)
     parts = os.path.basename(path).split("-1m")[0].split("_")
     pair = f"{parts[0]}/{parts[1]}" + (f":{parts[2]}" if len(parts) > 2 else "")
-    return {"name": f"{pair} 1m (real candles, next-bar-up)", "n": len(X),
+    return {"name": f"{pair} {tf_min}m barrier±{pip:.0f} (real candles)",
+            "n": len(X),
             "X": [list(map(float, r)) for r in X], "y": [int(v) for v in y],
             "features": len(FEATURE_NAMES), "feature_names": list(FEATURE_NAMES),
+            "class_balance": bal, "barrier_pip": round(pip, 2),
+            "horizon_bars": horizon_bars, "timeframe": f"{tf_min}m",
             "source": f"freqtrade store: {os.path.basename(path)}"}
+
+
+def _deep_lane_factories() -> list[tuple]:
+    """Video-lane deep experts (B2) appended to the real-mode pool: TCN,
+    LSTM and torch-MLP lanes (CPU-sized, small epochs). Sklearn stays the
+    reflex arc's cheap tier; these land in tier-2 behind the hgate."""
+    from nodes.video_lanes import LSTMLaneNode, TCNProbNode, TorchMLPLaneNode
+    return [
+        ("tcn_lane", lambda: TCNProbNode(lookback=32, channels=(12, 12), epochs=4)),
+        ("lstm_lane", lambda: LSTMLaneNode(backcandles=24, units=48, epochs=4)),
+        ("mlp_lane_torch", lambda: TorchMLPLaneNode(epochs=20)),
+    ]
 
 
 def _trust_ledger():
@@ -126,12 +155,42 @@ def main() -> dict:
 
     # REAL market data in production (no demos); the synthetic regime set survives
     # ONLY in TINY mode (test smoke of the generator machinery, labeled as such).
+    walk_forward = None
     if TINY:
         ds = make_regime_dataset(n=n_rows, noise_hi=0.15, seed=7)
         Xtr, ytr, Xte, yte = _split(ds["X"], ds["y"])
     else:
         ds = _real_dataset(n_rows)
         Xtr, ytr, Xte, yte = _split_chrono(ds["X"], ds["y"])   # CANON-30
+        # deep video lanes join the pool on real data (tier-2 experts)
+        for nm, fac in _deep_lane_factories():
+            if nm not in nms:
+                facs.append(fac)
+                nms.append(nm)
+        # WALK-FORWARD out-of-sample evaluation (3 sequential folds pooled):
+        # a single chronological cut is hostage to one regime window (observed:
+        # confident-wrong on a 4-day trend flip). Train on [0,a), test [a,b),
+        # rolling — the pooled preds give the honest headline + selective rows.
+        X_all, y_all = ds["X"], ds["y"]
+        cuts = [int(len(X_all) * f) for f in (0.4, 0.6, 0.8, 1.0)]
+        pooled_p, pooled_y, fold_accs = [], [], []
+        for a, b in zip(cuts[:-1], cuts[1:]):
+            wf = HierarchicalGateNode(facs, epochs=epochs, folds=2).fit(
+                X_all[:a], y_all[:a])
+            p = [float(v) for v in wf.predict_proba(X_all[a:b])]
+            preds = [1 if v >= 0.5 else 0 for v in p]
+            fold_accs.append(round(accuracy(preds, y_all[a:b]), 4))
+            pooled_p += p
+            pooled_y += list(y_all[a:b])
+        wf_preds = [1 if v >= 0.5 else 0 for v in pooled_p]
+        share = sum(pooled_y) / len(pooled_y)
+        walk_forward = {
+            "folds": fold_accs,
+            "pooled_accuracy": round(accuracy(wf_preds, pooled_y), 4),
+            "pooled_n": len(pooled_y),
+            "pooled_baseline": round(max(share, 1 - share), 4),
+            "selective": selective_accuracy(pooled_p, pooled_y),
+        }
 
     trust_ledger, trust_snap = _trust_ledger()
 
@@ -139,6 +198,17 @@ def main() -> dict:
     hgate = HierarchicalGateNode(facs, epochs=epochs, folds=folds,
                                  trust=trust_ledger).fit(Xtr, ytr)
     acc = round(accuracy(hgate.predict(Xte), yte), 4)
+    # selective accuracy (the number that matters for an ABSTAINING trader):
+    # walk-forward pooled when available (real mode), else the single holdout.
+    if walk_forward is not None:
+        selective = walk_forward["selective"]
+        headline = walk_forward["pooled_accuracy"]      # honest multi-window number
+    else:
+        try:
+            selective = selective_accuracy(hgate.predict_proba(Xte), yte)
+        except Exception:
+            selective = []                              # proba unavailable → honest empty
+        headline = acc
     snap = hgate.graph_snapshot(Xte)
     firing = hgate.firing_records(Xte, yte, n_samples=N_FIRING)
 
@@ -192,16 +262,22 @@ def main() -> dict:
              for e in snap["edges"]]
 
     up = sum(yte) / len(yte)
+    naive = (walk_forward["pooled_baseline"] if walk_forward
+             else round(max(up, 1 - up), 4))
     state = {
         "project": "ML Network Brain — CORTEX network (T4 hgate · T3 reflex · trust · segments)",
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "stack": "Leiden-community hgate · reflex conditional compute · trust-biased routing",
         "dataset": {"name": ds["name"], "n": ds["n"], "train": len(Xtr), "test": len(Xte),
-                    "naive_baseline": round(max(up, 1 - up), 4),
+                    "naive_baseline": naive,
                     "source": ds.get("source", "synthetic (TINY test mode)"),
-                    "real": not TINY},
-        "headline_accuracy": acc,
+                    "real": not TINY,
+                    **{k: ds[k] for k in ("timeframe", "barrier_pip", "horizon_bars",
+                                          "class_balance") if k in ds}},
+        "headline_accuracy": headline,
         "gate_accuracy": acc,
+        "selective": selective,
+        "walk_forward": walk_forward,
         "nodes": nodes,
         "edges": edges,
         "communities": snap["communities"],

@@ -599,7 +599,7 @@ _(no summary)_
 
 ## `eval/golden.py`
 _Golden datasets + evaluation — the 'known input->output first' discipline._
-- **functions:** `make_golden_dataset(n, noise, seed) -> tuple[Matrix, Labels]`; `train_test_split(X, y, test_frac, seed) -> tuple[Matrix, Labels, Matrix, Labels]`; `accuracy(pred, y) -> float`; `argmax_labels(pred_output) -> Labels`; `_macro_f1(pred, y, n_classes) -> float`; `_r2(pred, y) -> float`; `score_head(head, pred_output, y) -> dict`; `baseline_for(head, y_train, y_test) -> dict`
+- **functions:** `make_golden_dataset(n, noise, seed) -> tuple[Matrix, Labels]`; `train_test_split(X, y, test_frac, seed) -> tuple[Matrix, Labels, Matrix, Labels]`; `accuracy(pred, y) -> float`; `argmax_labels(pred_output) -> Labels`; `_macro_f1(pred, y, n_classes) -> float`; `_r2(pred, y) -> float`; `score_head(head, pred_output, y) -> dict`; `baseline_for(head, y_train, y_test) -> dict`; `selective_accuracy(proba, y, coverages) -> list[dict]`
 - **imports:** __future__, core.heads, core.node_protocol, numpy, random
 
 ## `memory/__init__.py`
@@ -1074,7 +1074,7 @@ _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 
 ## `run_network.py`
 _run_network.py — CORTEX B7: unified network-state generator → network_state.json._
-- **functions:** `_split(X, y, frac, seed)`; `_split_chrono(X, y, frac)`; `_real_dataset(n_rows) -> dict`; `_trust_ledger()`; `main() -> dict`
+- **functions:** `_split(X, y, frac, seed)`; `_split_chrono(X, y, frac)`; `_real_dataset(n_rows, tf_min, horizon_bars) -> dict`; `_deep_lane_factories() -> list[tuple]`; `_trust_ledger()`; `main() -> dict`
 - **imports:** __future__, argparse, collections, core.columns, core.segments, data.benchmarks, eval.golden, json, nodes.active_subnet, nodes.reflex, numpy, os, random, run_columns, time
 
 ## `run_noise_router.py`
@@ -1312,7 +1312,7 @@ _CORTEX B8 acceptance tests — final integration (CANON-51/42)._
 
 ## `tests/test_cortex_b9_gaps.py`
 _CORTEX B9 — the 13 PARTIAL→FULL canon gap-closers._
-- **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestDownloadersImportable
+- **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestSelectiveAccuracy, TestDownloadersImportable
 - **imports:** numpy, os, pandas, tempfile, unittest
 
 ## `tests/test_crypto_t2.py`

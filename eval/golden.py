@@ -128,3 +128,31 @@ def baseline_for(head: OutputHead, y_train: Labels, y_test: Labels) -> dict:
     mean = float(np.mean([float(v) for v in y_train])) if y_train else 0.0
     pred_output = [[mean] for _ in y_test]
     return score_head(head, pred_output, y_test)
+
+
+def selective_accuracy(proba, y, coverages=(0.5, 0.3, 0.1)) -> list[dict]:
+    """Accuracy on the TOP-confidence fraction of samples (selective prediction).
+
+    `proba` = binary p_up per sample; confidence = max(p, 1-p). For each
+    coverage c, keep the ceil(c*n) most-confident samples and score accuracy
+    there — the number that matters for a trading net that ABSTAINS on
+    coin-flips (CANON-49 dead-band; the reflex arc acts only where confident).
+    Rows: {coverage, n, accuracy, baseline} where baseline = majority share of
+    y WITHIN the selected subset (the honest comparison at that coverage).
+    """
+    import numpy as _np
+    p = _np.asarray([float(v) for v in proba])
+    yy = _np.asarray([int(v) for v in y])
+    conf = _np.maximum(p, 1.0 - p)
+    order = _np.argsort(-conf)
+    out = []
+    for c in coverages:
+        k = max(1, int(_np.ceil(c * len(p))))
+        idx = order[:k]
+        pred = (p[idx] >= 0.5).astype(int)
+        acc = float((pred == yy[idx]).mean())
+        share = float(yy[idx].mean())
+        out.append({"coverage": round(float(c), 2), "n": int(k),
+                    "accuracy": round(acc, 4),
+                    "baseline": round(max(share, 1 - share), 4)})
+    return out

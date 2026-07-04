@@ -146,6 +146,21 @@ export default function NetworkPanel() {
               </div>
             )}
 
+            {state?.selective?.length > 0 && (
+              <div>
+                <div style={{ color: '#8b96b8', marginBottom: 4 }}>selective accuracy (abstaining trader)</div>
+                {state.selective.map((s) => (
+                  <div key={s.coverage} style={{ display: 'flex', gap: 8, fontSize: 12.5 }}>
+                    <span style={{ width: 62 }}>top {Math.round(s.coverage * 100)}%</span>
+                    <b style={{ color: s.accuracy > s.baseline ? '#3ecf8e' : '#ffb454' }}>
+                      {Number(s.accuracy).toFixed(3)}</b>
+                    <span className="k">vs base {Number(s.baseline).toFixed(3)} · n={s.n}</span>
+                  </div>
+                ))}
+                <div className="k">accuracy on the bars it would ACT on — flat elsewhere.</div>
+              </div>
+            )}
+
             <div>
               <div style={{ color: '#8b96b8', marginBottom: 4 }}>top-10 node trust</div>
               {trustRows.length === 0 && (
