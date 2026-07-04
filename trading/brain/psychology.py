@@ -305,6 +305,45 @@ def detect_walls(snap: BookSnapshot, band: float = WALL_BAND,
     return out
 
 
+def gap_map(snap: BookSnapshot, depths: tuple = (1, 5, 10, 20)) -> dict:
+    """KRF-01/03/04 order-book gap map as a routed feature lane.
+
+    At each fixed depth d ∈ {1,5,10,20} levels the book is summarised by:
+      * cum_bid/cum_ask   — cumulative visible size to fill d levels;
+      * span_bid/span_ask — price distance (bps from mid) that d levels cover
+        (a WIDE span = a liquidity void / gap; the pattern-as-gap premise);
+      * gap_bias          — (ask_span - bid_span)/(ask_span + bid_span) ∈ [-1,1]:
+        a wider ask gap = thin resistance overhead (upward gap-fill room),
+        a wider bid gap = thin support below (downward air-pocket).
+    The per-depth vector is the neuron's input; `gap_map_bias` (mean over depths)
+    is the scalar routed into the psychology composite. Honest on shallow books:
+    depths beyond the visible book reuse the deepest available level."""
+    mid = snap.mid
+    if not mid:
+        return {"gap_map_bias": 0.0, "depths": {}}
+
+    def side(levels: list[tuple[float, float]], d: int) -> tuple[float, float]:
+        vis = levels[:d] if levels else []
+        if not vis:
+            return 0.0, 0.0
+        cum = float(sum(q for _, q in vis))
+        span = abs(vis[-1][0] - mid) / mid * 10_000        # bps from mid
+        return cum, span
+
+    per_depth, biases = {}, []
+    for d in depths:
+        cb, sb = side(snap.bids, d)
+        ca, sa = side(snap.asks, d)
+        denom = sb + sa
+        bias = (sa - sb) / denom if denom > 0 else 0.0
+        per_depth[str(d)] = {"cum_bid": round(cb, 6), "cum_ask": round(ca, 6),
+                             "span_bid_bps": round(sb, 4), "span_ask_bps": round(sa, 4),
+                             "gap_bias": round(bias, 4)}
+        biases.append(bias)
+    return {"gap_map_bias": round(float(np.mean(biases)) if biases else 0.0, 4),
+            "depths": per_depth}
+
+
 def depth_slope_bias(snap: BookSnapshot) -> float:
     """Næs–Skjeltorp liquidity-slope asymmetry ∈ [-1, 1].
 
@@ -374,6 +413,7 @@ def evaluate_ring(ring: "deque[BookSnapshot] | list[BookSnapshot]",
 
     walls = detect_walls(snap)
     slope_bias = depth_slope_bias(snap)
+    gaps = gap_map(snap)
 
     # fear ∈ [0,1]: spread vs its history, plus λ and VPIN levels
     fear_parts = []
@@ -417,6 +457,8 @@ def evaluate_ring(ring: "deque[BookSnapshot] | list[BookSnapshot]",
         "psych_microprice_drift_bps": round(float(micro_drift_bps), 4),
         "psych_spread_bps": round(spread_bps, 4),
         "psych_depth_slope_bias": round(slope_bias, 4),
+        "psych_gap_map_bias": gaps["gap_map_bias"],
+        "gap_map": gaps["depths"],
         "psych_wall_bias": round(walls["bias"], 4),
         "psych_fear": round(fear, 4),
         "psych_kyle_lambda": None if kyle is None else float(kyle),
@@ -537,7 +579,8 @@ def get_engine() -> TraderPsychology:
 PSYCH_TRADE_COLUMNS = [
     "trader_psychology", "psych_label", "psych_obi", "psych_ofi",
     "psych_microprice_drift_bps", "psych_spread_bps", "psych_depth_slope_bias",
-    "psych_wall_bias", "psych_fear", "psych_vpin", "psych_deeplob_prob_up",
+    "psych_gap_map_bias", "psych_wall_bias", "psych_fear", "psych_vpin",
+    "psych_deeplob_prob_up",
 ]
 
 

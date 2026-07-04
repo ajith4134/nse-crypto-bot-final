@@ -6,10 +6,30 @@ import {
   createChart,
   CandlestickSeries,
   HistogramSeries,
+  LineSeries,
   ColorType,
   createSeriesMarkers,
 } from 'lightweight-charts'
 import { T } from './theme.js'
+
+// ── Overlay style conventions (CANON-55 / LSTM-17, TFM-39) ────────────────────
+// One codified convention so every pred-vs-real chart reads the same:
+//   * real close   — solid candles (up=good, down=bad);
+//   * predicted path (in-sample fit / next-bar) — SOLID accent line;
+//   * forecast path (future, autoregressive rollout from trading/heads.py) —
+//     DASHED warn line + a hollow marker at each forecast step;
+//   * train window — a shaded background band ending at the Train→Test boundary,
+//     which carries a labelled marker.
+export const OVERLAY_STYLE = {
+  predicted: { color: T.accent, lineWidth: 2, lineStyle: 0, title: 'predicted' },
+  forecast: { color: T.warn, lineWidth: 2, lineStyle: 2, title: 'forecast' }, // 2 = dashed
+  trainBand: withAlphaSafe(T.accent, 0.06),
+  boundaryMarker: { color: T.warn, shape: 'arrowDown', position: 'aboveBar', text: 'Train→Test' },
+}
+
+function withAlphaSafe(hex, a) {
+  try { return withAlpha(hex, a) } catch { return `rgba(77,163,255,${a})` }
+}
 
 // --- DEMO DATA (deterministic) -------------------------------------------------
 // Generated only when no `candles` prop is supplied so the build/preview always
@@ -80,6 +100,9 @@ export default function PriceChart({
   volume,
   height = 360,
   markers,
+  predicted,      // CANON-55: in-sample predicted path [{time,value}] → solid accent line
+  forecast,       // CANON-54: future forecast path from trading/heads.py → dashed warn line
+  trainSplitTime, // CANON-56: unix seconds marking the end of the train window
 }) {
   const containerRef = useRef(null)
 
@@ -145,9 +168,48 @@ export default function PriceChart({
     })
     volSeries.setData(vol)
 
-    // v5 markers API.
-    if (markers && markers.length) {
-      createSeriesMarkers(candleSeries, markers)
+    // CANON-56: shade the training window as a background band up to the
+    // Train→Test boundary. Implemented as a full-height histogram overlay on a
+    // hidden price scale (a supported, honest technique — real split time only).
+    let allMarkers = markers ? [...markers] : []
+    if (trainSplitTime != null && data.length) {
+      const bandVal = Math.max(...data.map((c) => c.high)) * 1.5
+      const band = chart.addSeries(HistogramSeries, {
+        priceScaleId: 'trainband', priceLineVisible: false, lastValueVisible: false,
+      })
+      band.priceScale().applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false })
+      band.setData(data.filter((c) => c.time <= trainSplitTime).map((c) => ({
+        time: c.time, value: bandVal, color: OVERLAY_STYLE.trainBand,
+      })))
+      allMarkers.push({ time: trainSplitTime, ...OVERLAY_STYLE.boundaryMarker })
+    }
+
+    // CANON-55: in-sample predicted path — solid accent line.
+    if (predicted && predicted.length) {
+      const ps = chart.addSeries(LineSeries, {
+        color: OVERLAY_STYLE.predicted.color, lineWidth: OVERLAY_STYLE.predicted.lineWidth,
+        lineStyle: OVERLAY_STYLE.predicted.lineStyle, priceLineVisible: false, lastValueVisible: false,
+      })
+      ps.setData(predicted)
+    }
+
+    // CANON-54: future forecast path (autoregressive rollout) — dashed warn line + step markers.
+    if (forecast && forecast.length) {
+      const fs = chart.addSeries(LineSeries, {
+        color: OVERLAY_STYLE.forecast.color, lineWidth: OVERLAY_STYLE.forecast.lineWidth,
+        lineStyle: OVERLAY_STYLE.forecast.lineStyle, priceLineVisible: false, lastValueVisible: false,
+      })
+      fs.setData(forecast)
+      forecast.forEach((p) => allMarkers.push({
+        time: p.time, position: 'aboveBar', color: OVERLAY_STYLE.forecast.color,
+        shape: 'circle', size: 0.5,
+      }))
+    }
+
+    // v5 markers API (real trade markers + boundary + forecast steps).
+    if (allMarkers.length) {
+      allMarkers.sort((a, b) => a.time - b.time)
+      createSeriesMarkers(candleSeries, allMarkers)
     }
 
     chart.timeScale().fitContent()
@@ -164,7 +226,7 @@ export default function PriceChart({
       ro.disconnect()
       chart.remove()
     }
-  }, [candles, volume, markers, height])
+  }, [candles, volume, markers, height, predicted, forecast, trainSplitTime])
 
   return (
     <div

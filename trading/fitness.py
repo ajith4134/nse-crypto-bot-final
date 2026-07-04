@@ -195,6 +195,32 @@ def benchmark_gate(pf, close, fee: float | None = None) -> tuple[bool, dict]:
                     "buy_hold_max_dd": _f(bh.max_drawdown())}
 
 
+def arbitrate_timeframe(segment: str, short_tf: dict, daily: dict,
+                        metric: str = "sharpe", margin: float = 0.10) -> dict:
+    """CANON-06: automatically arbitrate the two timeframe doctrines per segment.
+
+    The videos disagree — KRF-05 champions short-TF-only, others argue daily is
+    less noisy. Instead of hard-coding a winner, we DECIDE empirically per
+    segment from the two scorecards (as produced by ``scorecard``). `short_tf`
+    and `daily` are scorecard dicts (or {'scorecard': ...}); the doctrine with
+    the better `metric` wins, but only if it beats the other by `margin`
+    (relative) — otherwise the verdict is 'daily' as the lower-noise tie-break
+    (the conservative doctrine). Returns the verdict + both values + the reason."""
+    def _pick(d):
+        d = d.get("scorecard", d) if isinstance(d, dict) else {}
+        return _f(d.get(metric))
+    s, dv = _pick(short_tf), _pick(daily)
+    base = abs(dv) if dv else 1.0
+    if s > dv * (1 + margin) and s > dv:
+        verdict, reason = "short_tf", f"short-TF {metric} {s:.3f} beats daily {dv:.3f} by >{margin:.0%}"
+    elif dv > s * (1 + margin) and dv > s:
+        verdict, reason = "daily", f"daily {metric} {dv:.3f} beats short-TF {s:.3f} by >{margin:.0%}"
+    else:
+        verdict, reason = "daily", f"within {margin:.0%} tie → daily (lower-noise tie-break)"
+    return {"segment": segment, "metric": metric, "verdict": verdict,
+            "short_tf": round(s, 4), "daily": round(dv, 4), "reason": reason}
+
+
 def honest_report(pf=None, close=None, y_true=None, y_pred=None,
                   y_true_cls=None, y_pred_cls=None) -> dict:
     """One honest verdict: scorecard + fitness + every applicable gate (CANON-36/38-41).
@@ -214,6 +240,15 @@ def honest_report(pf=None, close=None, y_true=None, y_pred=None,
     if y_true_cls is not None and y_pred_cls is not None:
         passed, detail = majority_gate(y_true_cls, y_pred_cls)
         report["gates"]["majority"] = {"passed": passed, **detail}
+        # CANON-58: confusion-structure verdict on top of the majority gate
+        try:
+            from trading.classification_eval import (confusion_structure_verdict,
+                                                      per_class_report)
+            report["confusion_structure"] = confusion_structure_verdict(
+                y_true_cls, y_pred_cls)
+            report["per_class"] = per_class_report(y_true_cls, y_pred_cls)
+        except Exception as exc:                       # sklearn missing → honest skip
+            report["confusion_structure"] = {"verdict": "unavailable", "reason": str(exc)}
     if pf is not None and close is not None:
         passed, detail = benchmark_gate(pf, close)
         report["gates"]["benchmark"] = {"passed": passed, **detail}

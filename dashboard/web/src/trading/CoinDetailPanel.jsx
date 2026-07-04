@@ -25,9 +25,10 @@ function ema(data, n) {
 
 export default function CoinDetailPanel({ symbol, onClose }) {
   const [tf, setTf] = useState('15m')
-  const [ind, setInd] = useState({ MA: true, EMA: false, VOL: true })
+  const [ind, setInd] = useState({ MA: true, EMA: false, VOL: true, PRED: false })
   const [ob, setOb] = useState(null)
   const [meta, setMeta] = useState({})
+  const [fc, setFc] = useState(null)   // CANON-54 forecast payload
   const chartEl = useRef(null)
   const chartRef = useRef(null)
   const seriesRef = useRef({})
@@ -53,6 +54,12 @@ export default function CoinDetailPanel({ symbol, onClose }) {
     seriesRef.current.ma25 = chart.addSeries(LineSeries, { color: '#e84393', lineWidth: 1 })
     seriesRef.current.ma99 = chart.addSeries(LineSeries, { color: '#8e7cff', lineWidth: 1 })
     seriesRef.current.ema = chart.addSeries(LineSeries, { color: '#00d4ff', lineWidth: 1 })
+    // CANON-54/55: predicted (solid accent) + forecast (dashed warn) overlays,
+    // plus a train-band background histogram on a hidden scale (CANON-56).
+    seriesRef.current.pred = chart.addSeries(LineSeries, { color: T.accent, lineWidth: 2, priceLineVisible: false, lastValueVisible: false })
+    seriesRef.current.fcast = chart.addSeries(LineSeries, { color: T.warn, lineWidth: 2, lineStyle: 2, priceLineVisible: false, lastValueVisible: false })
+    seriesRef.current.band = chart.addSeries(HistogramSeries, { priceScaleId: 'trainband', priceLineVisible: false, lastValueVisible: false })
+    chart.priceScale('trainband').applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false })
     return () => { chart.remove(); chartRef.current = null }
   }, [])
 
@@ -70,6 +77,26 @@ export default function CoinDetailPanel({ symbol, onClose }) {
       seriesRef.current.ema.setData(ind.EMA ? ema(c, 21) : [])
       const last = c[c.length - 1], first = c[0]
       setMeta({ last: last.close, chg: ((last.close - first.open) / first.open) * 100 })
+      // CANON-54: fetch + overlay the model forecast when PRED is on (else clear).
+      const S = seriesRef.current
+      if (ind.PRED) {
+        try {
+          const rf = await fetch(`/api/trading/forecast?symbol=${enc(symbol)}&market=CRYPTO&tf=${tf}&k=8`)
+          const jf = await rf.json()
+          if (alive.current && jf.available) {
+            setFc(jf)
+            S.pred.setData(jf.predicted || [])
+            // stitch the forecast onto the last real close so the dashed line connects
+            S.fcast.setData([{ time: last.time, value: last.close }, ...(jf.forecast || [])])
+            const bandTop = Math.max(...c.map((b) => b.high)) * 1.2
+            S.band.setData(jf.train_split_time
+              ? c.filter((b) => b.time <= jf.train_split_time).map((b) => ({ time: b.time, value: bandTop, color: 'rgba(77,163,255,0.06)' }))
+              : [])
+          }
+        } catch { /* forecast is best-effort */ }
+      } else {
+        setFc(null); S.pred.setData([]); S.fcast.setData([]); S.band.setData([])
+      }
       chartRef.current && chartRef.current.timeScale().fitContent()
     } catch { /* keep */ }
   }
@@ -107,7 +134,7 @@ export default function CoinDetailPanel({ symbol, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
           {TFS.map((t) => <span key={t} onClick={() => setTf(t)} style={tabS(tf === t)}>{t}</span>)}
           <div style={{ width: 12 }} />
-          {['MA', 'EMA', 'VOL'].map((k) => <span key={k} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))} style={{ ...tabS(ind[k]), padding: '3px 9px', fontSize: 11 }}>{k}</span>)}
+          {['MA', 'EMA', 'VOL', 'PRED'].map((k) => <span key={k} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))} style={{ ...tabS(ind[k]), padding: '3px 9px', fontSize: 11 }}>{k === 'PRED' ? '🔮 PRED' : k}</span>)}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12 }}>
           {/* chart */}
@@ -135,7 +162,19 @@ export default function CoinDetailPanel({ symbol, onClose }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}><span style={{ color: T.good }}>{bidPct.toFixed(1)}%</span><span style={{ color: T.bad }}>{(100 - bidPct).toFixed(1)}%</span></div>
           </div>
         </div>
-        <div style={{ fontSize: 11, color: T.muted, marginTop: 8 }}>MA(7) gold · MA(25) pink · MA(99) violet · EMA(21) cyan · {TFS.length} timeframes (binance supports 16: 1m–1M)</div>
+        <div style={{ fontSize: 11, color: T.muted, marginTop: 8 }}>MA(7) gold · MA(25) pink · MA(99) violet · EMA(21) cyan
+          {ind.PRED && <> · <span style={{ color: T.accent }}>▬ predicted (in-sample)</span> · <span style={{ color: T.warn }}>┈ forecast (rollout)</span> · shaded = train window</>}
+          · {TFS.length} timeframes (binance supports 16: 1m–1M)</div>
+        {/* CANON-45: honest research-preview disclaimer on the served prediction UI */}
+        {ind.PRED && (
+          <div style={{ fontSize: 10.5, color: T.warn, marginTop: 6, lineHeight: 1.5,
+            border: `1px solid ${T.border}`, borderRadius: 6, padding: '6px 9px', background: T.panel }}>
+            ⚠ <b>Research preview.</b> The forecast path is a {fc?.model || 'ridge-AR'} model roll-out
+            (trading/heads.py), <b>not investment advice</b> and <b>not a performance claim</b>.
+            Predictions are unverified out-of-sample and compound error over the horizon — treat as a
+            directional hint only. Maturity: experimental.
+          </div>
+        )}
       </div>
     </div>
   )

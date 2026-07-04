@@ -153,6 +153,85 @@ def proximity_signal(df: pd.DataFrame, n1: int = 2, n2: int = 2,
 
 
 # --------------------------------------------------------------------------- #
+#  Per-pattern entry/stop/target emitter (CANON-02 / KRF-02)
+# --------------------------------------------------------------------------- #
+def pattern_levels(df: pd.DataFrame, n1: int = 2, n2: int = 2,
+                   atr_len: int = 14, rr: float = 2.0,
+                   patterns=("engulfing", "shootingstar", "morningstar",
+                             "eveningstar", "hammer", "3whitesoldiers")) -> list:
+    """Emit an explicit entry/stop/target level for every detected classical
+    pattern (KRF-02: the taxonomy must produce actionable levels, not just a
+    label). For each bar with a pattern:
+      * side   — 'long' for bullish, 'short' for bearish;
+      * entry  — the pattern bar's close;
+      * stop   — nearest fractal support (long) / resistance (short); if none is
+                 in range, an ATR-based stop (entry ∓ atr_mult·ATR);
+      * target — entry ± rr·|entry-stop| (fixed reward:risk multiple);
+      * rr     — realised reward:risk of the emitted levels.
+    Returns a chronological list of dicts. Stops/targets only use levels formed
+    BEFORE the bar (no look-ahead)."""
+    import pandas_ta_classic as ta
+    o, h, low_s, c = (_col(df, k) for k in ("open", "high", "low", "close"))
+    atr = ta.atr(h, low_s, c, length=atr_len)
+    atr = atr.bfill().to_numpy()
+    closes = c.to_numpy()
+    levels = fractal_levels(df, n1, n2)
+    det = {}
+    for name in patterns:
+        pat = ta.cdl_pattern(o, h, low_s, c, name=name)
+        det[name] = pat.iloc[:, 0].fillna(0).to_numpy()
+
+    out = []
+    for i in range(len(df)):
+        supp = [lv for j, lv in levels["support"] if j < i and lv < closes[i]]
+        res = [lv for j, lv in levels["resistance"] if j < i and lv > closes[i]]
+        for name, v in det.items():
+            if v[i] == 0:
+                continue
+            side = "long" if v[i] > 0 else "short"
+            entry = float(closes[i])
+            a = float(atr[i]) if np.isfinite(atr[i]) and atr[i] > 0 else entry * 0.01
+            if side == "long":
+                stop = max(supp) if supp else entry - a
+                risk = max(entry - stop, a * 0.25)
+                target = entry + rr * risk
+            else:
+                stop = min(res) if res else entry + a
+                risk = max(stop - entry, a * 0.25)
+                target = entry - rr * risk
+            out.append({
+                "idx": i, "pattern": name, "side": side,
+                "entry": round(entry, 8), "stop": round(float(stop), 8),
+                "target": round(float(target), 8),
+                "rr": round(abs(target - entry) / risk, 3) if risk else 0.0,
+                "atr": round(a, 8)})
+    return out
+
+
+# --------------------------------------------------------------------------- #
+#  Categorical FEATURE one-hot encoder (CANON-09 / PNP-17)
+# --------------------------------------------------------------------------- #
+def one_hot_features(df: pd.DataFrame, cols, categories: dict | None = None
+                     ) -> tuple:
+    """One-hot encode categorical FEATURE columns (e.g. session, weekday, regime
+    label) into 0/1 indicator columns. Fits the category vocabulary on TRAIN
+    only when `categories` is None, and applies a passed-in vocabulary at
+    predict time (unseen values → all-zero row, no leakage). Returns
+    (encoded_df, categories) so the vocabulary can be persisted like a scaler."""
+    out = df.copy()
+    cats_out = {}
+    for col in cols:
+        vals = out[col].astype("object")
+        cats = (list(categories[col]) if categories and col in categories
+                else sorted(v for v in vals.dropna().unique()))
+        cats_out[col] = cats
+        for cat in cats:
+            out[f"{col}={cat}"] = (vals == cat).astype("int8")
+        out = out.drop(columns=[col])
+    return out, cats_out
+
+
+# --------------------------------------------------------------------------- #
 #  Admission gate (CANON-25: profitability is the admission criterion)
 # --------------------------------------------------------------------------- #
 def admission_gate(df: pd.DataFrame, signal: pd.Series, **kwargs) -> dict:

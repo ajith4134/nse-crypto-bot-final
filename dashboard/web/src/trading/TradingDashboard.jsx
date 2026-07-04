@@ -10,6 +10,7 @@ import OrderFlowMap from './OrderFlowMap.jsx'
 import OpenTradesPanel from './OpenTradesPanel.jsx'
 import ScorecardPanel from './ScorecardPanel.jsx'
 import ClosedTradesTable from './ClosedTradesTable.jsx'
+import PnlStrip from './PnlStrip.jsx'
 import TradeDrilldown from './TradeDrilldown.jsx'
 import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
@@ -141,6 +142,10 @@ export default function TradingDashboard() {
       <Card title="Closed Trades — unified (journal + Freqtrade + OpenAlgo)" hint={`${(closedT.rows || []).length} trades · ${(closedT.columns || []).length}-col journal · click a row to drill down`}>
         <ClosedTradesTable columns={closedT.columns || []} rows={closedT.rows || []} totals={closedT.totals}
           onRowClick={(row) => setDrill(row)} />
+      </Card>
+
+      <Card title="Per-trade P&L (CANON-56)" hint="per-trade P&L strip + distribution histogram — real closed trades only">
+        <PnlStrip trades={closedT.rows || []} />
       </Card>
 
       <Card title="Strategy Library (institutional templates)" hint="239 named strategies · OOS leaderboard · evolution gated OFF">

@@ -1,7 +1,17 @@
 # Ultra-Network Redesign — Pipeline State (resume file)
 
 > Purpose: if the session/context is lost, a fresh session resumes from HERE.
-> Updated: 2026-07-04 ~09:05 — B3-B6 committed. Next: B7 Cortex dashboard.
+> Updated: 2026-07-04 (B9) — ALL 13 PARTIAL canons CLOSED → 61 FULL / 2 PARKED.
+> B9 gap-closers: CANON-01 gap_map (psychology.py) · 02 pattern_levels (features_ta.py) ·
+> 05 dukascopy+NSE-bhavcopy downloaders (data/downloads.py) · 06 arbitrate_timeframe
+> (fitness.py) · 09 one_hot_features · 34 trading/sweep.py · 37+58 trading/classification_eval.py ·
+> 43 trading/antioverfit.py + /api/network/antioverfit + NetworkPanel · 45 CoinDetailPanel
+> research-preview disclaimer · 54 /api/trading/forecast + PriceChart/CoinDetailPanel overlay ·
+> 55 PriceChart.OVERLAY_STYLE · 56 PnlStrip.jsx + train band. 144 CORTEX tests green
+> (+9 tests/test_cortex_b9_gaps.py). Web rebuilt. Services RESTARTED with CORTEX_SIGNAL=1
+> shadow (durable in start_all.sh) — brain loop logs cortex-vs-decider live. Only 2 PARKED
+> remain (CANON-04 determinism study, CANON-21 diffusion lane — deliberate future lanes).
+> Prior: 2026-07-04 ~09:05 — B3-B6 committed. Next: B7 Cortex dashboard.
 > B6 (01cd693): trading/heads.py (RolloutHead direct+AR on TTM/Chronos/TabPFN, DM-gated) +
 > data/downloads.py (Binance archive OK, 416 on-disk 1m feathers, stooq GCP-IP-blocked).
 > Deps granite-tsfm+tabpfn-ts; fixed torch/torchvision ABI (torch 2.10.0+cpu + torchvision
@@ -72,10 +82,23 @@ Order fixed by user: read videos → THEN research (requirement-driven) → desi
   stooq/dukascopy for daily+EURUSD, tardis free-first-of-month L2, NSE bhavcopy; yfinance
   429s from cloud IPs (avoid).
 
-## DESIGN COMPLETE (2026-07-04): research/ultra-network-design.md — "CORTEX, the Self-Wiring
-## Market Cortex". 7 tissues (sensory/bus/reflex-arc/gates/heads/plasticity/brain-hub) +
-## 14 video lanes + cortex dashboard + build order B1–B8 + deps list + honesty register.
-## AWAITING: user dep approval (5 core + 7 frontier + 3 optional pips) → then build B1.
+## BUILD COMPLETE (2026-07-04): all 8 steps B1–B8 SHIPPED, tested, committed, live-verified.
+Commits: 68e984e B1+B2 · 7f7445a B3 · 4dab1d4 B4 · c1093bf B5 · 01cd693 B6 ·
+9dec6ea catch-up · ad5ca17 B7 · 194e952 B8. (B3–B6 built in an Opus 4.8 session,
+quality-verified here: 110 tests re-run green + donor-usage spot checks.)
+Tests: 135 CORTEX tests green (b1..b8) + full-suite regression green.
+Coverage matrix filled for all 63 CANONs: 48 FULL / 13 PARTIAL (gaps named in
+research/video/MASTER-REQUIREMENTS.md §3) / 2 PARKED (CANON-04 determinism study,
+CANON-21 diffusion lane).
+Live-verified (2026-07-04): /api/network/state serves real 9-node/8-edge/48-firing state
+with reflex compute stats (70/160 stay-flat exits — dead-band routing live);
+/api/network/trust honest-empty; POST refresh spawns subprocess (regeneration confirmed);
+/api/state latency 0.9ms after restart (no 524 wedge); NetworkPanel bundle served.
+Shadow mode: CORTEX_SIGNAL=1 logs cortex decisions beside the live decider;
+CORTEX_TRADE=1 promotes cortex (paper-first). Trust accrues from closed trades.
+Remaining known gaps (honest): 13 PARTIAL canon items, 9th video (YouTube bot-check —
+needs re-upload or cookies), dukascopy/bhavcopy downloaders, per-segment scorecard
+arbitration automation, diffusion + determinism-study lanes.
 
 ## Next steps (superseded by design doc §6 build order B1–B8)
 1. ~~Collect the 3 research docs~~ DONE all three on disk.

@@ -32,8 +32,11 @@ function Sparkline({ values, color = '#4da3ff', h = 34 }) {
   )
 }
 
+const RISK_COLOR = { ok: '#3ecf8e', watch: '#ffb454', high: '#ff6b6b' }
+
 export default function NetworkPanel() {
   const [state, setState] = useState(null)
+  const [antiOverfit, setAntiOverfit] = useState(null)
   const [err, setErr] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshNote, setRefreshNote] = useState(null)
@@ -47,6 +50,10 @@ export default function NetworkPanel() {
     } catch (e) {
       setErr(String(e))
     }
+    try {
+      const ra = await fetch('/api/network/antioverfit')
+      setAntiOverfit(await ra.json())
+    } catch { /* telemetry is best-effort */ }
   }
   useEffect(() => {
     load()
@@ -165,6 +172,29 @@ export default function NetworkPanel() {
             ) : (
               <div className="k">no fitness scorecard in this state — equity mini-chart appears
                 once a run_network build carries one (never fabricated).</div>
+            )}
+
+            {antiOverfit && !antiOverfit.note && (
+              <div>
+                <div style={{ color: '#8b96b8', marginBottom: 4 }}>
+                  anti-overfit telemetry (CANON-43)
+                  <span style={{ marginLeft: 8, padding: '1px 7px', borderRadius: 6, fontSize: 11,
+                    color: '#0b0f18', background: RISK_COLOR[antiOverfit.overfit_risk] || '#8b96b8' }}>
+                    {String(antiOverfit.overfit_risk || '?').toUpperCase()}
+                  </span>
+                </div>
+                <div className="k">free params <b>{antiOverfit.free_params}</b>
+                  {antiOverfit.n_observations ? <> / {antiOverfit.n_observations} obs
+                    {antiOverfit.params_per_observation != null && ` = ${antiOverfit.params_per_observation}`}</> : null}</div>
+                <div className="k">backtests run <b>{antiOverfit.backtests_run}</b>
+                  {antiOverfit.research_time_days ? ` · research age ${antiOverfit.research_time_days}d` : null}</div>
+                {(antiOverfit.flags || []).map((f, i) => (
+                  <div key={i} style={{ fontSize: 11, color: '#ffb454' }}>⚠ {f}</div>
+                ))}
+                {(!antiOverfit.flags || antiOverfit.flags.length === 0) && (
+                  <div className="k">no overfitting flags raised.</div>
+                )}
+              </div>
             )}
           </div>
         </div>

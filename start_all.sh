@@ -22,8 +22,11 @@ pgrep -f "freqtrade.candle_updater" >/dev/null || \
   setsid .venv/bin/python -m trading.crypto.freqtrade.candle_updater >logs/candle_updater.log 2>&1 </dev/null &
 
 echo "[4/7] Brain loop (this is what actually opens crypto trades)"
+# CORTEX shadow mode: log the cortex signal beside the live decider every bar
+# (paper-first — promote to live with CORTEX_TRADE=1). See memory cortex-network-built.
+export CORTEX_SIGNAL="${CORTEX_SIGNAL:-1}"
 pgrep -f "freqtrade.run_brain_loop" >/dev/null || \
-  setsid .venv/bin/python -m trading.crypto.freqtrade.run_brain_loop >logs/brain_loop.log 2>&1 </dev/null &
+  CORTEX_SIGNAL="$CORTEX_SIGNAL" setsid .venv/bin/python -m trading.crypto.freqtrade.run_brain_loop >logs/brain_loop.log 2>&1 </dev/null &
 
 echo "[5/7] Dashboard (brain + NSE trading)  :8000"
 pgrep -f "dashboard/server.py" >/dev/null || \

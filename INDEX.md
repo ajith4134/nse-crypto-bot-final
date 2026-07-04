@@ -539,7 +539,7 @@ _dashboard/brain_live.py — LIVE brain snapshots from REAL data._
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler, BoundedHTTPServer
-- **functions:** `_network_state_payload(path, now) -> dict`; `_network_trust_payload(path) -> dict`; `_network_refresh_allowed(now, last, running, min_interval_s) -> tuple[bool, str]`; `_network_refresh_start(now) -> dict`; `_brain_agent()`; `_gui_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_ft_entry_meta(t) -> dict`; `_ft_entry_psych(t)`; `_uq_cells(uq) -> dict`; `_psych_cells(ps) -> dict`; `_trade_outcome_net()`; `_confidence_book() -> dict`; `_swr_refresh_async(path) -> None`; `_get_cache_ttl(path)`; `_cached_body(key, ttl, producer)`; `_bg_snapshot(key, producer, ttl) -> bytes`; `_warm_snapshots()`; `_enrich_predictions() -> None`; `_ccxt_spot()`; `_pool_ohlcv(symbol, tf, limit) -> list`; `_pool_order_book(symbol, limit) -> dict`; `_openalgo_positions() -> list`; `_openalgo_tradebook() -> list`; `_trade_segment(r) -> tuple[str, str]`; `_scorecard() -> dict`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **functions:** `_network_state_payload(path, now) -> dict`; `_network_trust_payload(path) -> dict`; `_network_refresh_allowed(now, last, running, min_interval_s) -> tuple[bool, str]`; `_network_refresh_start(now) -> dict`; `_brain_agent()`; `_gui_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_ft_entry_meta(t) -> dict`; `_ft_entry_psych(t)`; `_uq_cells(uq) -> dict`; `_psych_cells(ps) -> dict`; `_trade_outcome_net()`; `_confidence_book() -> dict`; `_swr_refresh_async(path) -> None`; `_get_cache_ttl(path)`; `_cached_body(key, ttl, producer)`; `_bg_snapshot(key, producer, ttl) -> bytes`; `_warm_snapshots()`; `_enrich_predictions() -> None`; `_ccxt_spot()`; `_pool_ohlcv(symbol, tf, limit) -> list`; `_pool_order_book(symbol, limit) -> dict`; `_openalgo_positions() -> list`; `_openalgo_tradebook() -> list`; `_trade_segment(r) -> tuple[str, str]`; `_scorecard() -> dict`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_forecast_payload(candles, k, symbol, tf) -> dict`; `_open_trades_rows() -> list[dict]`; `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys, threading, time
 
 ## `dashboard/verify_render.py`
@@ -566,8 +566,8 @@ _Assemble per-node golden datasets from cached crypto data._
 
 ## `data/downloads.py`
 _CORTEX B6 — real market-data downloaders (research/ultra-network-data-plan.md)._
-- **functions:** `_ensure_cache() -> str`; `cached_path(name) -> str`; `download_stooq_daily(symbol) -> dict`; `download_binance(symbol, interval, total) -> list[tuple]`; `locate_freqtrade_1m(base) -> list[str]`
-- **imports:** __future__, csv, io, numpy, os, urllib.request
+- **functions:** `_ensure_cache() -> str`; `cached_path(name) -> str`; `download_stooq_daily(symbol) -> dict`; `download_binance(symbol, interval, total) -> list[tuple]`; `download_dukascopy(instrument, year, month, day, hours) -> dict`; `download_nse_bhavcopy(year, month, day) -> dict`; `locate_freqtrade_1m(base) -> list[str]`
+- **imports:** __future__, csv, io, lzma, numpy, os, struct, urllib.error, urllib.parse, urllib.request, zipfile
 
 ## `data/external.py`
 _External real-world datasets — multi-dataset evaluation (CONVENTIONS §14)._
@@ -1310,6 +1310,11 @@ _CORTEX B8 acceptance tests — final integration (CANON-51/42)._
 - **functions:** `_ohlcv(n, seed, trend)`
 - **imports:** __future__, json, numpy, os, pandas, pathlib, tempfile, trading, trading.state, unittest
 
+## `tests/test_cortex_b9_gaps.py`
+_CORTEX B9 — the 13 PARTIAL→FULL canon gap-closers._
+- **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestDownloadersImportable
+- **imports:** numpy, os, pandas, tempfile, unittest
+
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
 - **classes:** TestConfig, TestLiquidation, TestOrderBookFill, TestPaperEngine, TestFundingSpread, TestCryptoWatchlist
@@ -1758,6 +1763,11 @@ _trading/alerts/scheduler.py — scheduled reports (T7 §3, §4)._
 - **classes:** Report, ReportScheduler
 - **imports:** __future__, dataclasses, datetime, typing
 
+## `trading/antioverfit.py`
+_Anti-overfit telemetry (CANON-43 / NNM-30)._
+- **functions:** `_read_counter() -> dict`; `register_backtest(n) -> int`; `backtest_count() -> int`; `param_count(state) -> dict`; `_load_state() -> dict`; `telemetry(state, now) -> dict`
+- **imports:** __future__, json, os, time
+
 ## `trading/brain/__init__.py`
 _trading/brain/ — Brain upgrades (Phase T8.4+)._
 - **imports:** __future__, trading.brain.continual, trading.brain.entryexit, trading.brain.experience, trading.brain.metalearn, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.picking, trading.brain.pipeline, trading.brain.regime, trading.brain.researcher, trading.brain.rl_exit, trading.brain.selfeval, trading.brain.selfimprove, trading.brain.semantic, trading.brain.sentiment, trading.brain.skills
@@ -1951,7 +1961,7 @@ _DeepLOB price-direction prediction from recorded depth snapshots (CPU)._
 ## `trading/brain/psychology.py`
 _Trader-psychology engine: crowd sentiment from live order-book depth._
 - **classes:** BookSnapshot, StoikovMicroprice, TraderPsychology
-- **functions:** `_load_lob_features()`; `ring_to_frame(ring, levels) -> pd.DataFrame`; `detect_walls(snap, band, min_frac) -> dict`; `depth_slope_bias(snap) -> float`; `evaluate_ring(ring, micro, weights) -> dict | None`; `get_engine() -> TraderPsychology`; `psych_columns(result) -> dict`
+- **functions:** `_load_lob_features()`; `ring_to_frame(ring, levels) -> pd.DataFrame`; `detect_walls(snap, band, min_frac) -> dict`; `gap_map(snap, depths) -> dict`; `depth_slope_bias(snap) -> float`; `evaluate_ring(ring, micro, weights) -> dict | None`; `get_engine() -> TraderPsychology`; `psych_columns(result) -> dict`
 - **imports:** __future__, collections, dataclasses, importlib.util, json, logging, math, numpy, pandas, pathlib, threading, time, typing
 
 ## `trading/brain/regime.py`
@@ -2021,6 +2031,11 @@ _trading/brain/worldmodel.py — learned market world-model + imagination planne
 - **classes:** MarketWorldModel, _MinMax, _MCTSNode, PositionState, ImaginationPlanner, WorldModelNode
 - **functions:** `market_features(ohlcv) -> np.ndarray`; `_feature_matrix(ohlcv) -> np.ndarray`; `build_planner(ohlcv) -> ImaginationPlanner`; `register_world_model() -> WorldModelNode`
 - **imports:** __future__, core.node_protocol, dataclasses, math, numpy, pandas
+
+## `trading/classification_eval.py`
+_Classification evaluation artifacts (CANON-37) + confusion-structure verdicts_
+- **functions:** `_labels(y_true, y_pred) -> list`; `confusion(y_true, y_pred, labels) -> dict`; `per_class_report(y_true, y_pred, labels) -> dict`; `misclassification_gallery(y_true, y_pred, proba, k) -> list`; `_py(v)`; `confusion_structure_verdict(y_true, y_pred, labels, collapse_frac, swap_frac) -> dict`; `classification_eval(y_true, y_pred, proba, labels, gallery_k) -> dict`
+- **imports:** __future__, numpy
 
 ## `trading/config.py`
 _trading/config.py — central trading configuration (T1)._
@@ -2633,12 +2648,12 @@ _trading/exits/ — four separate trailing-exit components over one signed engin
 
 ## `trading/features_ta.py`
 _Technical-feature layer — thin pandas-ta-classic wrapper (CANON-24/25)._
-- **functions:** `_col(df, name) -> pd.Series`; `add_indicators(df, rsi_len, ema_lens, sma_len, bb_len, slope_len) -> pd.DataFrame`; `gate_warmup(df, cols) -> pd.DataFrame`; `support(df1, l, n1, n2) -> int`; `resistance(df1, l, n1, n2) -> int`; `fractal_levels(df, n1, n2) -> dict`; `_close_to_levels(price, levels, tol) -> bool`; `proximity_signal(df, n1, n2, tol, patterns) -> pd.Series`; `admission_gate(df, signal) -> dict`
+- **functions:** `_col(df, name) -> pd.Series`; `add_indicators(df, rsi_len, ema_lens, sma_len, bb_len, slope_len) -> pd.DataFrame`; `gate_warmup(df, cols) -> pd.DataFrame`; `support(df1, l, n1, n2) -> int`; `resistance(df1, l, n1, n2) -> int`; `fractal_levels(df, n1, n2) -> dict`; `_close_to_levels(price, levels, tol) -> bool`; `proximity_signal(df, n1, n2, tol, patterns) -> pd.Series`; `pattern_levels(df, n1, n2, atr_len, rr, patterns) -> list`; `one_hot_features(df, cols, categories) -> tuple`; `admission_gate(df, signal) -> dict`
 - **imports:** __future__, numpy, pandas
 
 ## `trading/fitness.py`
 _CORTEX fitness engine — mark-to-market scoring + honesty gates (B1, stitch-map rows 1-3)._
-- **functions:** `_to_series(arr, index, name) -> pd.Series`; `_f(x, default) -> float`; `run_signals(close, entries, exits, fee, freq) -> 'vbt.Portfolio'`; `scorecard(pf) -> dict`; `underwater_fitness(pf) -> float`; `persistence_gate(y_true, y_pred, p_max) -> tuple[bool, dict]`; `majority_gate(y_true, y_pred_cls) -> tuple[bool, dict]`; `benchmark_gate(pf, close, fee) -> tuple[bool, dict]`; `honest_report(pf, close, y_true, y_pred, y_true_cls, y_pred_cls) -> dict`
+- **functions:** `_to_series(arr, index, name) -> pd.Series`; `_f(x, default) -> float`; `run_signals(close, entries, exits, fee, freq) -> 'vbt.Portfolio'`; `scorecard(pf) -> dict`; `underwater_fitness(pf) -> float`; `persistence_gate(y_true, y_pred, p_max) -> tuple[bool, dict]`; `majority_gate(y_true, y_pred_cls) -> tuple[bool, dict]`; `benchmark_gate(pf, close, fee) -> tuple[bool, dict]`; `arbitrate_timeframe(segment, short_tf, daily, metric, margin) -> dict`; `honest_report(pf, close, y_true, y_pred, y_true_cls, y_pred_cls) -> dict`
 - **imports:** __future__, dieboldmariano, math, numpy, pandas, vectorbt
 
 ## `trading/heads.py`
@@ -3178,6 +3193,11 @@ _trading/strategy/self_evolve.py — the lifelong self-evolving strategy loop._
 - **classes:** SelfEvolvingLoop, SelfEvolveNode
 - **functions:** `register_self_evolve(loop) -> SelfEvolveNode`
 - **imports:** __future__, core.node_protocol, numpy, pandas, trading.brain.skills, trading.strategy.control, trading.strategy.evolve, trading.strategy.fitness, trading.strategy.genome
+
+## `trading/sweep.py`
+_Logged hyperparameter / lookback / topology sweep harness (CANON-34)._
+- **functions:** `grid() -> list`; `chrono_split(n, val_frac) -> tuple`; `run_sweep(build_fn, X, y, params_grid) -> dict`; `_jsonable(params) -> dict`; `_now() -> float`
+- **imports:** __future__, itertools, json, numpy, os, time, trading.classification_eval
 
 ## `trading/tick_cache.py`
 _trading/tick_cache.py — per-symbol real-time price cache (T1 §5)._

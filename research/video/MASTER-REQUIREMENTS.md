@@ -399,15 +399,15 @@ Every REQ belongs to exactly one CANON. 63 canonical requirements.
 
 | CANON | Member REQs | Implemented by |
 |---|---|---|
-| CANON-01 | KRF-01, KRF-03, KRF-04 | PARTIAL — trading/brain/psychology.py (OBI/OFI, Stoikov microprice, detect_walls block detection, depth-slope bias); missing: per-level gap map at fixed depths 1/5/10/20 as a routed feature lane |
-| CANON-02 | KRF-02 | PARTIAL — trading/strategy/library/catalog/pattern.py (classical pattern set with stateful entries/exits) + trading/features_ta.py proximity_signal; missing: explicit per-pattern stop/target level emitter |
+| CANON-01 | KRF-01, KRF-03, KRF-04 | FULL — trading/brain/psychology.py (OBI/OFI, Stoikov microprice, detect_walls, depth-slope bias) + gap_map() per-level gap map at fixed depths 1/5/10/20 as a routed feature (psych_gap_map_bias journal column) |
+| CANON-02 | KRF-02 | FULL — trading/strategy/library/catalog/pattern.py (classical pattern set) + trading/features_ta.py proximity_signal + pattern_levels() explicit per-pattern entry/stop/target emitter (fractal-S/R + ATR stops, fixed R:R) |
 | CANON-03 | KRF-06 | trading/simlab.py (order-matching tier-1 + hftbacktest tier-2 queue-position fills) |
 | CANON-04 | KRF-27 | PARKED-research — standalone determinism/predictability study (KRF-27) not yet run; nearest artifacts: trading/fitness.py gates + research/ultra-network-data-plan.md |
-| CANON-05 | NNM-13, PNP-07, LSTM-01, TFM-08, KRF-13 | PARTIAL — data/downloads.py (stooq daily, Binance 1m, Freqtrade candle store) + trading/crypto multi-venue data pool; missing: dukascopy forex + NSE bhavcopy downloaders |
-| CANON-06 | KRF-05 | PARTIAL — both doctrines have data lanes (1m crypto via data/downloads.py, daily via stooq) and core/segments.py taxonomy; missing: automated per-segment scorecard arbitration |
+| CANON-05 | NNM-13, PNP-07, LSTM-01, TFM-08, KRF-13 | FULL — data/downloads.py (stooq daily, Binance 1m, Freqtrade store, multi-venue pool) + download_dukascopy() forex ticks (LZMA .bi5) + download_nse_bhavcopy() NSE EOD (cookie-aware, honest IP-block error) |
+| CANON-06 | KRF-05 | FULL — both doctrines have data lanes + core/segments.py taxonomy + trading/fitness.py arbitrate_timeframe() automated per-segment short-TF-vs-daily arbitration (margin + lower-noise tie-break) |
 | CANON-07 | PNP-08, PNP-09, LSTM-02, LSTM-05, LSTM-06, TFM-09 | trading/features_ta.py gate_warmup + data/downloads.py (parse/sort/drop-dead-rows) + trading/crypto/freqtrade_ingest.py column normalization |
 | CANON-08 | NNM-16, LSTM-07, TFM-13 | nodes/video_lanes.py _LaneBase._fit_scaler (train-only fit, persisted for inverse transform — fixes the videos' leak) |
-| CANON-09 | PNP-17 | PARTIAL — nodes/scratch_core.py one-hot label targets (softmax+CE); categorical FEATURE one-hot unused (no categorical features in current pipelines yet) |
+| CANON-09 | PNP-17 | FULL — nodes/scratch_core.py one-hot label targets + trading/features_ta.py one_hot_features() categorical FEATURE one-hot (train-only vocab, persisted, unseen→all-zero, no leakage) |
 | CANON-10 | LSTM-08, LSTM-10, LSTM-11, TFM-14, TFM-15, TFM-16, JKA-04, GRC-23 | nodes/video_lanes.py build_windows (N,lookback,F with shape verification, explicit target col) |
 | CANON-11 | GRC-01, GRC-02, GRC-03, GRC-04, GRC-06, GRC-07, GRC-12, NNM-12 | nodes/scratch_core.py ScratchNet (neuron→vectorized dense layers→cached forward) |
 | CANON-12 | NNM-17, GRC-08 | nodes/scratch_core.py (seeded small-random init, zero biases) |
@@ -432,18 +432,18 @@ Every REQ belongs to exactly one CANON. 63 canonical requirements.
 | CANON-31 | NNM-02, NNM-21, GRC-14, GRC-15, GRC-18, GRC-24, TFM-28, TFM-30, KRF-16 | nodes/scratch_core.py (epochs/LR/mini-batches, per-epoch train+val history) + nodes/video_lanes.py _train_torch |
 | CANON-32 | GRC-19 | nodes/scratch_core.py (SGD baseline) + nodes/video_lanes.py (Adam default) |
 | CANON-33 | TFM-20 | nodes/video_lanes.py (dropout in transformer/TCN lanes) |
-| CANON-34 | NNM-09, NNM-10, PNP-06, PNP-21, PNP-22, PNP-24, PNP-25, PNP-26, PNP-27, LSTM-09, LSTM-18, TFM-21, GRC-27 | PARTIAL — nodes/neat_lane.py telemetry + trading/strategy/evolve.py + percoin deflated-PSR selection accounting; missing: a systematic logged lookback/topology sweep harness with per-class metrics |
+| CANON-34 | NNM-09, NNM-10, PNP-06, PNP-21, PNP-22, PNP-24, PNP-25, PNP-26, PNP-27, LSTM-09, LSTM-18, TFM-21, GRC-27 | FULL — nodes/neat_lane.py telemetry + trading/strategy/evolve.py + trading/sweep.py run_sweep() systematic logged lookback/topology sweep harness with per-class metrics + per-trial confusion-structure verdict (JSONL log) |
 | CANON-35 | GRC-20, GRC-21 | nodes/scratch_core.py per-epoch history logs + tests/test_cortex_b1..b7 small-data sanity runs |
 | CANON-36 | TFM-41, LSTM-20, PNP-23 | trading/fitness.py persistence_gate + majority_gate + trading/heads.py evaluate_head (DM-test floors before trust) |
-| CANON-37 | PNP-20, GRC-26 | PARTIAL — accuracy checks throughout tests/test_cortex_b2; missing: confusion matrices / per-class reports / misclassification galleries as first-class artifacts |
+| CANON-37 | PNP-20, GRC-26 | FULL — trading/classification_eval.py confusion() + per_class_report() + misclassification_gallery() as first-class artifacts (sklearn), surfaced through honest_report |
 | CANON-38 | NNM-24 | trading/fitness.py benchmark_gate (CAGR/MaxDD vs buy-and-hold ratio) |
 | CANON-39 | NNM-25, JKA-12, RBT-08, RBT-10 | trading/fitness.py scorecard (Sharpe/Sortino/CAGR/DD/expectancy/$-per-trade) |
 | CANON-40 | NNM-23 | trading/fitness.py run_signals (fees in every number) |
 | CANON-41 | KRF-10, RBT-03, RBT-12 | trading/fitness.py underwater_fitness (mark-to-market × 1/(1+underwater)) + nodes/neat_lane.py PnL fitness |
 | CANON-42 | LSTM-16, KRF-17, KRF-20 | trading/validation_holdout.py (live-unseen JSONL ledger + matured scoring + rolling accuracy series) + trading/brain/regime_hub.py DriftSentry (frouros input-drift early warning) |
-| CANON-43 | NNM-30 | PARTIAL — nodes/neat_lane.py telemetry (backtests_run/triaged_out) + percoin_decider deflated-PSR multiple-testing guard; missing: global param-count/research-time flags surfaced on the dashboard |
+| CANON-43 | NNM-30 | FULL — nodes/neat_lane.py telemetry + trading/antioverfit.py telemetry() (backtests_run counter, free-param count, research-age flags) → /api/network/antioverfit → NetworkPanel anti-overfit block |
 | CANON-44 | TFM-35, TFM-36, TFM-37, TFM-38, TFM-40 | trading/heads.py evaluate_head + trading/rollout.py per_horizon_errors (per-horizon MSE/MAE matrix) |
-| CANON-45 | JKA-02, JKA-13, JKA-14, KRF-26 | PARTIAL — honest-wiring rule enforced repo-wide (real data only) + paper-first defaults; missing: explicit research-preview disclaimer text on served prediction UI |
+| CANON-45 | JKA-02, JKA-13, JKA-14, KRF-26 | FULL — honest-wiring repo-wide + paper-first defaults + explicit research-preview disclaimer on the served prediction UI (CoinDetailPanel PRED footer: not-advice / unverified / experimental) |
 | CANON-46 | PNP-13 | trading/features_ta.py admission_gate → trading/fitness.py run_signals (profitable standalone backtest before feature admission) |
 | CANON-47 | KRF-18 | trading/rollout.py autoregressive_rollout + trading/heads.py RolloutHead.rollout |
 | CANON-48 | KRF-21, KRF-22 | trading/heads.py RolloutHead (direct multi-horizon forecast) + build_foundation_heads (TTM/Chronos/TabPFN) |
@@ -452,20 +452,20 @@ Every REQ belongs to exactly one CANON. 63 canonical requirements.
 | CANON-51 | JKA-01, JKA-03, NNM-22 | trading/cortex_signal.py CortexSignalSource (features→reflex→risk per bar) + trading/crypto/freqtrade/brain_executor.py _cortex_shadow + run_brain_loop.py (opt-in CORTEX_SIGNAL/CORTEX_TRADE) + nodes/reflex.py anytime heads |
 | CANON-52 | RBT-04 | core/segments.py + trading/crypto/freqtrade per-segment executors + percoin_decider.py per-coin strategy identity (enter_tag) |
 | CANON-53 | KRF-24 | dashboard/server.py (venv API + web front-end; CPU-sized models) + start_all.sh |
-| CANON-54 | KRF-25 | PARTIAL — dashboard PriceChart/CoinDetailPanel show live chart + confidence + recommendation; missing: predicted-path overlay from trading/heads.py forecasts |
-| CANON-55 | LSTM-17, TFM-39 | PARTIAL — dashboard charts render pred/real series; the exact overlay style conventions (markers/windows/legends of LSTM-17/TFM-39) not codified |
-| CANON-56 | RBT-06, RBT-07, RBT-09, RBT-11, KRF-09 | PARTIAL — ScorecardPanel + equity from trading/fitness.py + per-trade journal tables; missing: on-chart Train band + per-trade P&L strip/histogram views |
+| CANON-54 | KRF-25 | FULL — dashboard PriceChart/CoinDetailPanel live chart + confidence + recommendation + predicted-path overlay via /api/trading/forecast (heads.RolloutHead ridge-AR rollout, CPU-in-process-safe) |
+| CANON-55 | LSTM-17, TFM-39 | FULL — PriceChart OVERLAY_STYLE codifies pred/real conventions: solid-accent predicted, dashed-warn forecast + step markers, shaded train band + Train→Test boundary marker (LSTM-17/TFM-39) |
+| CANON-56 | RBT-06, RBT-07, RBT-09, RBT-11, KRF-09 | FULL — ScorecardPanel + equity + PriceChart on-chart Train band + PnlStrip.jsx per-trade P&L strip + P&L distribution histogram (real closed trades only) |
 | CANON-57 | GRC-05, LSTM-21, LSTM-22, TFM-04, JKA-11 | run_network.py network_state.json + dashboard/web/src/SigmaNetwork.jsx / NetworkPanel.jsx (diagrams rendered FROM the real routing graph) |
-| CANON-58 | PNP-01, PNP-18, PNP-28, NNM-27, NNM-28 | PARTIAL — frozen-pipeline comparisons in trading/fitness.py honest_report + percoin_decider ranking + strategy-library leaderboard; missing: confusion-structure verdicts |
+| CANON-58 | PNP-01, PNP-18, PNP-28, NNM-27, NNM-28 | FULL — frozen-pipeline comparisons in honest_report + percoin_decider ranking + trading/classification_eval.py confusion_structure_verdict() (majority-collapse / dead-class / systematic-swap) |
 | CANON-59 | KRF-07, KRF-08, KRF-11, RBT-01, RBT-02 | nodes/neat_lane.py (NEAT + REINFORCE edge learner, label-free lane only) + trading/simlab.py |
 | CANON-60 | TFM-42, TFM-43, TFM-44 | research/ultra-network-design.md §7 honesty & risk register + research/video-requirements-sota.md (failure-mode catalog + upgrade roadmap) |
 | CANON-61 | NNM-07, TFM-29, KRF-19 | nodes/reflex.py (conditional compute = CPU budget as routing) + nodes/video_lanes.py CPU-sized models; CPU-torch everywhere |
 | CANON-62 | TFM-06, TFM-07, KRF-12 | trading/features_ta.py (pandas-ta-classic) + nodes/video_lanes.py (torch + sklearn lanes) — the repo IS the stack |
 | CANON-63 | PNP-30, TFM-34, TFM-45 | run_network.py (single driver, all knobs) + tests/test_cortex_b1..b8 (copy-paste runnable pipelines) |
 
-(63 CANON rows; member counts sum to 211. B8 status: 48 FULL, 13 PARTIAL
-(CANON-01/02/05/06/09/34/37/43/45/54/55/56/58 — each names exactly what is
-missing), 2 PARKED (CANON-04 determinism study, CANON-21 diffusion lane).)
+(63 CANON rows; member counts sum to 211. B9 status: 61 FULL (all 13 former PARTIALs
+closed 2026-07-04 — CORTEX B9 gap-closers, tests/test_cortex_b9_gaps.py), 2 PARKED
+(CANON-04 determinism study, CANON-21 diffusion lane — deliberate future lanes).)
 
 ---
 

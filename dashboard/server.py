@@ -810,6 +810,62 @@ def _candles(symbol: str, market: str, tf: str = "5m", limit: int = 200) -> list
     return out
 
 
+def _forecast_payload(candles: list, k: int, symbol: str, tf: str) -> dict:
+    """CANON-54 predicted-path payload. Fits a numpy ridge auto-regressor on the
+    recent close window and rolls it forward k steps via heads.RolloutHead — the
+    real CANON-47 rollout engine, but CPU-trivial and in-process-safe. Returns
+    the future path (unix-timed to the right of the last candle), an in-sample
+    predicted line, the train/test split time, and an honest preview flag."""
+    import numpy as np
+    from trading.heads import RolloutHead
+
+    closes = np.array([c["close"] for c in candles], float)
+    times = [int(c["time"]) for c in candles]
+    if len(closes) < 40:
+        return {"available": False, "symbol": symbol, "tf": tf,
+                "reason": "not enough candles for a forecast (need ≥40)"}
+    lb = 16
+    step = int(np.median(np.diff(times))) if len(times) > 2 else 900
+
+    # returns-space ridge on a lookback window (chronological, no shuffle)
+    rets = np.diff(np.log(closes))
+    X, y = [], []
+    for i in range(lb, len(rets)):
+        X.append(rets[i - lb:i]); y.append(rets[i])
+    X, y = np.asarray(X), np.asarray(y)
+    lam = 1e-2
+    w = np.linalg.solve(X.T @ X + lam * np.eye(lb), X.T @ y)
+
+    class _Ridge:                       # heads.RolloutHead forecaster protocol
+        def predict(self, win):
+            r = np.diff(np.log(np.asarray(win, float).ravel()))
+            r = r[-lb:] if len(r) >= lb else np.pad(r, (lb - len(r), 0))
+            return float(win.ravel()[-1] * np.exp(r @ w))
+
+    head = RolloutHead(_Ridge(), name="ridge_ar", direct=False, col=0)
+    window = closes[-(lb + 1):].reshape(-1, 1)
+    try:
+        path = head.rollout(window, k)
+    except Exception:                   # fall back to the raw rollout engine
+        from trading.rollout import autoregressive_rollout
+        path = autoregressive_rollout(_Ridge(), window, k)
+    path = np.asarray(path, float).ravel()[:k]
+
+    forecast = [{"time": times[-1] + step * (i + 1), "value": round(float(v), 8)}
+                for i, v in enumerate(path)]
+    # in-sample predicted line (one-step) over the visible tail, for CANON-55 overlay
+    predicted = []
+    for i in range(lb, len(closes) - 1):
+        r = rets[i - lb:i]
+        predicted.append({"time": times[i + 1],
+                          "value": round(float(closes[i] * np.exp(r @ w)), 8)})
+    split_idx = int(len(closes) * 0.7)
+    return {"available": True, "symbol": symbol, "tf": tf, "k": k,
+            "forecast": forecast, "predicted": predicted[-60:],
+            "train_split_time": times[split_idx],
+            "model": "ridge-AR (research preview)", "preview": True}
+
+
 def _open_trades_rows() -> list[dict]:
     """Map real ExecutionEngine.status()['positions'] to OPEN_TRADE_COLUMNS rows.
 
@@ -984,6 +1040,14 @@ class Handler(BaseHTTPRequestHandler):
             # Raw TrustLedger file (real per-node losses/counts — never fabricated).
             return self._send(200, json.dumps(_network_trust_payload()).encode(),
                               "application/json")
+        if path == "/api/network/antioverfit":
+            # CANON-43: anti-overfit telemetry (backtests / free-params / research age).
+            try:
+                from trading.antioverfit import telemetry as _ao_tel
+                payload = _ao_tel()
+            except Exception as e:
+                payload = {"note": f"antioverfit telemetry unavailable: {type(e).__name__}: {e}"}
+            return self._send(200, json.dumps(payload).encode(), "application/json")
         if path == "/api/knowledge":
             kp = os.path.join(ROOT, "knowledge_state.json")
             if os.path.exists(kp):
@@ -1906,6 +1970,25 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.dumps({"available": False, "symbol": symbol, "market": market,
                                    "error": f"{type(e).__name__}: {str(e)[:80]}",
                                    "hint": "live candles via ccxt / OpenAlgo history"}).encode()
+            return self._send(200, body, "application/json")
+        if path == "/api/trading/forecast":
+            # CANON-54: predicted-path overlay from trading/heads.py. CPU-cheap and
+            # in-process-safe (no foundation/torch models — the 524-wedge rule): a
+            # numpy ridge forecaster wrapped in heads.RolloutHead does the k-step
+            # autoregressive rollout. Honest research-preview output.
+            from urllib.parse import parse_qs, urlparse
+            qs = parse_qs(urlparse(self.path).query)
+            symbol = (qs.get("symbol", ["BTC/USDT"])[0])
+            market = (qs.get("market", ["CRYPTO"])[0])
+            tf = (qs.get("tf", ["15m"])[0])
+            k = min(24, max(1, int((qs.get("k", ["8"])[0]) or 8)))
+            try:
+                candles = _candles(symbol, market, tf=tf)
+                body = json.dumps(_forecast_payload(candles, k, symbol, tf),
+                                  default=str).encode()
+            except Exception as e:
+                body = json.dumps({"available": False, "symbol": symbol,
+                                   "error": f"{type(e).__name__}: {str(e)[:100]}"}).encode()
             return self._send(200, body, "application/json")
         if path == "/api/trading/orderbook":
             # LIVE L2 order book. CRYPTO → ccxt fetch_order_book; NSE → OpenAlgo depth.
