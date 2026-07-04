@@ -891,6 +891,12 @@ _LLMForecastNode — cloud-LLM as a reasoning-based directional forecaster._
 - **classes:** LLMForecastNode
 - **imports:** __future__, json, nodes.quant_nodes, numpy, re, warnings
 
+## `nodes/lob_transformer.py`
+_AI-scientist idea #6 — LiT: Limit-Order-Book Transformer for short-horizon direction._
+- **classes:** LOBTransformerNode
+- **functions:** `lob_transformer_node(name) -> LOBTransformerNode`
+- **imports:** __future__, core.node_protocol, math, numpy
+
 ## `nodes/micro_transformer_node.py`
 _nodes/micro_transformer_node.py — the brain's OWN micro-LLM (Phase C, clone-and-extend)._
 - **classes:** StreamTokenizer, MicroTransformerNode, CInferenceKernel
@@ -1572,6 +1578,12 @@ _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & determ
 _Cloud-LLM telemetry (core/llm_telemetry.py) + LLMForecastNode (nodes/llm_forecast_node.py)._
 - **classes:** TestLLMTelemetry, TestLLMForecastNode
 - **imports:** __future__, numpy, os, tempfile, unittest, warnings
+
+## `tests/test_lob_transformer.py`
+_AI-scientist idea #6 — LiT order-book transformer node._
+- **classes:** TestLOBTransformer
+- **functions:** `_microstructure_dataset(n, d, seed)`
+- **imports:** core.node_protocol, nodes.lob_transformer, numpy, unittest
 
 ## `tests/test_memory_assoc.py`
 _P4.2 acceptance: human-like ASSOCIATIVE recall (Personalized-PageRank + RRF fusion)._
