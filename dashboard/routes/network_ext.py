@@ -114,3 +114,19 @@ def handle_network_refresh(h):
     SUBPROCESS (throttled; never trains in the dashboard process — the 524-wedge rule)."""
     return h._send(200, json.dumps(_srv(h)._network_refresh_start()).encode(),
                    "application/json")
+
+
+def handle_network_autoload(h):
+    """GET /api/network/autoload — the pkgutil node auto-loader recovery report (nodes.autoload via
+    pool.autoload_report): how many built-but-unpooled node families the sweep can add to the live
+    pool, broken down by source module. Honest capability-recovery telemetry; read-only (the sweep
+    only activates in a training run when MLNB_AUTOLOAD_NODES=1)."""
+    try:
+        from nodes.pool import autoload_report
+        rep = autoload_report()
+        rep["note"] = ("pkgutil sweep of all nodes/* modules recovers built-but-unpooled families "
+                       "into the growth pool; enable in a run with MLNB_AUTOLOAD_NODES=1 (OFF by "
+                       "default to protect fit-time). Each name here builds + satisfies NodeProtocol.")
+    except Exception as e:
+        rep = {"recovered": 0, "error": f"{type(e).__name__}: {e}"}
+    return h._send(200, json.dumps(rep, default=str).encode(), "application/json")

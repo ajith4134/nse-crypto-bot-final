@@ -245,6 +245,30 @@ if _OSS:
     # Kept OFF by default to protect the growth-pool fit time (the NoldsChaosNode lesson).
     if os.environ.get("MLNB_EXTRA_NODES") == "1":
         _OSS.extend(_extra_candidates())
+    # Opt-in (MLNB_AUTOLOAD_NODES=1): the FULL pkgutil sweep (nodes.autoload) — recovers EVERY
+    # built-but-unpooled node family across all nodes/* modules (~160), the generalization of the
+    # 6-module _extra_candidates. Same growth-pool fit-time caveat, so also OFF by default; each
+    # module import + factory is guarded, preserving the 524 lazy-load guarantee.
+    if os.environ.get("MLNB_AUTOLOAD_NODES") == "1":
+        try:
+            from nodes import autoload as _autoload
+            _OSS.extend(_autoload.discover(exclude_names=[n for _, n in _OSS]))
+        except Exception:
+            pass
+
+
+def autoload_report():
+    """Honest recovery report: node families the pkgutil sweep can add beyond what's pooled now
+    (for /api/network/autoload + the audit). Read-only; never mutates CANDIDATES."""
+    try:
+        from nodes import autoload as _autoload
+        rep = _autoload.summary(exclude_names=[n for _, n in CANDIDATES])
+        rep["pooled_now"] = len(CANDIDATES)
+        rep["enabled"] = os.environ.get("MLNB_AUTOLOAD_NODES") == "1"
+        return rep
+    except Exception as e:
+        return {"recovered": 0, "error": f"{type(e).__name__}: {e}", "pooled_now": len(CANDIDATES)}
+
 
 # OSS pool is primary; falls back to the stdlib miniatures if the stack is absent.
 CANDIDATES = _OSS if USING_OSS else STDLIB_CANDIDATES

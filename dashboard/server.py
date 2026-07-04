@@ -1041,6 +1041,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/network/antioverfit":                # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
             from dashboard.routes import network_ext
             return network_ext.handle_network_antioverfit(self)
+        if path == "/api/network/autoload":                   # node auto-loader recovery (idea #1)
+            from dashboard.routes import network_ext
+            return network_ext.handle_network_autoload(self)
         if path == "/api/knowledge":                          # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
             from dashboard.routes import network_ext
             return network_ext.handle_knowledge(self)

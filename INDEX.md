@@ -597,7 +597,7 @@ _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first ver
 
 ## `dashboard/routes/network_ext.py`
 _Extracted network / state / knowledge HTTP routes (dashboard/server.py split — Wave0-⑤ Group 3)._
-- **functions:** `_srv(h)`; `handle_state(h)`; `handle_state_routing(h)`; `handle_network_state(h)`; `handle_network_trust(h)`; `handle_network_system(h)`; `handle_network_antioverfit(h)`; `handle_knowledge(h)`; `handle_llm_telemetry(h)`; `handle_network_refresh(h)`
+- **functions:** `_srv(h)`; `handle_state(h)`; `handle_state_routing(h)`; `handle_network_state(h)`; `handle_network_trust(h)`; `handle_network_system(h)`; `handle_network_antioverfit(h)`; `handle_knowledge(h)`; `handle_llm_telemetry(h)`; `handle_network_refresh(h)`; `handle_network_autoload(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/routes/post_ext.py`
@@ -766,6 +766,11 @@ _Advanced / newly-researched node families behind the project NodeProtocol._
 - **functions:** `hawkes_node(name)`; `nvar_node(name)`; `signature_node(name)`; `edm_node(name)`; `som_node(name)`; `elm_node(name)`; `copula_node(name)`; `rocket_node(name)`; `nystroem_node(name)`
 - **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, warnings
 
+## `nodes/autoload.py`
+_pkgutil node auto-loader — the full generalization of ``nodes.pool._extra_candidates``._
+- **functions:** `_base_node()`; `_no_required_args(obj) -> bool`; `_is_concrete_node_class(cls, base) -> bool`; `_sweep(exclude_names)`; `discover(exclude_names) -> list[tuple]`; `summary(exclude_names) -> dict`
+- **imports:** __future__, importlib, inspect, nodes, pkgutil
+
 ## `nodes/automl_node.py`
 _AutoGluonNode — the plan's Phase-1 *production* stacked-ensemble node._
 - **classes:** AutoGluonNode
@@ -928,7 +933,7 @@ _Phase-2b node families (pure-Python): Random Forest + Regime-Gated._
 
 ## `nodes/pool.py`
 _Shared candidate pool of node families + hyperparameter variants._
-- **functions:** `_oss_candidates()`; `_micro_llm_candidates()`; `_foundation_candidates()`; `foundation_panel_candidates(panel)`; `_foundation_candidates_cached()`; `foundation_factories()`; `foundation_names()`; `_extra_candidates()`; `factories()`; `names()`
+- **functions:** `_oss_candidates()`; `_micro_llm_candidates()`; `_foundation_candidates()`; `foundation_panel_candidates(panel)`; `_foundation_candidates_cached()`; `foundation_factories()`; `foundation_names()`; `_extra_candidates()`; `autoload_report()`; `factories()`; `names()`
 - **imports:** __future__, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, os
 
 ## `nodes/probabilistic_nodes.py`
@@ -1274,6 +1279,11 @@ _Pillar 20 — anti-overfitting backbone: CPCV, meta-labeling, and the mandatory
 _Tests for memory/associative.py — HippoRAG PPR recall + A-MEM evolution (offline path)._
 - **functions:** `_seed(mem)`; `test_add_links_related_notes()`; `test_recall_is_associative_multihop()`; `test_persistence_across_instances(tmp_path)`; `test_llm_path_used_when_available()`
 - **imports:** json, memory.associative
+
+## `tests/test_autoload.py`
+_Node auto-loader (nodes/autoload.py) — pkgutil sweep recovers built-but-unpooled families._
+- **classes:** TestAutoload
+- **imports:** core.node_protocol, nodes, unittest
 
 ## `tests/test_boss_command.py`
 _Boss command engine (trading/brain/boss.py) + mind-event bus (mind_events.py) + R&D drive_
