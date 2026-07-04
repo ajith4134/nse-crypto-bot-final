@@ -86,19 +86,49 @@ class ExchangeClient:
         except Exception as exc:
             raise ExchangeError(f"load_markets failed: {exc}") from exc
 
+    def _pool(self):
+        """Multi-venue DATA pool (binance/bybit/okx/kucoin public, per-venue budgets)
+        — ban-proofing after the 2026-07-03 Binance 418/-1003 IP ban. Data plane only;
+        execution methods below never touch it. None → single-exchange fallback."""
+        try:
+            from trading.crypto.exchange_pool import get_pool, pool_enabled
+            if not pool_enabled():
+                return None
+            return get_pool(self.market_type, self.config.quote, preferred=self.exchange)
+        except Exception:
+            return None
+
     def ticker(self, symbol: str) -> dict:
+        pool = self._pool()
+        if pool is not None:
+            try:
+                return pool.ticker(symbol)
+            except Exception:
+                pass                        # pool exhausted → single-exchange fallback
         try:
             return self._client().fetch_ticker(self._norm(symbol))
         except Exception as exc:
             raise ExchangeError(f"fetch_ticker({symbol}) failed: {exc}") from exc
 
     def order_book(self, symbol: str, limit: int = 50) -> dict:
+        pool = self._pool()
+        if pool is not None:
+            try:
+                return pool.order_book(symbol, limit)
+            except Exception:
+                pass
         try:
             return self._client().fetch_order_book(self._norm(symbol), limit)
         except Exception as exc:
             raise ExchangeError(f"fetch_order_book({symbol}) failed: {exc}") from exc
 
     def funding_rate(self, symbol: str) -> dict:
+        pool = self._pool()
+        if pool is not None:
+            try:
+                return pool.funding_rate(symbol)
+            except Exception:
+                pass
         try:
             return self._client().fetch_funding_rate(self._norm(symbol))
         except Exception as exc:

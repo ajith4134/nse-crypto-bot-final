@@ -539,7 +539,7 @@ _dashboard/brain_live.py — LIVE brain snapshots from REAL data._
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler, BoundedHTTPServer
-- **functions:** `_brain_agent()`; `_gui_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_ft_entry_meta(t) -> dict`; `_ft_entry_psych(t)`; `_uq_cells(uq) -> dict`; `_psych_cells(ps) -> dict`; `_trade_outcome_net()`; `_confidence_book() -> dict`; `_swr_refresh_async(path) -> None`; `_get_cache_ttl(path)`; `_cached_body(key, ttl, producer)`; `_bg_snapshot(key, producer, ttl) -> bytes`; `_warm_snapshots()`; `_enrich_predictions() -> None`; `_ccxt_spot()`; `_pool_ohlcv(symbol, tf, limit) -> list`; `_pool_order_book(symbol, limit) -> dict`; `_openalgo_positions() -> list`; `_openalgo_tradebook() -> list`; `_trade_segment(r) -> tuple[str, str]`; `_scorecard() -> dict`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
+- **functions:** `_network_state_payload(path, now) -> dict`; `_network_trust_payload(path) -> dict`; `_network_refresh_allowed(now, last, running, min_interval_s) -> tuple[bool, str]`; `_network_refresh_start(now) -> dict`; `_brain_agent()`; `_gui_agent()`; `_trading_session()`; `_crypto_session()`; `_execution_engine()`; `_options_chain()`; `_ft_entry_meta(t) -> dict`; `_ft_entry_psych(t)`; `_uq_cells(uq) -> dict`; `_psych_cells(ps) -> dict`; `_trade_outcome_net()`; `_confidence_book() -> dict`; `_swr_refresh_async(path) -> None`; `_get_cache_ttl(path)`; `_cached_body(key, ttl, producer)`; `_bg_snapshot(key, producer, ttl) -> bytes`; `_warm_snapshots()`; `_enrich_predictions() -> None`; `_ccxt_spot()`; `_pool_ohlcv(symbol, tf, limit) -> list`; `_pool_order_book(symbol, limit) -> dict`; `_openalgo_positions() -> list`; `_openalgo_tradebook() -> list`; `_trade_segment(r) -> tuple[str, str]`; `_scorecard() -> dict`; `_usdinr() -> float`; `_candles(symbol, market, tf, limit) -> list[dict]`; `_open_trades_rows() -> list[dict]`; `main() -> None`
 - **imports:** __future__, base64, http.server, json, os, sys, threading, time
 
 ## `dashboard/verify_render.py`
@@ -1072,6 +1072,11 @@ _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 - **functions:** `_load_dotenv() -> None`; `cls_pool()`; `reg_pool()`; `domain_pool()`; `_combine(outputs, task)`; `_load_synthetic(benchmark, n)`; `_load_crypto(train_frac)`; `_split_dataset(ds, cap, train_frac)`; `_load_external(source)`; `_load_panel(source, cap, train_frac)`; `main(arg, n, pool) -> dict`
 - **imports:** __future__, core, core.heads, data.benchmarks, eval.golden, json, nodes, numpy, os, sys, time, warnings
 
+## `run_network.py`
+_run_network.py — CORTEX B7: unified network-state generator → network_state.json._
+- **functions:** `_split(X, y, frac, seed)`; `_trust_ledger()`; `main() -> dict`
+- **imports:** __future__, argparse, collections, core.columns, core.segments, data.benchmarks, eval.golden, json, nodes.active_subnet, nodes.reflex, numpy, os, random, run_columns, time
+
 ## `run_noise_router.py`
 _(ii) Demonstrate the noise-regime router beating either single expert._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
@@ -1292,6 +1297,12 @@ _CORTEX B6 acceptance tests — forecast heads + data downloaders._
 - **classes:** TestRolloutHead, TestEvaluateHead, TestBuildFoundationHeads, TestDownloads
 - **functions:** `_windows(series, L, k, n)`
 - **imports:** __future__, data, io, numpy, trading.heads, unittest
+
+## `tests/test_cortex_b7.py`
+_CORTEX B7 tests — run_network.py generator + /api/network/* server helpers._
+- **classes:** TestRunNetwork, TestServerHelpers
+- **functions:** `_load_server()`
+- **imports:** importlib.util, json, os, subprocess, sys, tempfile, unittest
 
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._

@@ -52,6 +52,7 @@ class OpenAlgoClient:
         self.config = config or trading_config
         self.strategy = strategy or self.DEFAULT_STRATEGY
         self._sdk: Any | None = None  # lazily constructed openalgo.api instance
+        self._lot_cache: dict[tuple[str, str], int] = {}  # (symbol, exchange) -> lotsize
 
     # ── SDK lifecycle ─────────────────────────────────────────────────────────
     def _client(self) -> Any:
@@ -195,6 +196,33 @@ class OpenAlgoClient:
     def quote(self, symbol: str, exchange: str = "NSE") -> dict:
         resp = self._client().quotes(symbol=symbol, exchange=exchange.upper())
         return self._check(resp, "quotes")
+
+    def depth(self, symbol: str, exchange: str = "NSE") -> dict:
+        """5-level order-book depth (bids/asks price+quantity) for a symbol."""
+        resp = self._client().depth(symbol=symbol, exchange=exchange.upper())
+        return self._check(resp, "depth")
+
+    def symbol_info(self, symbol: str, exchange: str = "NSE") -> dict:
+        """Master-contract row for a symbol (lotsize, ticksize, expiry, token, …)."""
+        resp = self._client().symbol(symbol=symbol, exchange=exchange.upper())
+        return self._check(resp, "symbol")
+
+    def lot_size(self, symbol: str, exchange: str = "NSE") -> int | None:
+        """REAL lot size from OpenAlgo's master contract, cached per (symbol, exchange).
+        Returns None when the symbol is unknown or the server is unreachable — callers
+        must fall back to their own default rather than trade a guessed lot."""
+        key = (symbol, exchange.upper())
+        if key in self._lot_cache:
+            return self._lot_cache[key]
+        try:
+            d = self.symbol_info(symbol, exchange).get("data") or {}
+            lot = int(float(d.get("lotsize") or 0))
+        except Exception:
+            return None
+        if lot > 0:
+            self._lot_cache[key] = lot
+            return lot
+        return None
 
     def funds(self) -> dict:
         return self._check(self._client().funds(), "funds")

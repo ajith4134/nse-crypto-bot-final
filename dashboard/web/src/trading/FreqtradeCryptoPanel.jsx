@@ -13,6 +13,18 @@ const MARKETS_URL = '/api/trading/crypto/markets'
 const ORDERBOOK_URL = '/api/trading/orderbook'
 // ccxt order book is spot; strip the futures ":USDT" settle suffix (BTC/USDT:USDT → BTC/USDT).
 const spotSym = (s) => String(s || '').split(':')[0]
+const ONLINE_CTL = '/api/trading/online/control'
+const ONLINE_STATUS = '/api/trading/online/status'
+// The 4 crypto trade-type segments (operator's mini-Binance goal). All four execute in the
+// ONE deep-forked Freqtrade engine (multi-segment MultiWorker): futures+spot on Binance data,
+// options on Deribit public data, prediction on Polymarket public data. Futures follows the
+// configured trading mode; spot/options/prediction are paper-only for now (forced dry-run).
+const SEG_META = [
+  { key: 'futures',    label: 'Futures',    icon: '⚡', note: 'live (Freqtrade, Binance)' },
+  { key: 'spot',       label: 'Spot',       icon: '🟢', note: 'paper (one engine, Binance)' },
+  { key: 'options',    label: 'Options',    icon: '🎯', note: 'paper (one engine, Deribit)' },
+  { key: 'prediction', label: 'Prediction', icon: '🔮', note: 'paper (one engine, Polymarket)' },
+]
 
 async function getJSON(u) { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json() }
 async function postJSON(u, b) {
@@ -71,6 +83,8 @@ export default function FreqtradeCryptoPanel() {
   const [showReset, setShowReset] = useState(false)  // type-to-confirm closed-trade wipe
   const [resetText, setResetText] = useState('')
   const [resetting, setResetting] = useState(false)
+  // Selected trade-type segments (Futures/Spot/Options/Prediction) from the shared control registry.
+  const [seg, setSeg] = useState({ available: [], selected: [] })
   const alive = useRef(true)
   // Params the operator just Set, "pinned" briefly so an in-flight /trades poll (which may have
   // STARTED before the change persisted) can't resolve later and clobber the new value back to old.
@@ -87,6 +101,27 @@ export default function FreqtradeCryptoPanel() {
     } catch (e) { if (alive.current) setD({ error: String(e.message || e) }) }
   }
   useEffect(() => { alive.current = true; load(); const t = setInterval(load, 5000); return () => { alive.current = false; clearInterval(t) } }, [])
+
+  // Selected segments from the persisted control registry (the SAME surface Telegram/loop use).
+  const loadSeg = async () => {
+    try {
+      const j = await getJSON(ONLINE_STATUS)
+      const c = (j && j.markets && j.markets.CRYPTO) || {}
+      if (alive.current) setSeg({ available: c.available_segments || [], selected: c.segments || [] })
+    } catch { /* leave last-known */ }
+  }
+  useEffect(() => { loadSeg(); const t = setInterval(loadSeg, 8000); return () => clearInterval(t) }, [])
+  const toggleSeg = async (key) => {
+    setSeg((s) => { const on = s.selected.includes(key); return { ...s, selected: on ? s.selected.filter((x) => x !== key) : [...s.selected, key] } })
+    try { await postJSON(ONLINE_CTL, { action: 'toggle_segment', market: 'CRYPTO', segment: key }) } catch { /* ignore */ }
+    loadSeg()
+  }
+  const selectAllSeg = async () => {
+    const all = SEG_META.map((s) => s.key)
+    setSeg((s) => ({ ...s, selected: all }))
+    try { await postJSON(ONLINE_CTL, { action: 'segments', market: 'CRYPTO', segments: all }) } catch { /* ignore */ }
+    loadSeg()
+  }
 
   // Top-20 symbols by volume → the depth-ladder selector (refresh every 30s).
   useEffect(() => {
@@ -180,6 +215,30 @@ export default function FreqtradeCryptoPanel() {
         <span style={{ fontSize: 11, color: T.accent, fontWeight: 700 }}>{(p.segment || 'spot').toUpperCase()}</span>
         <div style={{ flex: 1 }} />
         {msg && <span style={{ fontSize: 11, color: msg.ok ? T.good : T.bad, border: `1px solid ${msg.ok ? T.good : T.bad}`, borderRadius: 4, padding: '2px 8px' }}>{msg.text}</span>}
+      </div>
+
+      {/* SEGMENT SELECTOR — the 4 trade-type buttons (Futures/Spot/Options/Prediction). Multi-select:
+          every selected segment trades at once on the ONE shared paper wallet. Wired to the persisted
+          control registry via /api/trading/online/control (toggle_segment / segments). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: '8px 12px', marginBottom: 12 }}>
+        <span style={{ fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>Segments</span>
+        {SEG_META.map((s) => {
+          const on = seg.selected.includes(s.key)
+          return (
+            <button key={s.key} onClick={() => toggleSeg(s.key)} title={`${s.label} — ${s.note}`}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: on ? T.accent : T.panel2,
+                color: on ? '#0b0b0b' : T.muted, border: `1px solid ${on ? T.accent : T.border}`, borderRadius: 8,
+                padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', minWidth: 84 }}>
+              <span>{s.icon} {s.label}</span>
+              <span style={{ fontSize: 8.5, fontWeight: 500, opacity: 0.85 }}>{s.note}</span>
+            </button>
+          )
+        })}
+        <button onClick={selectAllSeg} title="Select all 4 segments"
+          style={{ background: 'transparent', color: T.accent, border: `1px dashed ${T.accent}`, borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+          Select all
+        </button>
+        <span style={{ fontSize: 10, color: T.muted }}>{seg.selected.length}/4 active · one wallet · no symbol limit</span>
       </div>
 
       {/* adjustable controls */}

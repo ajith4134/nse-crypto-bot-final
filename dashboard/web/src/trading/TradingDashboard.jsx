@@ -17,6 +17,8 @@ import BrainPanel from './BrainPanel.jsx'
 import BrainOutcomeNet from './BrainOutcomeNet.jsx'
 import WorldModelPanel from './WorldModelPanel.jsx'
 import PsychologyPanel from './PsychologyPanel.jsx'
+import MetacognitionPanel from './MetacognitionPanel.jsx'
+import DebatePanel from './DebatePanel.jsx'
 import HypothesesPanel from './HypothesesPanel.jsx'
 import EvolvePanel from './EvolvePanel.jsx'
 import FreqtradeCryptoPanel from './FreqtradeCryptoPanel.jsx'
@@ -29,6 +31,7 @@ import DecisionMemoryPanel from './DecisionMemoryPanel.jsx'
 import ComputerUsePanel from './ComputerUsePanel.jsx'
 import LLMProvidersPanel from './LLMProvidersPanel.jsx'
 import ConceptSpacePanel from './ConceptSpacePanel.jsx'
+import ExchangeVenuesPanel from './ExchangeVenuesPanel.jsx'
 
 function Card({ title, hint, children, right }) {
   return (
@@ -160,6 +163,10 @@ export default function TradingDashboard() {
         <LLMProvidersPanel />
       </Card>
 
+      <Card title="Exchange Data Venues — multi-venue ban-proofing" hint="per-venue calls · errors · request budget · ban cooldown across binance/bybit/okx/kucoin — real market-data pool telemetry">
+        <ExchangeVenuesPanel />
+      </Card>
+
       <Card title="Concept Discovery — idea-discovery mode (pure-self feature invention)" hint="self-supervised encoder invents features → sparse-autoencoder probe → LLM naming → concept manifold · experiment(ungated) + validated(gated) lanes">
         <ConceptSpacePanel />
       </Card>
@@ -175,6 +182,14 @@ export default function TradingDashboard() {
 
       <Card title="Trader Psychology — order-book depth crowd signal" hint="OBI · OFI · Stoikov microprice · whale walls · fear (spread/λ/VPIN) — live entry signal + journal columns the brain learns from">
         <PsychologyPanel />
+      </Card>
+
+      <Card title="Metacognition — calibrated uncertainty & abstention (Pillar 17)" hint="crepes conformal p_up + coverage-guaranteed intervals · ACI-adapted · reliability diagram · first-class abstention log — sizing consumes calibration">
+        <MetacognitionPanel />
+      </Card>
+
+      <Card title="Adversarial Debate + Verifier (Pillar 18)" hint="bull/bear/risk debate (society) + process-reward step verifier (PRM) over a candidate trade — verified reasoning, not just PnL; gate + size multiplier">
+        <DebatePanel />
       </Card>
 
       <Card title="Decision Memory — episodes · attribution · reflections" hint="FinMem layered episodes (shallow/mid/deep) · SHAP 'which data drove it' · TradingAgents outcome-closure lessons recalled before new entries">

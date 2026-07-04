@@ -47,11 +47,40 @@ def _html_to_text(raw: str) -> str:
 
 
 class KnowledgeBrain:
-    def __init__(self):
-        self.mem = VectorMemory()
+    def __init__(self, persist: bool = False):
+        # persist=True → stable on-disk Chroma collection: everything the brain reads
+        # survives restarts (learner/chat share ONE such brain via get_brain()).
+        # Default False keeps tests and ad-hoc instances fully isolated as before.
+        self.mem = VectorMemory(persist_name="knowledge_main" if persist else None)
         self.graph = KnowledgeGraph()
         self.access = Counter()
         self.docs: list[str] = []
+        if persist and self.mem.chunks:
+            self._rebuild_graph_from_chunks()
+
+    def _rebuild_graph_from_chunks(self) -> None:
+        """Recreate the doc/chunk/concept graph from rehydrated chunks so associative
+        recall and the concepts counter survive restarts (chunks are persisted by
+        VectorMemory; the graph is derived state)."""
+        by_doc: dict[str, list[tuple[str, str, str]]] = {}
+        for cid, ch in self.mem.chunks.items():
+            doc_id = cid.split("#c")[0]
+            by_doc.setdefault(doc_id, []).append((cid, ch["text"], ch.get("title", "")))
+        for doc_id, chunks in by_doc.items():
+            title = chunks[0][2] or doc_id
+            self.graph.add_node(doc_id, "doc", title)
+            self.docs.append(doc_id)
+            full = Counter()
+            for cid, text, _t in chunks:
+                self.graph.add_node(cid, "chunk", title)
+                self.graph.add_edge(doc_id, cid, "has_chunk")
+                full.update(tokenize(text))
+            concepts = self.mem.top_terms(full, n=6)
+            for term in concepts:
+                self.graph.add_node("concept:" + term, "concept", term)
+                self.graph.add_edge(doc_id, "concept:" + term, "about")
+            for a, b in combinations(sorted(concepts), 2):
+                self.graph.add_edge("concept:" + a, "concept:" + b, "co_occurs")
 
     def ingest_text(self, title: str, text: str) -> str:
         doc_id = "doc:" + _slug(title)
@@ -153,3 +182,18 @@ class KnowledgeBrain:
     def dashboard_snapshot(self) -> dict:
         snap = self.graph.snapshot(types={"doc", "concept"})
         return {"stats": self.stats(), **snap}
+
+
+# ── shared persistent brain (learner + chat + agent use the SAME knowledge) ──────
+_SHARED_BRAIN: KnowledgeBrain | None = None
+
+
+def get_brain() -> KnowledgeBrain:
+    """Process-wide persistent KnowledgeBrain singleton. Everything ingested lands in
+    the stable 'knowledge_main' Chroma collection, so learned documents survive
+    restarts AND the learner, chat and BrainAgent all recall the same knowledge
+    (previously each built its own throwaway in-memory instance)."""
+    global _SHARED_BRAIN
+    if _SHARED_BRAIN is None:
+        _SHARED_BRAIN = KnowledgeBrain(persist=True)
+    return _SHARED_BRAIN

@@ -27,6 +27,7 @@ Usage:
 """
 from __future__ import annotations
 
+import tempfile
 import json
 import os
 import sys
@@ -35,8 +36,7 @@ from trading.journal import ClosedTrade, TradeJournal
 from trading.journal.behavior import screen_behavior
 from trading.journal.tearsheet import render_tearsheet, render_tearsheet_pdf
 
-SCRATCH = ("/tmp/claude-1000/-home-karan18190164/"
-           "bd731724-5220-4673-838e-92680bac705f/scratchpad")
+SCRATCH = tempfile.mkdtemp(prefix="mlnb_scratch_")  # session-independent temp dir
 
 # Tight daily limit so the demo's clustered same-day trades trip the overtrading
 # detector; 5-minute revenge window is the module default.

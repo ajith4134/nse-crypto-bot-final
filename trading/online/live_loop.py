@@ -127,9 +127,12 @@ class BrainDecider:
         df = None
         try:
             if m == "CRYPTO":
-                from trading.crypto.exchange_client import ExchangeClient
-                raw = ExchangeClient("binance")._client().fetch_ohlcv(
-                    symbol, timeframe="5m", limit=self._MAXLEN)
+                # candles via the multi-venue pool (budgeted round-robin), not raw Binance;
+                # perp symbols carry ':USDT', bare pairs are spot — pick the right pool so
+                # spot symbols aren't silently rewritten to perp contracts.
+                from trading.crypto.exchange_pool import get_pool
+                mt = "swap" if ":" in symbol else "spot"
+                raw = get_pool(mt).ohlcv(symbol, timeframe="5m", limit=self._MAXLEN)
                 df = pd.DataFrame(raw, columns=["ts", "open", "high", "low", "close", "volume"])
                 df = df[self._COLS].astype(float)
             else:
@@ -245,6 +248,7 @@ class LiveTradeLoop:
         self._open: dict[str, dict] = {}           # (market:symbol) -> open trade dict
         self._marks: dict[str, dict] = {}          # market -> {symbol: price}
         self._last_brain: dict[str, dict] = {}     # symbol -> latest brain decision dict
+        self._last_psych: dict[str, dict] = {}     # "MKT:symbol" -> latest psychology dict
         # P2 screener (dynamic watchlist) · P4 sizer · P3 trailing exits — all lazy + offline-safe
         self._screener = None
         self._sizer = None
@@ -285,7 +289,12 @@ class LiveTradeLoop:
                     # "atm" (ATM CE+PE) | "ladder" (ATM + OTM each side) | "chain" (whole chain).
                     "option_mode": "atm",
                     "sizing_method": "kelly_atr",
-                    "max_risk_pct": 1.0, "max_position_pct": 25.0, "kelly_fraction": 0.5}
+                    "max_risk_pct": 1.0, "max_position_pct": 25.0, "kelly_fraction": 0.5,
+                    # 🤖 AI-Brain unlimited mode (operator toggle, PAPER-ONLY effect): the brain
+                    # keeps learning without ever halting on limits — the paper wallet auto
+                    # tops-up when cash runs short and per-position budget caps are lifted.
+                    # OFF → the manual caps above rule. NEVER affects real-money paths.
+                    "brain_unlimited": False}
         try:
             from trading import state as _st
             saved = _st.load_json("strategy_config.json", {})
@@ -321,6 +330,11 @@ class LiveTradeLoop:
         m = market.upper()
         try:
             if m == "CRYPTO":
+                # Prediction-market symbols (PRED:<slug>) have no ccxt ticker — their "price"
+                # is the YES share price (0..1) from the prediction scanner's cache.
+                if str(symbol).startswith("PRED:"):
+                    from trading.screener.prediction import last_price
+                    return last_price(symbol)
                 if self._crypto_price is not None:
                     return float(self._crypto_price(symbol))
                 from trading.crypto.exchange_client import ExchangeClient
@@ -440,6 +454,31 @@ class LiveTradeLoop:
             self._ft_open_pairs = set(eng.open_pairs()) if self._ft_reach else set()
         return self._ft_reach
 
+    def flush_market(self, market: str) -> int:
+        """Drop the loop's in-memory open-position entries for a market. MUST be called when the
+        paper wallet is reset/re-based — otherwise the loop still believes the wiped positions
+        are open (in_position=True) and never re-opens anything (observed 2026-07-02)."""
+        market = market.upper()
+        keys = [k for k in self._open if k.startswith(f"{market}:")]
+        for k in keys:
+            self._open.pop(k, None)
+        return len(keys)
+
+    def _ft_trading_mode(self) -> str:
+        """Freqtrade's CURRENT trading_mode ('spot'|'futures') from the live config.json —
+        the segment that routes to the engine; all other segments stay on the wallet paper
+        path. Cached ~12 ticks (config.json is the truth; root config.settings is stale)."""
+        if getattr(self, "_ftm_tick", -999) + 12 > self.ticks and hasattr(self, "_ftm"):
+            return self._ftm
+        mode = "futures"
+        try:
+            from trading.crypto.freqtrade.control import status as _ft_status
+            mode = str(_ft_status().get("segment") or "futures").lower()
+        except Exception:
+            pass
+        self._ftm, self._ftm_tick = mode, self.ticks
+        return mode
+
     def _route_crypto_engine(self, symbol, seg, want_open, do_exit, decision) -> dict:
         """Route a crypto brain/momentum signal to Freqtrade. forceenter on entry, force-close on
         exit. crypto_options stays on the ccxt path (Freqtrade is spot/perp only). Never raises."""
@@ -471,10 +510,67 @@ class LiveTradeLoop:
                 if isinstance(d, dict) and d.get("action"):
                     if isinstance(d.get("_brain"), dict):
                         self._last_brain[symbol] = d["_brain"]   # for journal context
-                    return d
+                    self._apply_decision_memory(symbol, d)
+                    return self._apply_psychology(market, symbol, d, in_position=in_position)
             except Exception:
                 pass
-        return self._momentum(market, symbol, price, in_position=in_position)
+        d = self._momentum(market, symbol, price, in_position=in_position)
+        self._apply_decision_memory(symbol, d)
+        return self._apply_psychology(market, symbol, d, in_position=in_position)
+
+    def _apply_decision_memory(self, symbol: str, d: dict) -> None:
+        """Episodic recall (trading/brain/decision_memory.py): the importance/recency-
+        weighted win-rate of past RESOLVED episodes on this symbol+direction nudges the
+        brain's confidence ±20%. Advisory only — never vetoes (psychology handles vetoes)."""
+        try:
+            if d.get("action") not in ("LONG", "SHORT"):
+                return
+            from trading.brain.decision_memory import get_memory
+            b = get_memory().bias(symbol, d["action"])
+            brain = d.get("_brain")
+            if b["n"] >= 3 and isinstance(brain, dict) and brain.get("confidence") is not None:
+                brain["confidence"] = float(min(1.0, max(0.0,
+                    float(brain["confidence"]) * (1.0 + 0.2 * b["bias"]))))
+                brain["memory_bias"], brain["memory_n"] = b["bias"], b["n"]
+        except Exception:
+            pass
+
+    # crowd-psychology veto threshold: an entry whose direction the order-book crowd
+    # opposes this strongly is skipped (full-signal mode; paper-safe)
+    _PSYCH_VETO = 0.6
+
+    def _apply_psychology(self, market: str, symbol: str, d: dict, *,
+                          in_position: bool) -> dict:
+        """Order-book trader psychology as a LIVE entry signal (trading/brain/psychology.py).
+
+        Aligned crowd pressure boosts brain confidence, opposing pressure dampens it, and a
+        strongly opposing crowd (|score| > _PSYCH_VETO against the trade) vetoes the entry.
+        Exits/holds are never blocked. Best-effort: no depth → decision unchanged."""
+        try:
+            if in_position or d.get("action") not in ("LONG", "SHORT"):
+                return d
+            from trading.brain.psychology import get_engine
+            seg = self._segment_of(market, symbol)
+            exch = self._OA_EXCHANGE.get(seg, "NSE") if market.upper() == "NSE" else None
+            psych = get_engine().evaluate(market, symbol, segment=seg, exchange=exch)
+            if not psych:
+                return d
+            self._last_psych[f"{market.upper()}:{symbol}"] = psych
+            sign = 1.0 if d["action"] == "LONG" else -1.0
+            alignment = float(psych["trader_psychology"]) * sign
+            brain = d.get("_brain")
+            if isinstance(brain, dict) and brain.get("confidence") is not None:
+                brain["confidence"] = float(min(1.0, max(0.0,
+                    float(brain["confidence"]) * (1.0 + 0.3 * alignment))))
+                brain["psych_alignment"] = round(alignment, 4)
+            d["_psych"] = psych
+            if alignment < -self._PSYCH_VETO:
+                return {"action": "FLAT", "size": 0.0, "_brain": brain, "_psych": psych,
+                        "psych_veto": f"crowd opposes {d['action']} "
+                                      f"(psych={psych['trader_psychology']})"}
+            return d
+        except Exception:
+            return d
 
     # map a (market, symbol) to its trade-type segment (default watchlist; Phase 2 tags
     # screened symbols with their real segment).
@@ -486,6 +582,7 @@ class LiveTradeLoop:
 
     # per-segment leverage (paper, honest defaults). 1.0 = unleveraged (spot/CNC delivery).
     _LEVERAGE = {("CRYPTO", "spot"): 1.0, ("CRYPTO", "futures"): 3.0, ("CRYPTO", "options"): 1.0,
+                 ("CRYPTO", "prediction"): 1.0,     # YES/NO shares 0..1 — no leverage, ever
                  ("NSE", "intraday"): 5.0, ("NSE", "mtf"): 4.0, ("NSE", "delivery"): 1.0,
                  ("NSE", "futures"): 5.0, ("NSE", "fno"): 5.0, ("NSE", "options"): 1.0,
                  ("NSE", "commodities"): 5.0}
@@ -500,6 +597,7 @@ class LiveTradeLoop:
         ("NSE", "futures"): 10.0, ("NSE", "fno"): 10.0, ("NSE", "options"): 1.0,
         ("NSE", "commodities"): 10.0,
         ("CRYPTO", "spot"): 5.0, ("CRYPTO", "futures"): 125.0, ("CRYPTO", "options"): 1.0,
+        ("CRYPTO", "prediction"): 1.0,
     }
 
     def max_leverage_of(self, segment: str, market: str = "NSE") -> float:
@@ -691,14 +789,18 @@ class LiveTradeLoop:
         _str_keys = ("sizing_method", "trail_mode", "exit_mode", "option_mode")
         _int_keys = ("top_n_per_segment", "min_open_per_segment", "min_total_open",
                      "brain_handoff_trades")
-        _bool_keys = ("enter_all",)
+        _bool_keys = ("enter_all", "brain_unlimited")
         for k, v in kw.items():
             if k in self.cfg and v is not None:
                 if k in ("min_open_by_segment", "leverage_by_segment", "lot_size_by_segment"):
-                    # {segment: number} — coerce values, drop blanks/invalid
+                    # {segment: number} — coerce values, drop blanks/invalid.
+                    # Keys pass through normalize_segment so legacy 'fno' entries land on
+                    # 'futures' instead of a dead key the floor lookup never reads.
+                    from trading.online.state import normalize_segment
                     if isinstance(v, dict):
                         clean = {}
                         for seg, n in v.items():
+                            seg = normalize_segment(str(seg))
                             try:
                                 if k == "min_open_by_segment":
                                     clean[str(seg)] = max(0, int(float(n)))
@@ -866,10 +968,12 @@ class LiveTradeLoop:
             reduces = do_exit
             gate = self.registry.allow_order(market, reduces_position=reduces, is_real=ms.is_real)
             routed = None
-            # Phase E/F: Freqtrade owns crypto SPOT+FUTURES execution — route brain signals there,
-            # NOT the home-grown wallet sim. crypto OPTIONS stay on the ccxt/wallet path (Freqtrade
-            # can't trade them). NSE keeps the wallet ledger + OpenAlgo.
-            if (market.upper() == "CRYPTO" and (seg or "").lower() != "options"
+            # Phase F+: ONE Freqtrade instance runs in ONE trading_mode (spot OR futures) — route
+            # to it ONLY the segment matching that mode. Every other selected crypto segment
+            # (spot-while-bot-is-futures, options, prediction) trades on the wallet PAPER path so
+            # all 4 segments can run at once on the shared wallet. Previously all non-options
+            # crypto went to Freqtrade, so SPOT signals hit the FUTURES bot and silently no-op'd.
+            if (market.upper() == "CRYPTO" and (seg or "").lower() == self._ft_trading_mode()
                     and gate["ok"] and self._crypto_exec_enabled()):
                 routed = self._route_crypto_engine(symbol, seg, want_open, do_exit, decision)
                 results.append({"market": market, "mode": mode, "price": round(price, 4),
@@ -904,8 +1008,9 @@ class LiveTradeLoop:
             w = self.book.wallet(market)
             cap = float(w.cash())
             prob = brain.get("confidence") if isinstance(brain, dict) else None
+            uq = brain.get("uq") if isinstance(brain, dict) else None
             out = sz.size(capital=cap, entry_price=float(price), atr=atr, side=direction,
-                          prob=prob, market=market.upper())
+                          prob=prob, market=market.upper(), uq=uq)
             qty = abs(float(out.get("qty") or 0.0))
             return qty if qty > 0 else None
         except Exception:
@@ -986,9 +1091,9 @@ class LiveTradeLoop:
                 "futures": ("FUT", "NRML"), "fno": ("FUT", "NRML"), "commodities": ("FUT", "NRML"),
                 "options": ("OPT", "NRML")}.get(s, ("EQ", "MIS"))
 
-    # Representative LOT SIZES for lot-based NSE segments (tunable via cfg['lot_size_by_segment']).
-    # Real lot sizes vary per underlying (NIFTY 75 · BANKNIFTY 35 · stock-fut 250–1200 · MCX per
-    # commodity) and change on expiry; these are sane defaults the operator can override per segment.
+    # FALLBACK lot sizes for lot-based NSE segments (tunable via cfg['lot_size_by_segment']),
+    # used only when OpenAlgo's real per-symbol lotsize is unavailable. Real lots vary per
+    # underlying and change on expiry — the master-contract lookup in _lot_size_of is truth.
     _DEFAULT_LOT = {"futures": 50, "fno": 50, "options": 50, "commodities": 100}
 
     def _is_lot_based(self, market: str, segment: str) -> bool:
@@ -997,11 +1102,25 @@ class LiveTradeLoop:
         return market.upper() == "NSE" and (segment or "").lower() in (
             "futures", "fno", "options", "commodities")
 
-    def _lot_size_of(self, market: str, segment: str) -> int:
-        """Lot size for the segment: user override → representative default. 1 for equity."""
+    def _lot_size_of(self, market: str, segment: str, symbol: str | None = None) -> int:
+        """Lot size: REAL per-symbol lotsize from OpenAlgo's master contract → user
+        override → representative default. 1 for equity.
+
+        The real lookup matters: exchanges revise lots on rollover (NIFTY 65 ·
+        BANKNIFTY 30 as of Jul-2026) and OpenAlgo's sandbox REJECTS any F&O order
+        whose qty isn't a lot multiple — the segment-level guess (50) meant every
+        NFO entry bounced with "Quantity must be in multiples of lot size"."""
         seg = (segment or "").lower()
         if not self._is_lot_based(market, seg):
             return 1
+        if symbol:
+            try:
+                exch = self._OA_EXCHANGE.get(seg, "NSE")
+                real = self._openalgo().lot_size(symbol, exch)
+                if real and real > 0:
+                    return int(real)
+            except Exception:
+                pass                       # server down/unconfigured → fall back below
         by = self.cfg.get("lot_size_by_segment") or {}
         if isinstance(by, dict) and seg in by:
             try:
@@ -1010,9 +1129,33 @@ class LiveTradeLoop:
                 pass
         return int(self._DEFAULT_LOT.get(seg, 1))
 
+    def _assess_uq(self, market, symbol, direction, brain) -> dict | None:
+        """Pillar 17: conformal p_up/interval/abstention for THIS candidate entry.
+        Stored on the brain dict so it reaches the decision snapshot + journal
+        columns. Best-effort — a UQ failure never blocks the loop (degraded)."""
+        try:
+            from trading.uq import get_uq
+            b = brain if isinstance(brain, dict) else {}
+            psych = self._last_psych.get(f"{market.upper()}:{symbol}") or {}
+            uq = get_uq().assess(
+                confidence=b.get("confidence"), direction=direction,
+                market=market.upper(), psych=psych.get("trader_psychology"),
+                longs=b.get("longs"), shorts=b.get("shorts"), symbol=symbol)
+            if isinstance(brain, dict):
+                brain["uq"] = uq
+            return uq
+        except Exception:
+            return None
+
     def _open_trade(self, market, symbol, direction, price, size, mode, *, atr=None, brain=None) -> dict:
         is_crypto = market.upper() == "CRYPTO"
         seg = self._segment_of(market, symbol)
+        # Pillar 17: the calibrated abstention gate is the FIRST check before any
+        # capital math — an abstention is a first-class decision, logged by TradeUQ.
+        uq = self._assess_uq(market, symbol, direction, brain)
+        if uq and uq.get("abstain"):
+            return {"ok": False, "abstain": True,
+                    "detail": f"UQ abstain: {uq.get('abstain_reason')}"}
         instrument, product = self._instrument_product(market, seg)
         leverage = self._leverage_of(market, seg)
         # P4: size the trade with the PositionSizer (capital, ATR-stop, edge) — not a fixed 1.
@@ -1028,11 +1171,22 @@ class LiveTradeLoop:
         if price > 0:
             if min_cap > 0 and price * size < min_cap * leverage:
                 size = (min_cap * leverage) / price            # ≥ min margin
+            # 🤖 brain_unlimited (PAPER only): never halt learning on a cash shortfall — the
+            # paper wallet auto-tops-up the missing margin instead of shrinking/skipping the
+            # trade. Deposits are visible in the wallet ledger (honest sim, not silent money).
+            need = (price * size) / max(leverage, 1e-9)
+            if (self.cfg.get("brain_unlimited") and mode != "REAL"
+                    and cash < need and price > 0):
+                try:
+                    w.top_up(round(need - max(cash, 0.0) + 1.0, 2))
+                    cash = float(w.cash())
+                except Exception:
+                    pass
             if cash > 0 and price * size > cash * leverage:
                 size = (cash * leverage) / price               # ≤ affordable margin
         # LOT SIZING: F&O / options / commodities trade in whole lots; equity in whole shares;
         # crypto stays fractional. num_lots × lot_size = the order quantity.
-        lot = self._lot_size_of(market, seg)
+        lot = self._lot_size_of(market, seg, symbol)
         num_lots = None
         if self._is_lot_based(market, seg):
             num_lots = int(size // lot)                        # whole lots only
@@ -1098,8 +1252,78 @@ class LiveTradeLoop:
             "ctx": self._entry_context(market, symbol, brain),
             # snapshot the brain decision that produced THIS entry (if any) for the journal
             "brain_entry": dict(brain) if isinstance(brain, dict) else None}
+        ot = self._open[f"{market.upper()}:{symbol}"]
+        # order-book trader psychology at entry (computed at decide time; refetch if absent)
+        ot["psych"] = self._psych_at_entry(market, symbol, seg)
+        # decision_snapshot: EVERY datum the brain considered for THIS entry (journal JSON)
+        ot["decision_snapshot"] = self._build_decision_snapshot(
+            market, symbol, seg, direction, price, size, mode, atr=atr, brain=brain, ot=ot)
+        # decision-memory episode: entry context + SHAP attribution recorded PENDING,
+        # resolved with the outcome (+ reflection) when the trade closes.
+        try:
+            from trading.brain.attribution import explain_trade
+            from trading.brain.decision_memory import get_memory
+            closed = [t.to_dict() for t in self.journal().trades[-200:]]
+            attribution = explain_trade({**ot, "brain_confidence_entry":
+                                         (brain or {}).get("confidence") if isinstance(brain, dict) else None},
+                                        closed, fast=True)   # never retrain on the tick thread
+            ot["feature_attribution"] = attribution
+            ot["episode_id"] = get_memory().open_episode(
+                symbol=symbol, market=market, segment=seg, direction=direction,
+                entry_price=price, strategy=(ot.get("decision_snapshot") or {}).get("strategy", ""),
+                engine="loop", decision_snapshot=ot["decision_snapshot"],
+                attribution=attribution)
+        except Exception as e:
+            self.errors.append(f"decision_memory: {type(e).__name__}: {str(e)[:60]}")
         self.trades_opened += 1
         return {"ok": True, "opened": direction, "price": price, "qty": size}
+
+    def _psych_at_entry(self, market: str, symbol: str, seg: str) -> dict | None:
+        """Latest psychology for this symbol — decide-time value, else a fresh evaluate."""
+        psych = self._last_psych.get(f"{market.upper()}:{symbol}")
+        if psych:
+            return psych
+        try:
+            from trading.brain.psychology import get_engine
+            exch = self._OA_EXCHANGE.get(seg, "NSE") if market.upper() == "NSE" else None
+            return get_engine().evaluate(market, symbol, segment=seg, exchange=exch)
+        except Exception:
+            return None
+
+    def _build_decision_snapshot(self, market, symbol, seg, direction, price, size, mode,
+                                 *, atr, brain, ot) -> dict:
+        """All data considered at entry, JSON-safe — the closed-trade learning context."""
+        def _safe(v):
+            if isinstance(v, dict):
+                return {k: _safe(x) for k, x in v.items()}
+            if isinstance(v, (list, tuple)):
+                return [_safe(x) for x in v]
+            if isinstance(v, (str, int, bool)) or v is None:
+                return v
+            try:
+                f = float(v)
+                return f if f == f and abs(f) != float("inf") else None
+            except (TypeError, ValueError):
+                return str(v)[:200]
+        snap = {
+            "ts": ot.get("entry_dt"),
+            "market": market.upper(), "symbol": symbol, "segment": seg,
+            "direction": direction, "mode": mode,
+            "price": price, "quantity": size, "atr": atr,
+            "leverage": ot.get("leverage"), "instrument": ot.get("instrument"),
+            "product": ot.get("product"), "lot_size": ot.get("lot_size"),
+            "num_lots": ot.get("num_lots"),
+            "capital": ot.get("capital"), "margin": ot.get("margin"),
+            "initial_sl": ot.get("initial_sl"), "initial_target": ot.get("initial_target"),
+            "capital_at_risk": ot.get("capital_at_risk"),
+            "screener_score": (self._symbol_score.get((market.upper(), symbol))
+                               if hasattr(self, "_symbol_score") else None),
+            "strategy": "brain" if isinstance(brain, dict) else "momentum",
+            "brain": brain if isinstance(brain, dict) else None,   # full decision dict
+            "market_context": ot.get("ctx"),
+            "psychology": ot.get("psych"),
+        }
+        return _safe(snap)
 
     def _close_trade(self, market, symbol, price, mode) -> dict:
         key = f"{market.upper()}:{symbol}"
@@ -1189,6 +1413,9 @@ class LiveTradeLoop:
                 if ctx.get(k) is not None:
                     setattr(t, k, float(ctx[k]))
             # ── brain / market-context fields (only those present in the schema) ──
+            # parity with freqtrade ingest: every row states its signal source — the
+            # strategy-library decider is the baseline, upgraded to "brain" below.
+            t.signal_source = "momentum"
             if isinstance(brain, dict):
                 regime = brain.get("regime")
                 if regime:
@@ -1200,6 +1427,16 @@ class LiveTradeLoop:
                 t.brain_prediction = ({"LONG": "UP", "SHORT": "DOWN"}
                                       .get(act, "NEUTRAL"))
                 t.signal_source = "brain"
+                # Pillar 17: calibrated uncertainty at entry → its own columns
+                uq = brain.get("uq")
+                if isinstance(uq, dict):
+                    if uq.get("p_up") is not None:
+                        t.p_up = float(uq["p_up"])
+                    if uq.get("interval_width") is not None:
+                        t.interval_width = float(uq["interval_width"])
+                    if uq.get("self_uncertainty") is not None:
+                        t.self_uncertainty = float(uq["self_uncertainty"])
+                    t.abstain_reason = str(uq.get("abstain_reason") or "")
                 # record the richer brain telemetry (anomaly/news/signal/recall) as a
                 # node_contribution entry — the schema's JSON sidecar for AI metadata.
                 t.node_contributions = [{
@@ -1211,7 +1448,35 @@ class LiveTradeLoop:
                     "safety_blocked": brain.get("safety_blocked"),
                     "safety_reason": brain.get("safety_reason"),
                 }]
+            # ── order-book trader psychology at entry → its journal columns ──
+            psych = ot.get("psych")
+            if isinstance(psych, dict):
+                from trading.brain.psychology import psych_columns
+                for k, v in psych_columns(psych).items():
+                    setattr(t, k, v)
+            # ── the FULL decision context the brain considered at entry (JSON column) ──
+            if isinstance(ot.get("decision_snapshot"), dict):
+                t.decision_snapshot = ot["decision_snapshot"]
             self.journal().record(t)          # derives charges→net P&L, quality, behaviour, persists
+            # ── decision-memory closure: resolve the entry episode with the REAL outcome
+            # (post-record so net_pnl/r_multiple are the derived values) + reflection ──
+            try:
+                from trading.brain.decision_memory import get_memory
+                if ot.get("episode_id"):
+                    t.episode_id = ot["episode_id"]
+                    if isinstance(ot.get("feature_attribution"), dict):
+                        t.feature_attribution = ot["feature_attribution"]
+                    if t.brain_prediction in ("UP", "DOWN") and t.exit_price and t.entry_price:
+                        t.brain_correct = (t.brain_prediction == "UP") == (t.exit_price > t.entry_price)
+                    ep = get_memory().resolve(
+                        episode_id=ot["episode_id"], net_pnl=float(t.net_pnl or 0.0),
+                        r_multiple=t.r_multiple, exit_price=t.exit_price,
+                        exit_reason=t.setup_type or "", brain_correct=t.brain_correct)
+                    if ep and ep.get("reflection"):
+                        t.exit_reflection = ep["reflection"]
+                    self.journal()._save()    # persist the enriched columns on the recorded row
+            except Exception as e:
+                self.errors.append(f"decision_memory: {type(e).__name__}: {str(e)[:60]}")
         except Exception as e:
             self.errors.append(f"journal: {type(e).__name__}: {str(e)[:70]}")
 
@@ -1264,6 +1529,8 @@ class LiveTradeLoop:
                     clean["brain_confidence_entry"] = be["confidence"]
                 if be.get("regime"):
                     clean["market_regime_entry"] = be["regime"]
+                if isinstance(be.get("uq"), dict):   # Pillar 17 columns for the open table
+                    clean["uq"] = be["uq"]
                 clean["node_contributions"] = [{
                     "source": "brain_pipeline", "anomaly_score": be.get("anomaly_score"),
                     "news_compound": be.get("news_compound"), "recall_bias": be.get("recall_bias"),
@@ -1315,8 +1582,22 @@ class LiveTradeLoop:
                             "needed": int(self.cfg.get("brain_handoff_trades", 30) or 0),
                             "in_control": self.brain_in_control()},
                 "config": dict(self.cfg),
-                "nse_broker_auth": nse_auth, "crypto_feed": "ccxt (live)",
+                "nse_broker_auth": nse_auth, "crypto_feed": self._crypto_feed_status(),
                 "errors": self.errors[-5:], "last_tick": self.last_tick}
+
+    @staticmethod
+    def _crypto_feed_status():
+        """Honest crypto data-plane health: per-venue calls/errors/budget of the
+        multi-venue pool (ban-proofing), or the single-exchange fallback label."""
+        try:
+            from trading.crypto.exchange_pool import _POOLS, pool_enabled
+            if not pool_enabled():
+                return "ccxt (single-exchange; pool disabled)"
+            pools = {k: p.status() for k, p in _POOLS.items()}
+            return {"mode": "multi-venue pool (binance/bybit/okx/kucoin)",
+                    "pools": pools} if pools else "multi-venue pool (idle)"
+        except Exception:
+            return "ccxt (live)"
 
 
 # ── module-level singleton so the dashboard + read endpoints share ONE running loop ──

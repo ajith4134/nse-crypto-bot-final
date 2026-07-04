@@ -52,6 +52,67 @@ def _freqai_block() -> dict:
     }
 
 
+def enabled_segments() -> list[str]:
+    """Segments the multi-segment engine should run (persisted in .env CRYPTO_SEGMENTS)."""
+    raw = os.environ.get("CRYPTO_SEGMENTS", "futures,spot,options,prediction")
+    valid = ("futures", "spot", "options", "prediction")
+    segs = [s.strip().lower() for s in raw.split(",") if s.strip().lower() in valid]
+    return segs or ["futures"]
+
+
+def _seg_max_open(segment: str) -> dict:
+    """Optional per-segment trade cap (.env CRYPTO_MAX_OPEN_TRADES_<SEG>); absent = global."""
+    raw = os.environ.get(f"CRYPTO_MAX_OPEN_TRADES_{segment.upper()}", "").strip()
+    return {"max_open_trades": int(raw)} if raw.lstrip("-").isdigit() else {}
+
+
+def _segments_block(cfg: CryptoConfig) -> dict:
+    """Per-segment engine config for the forked Freqtrade's MultiWorker."""
+    on = set(enabled_segments())
+    spot_pairs = [f"{b}/{cfg.quote}" for b in _DEFAULT_BASES]
+    return {
+        "futures": {"enabled": "futures" in on, "overrides": {**_seg_max_open("futures")}},
+        "spot": {
+            "enabled": "spot" in on,
+            # VolumePairList works on spot markets too; seed whitelist in spot pair format.
+            "overrides": {"exchange": {"pair_whitelist": spot_pairs}, "ml_leverage": 1.0,
+                          **_seg_max_open("spot")},
+        },
+        # Options/prediction universes are dynamic (strikes roll, markets rotate) — the
+        # fork's AllMarketsPairList plugin lists live tradable markets, no static seeds.
+        "options": {
+            "enabled": "options" in on,
+            "overrides": {
+                "exchange": {"name": "deribit", "key": "", "secret": "",
+                             "pair_whitelist": [], "pair_blacklist": []},
+                "stake_currency": "USDC",   # Deribit linear options quote/settle in USDC
+                "stake_amount": 200,
+                "pairlists": [{"method": "AllMarketsPairList", "number_assets": 30}],
+                # Illiquid strikes can have EMPTY order books — price options off the
+                # ticker (bid/ask/last) instead of the book so entries never 500.
+                "entry_pricing": {"price_side": "other", "use_order_book": False,
+                                  "order_book_top": 1},
+                "exit_pricing": {"price_side": "other", "use_order_book": False,
+                                 "order_book_top": 1},
+                "ml_leverage": 1.0,
+                **_seg_max_open("options"),
+            },
+        },
+        "prediction": {
+            "enabled": "prediction" in on,
+            "overrides": {
+                "exchange": {"name": "predictionpaper", "key": "", "secret": "",
+                             "pair_whitelist": [], "pair_blacklist": []},
+                "stake_currency": "USDC",   # Polymarket outcomes priced 0..1 USDC
+                "stake_amount": 100,
+                "pairlists": [{"method": "AllMarketsPairList", "number_assets": 50}],
+                "ml_leverage": 1.0,
+                **_seg_max_open("prediction"),
+            },
+        },
+    }
+
+
 def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> dict:
     """Return a Freqtrade config dict derived from our crypto_config + TRADING_MODE.
     `freqai=True` adds the FreqAI block + selects the FreqAIDirection ML strategy."""
@@ -96,6 +157,13 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
             {"method": "VolatilityFilter", "lookback_days": 10, "min_volatility": 0.02,
              "max_volatility": 1.0, "refresh_period": 86400},
         ],
+        # Order-book pricing is MANDATORY on Binance futures (freqtrade: Binance swap
+        # tickers have tickers_have_price=False → "Ticker pricing not available for
+        # Binance" config error, engine won't start). The 2026-07-03 IP ban (418/-1003)
+        # came from VOLUME: ~60 unlimited open dry-run trades × order-book exit pricing
+        # every 5s ≈ 1400 req/min — so the throttle below cuts cycles 3×, order_book_top
+        # stays 1 (cheapest depth call), and all non-Freqtrade data reads moved to the
+        # multi-venue pool (trading/crypto/exchange_pool.py).
         "entry_pricing": {"price_side": "same", "use_order_book": True, "order_book_top": 1},
         "exit_pricing": {"price_side": "same", "use_order_book": True, "order_book_top": 1},
         "api_server": {
@@ -113,8 +181,16 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         "ml_leverage": float(cfg.leverage),    # custom: read by strategies' leverage() (futures)
         "bot_name": "mlnetworkbrain-crypto",
         "initial_state": "running",
-        "internals": {"process_throttle_secs": 5},
+        # 15s, not 5s: each cycle prices EVERY open trade off the order book (mandatory
+        # on Binance futures) and open trades are uncapped — 5s cycles at ~60 trades is
+        # what tripped Binance's -1003 IP ban. 15s keeps exits responsive (stops are %
+        # -based, not tick-critical) at 1/3 the request volume.
+        "internals": {"process_throttle_secs": 15},
         "strategy": STRATEGY,
+        # Multi-segment fork (vendor/freqtrade): ONE engine process runs one bot per enabled
+        # segment behind the one API port/URL. Segment set comes from CRYPTO_SEGMENTS in .env
+        # (comma list); trading_mode/dry_run per segment are enforced by worker_multi.
+        "mlnb_segments": _segments_block(cfg),
     }
 
 

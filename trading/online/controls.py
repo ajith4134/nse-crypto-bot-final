@@ -119,9 +119,22 @@ def toggle_segment(market: str, segment: str) -> dict:
 
 
 # ── editable paper money ──────────────────────────────────────────────────────────────
+def _flush_loop_positions(market: str) -> None:
+    """Keep the live loop's in-memory open map in sync with a wallet wipe — without this the
+    loop still sees the cleared positions as open (in_position=True) and never re-opens
+    anything (observed 2026-07-02)."""
+    try:
+        from trading.online.live_loop import get_loop
+        get_loop().flush_market(market)
+    except Exception:
+        pass
+
+
 def set_balance(market: str, amount: float, portfolio_id: str = "default") -> dict:
     """Clean-reset the paper wallet to a NEW starting capital (clears positions/PnL)."""
-    return book().wallet(market, portfolio_id).set_starting_capital(float(amount)).summary()
+    out = book().wallet(market, portfolio_id).set_starting_capital(float(amount)).summary()
+    _flush_loop_positions(market)
+    return out
 
 
 def top_up(market: str, amount: float, portfolio_id: str = "default") -> dict:
@@ -131,7 +144,9 @@ def top_up(market: str, amount: float, portfolio_id: str = "default") -> dict:
 
 def reset_wallet(market: str, portfolio_id: str = "default") -> dict:
     """Reset the paper wallet back to its starting capital, flat."""
-    return book().wallet(market, portfolio_id).reset().summary()
+    out = book().wallet(market, portfolio_id).reset().summary()
+    _flush_loop_positions(market)
+    return out
 
 
 # ── panic + status ────────────────────────────────────────────────────────────────────

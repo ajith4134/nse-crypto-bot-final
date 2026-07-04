@@ -24,8 +24,11 @@ class KnowledgeLearner:
 
     def brain(self):
         if self._brain is None:
-            from memory.brain import KnowledgeBrain
-            self._brain = KnowledgeBrain()
+            # shared PERSISTENT brain — learned docs survive restarts and are the same
+            # knowledge chat/BrainAgent recall (was a throwaway per-process instance →
+            # the Learning panel showed 0 docs after every dashboard restart)
+            from memory.brain import get_brain
+            self._brain = get_brain()
         return self._brain
 
     # ── persistence of what it has learned ──────────────────────────────────────
@@ -97,14 +100,18 @@ class KnowledgeLearner:
         articles, ingest into KnowledgeBrain. Returns what it learned."""
         from trading.brain import activity_feed as feed
         from memory import librarian as lib
-        ingested = []
+        ingested, errors = [], []
         # arXiv papers — _arxiv_search returns {title, url(=abs page), body(=abstract)}.
         # Derive the PDF URL from the abs URL (/abs/ → /pdf/); if the PDF fetch fails, ingest
         # the abstract text (always available) so learning never silently no-ops.
         try:
-            for p in (lib._arxiv_search(topic, max_results=papers) or [])[:papers]:
+            found = lib._arxiv_search(topic, max_results=papers) or []
+            if not found:
+                errors.append("arxiv: 0 results")
+            for p in found[:papers]:
                 abs_url = p.get("url") or ""
                 title = (p.get("title") or topic)[:80]
+                feed.emit("opened", f"Opened arXiv: {title}", site="arxiv.org")
                 pdf_url = abs_url.replace("/abs/", "/pdf/") if "/abs/" in abs_url else ""
                 r = self.ingest_pdf(pdf_url, title=title) if pdf_url else {"ok": False}
                 if r.get("ok"):
@@ -112,21 +119,32 @@ class KnowledgeLearner:
                 elif p.get("body"):                       # reliable fallback: the abstract
                     self.brain().ingest_text(title, p["body"])
                     ingested.append({"type": "abstract", "title": title})
-        except Exception:
-            pass
+        except Exception as e:
+            errors.append(f"arxiv: {type(e).__name__}: {e}"[:120])
         # web articles (trafilatura clean-text)
         try:
-            for r in (lib._ddgs_search(topic, max_results=articles + 2) or [])[:articles]:
+            hits = lib._ddgs_search(topic, max_results=articles + 2) or []
+            if not hits:
+                errors.append("web search: 0 results")
+            for r in hits[:articles + 2]:
+                if sum(1 for i in ingested if i["type"] == "article") >= articles:
+                    break
                 url = r.get("href") or r.get("url") or ""
+                feed.emit("read", f"Reading: {(r.get('title') or url)[:70]}", site=url[:120])
                 txt = lib._trafilatura_extract(url) if url else ""
                 if len(txt) > 300:
                     self.brain().ingest_text((r.get("title") or topic)[:80], txt[:60000])
                     ingested.append({"type": "article", "title": (r.get("title") or topic)[:60]})
-        except Exception:
-            pass
-        self._log({"kind": "topic", "topic": topic, "ingested": ingested, "ts": time.time()})
-        feed.emit("learned", f"Studied: {topic}", learned=f"ingested {len(ingested)} sources")
-        return {"topic": topic, "ingested": ingested, "n": len(ingested)}
+        except Exception as e:
+            errors.append(f"web: {type(e).__name__}: {e}"[:120])
+        # honest log: WHAT was ingested and WHY anything failed (was except-pass → the
+        # panel showed 'learned 1 item' with zero documents and no explanation)
+        self._log({"kind": "topic", "topic": topic, "ingested": ingested,
+                   "errors": errors, "ts": time.time()})
+        feed.emit("learned", f"Studied: {topic}",
+                  learned=f"ingested {len(ingested)} sources"
+                          + (f" · issues: {'; '.join(errors)}" if errors else ""))
+        return {"topic": topic, "ingested": ingested, "n": len(ingested), "errors": errors}
 
     # ── Stage 5: self-evaluation (incl. non-trading) ────────────────────────────
     def self_evaluate(self, topics: list[str] | None = None, *, rounds: int = 5) -> dict:

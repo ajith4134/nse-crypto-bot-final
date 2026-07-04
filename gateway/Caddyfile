@@ -1,0 +1,83 @@
+# Single-link gateway: one public URL fronting every dashboard.
+#   /  /hub  /architecture  /knowledge  /api/* (except /api/v1, /api/docs)
+#                -> dark-pro dashboard (brain + NSE trading)   127.0.0.1:8000
+#   /frequi/*    -> Freqtrade API + FreqUI (built with base /frequi/)  127.0.0.1:8080
+#   /api/v1/*  /api/docs*  /openalgo/*  and EVERYTHING ELSE
+#                -> OpenAlgo (owns the root namespace: /login, /dashboard,
+#                   /orderbook, /<broker>, /socket.io ...)      127.0.0.1:5000
+#   /assets/*    -> dashboard first, 404 falls back to OpenAlgo (hash-named
+#                   GET-only files, so the fallback replay is safe)
+# The public tunnel (localtunnel) points at :8100. Caddy proxies WebSockets natively.
+{
+	auto_https off
+	admin off
+}
+
+:8100 {
+	# --- FreqUI (crypto) ---
+	redir /frequi /frequi/ permanent
+	handle_path /frequi/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# --- dark-pro dashboard (brain + NSE trading) ---
+	# Owns ONLY its own /api namespaces; every other /api/* (v1, docs, broker,
+	# cache, config, master-contract, strategy-portfolio, system, websocket)
+	# belongs to OpenAlgo and falls through to the default handle below.
+	@dash path / /index.html /hub /hub.html /architecture /architecture.html /knowledge /knowledge.html /api/state* /api/knowledge* /api/trading/* /api/chat* /api/brain* /api/agui*
+	handle @dash {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# --- assets: each app owns its own namespace, routed DIRECTLY (no two-hop) ---
+	# OpenAlgo -> /assets/*  (its build emits /assets/<hash>). Served straight from
+	# :5000 (robust gunicorn+eventlet, pre-compressed .br/.gz). The dark dashboard
+	# builds to a DISTINCT /dash-assets/* dir (vite assetsDir), so there is no
+	# collision and no fragile "dashboard-first, fallback-on-error" scheme — that
+	# scheme blanked OpenAlgo whenever the bounded dashboard server choked (502) on
+	# OpenAlgo's parallel chunk burst over the tunnel. Direct routing = permanent fix.
+	handle /assets/* {
+		reverse_proxy 127.0.0.1:5000
+	}
+	handle /dash-assets/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# --- OpenAlgo entry link: its SPA only knows root paths, so send the
+	# friendly /openalgo entry straight to its real login page ---
+	redir /openalgo* /login permanent
+
+	# --- everything else is OpenAlgo's root namespace ---
+	handle {
+		reverse_proxy 127.0.0.1:5000
+	}
+
+	log {
+		output file /home/karan18190164/gateway/access.log {
+			roll_size 10MiB
+			roll_keep 2
+		}
+	}
+}
+
+# loca.lt entry (:8101): the stable-name tunnel is the URL registered as Zerodha's
+# REDIRECT_URL, so the broker OAuth callback lands HERE. The broker callback
+# (blueprints/brlogin.py) requires 'user' in the Flask session, and that cookie is
+# domain-scoped — so the OpenAlgo login AND the callback must both occur on this
+# same stable domain. Previously :8101 bounced everything except the callback to
+# the cloudflared URL, so the login session was set on the cloudflared domain and
+# the callback on loca.lt saw no cookie -> "user key: False" -> redirect to login
+# -> infinite Zerodha login loop. Fix: serve the whole auth flow (login + broker
+# connect + callback) and its SPA assets to OpenAlgo (:5000) here; only the heavy
+# dashboard/API is still bounced to cloudflared (loca.lt 502s on parallel loads).
+:8101 {
+	# Auth flow served locally so the session cookie is present at callback time.
+	@authflow path / /login /login/* /auth /auth/* /broker /broker/* /zerodha /zerodha/* /logout /static/* /assets/* /favicon.ico
+	handle @authflow {
+		reverse_proxy 127.0.0.1:5000
+	}
+	# Everything else (heavy dashboard/API) -> current cloudflared URL.
+	handle {
+		import /home/karan18190164/gateway/redirect.caddy
+	}
+}

@@ -193,6 +193,7 @@ class PositionSizer:
         side: str = "LONG",
         volatility: Optional[float] = None,
         market: str = "CRYPTO",
+        uq: Optional[dict] = None,
     ) -> dict:
         """Return a sizing decision dict.
 
@@ -200,11 +201,26 @@ class PositionSizer:
         ``capital_used`` (>=0), ``risk_amount`` (>=0, est. loss if stop hit),
         ``method`` (resolved), ``fraction`` (signed fraction-of-capital), and
         ``reason`` (human-readable).
+
+        ``uq`` (Pillar 17) is a ``trading.uq.TradeUQ.assess()`` dict. Sizing
+        CONSUMES calibration: an abstaining assessment returns a zero size with
+        the abstain reason (a first-class decision, not an error); otherwise the
+        calibrated ``p_up`` becomes the probability input when ``prob`` is
+        absent, and ``size_scale`` (0.5 on high self-uncertainty) multiplies
+        the final fraction.
         """
         self._calls += 1
         capital = float(capital)
         entry_price = float(entry_price)
         sign = _side_sign(side)
+
+        if isinstance(uq, dict) and uq.get("abstain"):
+            return self._empty(
+                f"UQ abstain: {uq.get('abstain_reason') or 'calibrated gate'}",
+                side, method="abstain",
+            )
+        if isinstance(uq, dict) and prob is None and uq.get("p_up") is not None:
+            prob = float(uq["p_up"])
 
         if capital <= 0 or entry_price <= 0:
             return self._empty(
@@ -234,7 +250,12 @@ class PositionSizer:
                 prob, side, volatility,
             )
 
-        # ---- universal overlays: drawdown de-risk + hard cap ----
+        # ---- universal overlays: UQ size-scale + drawdown de-risk + hard cap ----
+        if isinstance(uq, dict):
+            scale = float(uq.get("size_scale", 1.0) or 1.0)
+            if scale < 1.0:
+                fraction_abs *= scale
+                reason += f"; uq_scale={scale:g} (self-uncertainty)"
         dd_factor = self._drawdown_factor()
         if dd_factor < 1.0:
             fraction_abs *= dd_factor

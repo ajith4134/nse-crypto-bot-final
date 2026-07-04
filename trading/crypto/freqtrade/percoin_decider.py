@@ -28,13 +28,15 @@ from trading.crypto.freqtrade.brain_executor import LibraryBrainDecider
 _PERIODS_PER_YEAR = 12 * 24 * 365
 _MIN_ACTIVE_BARS = 5          # a strategy must have held a position on ≥ this many bars to be scored
 _MIN_FINAL_SCORE = 0.5        # below this blended score → stay flat (no trade)
+_MIN_DEFLATED_PSR = 0.35      # Pillar-20: winner's deflated Probabilistic-Sharpe floor (multiple-testing)
 
 
 class PerCoinBrainDecider(LibraryBrainDecider):
     """Pick the best-scoring strategy for each coin (backtest × brain), or stay flat."""
 
     def __init__(self, *args, min_final_score: float = _MIN_FINAL_SCORE,
-                 min_active_bars: int = _MIN_ACTIVE_BARS, use_brain: bool = True, **kw):
+                 min_active_bars: int = _MIN_ACTIVE_BARS, use_brain: bool = True,
+                 dsr_min: float = _MIN_DEFLATED_PSR, **kw):
         # Need a real backtest WINDOW, not just the latest bar: compute_features_ext burns ~200 bars
         # of warmup, so fetch plenty more (default 720 = 60h of 5m) → ~500 usable feature rows.
         kw.setdefault("lookback", 720)
@@ -42,6 +44,7 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         self._min_final = float(min_final_score)
         self._min_active = int(min_active_bars)
         self._use_brain = bool(use_brain)
+        self._dsr_min = float(dsr_min)
         self._net = None            # lazily-built TradeOutcomeNet (cached by closed-trade count)
         self._net_count = -1
 
@@ -163,12 +166,26 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         ranked.sort(key=lambda r: r["final"], reverse=True)
         best = ranked[0]
 
+        # Pillar-20 anti-overfit: the picker tried len(ranked) strategies and kept the best,
+        # so its Sharpe is inflated by selection. Deflate it — the winner must beat the
+        # expected MAXIMUM Sharpe of that many trials (Deflated-Sharpe intuition, López de Prado).
+        from trading.strategy.guardrails import (expected_max_sharpe,
+                                                  probabilistic_sharpe_ratio)
+        cand_sr = [r["sharpe"] for r in ranked]
+        var_sr = float(np.var(cand_sr, ddof=1)) if len(cand_sr) > 1 else 1.0
+        sr_bench = expected_max_sharpe(var_sr, max(2, len(ranked)))
+        deflated_psr = probabilistic_sharpe_ratio(
+            best["sharpe"], max(best["n_active"], 2), sr_benchmark=sr_bench)
+        deflated_ok = deflated_psr >= self._dsr_min
+
         # gate: the winner must clear the score floor; if in a position, exit when the best
         # strategy no longer says long (net signal turned non-positive).
         meta = {"source": "per_coin_best", "chosen_strategy": best["name"],
                 "final_score": best["final"], "sharpe": best["sharpe"], "win_rate": best["win_rate"],
                 "brain_weight": best["brain_weight"], "p_win": best["p_win"],
                 "n_candidates": len(ranked), "threshold": self._min_final,
+                "deflated_psr": round(deflated_psr, 4), "deflated_ok": deflated_ok,
+                "dsr_benchmark": round(sr_bench, 4),
                 "runners_up": [r["name"] for r in ranked[1:4]],
                 "confidence": round(min(1.0, max(0.0, best["final"] / max(self._min_final, 1e-9) / 4.0)), 3)}
 
@@ -177,9 +194,11 @@ class PerCoinBrainDecider(LibraryBrainDecider):
             meta["action"] = "UP" if action == "FLAT" else "EXIT"
             return {"action": action, "size": 1.0, "tag": best["name"], "_brain": meta}
 
-        if best["final"] < self._min_final or best["last"] == 0:
+        if best["final"] < self._min_final or best["last"] == 0 or not deflated_ok:
             meta["action"] = "NEUTRAL"
-            meta["reason"] = ("below threshold" if best["final"] < self._min_final else "winner flat now")
+            meta["reason"] = ("below threshold" if best["final"] < self._min_final
+                              else "winner flat now" if best["last"] == 0
+                              else f"deflated-Sharpe gate (PSR={deflated_psr:.3f} < {self._dsr_min})")
             return {"action": "FLAT", "size": 1.0, "tag": best["name"], "_brain": meta}
 
         action = "LONG" if best["last"] > 0 else "SHORT"

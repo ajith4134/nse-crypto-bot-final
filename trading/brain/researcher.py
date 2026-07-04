@@ -133,6 +133,55 @@ class AutonomousResearcher:
             "sources": sources, "available": True, "llm_used": llm_used,
         }
 
+    # --- deep research (gpt-researcher, Phase D upgrade) --------------------------
+    # gpt-researcher is now installed and importable (approved 2026-07-02); per the
+    # dep-weight-by-capability rule the heavy engine (multi-source cited reports) is
+    # PREFERRED when configured, and this method degrades to research() otherwise.
+    def deep_research(self, query: str, *, report_type: str = "research_report",
+                      reflect: bool = True, heavy: bool | None = None) -> dict:
+        """Autonomous multi-source cited research via gpt-researcher; falls back to
+        the light ddgs+LLM path when the heavy engine is unavailable/unconfigured.
+        With reflect=True the report gets a Reflexion-style self-critique pass
+        (pattern from vendor/reflexion) through the same summarizer LLM."""
+        import os
+        report, sources, engine = "", [], "light"
+        if heavy is None:                                  # enabled-when-configured gate
+            heavy = bool(os.environ.get("OPENAI_API_KEY") or
+                         os.environ.get("GPT_RESEARCHER") == "1")
+        try:
+            if not heavy:
+                raise RuntimeError("heavy engine not configured")
+            import asyncio
+            from gpt_researcher import GPTResearcher
+            os.environ.setdefault("RETRIEVER", "duckduckgo")   # keyless retriever
+
+            async def _run():
+                gr = GPTResearcher(query=query, report_type=report_type)
+                await gr.conduct_research()
+                return await gr.write_report(), gr.get_source_urls()
+
+            report, sources = asyncio.run(_run())
+            engine = "gpt-researcher"
+        except Exception:
+            pass
+        if not (report or "").strip():                     # degrade, never drop capability
+            light = self.research(query)
+            report = light["summary"]
+            sources = [s["href"] for s in light["sources"]]
+            engine = "light(ddgs+llm)" if light["llm_used"] else "light(extractive)"
+        critique = ""
+        if reflect and report:
+            try:                                            # Reflexion loop: critique→revise
+                critique = (self.summarizer(
+                    "You are a Reflexion critic. In <=5 terse lines list weaknesses, missing "
+                    "angles or unsupported claims in this research report:\n\n" + report[:4000])
+                    or "").strip()
+            except Exception:
+                critique = ""
+        return {"query": query, "report": report, "sources": sources,
+                "engine": engine, "critique": critique,
+                "available": bool((report or "").strip())}
+
     def research_symbol(self, symbol: str, market: str = "stock") -> dict:
         """Convenience: research a tradeable symbol's recent news/catalysts."""
         m = (market or "stock").lower()

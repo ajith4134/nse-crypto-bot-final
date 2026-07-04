@@ -164,6 +164,84 @@ def map_trade(ft: dict) -> ClosedTrade:
         # quality (currency-denominated excursions; journal derives pct/efficiency/R)
         mfe=round(mfe, 6), mae=round(mae, 6),
     )
+    # ── realized P&L: carry Freqtrade's own numbers (this view never passes through
+    # journal.record(), so the schema defaults of 0 were what the dashboard showed).
+    # profit_abs is Freqtrade's realized NET (fees + funding already applied).
+    fees = _f(ft.get("fee_open_cost")) + _f(ft.get("fee_close_cost"))
+    t.total_charges = round(fees, 8)
+    t.net_pnl = round(_f(ft.get("profit_abs")), 8)
+    t.net_pnl_crypto = t.net_pnl
+    t.gross_pnl = round(t.net_pnl + fees, 8)
+    t.net_pnl_pct = round(_f(ft.get("profit_ratio")) * 100.0, 4)
+    # R multiple from the entry stop distance (same definition as journal quality)
+    sl = _f(ft.get("initial_stop_loss_abs"))
+    risk = abs(open_rate - sl) * amount if sl else 0.0
+    if risk > 0:
+        t.r_multiple = round(t.net_pnl / risk, 4)
+    # merge the brain's entry-time sidecar metadata (trader psychology + full decision
+    # snapshot) recorded at forceenter — Freqtrade itself can't carry it (enter_tag only)
+    # Parity with loop-closed rows: every ingested row states its signal source —
+    # "freqtrade" baseline, upgraded to "brain" when the entry sidecar proves the
+    # brain drove the entry (previously left EMPTY → inconsistent journal column).
+    t.signal_source = "freqtrade"
+    try:
+        from trading.brain.psychology import psych_columns
+        from trading.crypto.freqtrade import entry_meta
+        seg = "spot" if (ft.get("trading_mode") or "spot") == "spot" else "futures"
+        meta = entry_meta.lookup(ft.get("pair", ""), seg, ft.get("open_date", ""))
+        if meta:
+            t.signal_source = "brain"
+            for k, v in psych_columns(meta.get("psychology")).items():
+                setattr(t, k, v)
+            if isinstance(meta.get("decision_snapshot"), dict):
+                t.decision_snapshot = meta["decision_snapshot"]
+                # surface the brain decision into its OWN journal columns (previously the
+                # snapshot carried it but BRAIN_CONFIDENCE_ENTRY/BRAIN_PREDICTION stayed blank)
+                br = meta["decision_snapshot"].get("brain")
+                if isinstance(br, dict):
+                    if br.get("confidence") is not None:
+                        t.brain_confidence_entry = _f(br.get("confidence"))
+                    act = str(br.get("action") or meta["decision_snapshot"].get("direction") or "")
+                    t.brain_prediction = {"LONG": "UP", "SHORT": "DOWN"}.get(act.upper(), "NEUTRAL")
+                    if br.get("regime"):
+                        t.market_regime_entry = str(br["regime"])
+            if meta.get("episode_id"):
+                t.episode_id = str(meta["episode_id"])
+            if isinstance(meta.get("feature_attribution"), dict):
+                t.feature_attribution = meta["feature_attribution"]
+            # Pillar 17: calibrated-uncertainty-at-entry → its own journal columns
+            uq = meta.get("uq") or (((meta.get("decision_snapshot") or {}).get("brain")
+                                     or {}).get("uq") if isinstance(
+                (meta.get("decision_snapshot") or {}).get("brain"), dict) else None)
+            if isinstance(uq, dict):
+                if uq.get("p_up") is not None:
+                    t.p_up = _f(uq["p_up"])
+                if uq.get("interval_width") is not None:
+                    t.interval_width = _f(uq["interval_width"])
+                if uq.get("self_uncertainty") is not None:
+                    t.self_uncertainty = _f(uq["self_uncertainty"])
+                # executed trades carry a reason only when the gate DOWNGRADED
+                # (advisory mode / half-size) — a hard abstention never trades
+                t.abstain_reason = str(uq.get("abstain_reason") or "")
+    except Exception:
+        pass
+    # exit-time learning check: did the brain's entry prediction match what price did?
+    if t.brain_prediction in ("UP", "DOWN") and close_rate and open_rate:
+        actual = "UP" if close_rate > open_rate else "DOWN"
+        t.brain_correct = (t.brain_prediction == actual)
+    # decision-memory closure (idempotent: resolve() no-ops on already-resolved episodes,
+    # safe under the 30s polling that rebuilds this view)
+    if t.episode_id:
+        try:
+            from trading.brain.decision_memory import get_memory
+            ep = get_memory().resolve(
+                episode_id=t.episode_id, net_pnl=float(t.net_pnl or 0.0),
+                r_multiple=t.r_multiple, exit_price=close_rate,
+                exit_reason=ft.get("exit_reason", "") or "", brain_correct=t.brain_correct)
+            if ep and ep.get("reflection"):
+                t.exit_reflection = ep["reflection"]
+        except Exception:
+            pass
     return t
 
 
@@ -175,10 +253,15 @@ def map_open_trade(ft: dict) -> dict:
     amt = _f(ft.get("amount")); lev = _f(ft.get("leverage"), 1.0) or 1.0
     stake = _f(ft.get("stake_amount"))             # capital placed (margin, USDT)
     peaks = _peak_fields(ft)                        # peak profit/loss USDT + their times
+    mode = (ft.get("trading_mode") or "spot").lower()
+    itype = {"futures": "PERP", "margin": "PERP", "option": "OPT",
+             "prediction": "PRED"}.get(mode, "SPOT")
     return {
         "trade_id": f"FT-{ft.get('trade_id')}", "symbol": ft.get("pair", ""),
         "direction": direction, "exchange": ft.get("exchange", "binance"),
-        "instrument_type": ("PERP" if (ft.get("trading_mode") or "spot") != "spot" else "SPOT"),
+        # multi-segment fork: which engine bot owns this trade (futures/spot/options/prediction)
+        "segment": ft.get("bot_segment") or "",
+        "instrument_type": itype,
         "leverage": lev, "quantity": amt,
         "entry_price": op, "current_price": cur,
         "capital_usdt": round(stake, 2),                       # capital placed (USDT)

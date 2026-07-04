@@ -10,7 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
-DEST="$ROOT/.venv/lib/python3.13/site-packages/freqtrade/rpc/api_server/ui/installed"
+DEST="$ROOT/vendor/freqtrade/freqtrade/rpc/api_server/ui/installed"  # mlnb: fork is editable-installed from vendor/
 SRC="$ROOT/vendor/frequi/dist"
 
 echo "→ building FreqUI (vite)…"

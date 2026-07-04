@@ -3,10 +3,11 @@
 Isolates trading.state.STATE_DIR to a temp dir (never touches the live journal).
 """
 import tempfile
+from pathlib import Path
 
 import trading.state as _state
 
-_state.STATE_DIR = tempfile.mkdtemp()  # MUST precede any state/live_loop import
+_state.STATE_DIR = Path(tempfile.mkdtemp())  # MUST precede any state/live_loop import
 
 
 def test_nse_segments_are_split():

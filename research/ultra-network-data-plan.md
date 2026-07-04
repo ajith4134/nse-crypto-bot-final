@@ -175,3 +175,15 @@ Stooq, Dukascopy, and Tardis's free slice.
 - https://docs.tardis.dev/downloadable-csv-files/api ("first day of each month … without API key") • https://docs.tardis.dev/historical-data-details/bybit
 - https://github.com/Leo4815162342/dukascopy-node (EURUSD tick→d1 from 2003, free CLI)
 - NSE: https://pypi.org/project/bhavcopy/ • jugaad-data bhavcopy_save • https://pypi.org/project/nse/
+
+---
+## Cloud-IP block update (2026-07-04, B6 build)
+- **stooq daily CSV endpoint is IP-BLOCKED from this GCP VM** — `stooq.com/q/d/l/?s=...&i=d`
+  returns an HTML robots page, not CSV (same class as the yfinance-429 block). `data.downloads.
+  download_stooq_daily` is correct and works from a non-blocked IP; it raises an honest
+  RuntimeError on the block rather than returning a stub.
+- **WORKING cloud sources (load-bearing):** Binance archive/REST via `data.binance` (verified:
+  2000 real BTCUSDT 1m rows) + **416 on-disk freqtrade 1m feathers** already present under
+  user_data/data/binance/futures (`data.downloads.locate_freqtrade_1m`). The short-TF lane
+  trains today with zero new downloads, exactly as the plan intended.
+- EURUSD/equity daily: run stooq from a non-blocked host, or add dukascopy (heavier, later lane).

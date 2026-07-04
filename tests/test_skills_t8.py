@@ -23,6 +23,9 @@ warnings.filterwarnings("ignore")
 
 import unittest
 
+from trading.strategy.control import set_evolution_enabled
+set_evolution_enabled(True)   # engine-internals tests: arm the (deliberately OFF) gate
+
 import numpy as np
 
 from trading import state

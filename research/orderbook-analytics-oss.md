@@ -1,0 +1,27 @@
+# OSS candidates: crypto order-book analytics / L2-based trading signals (2026-07-02)
+
+Goal: order-book imbalance, buy/sell pressure, whale-wall detection, liquidity heatmaps, short-term
+price-direction prediction from L2 depth — reusable by a brain that polls **REST snapshots via ccxt
+fetch_order_book** (no websocket infra required).
+
+| Project | Repo URL | Stars | Last activity | Lang | Key features (README-level) | Reusability for REST-snapshot brain |
+|---|---|---|---|---|---|---|
+| hftbacktest | https://github.com/nkaz001/hftbacktest | 4.2k | 2025-12 | Rust (+Py bindings) | HFT/market-making backtester on full L2/L3 tick data; ships a worked "Market Making with Alpha — Order Book Imbalance" notebook (Binance/Bybit crypto) | Imbalance math in the notebook is plain numpy over bid/ask arrays — trivially portable to ccxt snapshots. Full framework needs recorded tick data (overkill for us); mine the alpha formulas, not the engine |
+| algotrading-example (same author) | https://github.com/nkaz001/algotrading-example | 320 | 2023-12 | Jupyter/Python | Backtest + optimization examples built specifically on **order book imbalance** (BTC, BitMEX, Binance futures, market making) | Best direct source of imbalance-signal recipes in notebook form; pure pandas/numpy on depth arrays → copy-adapt to REST snapshots easily |
+| cryptofeed | https://github.com/bmoscon/cryptofeed | 2.9k | 2026-02 | Python | Multi-exchange websocket feed handler; normalized L2/L3 order books, trades, funding; backends (Redis/Kafka/InfluxDB); maintained by ccxt-adjacent community | Infra, not signals — websocket-first. Useful later if we outgrow REST polling; its normalized OrderBook data structure (order_book sorted dicts) is reusable standalone |
+| crypto-whale-watching-app | https://github.com/pmaji/crypto-whale-watching-app | 637 | 2026-02 | Python | Dash app tracking **whale buy/sell walls**: flags orders ≥1% of volume within ±5% of mid, ladder-order grouping (same-size order clusters = single whale), bubble depth charts | Whale-wall detection algorithm operates on a plain depth snapshot (it polls GDAX REST) — the closest existing match to our polling model; extract the wall/ladder-detection logic, drop the Dash UI |
+| DeepLOB (official) | https://github.com/zcakhaa/DeepLOB-Deep-Convolutional-Neural-Networks-for-Limit-Order-Books | 597 | 2021-07 | Jupyter (Keras+PyTorch nb) | Original CNN+LSTM model predicting mid-price move direction from 40-dim L2 (10 levels × bid/ask × price/vol); FI-2010 benchmark; includes a PyTorch notebook | Model input = stacked sequence of L2 snapshots → exactly what periodic ccxt snapshots produce (at lower frequency). Needs training data + labeling pipeline; CPU inference fine (small net) |
+| lob-deep-learning | https://github.com/Jeonghwan-Cheon/lob-deep-learning | 156 | 2022-12 | Python (PyTorch) | Clean PyTorch reimplementations of DeepLOB, DeepLOB-Attention, TransLOB, DeepFolio as proper modules (not notebooks); FI-2010 + crypto data loaders | Most engineering-friendly DeepLOB codebase: model + labeling + normalization modules importable as-is; swap its data loader for a ccxt-snapshot buffer |
+| TLOB | https://github.com/LeonardoBerti00/TLOB | 157 | 2026-02 | Python (PyTorch) | Official repo, 2025 paper: transformer with dual (spatial+temporal) attention for LOB trend prediction; beats DeepLOB on FI-2010 & Binance BTC data; actively maintained | State-of-the-art and crypto-tested; same 40-dim L2-sequence input as DeepLOB so REST snapshots feed it too; heavier to train but CPU-inference plausible |
+| ML-HFT | https://github.com/bradleyboyuyang/ML-HFT | 591 | 2022-09 | Jupyter | HFT framework for futures: **order-book feature engineering** (imbalance, depth ratios, micro-price, spread features) + ML/DL models end-to-end | Value is its LOB feature-engineering notebooks — a ready menu of snapshot-computable features (micro-price, weighted imbalance, pressure ratios) to lift into our brain |
+| OrderFlowMap | https://github.com/Azhagesan-dev/OrderFlowMap | 26 | 2026-04 | HTML/JS | Bookmap-style single-file visualizer: depth **heatmap, liquidity-wall detection**, DOM ladder, volume profile, CVD; OpenAlgo websocket (NSE/MCX) | JS + websocket-driven UI; wall-detection/heatmap ideas portable but code not Python. Interesting for our dashboard (OpenAlgo!) more than for the brain signal path |
+| orderbook-imbalance-indicator-hft | https://github.com/leionion/orderbook-imbalance-indicator-hft | 24 | 2026-04 | Python | Monitors bid-ask spread + depth to predict next-10s price move; simple standalone indicator | Tiny and snapshot-native — good sanity-check reference for a minimal imbalance→direction signal, though low-star/low-depth |
+| tectonicdb | https://github.com/0b01/tectonicdb | 750 | 2024-01 | Rust | Compact fast database purpose-built for storing L2 order-book deltas | Storage only, no signals; relevant only if we start archiving depth history for training DeepLOB-style models |
+
+## Recommendation
+Stitch three: **nkaz001's imbalance notebooks (hftbacktest examples + algotrading-example)** for the
+proven snapshot-computable imbalance/microprice alpha formulas, **pmaji/crypto-whale-watching-app**
+for REST-polling whale-wall/ladder detection logic, and **Jeonghwan-Cheon/lob-deep-learning** (with
+TLOB as the upgrade path) as the importable PyTorch DeepLOB module for ML price-direction prediction
+once we buffer snapshot sequences. cryptofeed/tectonicdb are infra add-ons only if we later move
+from REST polling to full depth recording.

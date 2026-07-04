@@ -131,9 +131,12 @@ def _broker():
 
 
 def _ltp(client: Any, underlying: str) -> float:
+    # REST quotes(), NOT get_ltp(): the SDK's get_ltp is the websocket-stream helper and
+    # returns {'ltp': {}} without a live subscription — which made every ATM strike
+    # uncomputable and the options screener return [] forever.
     exch = "NSE_INDEX" if underlying.upper() in _INDEX_SET else "NSE"
     try:
-        r = client.get_ltp(exchange=exch, symbol=underlying)
+        r = client.quotes(exchange=exch, symbol=underlying)
         d = r.get("data", r) if isinstance(r, dict) else {}
         return float(d.get("ltp") or d.get("last_price") or 0) if isinstance(d, dict) else 0.0
     except Exception:

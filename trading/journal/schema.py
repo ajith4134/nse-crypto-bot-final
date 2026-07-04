@@ -136,6 +136,33 @@ class ClosedTrade:
     node_contributions: list = field(default_factory=list)  # JSON
     signal_source: str = ""
 
+    # ── Calibrated uncertainty at entry (Pillar 17; trading/uq/conformal.py) ────
+    p_up: float | None = None              # conformal P(trade nets > 0)
+    interval_width: float | None = None    # coverage-guaranteed return-interval width (%)
+    self_uncertainty: float | None = None  # ensemble vote entropy ∈ [0, 1]
+    abstain_reason: str = ""               # non-empty when the UQ gate downgraded (e.g. half-size)
+
+    # ── Trader Psychology at Entry (order-book depth; trading/brain/psychology.py) ──
+    trader_psychology: float | None = None  # composite crowd score ∈ [-1, 1]
+    psych_label: str = ""                   # capitulation…euphoric
+    psych_obi: float | None = None          # book imbalance (top levels)
+    psych_ofi: float | None = None          # order flow imbalance
+    psych_microprice_drift_bps: float | None = None  # Stoikov microprice − mid
+    psych_spread_bps: float | None = None
+    psych_depth_slope_bias: float | None = None
+    psych_wall_bias: float | None = None    # whale-wall support/resistance bias
+    psych_fear: float | None = None         # spread/λ/VPIN fear component ∈ [0, 1]
+    psych_vpin: float | None = None         # toxic-flow probability
+    psych_deeplob_prob_up: float | None = None  # DeepLOB P(up) from depth sequence
+
+    # ── Full decision context (ALL data the brain considered at entry) ──────────
+    decision_snapshot: dict = field(default_factory=dict)  # JSON
+
+    # ── Decision memory (episodic provenance; trading/brain/decision_memory.py) ──
+    episode_id: str = ""                    # links journal row → decision-memory episode
+    feature_attribution: dict = field(default_factory=dict)  # JSON: SHAP top drivers
+    exit_reflection: str = ""               # 2-4 sentence lesson written at close
+
     # ── Trade Behavior Flags ────────────────────────────────────────────────────
     revenge_trade_flag: bool = False
     overtrading_flag: bool = False

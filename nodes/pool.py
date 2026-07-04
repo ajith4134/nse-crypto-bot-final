@@ -167,28 +167,39 @@ def foundation_panel_candidates(panel):
     ]
 
 
-FOUNDATION_CANDIDATES = _foundation_candidates()
+# LAZY: the foundation/tier2/tier3 node modules eagerly import a HEAVY chain (torch, chronos,
+# neuralforecast, gpytorch, cvxpy, riskfolio, umap, …). Building this list at pool-import time
+# forced every process that imports nodes.pool (the dashboard's BRAIN_LOOP threads especially)
+# to pay that import cost — and concurrent heavy imports across threads hit Python's per-module
+# import locks and WEDGED the HTTP server (32 handler threads starved → Cloudflare 524,
+# 2026-07-03; py-spy showed a live-trade-loop thread stuck importing cvxpy). So we defer: the
+# heavy modules are imported ONLY when foundation nodes are explicitly requested
+# (foundation_names/factories) or opted into the growth pool via MLNB_FOUNDATION_NODES=1.
+_FOUNDATION_CANDIDATES = None
+
+
+def _foundation_candidates_cached():
+    global _FOUNDATION_CANDIDATES
+    if _FOUNDATION_CANDIDATES is None:
+        _FOUNDATION_CANDIDATES = _foundation_candidates()
+    return _FOUNDATION_CANDIDATES
 
 
 def foundation_factories():
-    return [c[0] for c in FOUNDATION_CANDIDATES]
+    return [c[0] for c in _foundation_candidates_cached()]
 
 
 def foundation_names():
-    return [c[1] for c in FOUNDATION_CANDIDATES]
+    return [c[1] for c in _foundation_candidates_cached()]
 
 
 _OSS = _oss_candidates()
 USING_OSS = bool(_OSS)
 if _OSS:
     _OSS.extend(_micro_llm_candidates())
-    # Foundation/neural-forecaster nodes are EXPENSIVE to fit (real neural training
-    # per candidate) and would slow greedy forward-selection just like NoldsChaosNode.
-    # They stay fully importable + available via foundation_factories(); they only join
-    # the default growth pool when explicitly opted in. (See percoin/decision-memory
-    # gated-on-purpose precedents.)
+    # Opt-in only: importing the heavy foundation stack is deferred unless explicitly enabled.
     if os.environ.get("MLNB_FOUNDATION_NODES") == "1":
-        _OSS.extend(FOUNDATION_CANDIDATES)
+        _OSS.extend(_foundation_candidates_cached())
 
 # OSS pool is primary; falls back to the stdlib miniatures if the stack is absent.
 CANDIDATES = _OSS if USING_OSS else STDLIB_CANDIDATES

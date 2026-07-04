@@ -147,12 +147,24 @@ class LiveCryptoSource:
 
     def tickers(self, market_type: str = "spot") -> dict:
         cli = self._raw(market_type)
-        if cli is None:
-            return {}
-        try:
-            return cli.fetch_tickers() or {}
-        except Exception:
-            return {}
+        if cli is not None:
+            try:
+                t = cli.fetch_tickers() or {}
+                if t:
+                    return t
+            except Exception:
+                pass
+        # Fallback venue: Bybit (keys in .env; 2000+ real option contracts) — keeps the
+        # options/spot screeners fed when the primary exchange errors or region-blocks.
+        if self.exchange != "bybit":
+            try:
+                from trading.crypto.exchange_client import ExchangeClient
+                mt = {"spot": "spot", "futures": "swap", "swap": "swap",
+                      "options": "option", "option": "option"}.get(market_type, "spot")
+                return ExchangeClient("bybit", market_type=mt)._client().fetch_tickers() or {}
+            except Exception:
+                pass
+        return {}
 
     def markets(self, market_type: str = "spot") -> dict:
         cli = self._raw(market_type)

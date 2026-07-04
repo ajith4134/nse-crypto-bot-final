@@ -132,7 +132,7 @@ class BrainExecutor:
     forceenter (open) / close_pair (exit) on Freqtrade. The brain decides; Freqtrade executes."""
 
     def __init__(self, decider: LibraryBrainDecider | None = None, client=None,
-                 symbols: list | None = None, learner=None):
+                 symbols: list | None = None, learner=None, segment: str | None = None):
         if decider is None:
             # Default: brain PICKS the best strategy per coin (backtest × brain), or stays flat.
             # Lazy import avoids a module cycle (percoin_decider imports LibraryBrainDecider).
@@ -141,6 +141,10 @@ class BrainExecutor:
         self.decider = decider
         self._client = client
         self._symbols = symbols
+        # Multi-segment engine: which bot this executor drives (futures/spot/options/
+        # prediction; None = legacy single-bot). Options/prediction use dedicated cycle
+        # logic below — their instruments have no per-coin backtest library data.
+        self.segment = segment
         # Optional BrainLearningCycle: its confirmed hypotheses veto entries on strong contrary
         # evidence (advisory feedback — closes the learn→act loop; never forces new entries).
         self.learner = learner
@@ -153,30 +157,52 @@ class BrainExecutor:
             self._client = CryptoEngineClient()
         return self._client
 
+    # Universe cap: how many of the whitelisted pairs the brain evaluates per cycle.
+    # Operator goal (2026-07-02): trade "all the symbols, without limit" → the DEFAULT is now
+    # UNLIMITED (0 = evaluate every whitelisted pair). env BRAIN_UNIVERSE still caps it for CPU
+    # tuning: BRAIN_UNIVERSE=150 evaluates the top 150 by volume, BRAIN_UNIVERSE=0/unset = all.
+    # Each evaluated pair runs the per-coin backtest, so all-symbols = more CPU/cycle (fine on the
+    # 5m timeframe; if a cycle gets slow, set BRAIN_UNIVERSE to a finite cap or add round-robin).
+    def _universe_cap(self) -> int:
+        import os
+        try:
+            v = int(os.environ.get("BRAIN_UNIVERSE", "0"))
+        except Exception:
+            return 0
+        return max(0, v)          # 0 = no limit (all whitelisted pairs)
+
     def symbols(self) -> list:
         """Default universe = Freqtrade's OWN whitelisted pairs, in the bot's native format
-        (futures perps come back as 'BTC/USDT:USDT' — the exact string /forceenter expects)."""
+        (futures perps come back as 'BTC/USDT:USDT' — the exact string /forceenter expects).
+        No cap by default → every whitelisted symbol is a candidate each cycle."""
         if self._symbols is not None:
             return self._symbols
+        cap = self._universe_cap()                       # 0 = unlimited
         # /whitelist returns the live (dynamic) pairlist; show_config().whitelist is empty for
         # VolumePairList, which is why entries silently no-op'd before (spot pair → futures bot).
-        wl = self.client().whitelist()
+        wl = self.client().whitelist(segment=self.segment)
         if wl:
-            return wl[:50]
+            return wl if cap == 0 else wl[:cap]
         try:
             cfg = self.client().show_config()
             base = list(cfg.get("whitelist") or cfg.get("pairs") or [])
             if base:
-                return base[:50]
+                return base if cap == 0 else base[:cap]
         except Exception:
             pass
+        if self.segment in ("options", "prediction"):
+            return []  # dynamic universes only — no meaningful hardcoded fallback
         return ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
 
     def run_once(self, *, allow_live: bool = False) -> dict:
         """One brain→Freqtrade execution cycle. Returns a summary. Never raises."""
+        if self.segment == "options":
+            return self._run_options_cycle(allow_live=allow_live)
+        if self.segment == "prediction":
+            return self._run_prediction_cycle(allow_live=allow_live)
         cli = self.client()
         try:
-            open_pairs = set(cli.open_pairs())
+            open_pairs = set(cli.open_pairs(segment=self.segment))
         except Exception:
             open_pairs = set()
         entered, exited, skipped = [], [], 0
@@ -199,16 +225,42 @@ class BrainExecutor:
                     vetoes.append(sym)
                     skipped += 1
                     continue
+                # episodic recall: importance/recency-weighted win-rate of RESOLVED past
+                # episodes on this symbol+direction nudges confidence (advisory, never vetoes)
+                if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    self._apply_decision_memory(sym, act, brain)
+                # concept discovery: self-invented features scale confidence (validated lane)
+                if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    self._apply_discovery(sym, act, brain)
+                # order-book trader psychology: live entry signal (boost/dampen/veto)
+                psych = None
+                if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    psych, act = self._apply_psychology(sym, act, brain)
+                    if act == "FLAT":
+                        vetoes.append(sym)
+                        skipped += 1
+                        continue
+                # Pillar 17: calibrated conformal gate — the LAST word before capital
+                # commits. Runs after every confidence adjuster so p_up reflects the
+                # final belief; an abstention is logged as a first-class decision.
+                if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    uq = self._assess_uq(sym, act, brain, psych)
+                    if uq and uq.get("abstain"):
+                        vetoes.append(sym)
+                        skipped += 1
+                        continue
                 if act == "LONG" and sym not in open_pairs:
-                    cli.place_order(symbol=sym, action="BUY", side="long",
-                                    allow_live=allow_live, enter_tag=tag)
+                    cli.place_order(symbol=sym, action="BUY", side="long", allow_live=allow_live,
+                                    enter_tag=tag, segment=self.segment)
                     entered.append(sym)
+                    self._record_entry_meta(sym, act, tag, brain, psych)
                 elif act == "SHORT" and sym not in open_pairs:
-                    cli.place_order(symbol=sym, action="BUY", side="short",
-                                    allow_live=allow_live, enter_tag=tag)
+                    cli.place_order(symbol=sym, action="BUY", side="short", allow_live=allow_live,
+                                    enter_tag=tag, segment=self.segment)
                     entered.append(sym)
+                    self._record_entry_meta(sym, act, tag, brain, psych)
                 elif act == "EXIT" and sym in open_pairs:
-                    cli.close_pair(sym)
+                    cli.close_pair(sym, segment=self.segment)
                     exited.append(sym)
                 else:
                     skipped += 1
@@ -218,6 +270,102 @@ class BrainExecutor:
         self._last_vetoes = vetoes
         return {"entered": entered, "exited": exited, "skipped": skipped,
                 "universe": len(self.symbols()), "picks": picks, "vetoes": vetoes}
+
+    # ── options segment (Deribit, paper) ──────────────────────────────────────
+    # The brain decides the DIRECTION on the underlying perp (where it has full data +
+    # backtests), then expresses it with a long option: bullish → buy a call, bearish →
+    # buy a put. Contract choice: nearest expiry, median strike (≈ATM — Deribit lists
+    # strikes around spot). Long-options-only: max loss = premium, no margin surprises.
+    @staticmethod
+    def _parse_option(sym: str) -> dict | None:
+        # ccxt Deribit option symbol: "BTC/USDC:USDC-260703-60000-P"
+        try:
+            base = sym.split("/")[0]
+            tail = sym.split(":", 1)[1]              # "USDC-260703-60000-P"
+            _, expiry, strike, kind = tail.rsplit("-", 3)
+            return {"symbol": sym, "base": base, "expiry": expiry,
+                    "strike": float(strike), "kind": kind.upper()}
+        except Exception:
+            return None
+
+    def _run_options_cycle(self, *, allow_live: bool = False) -> dict:
+        cli = self.client()
+        opts = [o for o in (self._parse_option(s) for s in self.symbols()) if o]
+        open_pairs = set(cli.open_pairs(segment="options"))
+        entered, exited, skipped = [], [], 0
+        picks: dict = {}
+        for base in sorted({o["base"] for o in opts}):
+            try:
+                under = f"{base}/USDT:USDT"          # decide on the perp (full brain data)
+                d = self.decider.decide("CRYPTO", under, None, in_position=False)
+                act = d.get("action")
+                held = [s for s in open_pairs if s.startswith(f"{base}/")]
+                want = {"LONG": "C", "SHORT": "P"}.get(act)
+                if want is None:
+                    # no directional view → close held options on this underlying
+                    for s in held:
+                        cli.close_pair(s, segment="options")
+                        exited.append(s)
+                    continue
+                if any((self._parse_option(s) or {}).get("kind") == want for s in held):
+                    skipped += 1
+                    continue                          # already positioned this direction
+                for s in held:                        # flip: exit wrong-direction options
+                    cli.close_pair(s, segment="options")
+                    exited.append(s)
+                cands = [o for o in opts if o["base"] == base and o["kind"] == want]
+                if not cands:
+                    skipped += 1
+                    continue
+                nearest = min(o["expiry"] for o in cands)
+                atm = sorted((o for o in cands if o["expiry"] == nearest),
+                             key=lambda o: o["strike"])
+                pick = atm[len(atm) // 2]             # median strike ≈ ATM
+                cli.place_order(symbol=pick["symbol"], action="BUY", side="long",
+                                allow_live=allow_live, segment="options",
+                                enter_tag=f"opt-{act.lower()}-{base}")
+                entered.append(pick["symbol"])
+                picks[pick["symbol"]] = {"strategy": f"underlying-{act}", "action": act}
+            except Exception:
+                skipped += 1
+        self._last_picks = picks
+        return {"entered": entered, "exited": exited, "skipped": skipped,
+                "universe": len(opts), "picks": picks, "vetoes": []}
+
+    # ── prediction segment (Polymarket, paper) ────────────────────────────────
+    # Outcome prices live in [0,1]; real 5m candles come from the CLOB history through the
+    # engine. Simple honest momentum: price above SMA20 by a margin → buy YES; drop below
+    # SMA20 → exit. Long-only (short = buying the other outcome, a later step).
+    def _run_prediction_cycle(self, *, allow_live: bool = False) -> dict:
+        cli = self.client()
+        open_pairs = set(cli.open_pairs(segment="prediction"))
+        entered, exited, skipped = [], [], 0
+        picks: dict = {}
+        for sym in self.symbols():
+            try:
+                rows = cli.pair_candles(sym, "5m", limit=60, segment="prediction")
+                closes = [r[4] for r in rows if isinstance(r, (list, tuple)) and len(r) > 4]
+                if len(closes) < 25:
+                    skipped += 1
+                    continue
+                sma20 = sum(closes[-20:]) / 20.0
+                last = float(closes[-1])
+                if sym not in open_pairs and last > sma20 * 1.02 and 0.03 < last < 0.95:
+                    cli.place_order(symbol=sym, action="BUY", side="long",
+                                    allow_live=allow_live, segment="prediction",
+                                    enter_tag="pred-momentum")
+                    entered.append(sym)
+                    picks[sym] = {"strategy": "pred-momentum", "action": "LONG"}
+                elif sym in open_pairs and last < sma20:
+                    cli.close_pair(sym, segment="prediction")
+                    exited.append(sym)
+                else:
+                    skipped += 1
+            except Exception:
+                skipped += 1
+        self._last_picks = picks
+        return {"entered": entered, "exited": exited, "skipped": skipped,
+                "universe": len(self.symbols()), "picks": picks, "vetoes": []}
 
     def _entry_vetoed(self, sym: str, act: str, brain: dict) -> bool:
         """True when the learner's CONFIRMED hypotheses strongly contradict this entry.
@@ -235,3 +383,126 @@ class BrainExecutor:
         except Exception:
             pass
         return False
+
+    # crowd-psychology veto threshold (mirrors LiveTradeLoop._PSYCH_VETO — full-signal mode)
+    _PSYCH_VETO = 0.6
+
+    def _apply_psychology(self, sym: str, act: str, brain: dict) -> tuple[dict | None, str]:
+        """Order-book trader psychology as a LIVE entry signal (trading/brain/psychology.py).
+
+        Boosts/dampens the brain's confidence by crowd alignment and returns act='FLAT'
+        when the crowd strongly opposes the direction. Best-effort: no depth → unchanged."""
+        try:
+            from trading.brain.psychology import get_engine
+            psych = get_engine().evaluate("CRYPTO", sym, segment=self.segment or "futures")
+            if not psych:
+                return None, act
+            sign = 1.0 if act == "LONG" else -1.0
+            alignment = float(psych["trader_psychology"]) * sign
+            if isinstance(brain, dict):
+                brain["psych_alignment"] = round(alignment, 4)
+                if brain.get("confidence") is not None:
+                    brain["confidence"] = float(min(1.0, max(0.0,
+                        float(brain["confidence"]) * (1.0 + 0.3 * alignment))))
+            if alignment < -self._PSYCH_VETO:
+                return psych, "FLAT"
+            return psych, act
+        except Exception:
+            return None, act
+
+    def _apply_decision_memory(self, sym: str, act: str, brain: dict) -> None:
+        """FinMem-style recall: past resolved episodes on this symbol+direction scale the
+        brain's confidence (win-rate bias ∈ [-1,1] → ±20%). Advisory only."""
+        try:
+            from trading.brain.decision_memory import get_memory
+            b = get_memory().bias(sym, act)
+            if b["n"] >= 3 and isinstance(brain, dict) and brain.get("confidence") is not None:
+                brain["confidence"] = float(min(1.0, max(0.0,
+                    float(brain["confidence"]) * (1.0 + 0.2 * b["bias"]))))
+                brain["memory_bias"] = b["bias"]
+                brain["memory_n"] = b["n"]
+        except Exception:
+            pass
+
+    def _apply_discovery(self, sym: str, act: str, brain: dict) -> None:
+        """Concept Discovery Engine: the brain's SELF-INVENTED features on this symbol's
+        current window produce a directional signal ∈ [-1,1]. The VALIDATED lane (proof-gated,
+        OOS-stable) scales confidence (±25%); the EXPERIMENT lane is shadow-logged only.
+        Non-blocking (fits per-symbol engines in the background). Advisory — never vetoes."""
+        try:
+            from trading.brain.discovery import signal as disc
+            df = self._ohlcv(sym)
+            if df is None or len(df) < 80:
+                return
+            closes = df["close"].to_numpy(dtype=float)
+            s = disc.signal(sym, closes)
+            if not isinstance(brain, dict):
+                return
+            brain["concept_signal"] = round(float(s["validated"]), 4)      # proof-gated
+            brain["concept_experiment"] = round(float(s["experiment"]), 4)  # shadow (log-only)
+            brain["concept_n"] = {"val": s["n_val"], "exp": s["n_exp"], "ready": s["ready"]}
+            if s["n_val"] > 0 and brain.get("confidence") is not None:
+                align = float(s["validated"]) * (1.0 if act == "LONG" else -1.0)
+                brain["confidence"] = float(min(1.0, max(0.0,
+                    float(brain["confidence"]) * (1.0 + 0.25 * align))))
+        except Exception:
+            pass
+
+    def _assess_uq(self, sym: str, act: str, brain, psych) -> dict | None:
+        """Pillar 17: conformal p_up + coverage interval + abstention for THIS entry
+        (trading/uq). The assessment is stored on the brain dict so it travels into
+        decision_snapshot + the journal's p_up/interval_width/self_uncertainty
+        columns. Best-effort: a UQ failure never blocks trading (logged degraded)."""
+        try:
+            from trading.uq import get_uq
+            b = brain if isinstance(brain, dict) else {}
+            uq = get_uq().assess(
+                confidence=b.get("confidence"), direction=act, market="CRYPTO",
+                psych=(psych or {}).get("trader_psychology") if isinstance(psych, dict) else None,
+                longs=b.get("longs"), shorts=b.get("shorts"), symbol=sym)
+            if isinstance(brain, dict):
+                brain["uq"] = uq
+            return uq
+        except Exception:
+            return None
+
+    def _record_entry_meta(self, sym: str, act: str, tag, brain: dict, psych) -> None:
+        """Persist the FULL decision context of this entry to the sidecar store so
+        freqtrade_ingest can fill the psychology + decision_snapshot journal columns."""
+        try:
+            from trading.crypto.freqtrade import entry_meta
+            snapshot = {
+                "market": "CRYPTO", "symbol": sym,
+                "segment": self.segment or "futures",
+                "direction": act, "strategy": tag,
+                "brain": brain if isinstance(brain, dict) else None,
+                "psychology": psych,
+                "engine": "freqtrade",
+            }
+            # decision-memory episode + SHAP attribution (resolved at ingest time when
+            # the trade closes; episode_id travels via this sidecar)
+            episode_id, attribution = "", {}
+            try:
+                from trading.brain.attribution import explain_trade
+                from trading.brain.decision_memory import get_memory
+                from trading.journal.journal import TradeJournal
+                closed = [t.to_dict() for t in TradeJournal().trades[-200:]]
+                attribution = explain_trade({
+                    "symbol": sym, "direction": act, "exchange": "binance",
+                    "brain_confidence_entry": (brain or {}).get("confidence"),
+                    "decision_snapshot": snapshot}, closed, fast=True)
+                episode_id = get_memory().open_episode(
+                    symbol=sym, market="CRYPTO", segment=self.segment or "futures",
+                    direction=act, strategy=str(tag or ""), engine="freqtrade",
+                    decision_snapshot=snapshot, attribution=attribution)
+            except Exception:
+                pass
+            entry_meta.record(sym, self.segment, {
+                "psychology": psych,
+                "episode_id": episode_id,
+                "feature_attribution": attribution,
+                "decision_snapshot": snapshot,
+                "uq": (brain or {}).get("uq") if isinstance(brain, dict) else None,
+            })
+        except Exception:
+            pass

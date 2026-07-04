@@ -29,6 +29,8 @@ import hashlib
 import time
 from dataclasses import dataclass, field, asdict
 
+import numpy as np
+
 FOUNDRY_FILE = "strategy_foundry.json"
 
 
@@ -286,6 +288,57 @@ class StrategyFoundry:
         trades = float(m.get("trades", 0) or 0)
         return round(sharpe * 1.0 + winr * 0.5 - dd * 0.5 + min(trades, 50) * 0.002, 4)
 
+    def _best_metrics(self, sid: str) -> dict | None:
+        """Highest-scoring recorded metrics snapshot for a strategy id (or None)."""
+        hist = self._ledger.get(sid, {}).get("history", [])
+        if not hist:
+            return None
+        return max(hist, key=lambda s: s.get("score", -1e9))
+
+    def deflation_gate(self, segment: str, *, min_trades: int = 10, max_dd: float = -0.5,
+                       dsr_min: float = 0.5) -> dict:
+        """Pillar-20 anti-overfit gate at the FOUNDRY level (population Deflated Sharpe).
+
+        The Foundry tries many strategies per segment, so the best in-sample Sharpe is a
+        selection-bias artefact. We deflate each candidate's Sharpe by the expected maximum
+        Sharpe of the trial population (variance across all recorded specs in the segment),
+        and require Probabilistic-Sharpe(sr | sr_benchmark) >= dsr_min plus basic sanity.
+        Returns {sid: {passed, reasons, dsr, sharpe, trades}} for every recorded candidate.
+        """
+        from trading.strategy.guardrails import (expected_max_sharpe,
+                                                  probabilistic_sharpe_ratio)
+        cands = {}
+        sharpes = []
+        for sid, sp in self.specs.items():
+            if sp.segment != segment:
+                continue
+            m = self._best_metrics(sid)
+            if m is None:
+                continue
+            cands[sid] = m
+            sharpes.append(float(m.get("sharpe", 0.0) or 0.0))
+        n_trials = max(2, len(cands))
+        var_sr = float(np.var(sharpes, ddof=1)) if len(sharpes) > 1 else 1.0
+        sr_bench = expected_max_sharpe(var_sr, n_trials)     # deflation benchmark
+        out = {}
+        for sid, m in cands.items():
+            sr = float(m.get("sharpe", 0.0) or 0.0)
+            trades = int(m.get("trades", 0) or 0)
+            dd = float(m.get("max_drawdown", 0.0) or 0.0)
+            reasons = []
+            if trades < min_trades:
+                reasons.append(f"too few trades ({trades} < {min_trades})")
+            if dd < max_dd:
+                reasons.append(f"drawdown too deep ({dd:.2f} < {max_dd})")
+            # PSR of the observed Sharpe against the deflated benchmark
+            psr = probabilistic_sharpe_ratio(sr, max(trades, 2), sr_benchmark=sr_bench)
+            if psr < dsr_min:
+                reasons.append(f"deflated Sharpe fails (PSR={psr:.3f} < {dsr_min}; "
+                               f"bench={sr_bench:.3f}, {n_trials} trials)")
+            out[sid] = {"passed": not reasons, "reasons": reasons, "dsr": round(psr, 4),
+                        "sharpe": sr, "trades": trades, "benchmark": round(sr_bench, 4)}
+        return out
+
     def record(self, sid: str, metrics: dict, *, live: bool = False) -> None:
         """Record a backtest/live metrics snapshot for a strategy id, update its best score."""
         e = self._ledger.setdefault(sid, {"history": [], "best_score": None, "live_pnl": 0.0})
@@ -315,20 +368,62 @@ class StrategyFoundry:
                                  r["live_pnl"]), reverse=True)
         return rows[:k]
 
-    def promote(self, segment: str | None = None, keep: int = 5) -> list[str]:
-        """Mark the top-`keep` scored strategies per segment as 'promoted'; demote the rest
-        that were previously promoted. Returns promoted ids."""
+    def _reasoning_ok(self, sid: str, report: dict) -> bool:
+        """Pillar 18 judge: the strategy's idea rationale must pass the step verifier when an
+        LLM is available. Degrades to True (skip, recorded) when no verifier — never blocks on
+        infrastructure absence. Records the process reward into the gate report."""
+        sp = self.specs.get(sid)
+        if sp is None:
+            return False
+        try:
+            from cognition.verifier import StepVerifier, _default_chat
+            if _default_chat() is None:
+                report.get(sid, {}).update({"reasoning": "skipped (no LLM)"})
+                return True
+            steps = [s.strip() for s in str(sp.idea).replace(";", ".").split(".") if s.strip()]
+            rep = StepVerifier().score(steps or [sp.name], context=f"{sp.segment} strategy")
+            ok = rep["process_reward"] >= 0.5
+            report.get(sid, {}).update({"reasoning": round(rep["process_reward"], 3),
+                                        "reasoning_ok": ok})
+            return ok
+        except Exception:
+            return True     # verifier unavailable → degraded mode, do not block
+
+    def promote(self, segment: str | None = None, keep: int = 5, *, gate: bool = True,
+                dsr_min: float = 0.5, min_trades: int = 10,
+                verify_reasoning: bool = False) -> list[str]:
+        """Mark the top-`keep` scored strategies per segment as 'promoted'; demote the rest.
+
+        Pillar-20 (non-negotiable): promotion routes through the Deflated-Sharpe deflation
+        gate — a high in-sample score alone can NEVER promote a strategy. Only candidates
+        that clear `deflation_gate` are eligible; `keep` is applied AFTER the gate. Set
+        gate=False only for diagnostics. Returns promoted ids.
+        """
         segs = [segment] if segment else sorted({sp.segment for sp in self.specs.values()})
         promoted: list[str] = []
+        self._last_gate: dict = {}
         for seg in segs:
             ranked = [r for r in self.leaderboard(seg, k=999) if r["best_score"] is not None]
-            top = {r["sid"] for r in ranked[:keep]}
+            if gate:
+                report = self.deflation_gate(seg, min_trades=min_trades, dsr_min=dsr_min)
+                self._last_gate.update(report)
+                eligible = [r for r in ranked if report.get(r["sid"], {}).get("passed")]
+                if verify_reasoning:
+                    # Pillar 18: promotion criterion = "profit AND verified reasoning". Verify
+                    # each candidate's idea rationale with the process-reward step verifier;
+                    # degrade gracefully (skip, logged) when no LLM/verifier is available.
+                    eligible = [r for r in eligible
+                                if self._reasoning_ok(r["sid"], report)]
+            else:
+                eligible = ranked
+            top = {r["sid"] for r in eligible[:keep]}
             for sid in top:
                 self.specs[sid].status = "promoted"
                 promoted.append(sid)
-            for r in ranked[keep:]:
-                if self.specs[r["sid"]].status == "promoted":
-                    self.specs[r["sid"]].status = "executable"
+            # demote any previously-promoted spec in this segment that is no longer a top gate-passer
+            for sp in self.specs.values():
+                if sp.segment == seg and sp.status == "promoted" and sp.sid not in top:
+                    sp.status = "executable"
         self._save()
         return promoted
 

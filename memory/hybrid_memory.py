@@ -11,6 +11,8 @@ glue. This fuses four real components, powered by the project's LLM cloud keys (
   3. mem0 (pip, real) — optional external semantic store, gated on an LLM key.
   4. KnowledgeBrain (ours) — PPR+RRF associative graph; HumanMemory (ours) supplies the one
      thing no library does: Ebbinghaus decay + auto_dream FORGETTING/consolidation.
+  5. AssociativeMemory (memory/associative.py) — HippoRAG PPR "connect-the-dots" recall +
+     A-MEM note linking/evolution (both vendored), the multi-hop associative channel.
 
 LLM keys power GA's importance_fn + synthesize_fn (via core.llm). Offline-safe + deterministic:
 LLM injected (stub in tests) → falls back to the vendored heuristic importance/synthesis; mem0
@@ -21,6 +23,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from memory.associative import AssociativeMemory
 from memory.human_memory import HumanMemory
 from vendor.generative_agents_memory import (
     MemoryStream,
@@ -44,6 +47,7 @@ class HybridMemory:
     llm_chat: object = None                          # callable(messages)->str (overrides core.llm)
     use_mem0: bool = False
     use_reranker: bool = False
+    assoc_path: str | None = None                    # persist associative notes when set
     reflections: list = field(default_factory=list, init=False)
 
     def __post_init__(self) -> None:
@@ -54,6 +58,8 @@ class HybridMemory:
                                    synthesize_fn=self._llm_synthesize)
         self.letta = self._init_letta()
         self._mem0 = self._init_mem0() if self.use_mem0 else None
+        # associative channel (HippoRAG PPR + A-MEM evolution), same injected LLM
+        self.assoc = AssociativeMemory(llm_chat=self._chat, path=self.assoc_path)
 
     # ── real Letta tiered core-memory (embedded, offline) ────────────────────────
     def _init_letta(self):
@@ -129,8 +135,11 @@ class HybridMemory:
                 mem0_ok = True
             except Exception:
                 mem0_ok = False
+        assoc = self.assoc.add(text, title=title, now=now)   # HippoRAG graph + A-MEM evolve
         return {"doc_id": doc_id, "title": title, "importance": round(importance, 3),
-                "poignancy": getattr(node, "poignancy", None), "mem0": mem0_ok}
+                "poignancy": getattr(node, "poignancy", None), "mem0": mem0_ok,
+                "assoc": {"id": assoc["id"], "links": assoc["links"],
+                          "evolved": assoc["evolved"]["should_evolve"]}}
 
     # ── recall: GA stream (recency+importance+relevance) + decay-aware fuse ───────
     def recall(self, query: str, k: int = 4, *, now: float = 0.0, curr_time=None) -> list[dict]:
@@ -145,6 +154,7 @@ class HybridMemory:
             pass
         for h in self.human.recall(query, k=k, now=now):     # decay-aware associative channel
             out.append(h)
+        out.extend(self.assoc.recall(query, k=k))            # HippoRAG PPR multi-hop channel
         return out[:max(k, len(out))]
 
     # ── reflection (real GA reflection, LLM-synthesized) ─────────────────────────
@@ -176,5 +186,7 @@ class HybridMemory:
                 "letta": self.letta is not None, "mem0": self._mem0 is not None,
                 "llm": self._llm.active_model()[0] if (self._llm and self._llm.active_model())
                 else None, "reflections": len(self.reflections),
+                "associative": self.assoc.status(),
                 "components": ["generative-agents(vendored real)", "letta(real,tiered)",
-                               "mem0(real,gated)", "human_memory(ebbinghaus decay/dream)"]}
+                               "mem0(real,gated)", "human_memory(ebbinghaus decay/dream)",
+                               "associative(hipporag-ppr + a-mem evolution)"]}

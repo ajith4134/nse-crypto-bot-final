@@ -69,8 +69,8 @@ def _brain_state() -> str:
 def _build_brain():
     """Heavy: SentenceTransformer embedding init + ingest 14 project .md. Runs in a bg thread."""
     global _BRAIN
-    from memory.brain import KnowledgeBrain
-    b = KnowledgeBrain()
+    from memory.brain import get_brain
+    b = get_brain()          # shared persistent brain — same knowledge the learner fills
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for path in sorted(glob.glob(os.path.join(root, "*.md")))[:14]:       # the project's own docs
         try:

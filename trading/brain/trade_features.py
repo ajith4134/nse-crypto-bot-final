@@ -34,6 +34,11 @@ FEATURE_NAMES: list[str] = [
     "brain_confidence", "anomaly_score", "news_compound", "recall_bias",
     "entry_hour_sin", "entry_hour_cos", "mfe_ratio", "mae_ratio",
     *(f"regime_{r}" for r in _REGIMES),
+    # order-book trader psychology at entry — the net learns how crowd pressure at the
+    # moment of entry influences the profit direction (trading/brain/psychology.py)
+    "psych_alignment",          # trader_psychology × dir_sign (crowd with/against the trade)
+    "psych_obi", "psych_ofi_sign", "psych_microprice_drift_bps",
+    "psych_spread_bps", "psych_depth_slope_bias", "psych_wall_bias", "psych_fear",
 ]
 _CRYPTO_EX = ("binance", "bybit", "okx", "kucoin", "coinbase", "kraken")
 
@@ -137,11 +142,26 @@ def trade_feature_row(trade: dict) -> list[float]:
     reg = _regime(trade)
     regime_oh = [1.0 if reg == r else 0.0 for r in _REGIMES]
 
+    # psychology columns: closed-trade schema keys, else the open dict's `psych` sub-dict
+    ps = trade.get("psych") if isinstance(trade.get("psych"), dict) else trade
+    score = _f(ps.get("trader_psychology"))
+    ofi = _f(ps.get("psych_ofi"))
+    psych = [
+        score * dir_sign,                              # alignment with THIS trade
+        _f(ps.get("psych_obi")),
+        (1.0 if ofi > 0 else (-1.0 if ofi < 0 else 0.0)),
+        _f(ps.get("psych_microprice_drift_bps")),
+        _f(ps.get("psych_spread_bps")),
+        _f(ps.get("psych_depth_slope_bias")),
+        _f(ps.get("psych_wall_bias")),
+        _f(ps.get("psych_fear")),
+    ]
+
     return [
         dir_sign, 1.0 if _is_crypto(trade) else 0.0,
         math.log1p(abs(qty)), math.log1p(abs(capital)), leverage,
         conf, bt["anomaly_score"], bt["news_compound"], bt["recall_bias"],
-        hour_sin, hour_cos, mfe_ratio, mae_ratio, *regime_oh,
+        hour_sin, hour_cos, mfe_ratio, mae_ratio, *regime_oh, *psych,
     ]
 
 

@@ -62,6 +62,11 @@ _STUB: dict[tuple[str, str], list[tuple]] = {
         ("ETH-CALL", 0.78, "stub: ETH option", {"iv": 0.62}),
         ("ETH-PUT", 0.71, "stub: ETH hedge", {"iv": 0.65}),
     ],
+    ("CRYPTO", "prediction"): [
+        ("BTC-100K-EOY", 0.88, "stub: liquid event, conviction off coin-flip", {"yes": 0.72, "volume": 2.1e6}),
+        ("ETH-ETF-APPROVAL", 0.81, "stub: policy event market", {"yes": 0.64, "volume": 1.3e6}),
+        ("BTC-HALVING-RALLY", 0.74, "stub: cyclical event market", {"yes": 0.58, "volume": 8.0e5}),
+    ],
 }
 
 

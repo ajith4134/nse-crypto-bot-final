@@ -133,6 +133,25 @@ class MarketWorldModel:
         self.fitted = True
         return self
 
+    def update_online(self, ohlcv_new: pd.DataFrame, *, max_windows: int = 8) -> dict:
+        """Dreamer/CarDreamer-style continual world-model update (Phase E).
+
+        Autonomous-driving world models keep learning as the world changes: learn the
+        model → imagine/plan with it → keep UPDATING it online on fresh experience,
+        rehearsing stored past windows so old dynamics aren't forgotten (same replay
+        principle as trading.brain.continual). Recent OHLCV windows live in a replay
+        deque; transition+return heads refit on old ∪ new — the honest CPU version of
+        Dreamer's continual replay training."""
+        if not hasattr(self, "_replay_windows"):
+            self._replay_windows: list = []
+        self._replay_windows.append(ohlcv_new)
+        if len(self._replay_windows) > max_windows:
+            self._replay_windows.pop(0)
+        merged = pd.concat(self._replay_windows, ignore_index=True)
+        self.fit(merged)
+        return {"windows": len(self._replay_windows), "rows": int(len(merged)),
+                "fitted": self.fitted, "pattern": "dreamer-continual-replay"}
+
     def _fit_numpy(self, f, f_next, ret_next, ridge: float = 1.0):
         A = np.hstack([f, np.ones((len(f), 1))])
         G = A.T @ A + ridge * np.eye(A.shape[1])

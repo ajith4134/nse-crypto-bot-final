@@ -1,7 +1,29 @@
 # Ultra-Network Redesign — Pipeline State (resume file)
 
 > Purpose: if the session/context is lost, a fresh session resumes from HERE.
-> Updated: 2026-07-03 ~20:50 — PAUSED by user near token limit.
+> Updated: 2026-07-04 ~09:05 — B3-B6 committed. Next: B7 Cortex dashboard.
+> B6 (01cd693): trading/heads.py (RolloutHead direct+AR on TTM/Chronos/TabPFN, DM-gated) +
+> data/downloads.py (Binance archive OK, 416 on-disk 1m feathers, stooq GCP-IP-blocked).
+> Deps granite-tsfm+tabpfn-ts; fixed torch/torchvision ABI (torch 2.10.0+cpu + torchvision
+> 0.25.0+cpu — see research/torch-torchvision-abi-mismatch.md). 110/110 CORTEX green.
+> B7 = run_network.py + /api/network/* + SigmaNetwork upgrade + NetworkPanel + web rebuild
+> (no new deps; touches React -> needs npm build + verify-live; services still PAUSED).
+> Prior: 2026-07-04 ~08:35 — B3/B4/B5 committed. Next: B6 Heads + data.
+> Build state: B1+B2 (68e984e) · B3 reflex (7f7445a) · B4 brain hub (4dab1d4) ·
+> B5 evolution lane nodes/neat_lane.py + trading/simlab.py (c1093bf). 97/97 CORTEX
+> B1-B5 tests green. Installed neat-python 2.0, order-matching, hftbacktest, evotorch
+> (numpy -> 2.2.6, no regression). B6 next needs deps granite-tsfm, tabpfn-time-series +
+> data downloads (Binance Vision 1m, stooq daily, dukascopy EURUSD, NSE bhavcopy per
+> research/ultra-network-data-plan.md). Prior: 2026-07-04 ~08:10.
+>
+> ⚠ SERVICES PAUSED (2026-07-04, user request "free all 12 cores until build done"):
+> STOPPED — dashboard/server.py, freqtrade trade, freqtrade.run_brain_loop,
+> freqtrade.candle_updater, OpenAlgo gunicorn + websocket_proxy. KEPT UP (≈0% CPU) —
+> cloudflared/ngrok/caddy tunnels. RESTART EVERYTHING after the CORTEX build with:
+>   bash ~/start_all.sh   (idempotent; re-relaunches OpenAlgo separately if needed)
+> NOTE: pkill -f "<pattern>" self-kills the calling shell here (its cmdline contains the
+> pattern) → exit 144. Stop services by numeric PID, not pkill -f.
+> Prior update: 2026-07-03 ~20:50 — PAUSED by user near token limit.
 >
 > PAUSE STATE: the 3 research agents (frontier / SOTA / data-plan) were still running
 > at pause time and write their docs to research/ on completion. On resume: check

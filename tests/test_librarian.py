@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 
 from memory.librarian import Librarian
 
-_SCRATCH = "/tmp/claude-1000/-home-karan18190164/bd731724-5220-4673-838e-92680bac705f/scratchpad"
+_SCRATCH = tempfile.mkdtemp(prefix="mlnb_scratch_")  # session-independent temp dir
 
 
 # ── stubs ─────────────────────────────────────────────────────────────────────────

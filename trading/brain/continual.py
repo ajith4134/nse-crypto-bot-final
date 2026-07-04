@@ -129,3 +129,87 @@ def replay_retrain(features: list[str], new_samples: list, buffer: ReplayBuffer,
 def clone_model(model):
     """Deep-copy a River model with its learned state (for meta-init warm-starts)."""
     return copy.deepcopy(model)
+
+
+# ── Phase-E upgrade: Avalanche deep continual learning (self-driving-car style) ──────
+# Reuse-first: **Avalanche** (ContinualAI, pip avalanche-lib 0.6, installed 2026-07-02)
+# supplies the anti-catastrophic-forgetting machinery autonomous-driving stacks use:
+# experience REPLAY (rehearse old regimes) + EWC (protect weights important to old tasks).
+# This complements the River OnlineNode above: River = cheap tick-by-tick linear learner;
+# ContinualLearner = deep MLP that learns regime after regime WITHOUT forgetting, with an
+# honest forgetting metric (accuracy retained on the first regime after training the last).
+class ContinualLearner:
+    """Deep continual learner over regime 'experiences' (Avalanche Replay + EWC)."""
+
+    def __init__(self, n_features: int, *, hidden: int = 32, mem_size: int = 500,
+                 ewc_lambda: float = 0.4, epochs: int = 4, lr: float = 1e-3, seed: int = 7):
+        import torch
+        from torch import nn
+        torch.manual_seed(seed)
+        self.n_features = n_features
+        self.model = nn.Sequential(nn.Linear(n_features, hidden), nn.ReLU(),
+                                   nn.Linear(hidden, hidden), nn.ReLU(),
+                                   nn.Linear(hidden, 2))
+        self._mem_size, self._ewc, self._epochs, self._lr = mem_size, ewc_lambda, epochs, lr
+        self._strategy = None
+        self.experiences = 0
+        self.history: list[dict] = []            # [{experience, eval_acc_per_regime}]
+        self._eval_sets: list[tuple] = []
+
+    def _make_strategy(self):
+        import torch
+        from torch import nn
+        from avalanche.training.plugins import EWCPlugin, ReplayPlugin
+        from avalanche.training.supervised import Naive
+        return Naive(model=self.model,
+                     optimizer=torch.optim.Adam(self.model.parameters(), lr=self._lr),
+                     criterion=nn.CrossEntropyLoss(), train_mb_size=32,
+                     train_epochs=self._epochs, eval_mb_size=64, device="cpu",
+                     plugins=[ReplayPlugin(mem_size=self._mem_size),
+                              EWCPlugin(ewc_lambda=self._ewc)])
+
+    def learn_experience(self, X, y) -> dict:
+        """Train on one regime/experience; replay+EWC preserve earlier regimes."""
+        import torch
+        from torch.utils.data import TensorDataset
+        from avalanche.benchmarks import benchmark_from_datasets
+        from avalanche.benchmarks.utils import as_taskaware_classification_dataset
+        Xt = torch.tensor(np.asarray(X, dtype=np.float32))
+        yt = torch.tensor(np.asarray(y, dtype=np.int64))
+        ds = as_taskaware_classification_dataset(TensorDataset(Xt, yt))
+        bench = benchmark_from_datasets(train=[ds], test=[ds])
+        if self._strategy is None:
+            self._strategy = self._make_strategy()
+        self._strategy.train(bench.train_stream[0], num_workers=0, drop_last=True)
+        self.experiences += 1
+        self._eval_sets.append((Xt, yt))
+        accs = [round(self.accuracy_on(Xp, yp), 4) for Xp, yp in self._eval_sets]
+        entry = {"experience": self.experiences, "acc_per_regime": accs,
+                 "forgetting": round(max(0.0, (self.history[0]["acc_per_regime"][0]
+                                               if self.history else accs[0]) - accs[0]), 4)}
+        self.history.append(entry)
+        return entry
+
+    def accuracy_on(self, X, y) -> float:
+        import torch
+        Xt = X if isinstance(X, torch.Tensor) else torch.tensor(
+            np.asarray(X, dtype=np.float32))
+        yt = y if isinstance(y, torch.Tensor) else torch.tensor(
+            np.asarray(y, dtype=np.int64))
+        self.model.eval()
+        with torch.no_grad():
+            pred = self.model(Xt).argmax(dim=1)
+        return float((pred == yt).float().mean())
+
+    def predict_proba(self, X):
+        import torch
+        Xt = torch.tensor(np.asarray(X, dtype=np.float32))
+        self.model.eval()
+        with torch.no_grad():
+            return [float(p) for p in torch.softmax(self.model(Xt), dim=1)[:, 1]]
+
+    def status(self) -> dict:
+        last = self.history[-1] if self.history else {}
+        return {"experiences": self.experiences, "replay_mem": self._mem_size,
+                "ewc_lambda": self._ewc, "last": last,
+                "engine": "avalanche-lib 0.6 (Replay+EWC)"}

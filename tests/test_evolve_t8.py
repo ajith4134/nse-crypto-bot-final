@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import json
 import unittest
+
+from trading.strategy.control import set_evolution_enabled
+set_evolution_enabled(True)   # engine-internals tests: arm the (deliberately OFF) gate
 import warnings
 
 warnings.filterwarnings("ignore")

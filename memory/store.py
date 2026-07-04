@@ -73,7 +73,7 @@ class VectorMemory:
     `.chunks`, `.df`, `add(cid, text, title)`, `search(query, k)`, `top_terms(...)`.
     """
 
-    def __init__(self):
+    def __init__(self, persist_name: str | None = None):
         self.chunks: dict[str, dict] = {}     # cid -> {text, counts, title}
         self.df: dict[str, int] = {}          # term -> #chunks containing it (vocab/idf)
         self._collection = None
@@ -83,16 +83,45 @@ class VectorMemory:
         if ef is not None:
             try:
                 client = chromadb.PersistentClient(path=CHROMA_DIR)
-                # Unique collection per instance keeps tests / runs isolated while
-                # the data still persists on disk under .chroma_store.
-                name = "knowledge_" + uuid.uuid4().hex[:12]
-                self._collection = client.create_collection(
-                    name=name, embedding_function=ef,
-                    metadata={"hnsw:space": "cosine"})
+                if persist_name:
+                    # STABLE collection → knowledge survives process restarts. The old
+                    # uuid-per-instance name silently abandoned every learned document
+                    # on each dashboard restart, so the Brain Learning panel honestly
+                    # showed 0 docs/chunks/concepts after learning (2026-07-03 fix).
+                    self._collection = client.get_or_create_collection(
+                        name=persist_name, embedding_function=ef,
+                        metadata={"hnsw:space": "cosine"})
+                    self._rehydrate()
+                else:
+                    # Unique collection per instance keeps tests / runs isolated while
+                    # the data still persists on disk under .chroma_store.
+                    name = "knowledge_" + uuid.uuid4().hex[:12]
+                    self._collection = client.create_collection(
+                        name=name, embedding_function=ef,
+                        metadata={"hnsw:space": "cosine"})
                 self.backend = label
             except Exception:
                 self._collection = None
                 self.backend = "tfidf"
+
+    def _rehydrate(self) -> None:
+        """Rebuild the in-memory chunk/vocab maps from the persisted collection —
+        search results are filtered by `cid in self.chunks`, so without this every
+        restart made persisted documents unfindable."""
+        try:
+            got = self._collection.get(include=["documents", "metadatas"])
+            for cid, doc, meta in zip(got.get("ids") or [],
+                                      got.get("documents") or [],
+                                      got.get("metadatas") or []):
+                if not doc or cid in self.chunks:
+                    continue
+                counts = Counter(tokenize(doc))
+                self.chunks[cid] = {"text": doc, "counts": counts,
+                                    "title": (meta or {}).get("title", "")}
+                for t in counts:
+                    self.df[t] = self.df.get(t, 0) + 1
+        except Exception:
+            pass                       # empty/new collection — nothing to rehydrate
 
     # ---- ingestion -------------------------------------------------------
     def add(self, cid: str, text: str, title: str = "") -> None:

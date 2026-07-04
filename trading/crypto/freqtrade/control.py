@@ -214,6 +214,21 @@ def set_params(*, paper_balance: float | None = None, max_open_trades: int | Non
     return {"ok": True, "applied": fields, "status": status()}
 
 
+def set_segments_enabled(segments: list[str]) -> dict:
+    """Enable exactly `segments` in the multi-segment engine (persist to .env CRYPTO_SEGMENTS,
+    rewrite config.json's mlnb_segments block, restart the one engine process)."""
+    valid = ("futures", "spot", "options", "prediction")
+    segs = [s for s in (str(x).strip().lower() for x in segments) if s in valid]
+    if not segs:
+        raise ValueError(f"need at least one of {valid}, got {segments!r}")
+    _set_env_keys({"CRYPTO_SEGMENTS": ",".join(segs)})
+    os.environ["CRYPTO_SEGMENTS"] = ",".join(segs)   # config_template reads env at write time
+    from trading.crypto.freqtrade.config_template import write_config
+    write_config(cfg=_cfg())
+    restart_bot()
+    return {"ok": True, "segments": segs}
+
+
 def main(argv: list[str]) -> int:
     import json as _json
     cmd = argv[1] if len(argv) > 1 else "status"

@@ -38,13 +38,20 @@ class CryptoEngineClient:
 
     def __init__(self, config: CryptoConfig | None = None):
         self.config = config or crypto_config
-        self._sdk: Any | None = None  # lazily constructed FtRestClient
+        self._sdk: Any | None = None  # lazily constructed FtRestClient (default segment)
+        self._sdk_by_segment: dict[str, Any] = {}  # multi-segment fork: one client per segment
 
     # ── SDK lifecycle ─────────────────────────────────────────────────────────
-    def _client(self) -> Any:
-        """Build (once) and return the underlying FtRestClient."""
-        if self._sdk is not None:
+    def _client(self, segment: str | None = None) -> Any:
+        """Build (once) and return the underlying FtRestClient.
+
+        `segment` targets one bot of the multi-segment engine (futures/spot/options/
+        prediction) via the X-Freqtrade-Segment header the forked API server routes on;
+        None keeps the default view (aggregate reads / futures bot for actions)."""
+        if segment is None and self._sdk is not None:
             return self._sdk
+        if segment is not None and segment in self._sdk_by_segment:
+            return self._sdk_by_segment[segment]
         try:
             from freqtrade_client import FtRestClient  # type: ignore
         except ImportError as exc:  # pragma: no cover - env-dependent
@@ -54,12 +61,19 @@ class CryptoEngineClient:
                 "and start a Freqtrade bot with api_server enabled at "
                 f"{self.config.ft_host}."
             ) from exc
-        self._sdk = FtRestClient(
+        sdk = FtRestClient(
             self.config.ft_host,
             username=self.config.ft_username,
             password=self.config.ft_password,
         )
-        return self._sdk
+        if segment is None:
+            self._sdk = sdk
+        else:
+            # requests merges session headers into every call — the forked deps.get_rpc
+            # reads this header and routes to that segment's RPC/bot.
+            sdk._session.headers["X-Freqtrade-Segment"] = segment
+            self._sdk_by_segment[segment] = sdk
+        return sdk
 
     # ── connectivity ──────────────────────────────────────────────────────────
     def ping(self) -> ConnState:
@@ -121,6 +135,7 @@ class CryptoEngineClient:
         trade_id: str | None = None,  # for an EXIT: the Freqtrade trade id (or "all")
         allow_live: bool = False,
         enter_tag: str | None = None,  # tag the entry (e.g. the brain's chosen strategy per coin)
+        segment: str | None = None,    # multi-segment engine: futures/spot/options/prediction
     ) -> dict:
         """Place a crypto order via Freqtrade. In dry-run this is a paper fill in the engine.
 
@@ -132,7 +147,7 @@ class CryptoEngineClient:
         """
         self._guard_live(allow_live)
         act = (action or "").upper()
-        cli = self._client()
+        cli = self._client(segment)
         if act in ("BUY", "LONG", "ENTER", "SHORT"):
             entry_side = "short" if act == "SHORT" else (side or "long")
             # enter_tag is optional on older freqtrade-client builds → degrade gracefully.
@@ -171,31 +186,42 @@ class CryptoEngineClient:
     def reload_config(self) -> dict:
         return self._check(self._client().reload_config(), "reload_config")
 
-    def whitelist(self) -> list:
+    def whitelist(self, segment: str | None = None) -> list:
         """The bot's LIVE pairlist in its native format (futures → 'BTC/USDT:USDT'), via the
         /whitelist endpoint. Unlike show_config().whitelist this is populated for dynamic
-        pairlists (VolumePairList). [] on failure."""
+        pairlists (VolumePairList). [] on failure. `segment` targets one bot of the
+        multi-segment engine."""
         try:
-            resp = self._client().whitelist()
+            resp = self._client(segment).whitelist()
         except Exception:
             return []
         wl = resp.get("whitelist") if isinstance(resp, dict) else resp
         return [p for p in (wl or []) if isinstance(p, str)]
 
-    def open_pairs(self) -> list:
+    def open_pairs(self, segment: str | None = None) -> list:
         """Pairs Freqtrade currently has an OPEN trade on (for entry de-dup). [] on failure."""
         try:
-            st = self.status()
+            st = self._client(segment).status()
             return [t.get("pair") for t in st if isinstance(t, dict) and t.get("pair")]
         except Exception:
             return []
 
-    def close_pair(self, pair: str) -> dict:
+    def pair_candles(self, pair: str, timeframe: str = "5m", limit: int = 100,
+                     segment: str | None = None) -> list:
+        """Live candles for `pair` from the (segment's) bot: list of OHLCV rows, [] on failure."""
+        try:
+            resp = self._client(segment).pair_candles(pair, timeframe, limit=limit)
+            return (resp or {}).get("data") or []
+        except Exception:
+            return []
+
+    def close_pair(self, pair: str, segment: str | None = None) -> dict:
         """Force-close the open Freqtrade trade on `pair` (by its trade id). Honest no-op if none."""
         try:
-            for t in (self.status() or []):
+            cli = self._client(segment)
+            for t in (cli.status() or []):
                 if isinstance(t, dict) and t.get("pair") == pair:
-                    return self._check(self._client().forceexit(t.get("trade_id")), "forceexit")
+                    return self._check(cli.forceexit(t.get("trade_id")), "forceexit")
         except Exception as e:
             raise FreqtradeError(f"close_pair({pair}) failed: {e}") from e
         return {"skipped": f"no open trade for {pair}"}

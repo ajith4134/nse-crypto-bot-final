@@ -80,6 +80,9 @@ class ConceptDiscoveryEngine:
         Z = enc.encode(W)
         probe = SAEProbe(dict_size=self.dict_size, seed=self.seed).fit(Z)
         F = probe.features(Z)                                    # [n, dict_size]
+        # retain the fitted pipeline + per-feature activation stats for live_signal()
+        self._enc, self._probe = enc, probe
+        self._fmean, self._fstd = F.mean(0), F.std(0) + 1e-9
 
         # rank features by activation energy; keep the top ones
         energy = F.sum(0)
@@ -102,6 +105,7 @@ class ConceptDiscoveryEngine:
                 "description": named["description"],
                 "lane": "validated" if valid else "experiment",
                 "gate_score": round(score, 4),
+                "sign": int(np.sign(score)) or 1,
                 "activation_rate": round(float(np.mean(act > 1e-6)), 3),
                 "energy": round(float(energy[j]), 3),
                 "max_windows": [int(i) for i in widx],
@@ -118,6 +122,37 @@ class ConceptDiscoveryEngine:
             "ts": time.time(),
         }
         return self.result_
+
+    def live_signal(self, series) -> dict:
+        """Fast directional signal in [-1,1] from the discovered features on the CURRENT
+        window (no re-fit). Returns {validated, experiment, n_val, n_exp}:
+          * validated  — proof-gated signal (the one safe to size a real/paper trade on)
+          * experiment — shadow signal from ungated features (log-only)
+        Neutral 0.0 if the engine hasn't been fitted."""
+        out = {"validated": 0.0, "experiment": 0.0, "n_val": 0, "n_exp": 0}
+        if getattr(self, "_enc", None) is None or getattr(self, "_probe", None) is None \
+                or not self.result_:
+            return out
+        try:
+            s = np.asarray(series, float).reshape(-1, 1)
+            W = make_windows(s, w=self.window, stride=1)[-1:]    # only the latest window
+            Z = self._enc.encode(W)
+            F = self._probe.features(Z)[0]                        # [dict_size]
+            val, exp = [], []
+            for f in self.result_["features"]:
+                j = int(f["id"])
+                if j >= len(F):
+                    continue
+                z = (F[j] - self._fmean[j]) / (self._fstd[j] + 1e-9)
+                contrib = float(np.sign(f.get("sign", 1)) * np.tanh(z))
+                (val if f["lane"] == "validated" else exp).append(contrib)
+            if val:
+                out["validated"] = round(float(np.tanh(np.mean(val))), 4); out["n_val"] = len(val)
+            if exp:
+                out["experiment"] = round(float(np.tanh(np.mean(exp))), 4); out["n_exp"] = len(exp)
+        except Exception:
+            pass
+        return out
 
     def save(self) -> None:
         if self.result_ is None:

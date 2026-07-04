@@ -13,6 +13,7 @@ generating process so 'beats baseline' is meaningful (matches tests/test_phase3.
 """
 from __future__ import annotations
 
+import os
 import unittest
 
 from core.columns import column_for, group_factories
@@ -113,6 +114,10 @@ class TestColumnNetworkB(unittest.TestCase):
 
 
 class TestColumnNetworkC(unittest.TestCase):
+    @unittest.skipUnless(
+        os.environ.get("MLNB_HEAVY"),
+        "grow=True depth-cascade refits every column (incl. hmm_regime2) many times over "
+        "1100 rows — a heavy stress test, not for the fast path. Set MLNB_HEAVY=1 to run.")
     def test_grow_depth_beats_baseline(self):
         facs, nms = _pool(WANT)
         ds = make_regime_dataset(n=1100, noise_hi=0.15, seed=7)

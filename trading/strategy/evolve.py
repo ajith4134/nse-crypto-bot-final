@@ -149,8 +149,11 @@ def evolve(ohlcv: pd.DataFrame, *, market: str = "CRYPTO", features: pd.DataFram
     registry = StrategyRegistry()
     promoted = []
     for s in ranked[:promote_top]:
+        # Pillar 20: the final promotion gate uses Combinatorial Purged CV (embargoed) —
+        # a distribution of OOS paths for an honest Deflated-Sharpe, not a single walk-forward.
         rep = passes_guardrails(s, ohlcv, n_trials=trials, features=feats, n_folds=n_folds,
-                                min_trades=min_trades, dsr_min=dsr_min, var_sr=var_sr)
+                                scheme="cpcv", min_trades=min_trades, dsr_min=dsr_min,
+                                var_sr=var_sr)
         if rep.passed and not pop_overfit:
             node = promote(s, flist, metrics={**s._fit.oos_metrics, "dsr": rep.dsr.get("dsr")})
             registry.add(node)

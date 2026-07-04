@@ -27,7 +27,7 @@ pgrep -f "freqtrade.run_brain_loop" >/dev/null || \
 
 echo "[5/7] Dashboard (brain + NSE trading)  :8000"
 pgrep -f "dashboard/server.py" >/dev/null || \
-  DASH_USER="${DASH_USER:-admin}" DASH_PASS="${DASH_PASS:-}" \
+  DASH_USER="${DASH_USER:-admin}" DASH_PASS="${DASH_PASS:-}" BRAIN_LOOP=1 \
   setsid .venv/bin/python dashboard/server.py 8000 >dashboard/server.log 2>&1 </dev/null &
 
 echo "[6/7] Gateway (Caddy, single entry point)  :8100"

@@ -38,7 +38,7 @@ _SEED = 20260628
 _DECISION_KEYS = {
     "symbol", "market", "position_side", "regime", "anomaly_score", "news_compound", "news_p",
     "signal", "recall_bias", "recall_confidence", "entry", "action", "confidence",
-    "safety_blocked", "safety_reason",
+    "safety_blocked", "safety_reason", "imagination", "hypothesis_support",
 }
 
 

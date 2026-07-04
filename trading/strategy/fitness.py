@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from trading.strategy.backtest import _profit_factor, backtest_signal, walk_forward_folds
+from trading.strategy.cpcv import combinatorial_purged_folds
 from trading.strategy.features import compute_features
 from trading.strategy.genome import Strategy
 
@@ -36,32 +37,60 @@ class Fitness:
 
 
 def evaluate_oos(strategy: Strategy, ohlcv: pd.DataFrame, *, features: pd.DataFrame | None = None,
-                 n_folds: int = 4, scheme: str = "rolling", **bt_kw) -> dict:
-    """Backtest a strategy on each walk-forward TEST block; pool the results (OOS only).
+                 n_folds: int = 4, scheme: str = "rolling", cpcv_groups: int = 6,
+                 cpcv_k_test: int = 2, embargo_pct: float = 0.01, **bt_kw) -> dict:
+    """Backtest a strategy on each OOS TEST block; pool the results (OOS only).
+
+    `scheme` ∈ {"rolling", "anchored"} use walk-forward folds; `scheme="cpcv"` uses
+    Combinatorial Purged CV (Pillar 20) — C(cpcv_groups, cpcv_k_test) purged+embargoed
+    OOS paths, giving `fold_returns` a real distribution for the DSR/PBO defenses.
 
     Indicators are computed on the full causal history; only the test-block slice of the
     signal is scored, so there is no in-sample leakage into the OOS metrics.
     """
     feats = features if features is not None else compute_features(ohlcv)
     sig = strategy.signal(feats)
-    folds = walk_forward_folds(len(feats), n_folds=n_folds, scheme=scheme)
 
     ppy = bt_kw.get("periods_per_year", 252)
     pooled_trades: list[float] = []
     pooled_bar_returns: list[float] = []          # per-bar OOS returns across all folds
     fold_returns: list[float] = []
     worst_dd = 0.0
-    for f in folds:
-        s, e = f["test"]
+
+    def _score_block(s: int, e: int):
         sl_sig = sig.iloc[s:e].reset_index(drop=True)
         sl_px = feats.iloc[s:e].reset_index(drop=True)
         res = backtest_signal(sl_sig, sl_px, **bt_kw)
-        pooled_trades += [t["ret"] for t in res.trades]
         eq = res.equity_curve
-        pooled_bar_returns += [eq[i] / eq[i - 1] - 1.0 for i in range(1, len(eq))
-                               if eq[i - 1]]
-        fold_returns.append(res.metrics["total_return"])
-        worst_dd = min(worst_dd, res.metrics["max_drawdown"])
+        bars = [eq[i] / eq[i - 1] - 1.0 for i in range(1, len(eq)) if eq[i - 1]]
+        return ([t["ret"] for t in res.trades], bars,
+                res.metrics["total_return"], res.metrics["max_drawdown"])
+
+    if scheme == "cpcv":
+        paths = combinatorial_purged_folds(
+            len(feats), n_groups=cpcv_groups, k_test=cpcv_k_test, embargo_pct=embargo_pct)
+        block_cache: dict[tuple[int, int], tuple] = {}
+        for p in paths:
+            path_compound = 1.0
+            for (s, e) in p["test"]:
+                if (s, e) not in block_cache:
+                    block_cache[(s, e)] = _score_block(s, e)
+                _tr, _bars, tot, dd = block_cache[(s, e)]
+                path_compound *= (1.0 + tot)
+                worst_dd = min(worst_dd, dd)
+            fold_returns.append(path_compound - 1.0)   # one OOS return per combinatorial path
+        for trades, bars, _tot, _dd in block_cache.values():   # unique blocks — no double count
+            pooled_trades += trades
+            pooled_bar_returns += bars
+    else:
+        folds = walk_forward_folds(len(feats), n_folds=n_folds, scheme=scheme)
+        for f in folds:
+            s, e = f["test"]
+            trades, bars, tot, dd = _score_block(s, e)
+            pooled_trades += trades
+            pooled_bar_returns += bars
+            fold_returns.append(tot)
+            worst_dd = min(worst_dd, dd)
 
     rets = np.array(pooled_trades, dtype=float)
     n = len(rets)
@@ -85,8 +114,9 @@ def evaluate_oos(strategy: Strategy, ohlcv: pd.DataFrame, *, features: pd.DataFr
         "profit_factor": _profit_factor(gross_win, gross_loss),
         "max_drawdown": worst_dd,
         "trade_returns": pooled_trades,
-        "fold_returns": fold_returns,             # per-fold OOS total return (for PBO/CSCV)
-        "n_folds": len(folds),
+        "fold_returns": fold_returns,             # per-fold/per-path OOS total return (PBO/CSCV/DSR)
+        "n_folds": len(fold_returns),
+        "scheme": scheme,
     }
 
 

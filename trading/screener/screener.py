@@ -25,7 +25,7 @@ from trading.screener.stubs import stub_candidates
 # valid segments mirror trading/online/state.py SEGMENTS
 SEGMENTS = {
     "NSE": ["intraday", "mtf", "futures", "options", "commodities"],
-    "CRYPTO": ["spot", "futures", "options"],
+    "CRYPTO": ["spot", "futures", "options", "prediction"],
 }
 
 
@@ -90,7 +90,15 @@ def screen_nse_movers(source: Any, segment: str = "intraday", *, limit: int = 5,
 
     cleaned = [r for r in rows.values()
                if min_pct is None or abs(F._get(r, "pct_change")) >= min_pct]
-    ranked = F.score_rows(cleaned, score, reason)[:limit]
+    ranked_all = F.score_rows(cleaned, score, reason)
+    # intraday and mtf share the movers universe, but the loop tags each symbol with ONE
+    # segment (last write wins) — identical lists meant every dual candidate landed on
+    # intraday and mtf never opened a trade. Give mtf the NEXT ranked slice so the two
+    # segments hold disjoint symbols (falls back to the top slice when depth runs out).
+    if segment == "mtf" and len(ranked_all) > limit:
+        ranked = ranked_all[limit:2 * limit] or ranked_all[:limit]
+    else:
+        ranked = ranked_all[:limit]
     return [_cand(r["symbol"], segment, "NSE", r["score"], r["reason"],
                   {"pct_change": F._get(r, "pct_change"),
                    "rvol": F._get(r, "rvol", default=None) if "rvol" in r else None,
@@ -99,7 +107,12 @@ def screen_nse_movers(source: Any, segment: str = "intraday", *, limit: int = 5,
 
 
 def screen_nse_fno(source: Any, *, limit: int = 5, filters: dict | None = None) -> list[dict]:
-    """Rank F&O underlyings by live-most-active + option-chain PCR signal."""
+    """Rank F&O underlyings by live-most-active + option-chain PCR signal.
+
+    Each underlying is resolved to the broker's EXACT near-month NFO FUT contract
+    (NIFTY → NIFTY28JUL26FUT) via OpenAlgo search — the same mechanism as MCX
+    commodities. Bare underlyings 400 on NFO quotes ("Symbol 'NIFTY' not found"),
+    which is exactly why the futures segment never opened a trade."""
     rows = []
     try:
         rows = source.active_underlying() or []
@@ -107,15 +120,22 @@ def screen_nse_fno(source: Any, *, limit: int = 5, filters: dict | None = None) 
         rows = []
     if not rows:
         return []
+    from trading.screener.commodities import resolve_near_month_fut
+    from trading.screener.options import _broker
+    client = _broker()
     ranked = F.volume_filter(rows, key="volume")[:limit]
     out = []
     for r in ranked:
-        sym = str(r.get("symbol") or r.get("underlying") or "").upper()
-        if not sym:
+        base = str(r.get("symbol") or r.get("underlying") or "").upper()
+        if not base:
             continue
-        out.append(_cand(sym, "futures", "NSE", F._get(r, "volume"),
-                         f"NSE futures: active underlying {sym}",
-                         {"volume": F._get(r, "volume")}, "nselib"))
+        fut = resolve_near_month_fut(client, base, exchange="NFO") if client else None
+        if not fut:
+            continue          # unresolvable/illiquid underlying — never emit a bare symbol
+        out.append(_cand(fut["symbol"], "futures", "NSE", F._get(r, "volume"),
+                         f"NSE futures: active underlying {base} near-month {fut['symbol']}",
+                         {"volume": F._get(r, "volume"), "underlying": base,
+                          "expiry": fut.get("expiry")}, "nselib+openalgo"))
     # re-rank 0..1-ish by volume order
     for i, c in enumerate(out):
         c["score"] = round(1.0 - i / max(len(out), 1) * 0.5, 6)
@@ -233,6 +253,26 @@ def screen_crypto_options(source: Any, *, limit: int = 5,
     rows = _ticker_rows(tickers)
     if not rows:
         return []
+
+    # Drop contracts that expire within ~2h (or already expired): same-day dailies
+    # dominate the volume ranking, but they die at 08:00 UTC — the loop then holds a
+    # watchlist of dead symbols and the options segment opens NOTHING (2026-07-03).
+    # Unified ccxt option symbols embed the expiry: BASE/QUOTE:SETTLE-YYMMDD-STRIKE-C/P.
+    def _expiry_ok(sym: str) -> bool:
+        import datetime as _dt
+        parts = sym.split("-")
+        if len(parts) < 3 or not parts[1].isdigit() or len(parts[1]) != 6:
+            return True                       # unrecognized format — keep, don't guess
+        try:
+            exp = _dt.datetime.strptime(parts[1], "%y%m%d").replace(
+                hour=8, tzinfo=_dt.timezone.utc)   # Deribit/Binance dailies: 08:00 UTC
+        except ValueError:
+            return True
+        return exp - _dt.datetime.now(_dt.timezone.utc) > _dt.timedelta(hours=2)
+
+    rows = [r for r in rows if _expiry_ok(str(r["symbol"]))]
+    if not rows:
+        return []
     rows = F.volume_filter(rows, key="quote_volume")[:limit]
     vmax = max((r["quote_volume"] for r in rows), default=1.0) or 1.0
     return [_cand(r["symbol"], "options", "CRYPTO",
@@ -288,6 +328,10 @@ class Screener:
                 return screen_crypto_futures(self.crypto, limit=limit, filters=filters)
             if s == "options":
                 return screen_crypto_options(self.crypto, limit=limit, filters=filters)
+            if s == "prediction":
+                # Event markets (Polymarket public API; Predict.fun once a key is configured).
+                from trading.screener.prediction import screen_crypto_prediction
+                return screen_crypto_prediction(limit=limit, filters=filters)
         return []
 
     def candidates(self, market: str, segment: str, *, limit: int = 5,

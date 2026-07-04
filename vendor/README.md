@@ -97,3 +97,14 @@ gated foundation nodes (TinyTimeMixerNode / MoiraiNode / LagLlamaNode).
 | lag_llama | time-series-foundation-models/lag-llama | df7531a | LagLlamaNode | (1) `_gluonts_compat.py` shim re-implements the removed `gluonts.torch.modules.loss.{DistributionLoss,NegativeLogLikelihood}`; (2) two import lines repointed to it; (3) `data/`→`ll_data/` rename + import fix to avoid collision with the project's own `data/` package; (4) node aliases the shim into `sys.modules['gluonts.torch.modules.loss']` so the published checkpoint unpickles. |
 
 All three verified end-to-end (real checkpoints, CPU): TTM ~9s, Moirai ~11s, Lag-Llama ~6s.
+
+## CORTEX B3 single-file vendors (2026-07-04, research/cortex-stitch-map.md rows 21-22)
+- `efficient_kan/kan.py` — https://github.com/Blealtan/efficient-kan (src/efficient_kan/kan.py, MIT).
+  KANLinear/KAN: memory-efficient Kolmogorov-Arnold layers. Used as an OPT-IN drop-in for the
+  gate's nn.Linear in nodes/gated_node.py (`use_kan=True`; graceful fallback to Linear).
+  Unmodified upstream source (header comment added).
+- `bocd/bocd.py` — https://github.com/gwgundersen/bocd (bocd.py, Gregory Gundersen).
+  Bayesian Online Changepoint Detection (Adams & MacKay 2007), Gaussian unknown-mean model.
+  core/trust.py runs its recursion ONLINE (message-passing form of the vendored batch `bocd()`)
+  to reset the TrustLedger on run-length collapse. Local edit: matplotlib imports moved inside
+  `plot_posterior()` (headless server).

@@ -35,11 +35,12 @@ class TradingState(str, Enum):
 # `options` (single-leg CE/PE) — each with its own selection + min-trades-per-segment.
 SEGMENTS = {
     "NSE": ["intraday", "mtf", "futures", "options", "commodities"],   # MIS · MTF · FUT · OPT · MCX
-    # Phase F: crypto SPOT + FUTURES moved to Freqtrade/FreqUI; the dashboard keeps only OPTIONS
-    # (Freqtrade can't trade options — they stay on the ccxt path).
-    "CRYPTO": ["options"],                               # options only (spot/futures → Freqtrade)
+    # Mini-Binance goal (operator 2026-07-02): all crypto trade-types selectable at once on ONE
+    # paper wallet. spot+futures execute via Freqtrade (spot needs the 2nd instance); options via
+    # the ccxt/Deribit path; prediction = Predict.fun scan → paper-sim (no Binance REST exec yet).
+    "CRYPTO": ["futures", "spot", "options", "prediction"],
 }
-_DEFAULT_SEGMENTS = {"NSE": ["intraday"], "CRYPTO": ["options"]}   # safe minimal default
+_DEFAULT_SEGMENTS = {"NSE": ["intraday"], "CRYPTO": ["futures"]}   # safe minimal default (live venue)
 
 # Legacy → current segment aliases. The old combined "fno" segment became "futures";
 # migrate it on read so saved online_markets.json / strategy_config.json keep working.

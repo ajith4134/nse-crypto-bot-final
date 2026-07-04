@@ -7,15 +7,18 @@ import { useEffect, useRef, useState } from 'react'
 import { T } from './theme.js'
 
 // All trade-type segments (NSE + CRYPTO) for the per-segment min-open / leverage overrides.
-const ALL_SEGMENTS = ['intraday', 'mtf', 'fno', 'commodities', 'spot', 'futures', 'options']
+// Segment KEYS must match live_loop's segment names exactly — the old legacy 'fno' key
+// mapped to nothing after the futures/options split, so values saved under it were
+// silently ignored (min-trades looked like it "saved 0").
+const ALL_SEGMENTS = ['intraday', 'mtf', 'futures', 'options', 'commodities', 'spot', 'prediction']
 // Built-in default leverage per segment (mirrors live_loop._LEVERAGE) — shown as placeholders.
-const DEFAULT_LEV = { intraday: 5, mtf: 4, fno: 5, commodities: 5, spot: 1, futures: 3, options: 1 }
+const DEFAULT_LEV = { intraday: 5, mtf: 4, futures: 5, options: 1, commodities: 5, spot: 1, prediction: 1 }
 // Live MAX leverage per segment (mirrors live_loop._MAX_LEVERAGE) — used as input caps; the
 // backend also clamps. Overridden by status.leverage_limits when present.
-const MAX_LEV = { intraday: 5, mtf: 5, fno: 10, commodities: 10, spot: 5, futures: 125, options: 1 }
+const MAX_LEV = { intraday: 5, mtf: 5, futures: 125, options: 1, commodities: 10, spot: 5, prediction: 1 }
 // Lot-based NSE segments (qty = num_lots × lot_size) + representative default lots (tunable).
-const LOT_SEGMENTS = ['fno', 'options', 'commodities']
-const DEFAULT_LOT = { fno: 50, options: 50, commodities: 100 }
+const LOT_SEGMENTS = ['futures', 'options', 'commodities']
+const DEFAULT_LOT = { futures: 50, options: 50, commodities: 100 }
 
 const METHODS = [
   { value: 'atr_risk', label: 'ATR risk' },

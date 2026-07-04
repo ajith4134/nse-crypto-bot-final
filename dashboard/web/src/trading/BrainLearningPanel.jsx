@@ -34,6 +34,13 @@ export default function BrainLearningPanel({ intervalMs = 6000 }) {
     if (!topic.trim()) return
     setBusy('learn'); await postJSON('/api/brain/learn', { op: 'topic', topic }); setTopic(''); setBusy(''); refresh()
   }
+  const toggleLoop = async (on) => {
+    setBusy('loop'); await postJSON('/api/brain/learn', { op: on ? 'loop_on' : 'loop_off' }); setBusy(''); refresh()
+  }
+  const queueTopic = async () => {
+    if (!topic.trim()) return
+    setBusy('queue'); await postJSON('/api/brain/learn', { op: 'queue', topic }); setTopic(''); setBusy(''); refresh()
+  }
   const submitLogin = async (site, fields) => {
     setBusy(site); await postJSON('/api/trading/credentials', { op: 'submit', site, values: creds[site] || {} })
     setCreds((c) => ({ ...c, [site]: {} })); setBusy(''); refresh()
@@ -47,6 +54,7 @@ export default function BrainLearningPanel({ intervalMs = 6000 }) {
   const recent = (d.learner && d.learner.recent) || []
   const feed = d.activity || []
   const pending = d.pending_logins || []
+  const loop = d.loop || {}
   const inp = { background: T.panel || '#111', color: T.text, border: `1px solid ${T.gridline}`, borderRadius: 6, padding: '4px 8px', fontSize: 12 }
   const btn = (on) => ({ fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.accent}`, background: on ? T.accent : 'transparent', color: on ? T.bg : T.accent })
 
@@ -71,6 +79,16 @@ export default function BrainLearningPanel({ intervalMs = 6000 }) {
         <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="teach the brain a topic (e.g. stochastic calculus)"
                style={{ ...inp, flex: 1 }} onKeyDown={(e) => e.key === 'Enter' && learnTopic()} />
         <button style={btn(busy === 'learn')} onClick={learnTopic}>{busy === 'learn' ? 'learning…' : 'Learn'}</button>
+        <button style={btn(busy === 'queue')} onClick={queueTopic} title="add to the continuous-learning queue">Queue</button>
+        <button style={btn(!!loop.enabled)} onClick={() => toggleLoop(!loop.enabled)}
+                title="continuous learning: the brain picks a topic every interval (queue → retries → curriculum) and self-evaluates">
+          {loop.enabled ? '∞ Auto-learn ON' : '∞ Auto-learn OFF'}
+        </button>
+      </div>
+      <div style={{ fontSize: 10, color: T.muted, marginTop: -8, marginBottom: 12 }}>
+        {loop.enabled
+          ? `continuous learning: cycle ${loop.cycles || 0} · every ${Math.round((loop.interval_sec || 0) / 60)}m · last: ${(loop.last && loop.last.topic) || '—'}${loop.queue && loop.queue.length ? ` · queued: ${loop.queue.length}` : ''}${loop.last_eval ? ` · retention ${loop.last_eval.final_retention ?? '—'}` : ''}`
+          : 'auto-learn is off — the brain only studies topics you give it'}
       </div>
 
       {/* pending login requests — answer in panel (encrypted server-side) */}

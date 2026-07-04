@@ -5,10 +5,11 @@ verified deterministically. Live wiring (broker LTP + search) is exercised only 
 a Zerodha session is up during market hours — out of scope for unit tests.
 """
 import tempfile
+from pathlib import Path
 
 import trading.state as _state
 
-_state.STATE_DIR = tempfile.mkdtemp()
+_state.STATE_DIR = Path(tempfile.mkdtemp())
 
 from trading.screener import options as O  # noqa: E402
 
