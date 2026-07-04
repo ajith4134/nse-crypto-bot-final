@@ -549,6 +549,7 @@ def _enrich_predictions(*row_lists) -> None:
 _CANDLE_CACHE: dict = {}      # (symbol, market, tf) -> (ts, candles) — short TTL to avoid hammering
 _OB_CACHE: dict = {}          # (symbol, market) -> (ts, payload) — orderbook short cache
 _SYSMAP_CACHE: tuple | None = None   # (ts, body) — /api/network/system 20s cache
+_PRACTICE: dict = {"proc": None}     # single in-flight practice replay subprocess
 _SHARED_CCXT = {}             # one reused ccxt client per (exchange) — avoids per-request load_markets
 
 
@@ -1045,6 +1046,21 @@ class Handler(BaseHTTPRequestHandler):
             # Raw TrustLedger file (real per-node losses/counts — never fabricated).
             return self._send(200, json.dumps(_network_trust_payload()).encode(),
                               "application/json")
+        if path == "/api/trading/practice":
+            # Practice mode: brain trades HISTORIC data (trading/practice.py).
+            try:
+                from data.downloads import list_nse_dump_symbols
+                from trading.practice import list_runs
+                proc = _PRACTICE.get("proc")
+                body = json.dumps({
+                    "runs": list_runs(),
+                    "running": proc is not None and proc.poll() is None,
+                    "nse_symbols": list_nse_dump_symbols(),
+                }).encode()
+            except Exception as e:
+                body = json.dumps({"note": f"practice unavailable: {e}",
+                                   "runs": [], "nse_symbols": []}).encode()
+            return self._send(200, body, "application/json")
         if path == "/api/network/system":
             # Whole-brain system map: every subsystem with working/standby status
             # from real evidence + wired edges (core/system_map.py). 20s cache —
@@ -3016,6 +3032,42 @@ class Handler(BaseHTTPRequestHandler):
             # SUBPROCESS (throttled; never trains in the dashboard process — 524).
             return self._send(200, json.dumps(_network_refresh_start()).encode(),
                               "application/json")
+        if path == "/api/trading/practice/start":
+            # Start a practice replay (brain trades historic data) as a niced
+            # SUBPROCESS — one in-flight run at a time, honest busy answer.
+            try:
+                body_in = json.loads(self.rfile.read(
+                    int(self.headers.get("Content-Length", 0)) or 0) or b"{}")
+            except Exception:
+                body_in = {}
+            proc = _PRACTICE.get("proc")
+            if proc is not None and proc.poll() is None:
+                return self._send(200, json.dumps(
+                    {"started": False, "note": "a practice run is already in flight"}).encode(),
+                    "application/json")
+            sym = str(body_in.get("symbol") or "RELIANCE").upper()
+            interval = str(body_in.get("interval") or "15m")
+            bars = min(5000, max(300, int(body_in.get("bars") or 1200)))
+            explore = bool(body_in.get("explore", True))
+            code = (
+                "from data.downloads import download_nse_history;"
+                "from trading.practice import replay;"
+                f"df = download_nse_history({sym!r}, {interval!r});"
+                f"r = replay(df.tail({bars}).reset_index(drop=True), 'NSE:'+{sym!r},"
+                f" warmup_frac=0.6, explore={explore});"
+                "print(r['run_id'], r['n_trades'])")
+            import subprocess
+            kw = {"cwd": ROOT, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+            try:
+                kw["preexec_fn"] = lambda: os.nice(15)
+            except Exception:
+                pass
+            _PRACTICE["proc"] = subprocess.Popen([sys.executable, "-c", code], **kw)
+            return self._send(200, json.dumps(
+                {"started": True, "symbol": sym, "interval": interval, "bars": bars,
+                 "explore": explore,
+                 "note": "practice run started — results appear in the runs list"}).encode(),
+                "application/json")
         if path == "/api/trading/brain/discovery/run":
             # Trigger a fresh concept-discovery run on REAL recent market data (public Binance
             # klines). Body {symbol?, interval?, use_llm?}. Returns the discovered features +

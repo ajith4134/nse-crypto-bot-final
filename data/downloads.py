@@ -209,6 +209,73 @@ def download_nse_bhavcopy(year: int = 2024, month: int = 1, day: int = 2, *,
     return out
 
 
+# ── NSE historical candles (practice mode, 3-tier) ──────────────────────────
+_NSE_DUMP = os.path.abspath(os.path.join(
+    os.path.dirname(__file__), os.pardir, "vendor", "nse_data_dump",
+    "NSE Minute Data", "NSE_Stocks_Data"))
+
+
+def list_nse_dump_symbols() -> list[str]:
+    """Symbols available in the vendored bulk dump (126 stocks, 1m, 2017-2020)."""
+    if not os.path.isdir(_NSE_DUMP):
+        return []
+    return sorted(f.split("__")[0] for f in os.listdir(_NSE_DUMP)
+                  if f.endswith("__EQ__NSE__NSE__MINUTE.csv"))
+
+
+def load_nse_minute(symbol: str):
+    """1-minute OHLCV DataFrame for `symbol` from the vendored dump
+    (ShabbirHasan1/NSE-Data, real exchange data 2017-2020). Raises with the
+    available-symbols hint when absent — never a stub."""
+    import pandas as pd
+    path = os.path.join(_NSE_DUMP, f"{symbol.upper()}__EQ__NSE__NSE__MINUTE.csv")
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"{symbol} not in the NSE dump ({len(list_nse_dump_symbols())} symbols "
+            f"available — see list_nse_dump_symbols())")
+    df = pd.read_csv(path, parse_dates=["timestamp"])
+    return df.rename(columns={"timestamp": "date"})
+
+
+def download_nse_history(symbol: str, interval: str = "15m", days: int = 60):
+    """NSE historical candles, honest 2-tier: (1) Zerodha via OpenAlgo history
+    (broker-grade, needs the daily Zerodha login) → (2) the vendored bulk 1m
+    dump resampled to `interval`. Raises when neither tier can serve — with
+    both reasons stated (never silent, never fake)."""
+    import datetime as _dt
+
+    import pandas as pd
+    reasons = []
+    try:
+        from trading.openalgo_client import OpenAlgoClient
+        end = _dt.date.today()
+        start = end - _dt.timedelta(days=days)
+        df = OpenAlgoClient()._client().history(
+            symbol=symbol.upper(), exchange="NSE", interval=interval,
+            start_date=start.isoformat(), end_date=end.isoformat())
+        if hasattr(df, "reset_index") and len(df):
+            out = df.reset_index()
+            if "timestamp" in out.columns:
+                out = out.rename(columns={"timestamp": "date"})
+            elif "date" not in out.columns:
+                out = out.rename(columns={out.columns[0]: "date"})
+            return out
+        reasons.append(f"OpenAlgo/Zerodha returned no rows: {df if isinstance(df, dict) else 'empty'}")
+    except Exception as e:
+        reasons.append(f"OpenAlgo/Zerodha: {e}")
+    try:
+        raw = load_nse_minute(symbol)
+        raw = raw.set_index(pd.to_datetime(raw["date"]))
+        rule = interval.replace("m", "min") if interval.endswith("m") else interval
+        out = raw.resample(rule).agg({"open": "first", "high": "max", "low": "min",
+                                      "close": "last", "volume": "sum"}).dropna()
+        return out.reset_index().rename(columns={"index": "date"})
+    except Exception as e:
+        reasons.append(f"bulk dump: {e}")
+    raise RuntimeError("no NSE history available — " + " | ".join(reasons)
+                       + " (log in to Zerodha for live-fresh data)")
+
+
 def locate_freqtrade_1m(base: str | None = None) -> list[str]:
     """Find the on-disk freqtrade 1m dumps the data plan says already exist.
 

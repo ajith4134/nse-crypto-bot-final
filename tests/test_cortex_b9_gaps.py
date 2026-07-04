@@ -182,3 +182,21 @@ class TestDownloadersImportable(unittest.TestCase):     # CANON-05 (offline-safe
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNSEPractice(unittest.TestCase):       # practice-mode data + engine
+    def test_dump_loader(self):
+        from data.downloads import list_nse_dump_symbols, load_nse_minute
+        syms = list_nse_dump_symbols()
+        if not syms:
+            self.skipTest("NSE dump not cloned on this machine")
+        self.assertGreater(len(syms), 50)
+        df = load_nse_minute(syms[0])
+        for col in ("date", "open", "high", "low", "close", "volume"):
+            self.assertIn(col, df.columns)
+        self.assertGreater(len(df), 10_000)
+
+    def test_practice_module_shape(self):
+        from trading import practice
+        self.assertTrue(callable(practice.replay))
+        self.assertEqual(practice.list_runs(0), [])

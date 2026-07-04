@@ -571,7 +571,7 @@ _Assemble per-node golden datasets from cached crypto data._
 
 ## `data/downloads.py`
 _CORTEX B6 — real market-data downloaders (research/ultra-network-data-plan.md)._
-- **functions:** `_ensure_cache() -> str`; `cached_path(name) -> str`; `download_stooq_daily(symbol) -> dict`; `download_binance(symbol, interval, total) -> list[tuple]`; `download_dukascopy(instrument, year, month, day, hours) -> dict`; `download_nse_bhavcopy(year, month, day) -> dict`; `locate_freqtrade_1m(base) -> list[str]`
+- **functions:** `_ensure_cache() -> str`; `cached_path(name) -> str`; `download_stooq_daily(symbol) -> dict`; `download_binance(symbol, interval, total) -> list[tuple]`; `download_dukascopy(instrument, year, month, day, hours) -> dict`; `download_nse_bhavcopy(year, month, day) -> dict`; `list_nse_dump_symbols() -> list[str]`; `load_nse_minute(symbol)`; `download_nse_history(symbol, interval, days)`; `locate_freqtrade_1m(base) -> list[str]`
 - **imports:** __future__, csv, io, lzma, numpy, os, struct, urllib.error, urllib.parse, urllib.request, zipfile
 
 ## `data/external.py`
@@ -1317,7 +1317,7 @@ _CORTEX B8 acceptance tests — final integration (CANON-51/42)._
 
 ## `tests/test_cortex_b9_gaps.py`
 _CORTEX B9 — the 13 PARTIAL→FULL canon gap-closers._
-- **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestSelectiveAccuracy, TestFeatureBus, TestDownloadersImportable
+- **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestSelectiveAccuracy, TestFeatureBus, TestDownloadersImportable, TestNSEPractice
 - **imports:** numpy, os, pandas, tempfile, unittest
 
 ## `tests/test_crypto_t2.py`
@@ -2754,7 +2754,7 @@ _trading/online/controls.py — shared, persisted control surface (O5)._
 ## `trading/online/live_loop.py`
 _trading/online/live_loop.py — the always-on LIVE trade loop (the missing daemon)._
 - **classes:** BrainDecider, LiveTradeLoop
-- **functions:** `trade_type(market, instrument, product, exchange) -> str`; `momentum_decider(window, band)`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
+- **functions:** `trade_type(market, instrument, product, exchange) -> str`; `momentum_decider(window, band)`; `_cortex_shadow_nse(market, symbol, window, d, in_position) -> dict`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
 - **imports:** __future__, collections, threading, time, trading.online, trading.online.session, trading.online.state
 
 ## `trading/online/replay.py`
@@ -2837,6 +2837,11 @@ _trading/options/payoff.py — multi-leg options payoff diagram (T4 §8 of featu
 _trading/options/pcr.py — Put/Call Ratio, OI and volume (T4 §5 of features)._
 - **functions:** `_ratio(put_total, call_total) -> float | None`; `put_call_ratio(call_oi, put_oi) -> dict`
 - **imports:** __future__
+
+## `trading/practice.py`
+_Practice mode — the brain trades HISTORIC data to learn (user mandate_
+- **functions:** `_source(trust_path, explore)`; `replay(df, symbol) -> dict`; `list_runs(limit) -> list`
+- **imports:** __future__, json, numpy, os, time
 
 ## `trading/risk_overlay.py`
 _Risk-map overlay — CANON-49 (JKA-07..10 spec, made honest)._

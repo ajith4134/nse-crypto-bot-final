@@ -11,6 +11,7 @@ import OpenTradesPanel from './OpenTradesPanel.jsx'
 import ScorecardPanel from './ScorecardPanel.jsx'
 import ClosedTradesTable from './ClosedTradesTable.jsx'
 import PnlStrip from './PnlStrip.jsx'
+import PracticePanel from './PracticePanel.jsx'
 import TradeDrilldown from './TradeDrilldown.jsx'
 import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
@@ -146,6 +147,10 @@ export default function TradingDashboard() {
 
       <Card title="Per-trade P&L (CANON-56)" hint="per-trade P&L strip + distribution histogram — real closed trades only">
         <PnlStrip trades={closedT.rows || []} />
+      </Card>
+
+      <Card title="NSE Practice — brain trades historic data" hint="same cortex as crypto, replayed on real 2017-2021 NSE 1m history · isolated practice ledger">
+        <PracticePanel />
       </Card>
 
       <Card title="Strategy Library (institutional templates)" hint="239 named strategies · OOS leaderboard · evolution gated OFF">

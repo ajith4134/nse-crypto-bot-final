@@ -200,10 +200,47 @@ class BrainDecider:
             raw = decision.get("action", "FLAT")
             action = "FLAT" if raw in ("HOLD", "FLAT") else raw   # LONG/SHORT/EXIT pass through
             result = {"action": action, "size": 1.0, "_brain": decision}
+            # CORTEX parity with crypto (user mandate 2026-07-04): consult the
+            # same 28-feature cortex on every NSE decision. CORTEX_SIGNAL=1 →
+            # shadow log + trust pending; CORTEX_TRADE=1 → cortex decides.
+            result = _cortex_shadow_nse(market, symbol, window, result, in_position)
             cache[symbol] = (now, result, in_position)
             return result
         except Exception:
             return None     # any failure → loop falls back to momentum for this tick
+
+
+def _cortex_shadow_nse(market: str, symbol: str, window, d: dict,
+                       in_position: bool) -> dict:
+    """NSE twin of brain_executor._cortex_shadow: the SAME CortexSignalSource
+    (28-feature bus, reflex abstention, risk sizing) consulted on every NSE
+    decision. Shadow by default; CORTEX_TRADE=1 promotes it. Never raises."""
+    import os
+    if os.environ.get("CORTEX_SIGNAL", "") not in ("1", "true", "TRUE", "yes"):
+        return d
+    try:
+        from trading import cortex_signal as cx
+        src = cx.get_cortex_source()
+        key = f"{market}:{symbol}"
+        sig = src.signal(key, window)
+        print(f"[cortex:nse] {symbol} shadow side={sig.get('side')} "
+              f"frac={sig.get('size_fraction')} conf={sig.get('confidence')} "
+              f"tier={sig.get('tier_reached')} experts={sig.get('experts_fired')} "
+              f"reason={sig.get('reason')} | decider={d.get('action')}", flush=True)
+        cx.record_shadow("nse", key, sig, d.get("action"))
+        if sig.get("side") in ("long", "short"):
+            cx.record_pending(key, sig["side"], sig.get("experts_fired") or [])
+        if os.environ.get("CORTEX_TRADE", "") in ("1", "true", "TRUE", "yes"):
+            meta = {"source": "cortex_nse", **{k: sig.get(k) for k in
+                    ("confidence", "tier_reached", "experts_fired", "reason")}}
+            if sig.get("side") == "long":
+                return {"action": "LONG", "size": sig.get("size_fraction", 1.0), "_brain": meta}
+            if sig.get("side") == "short":
+                return {"action": "SHORT", "size": sig.get("size_fraction", 1.0), "_brain": meta}
+            return {"action": ("EXIT" if in_position else "FLAT"), "_brain": meta}
+    except Exception as e:
+        print(f"[cortex:nse] shadow error for {symbol}: {e!r}", flush=True)
+    return d
 
 
 def _brain_decider():
