@@ -544,6 +544,7 @@ def _enrich_predictions(*row_lists) -> None:
 
 _CANDLE_CACHE: dict = {}      # (symbol, market, tf) -> (ts, candles) — short TTL to avoid hammering
 _OB_CACHE: dict = {}          # (symbol, market) -> (ts, payload) — orderbook short cache
+_SYSMAP_CACHE: tuple | None = None   # (ts, body) — /api/network/system 20s cache
 _SHARED_CCXT = {}             # one reused ccxt client per (exchange) — avoids per-request load_markets
 
 
@@ -1040,6 +1041,23 @@ class Handler(BaseHTTPRequestHandler):
             # Raw TrustLedger file (real per-node losses/counts — never fabricated).
             return self._send(200, json.dumps(_network_trust_payload()).encode(),
                               "application/json")
+        if path == "/api/network/system":
+            # Whole-brain system map: every subsystem with working/standby status
+            # from real evidence + wired edges (core/system_map.py). 20s cache —
+            # the probes/stats are cheap but not free.
+            global _SYSMAP_CACHE
+            try:
+                hit = _SYSMAP_CACHE
+                if hit and (time.time() - hit[0]) < 20:
+                    return self._send(200, hit[1], "application/json")
+                from core.system_map import system_map
+                body = json.dumps(system_map()).encode()
+                _SYSMAP_CACHE = (time.time(), body)
+                return self._send(200, body, "application/json")
+            except Exception as e:
+                return self._send(200, json.dumps(
+                    {"note": f"system map unavailable: {type(e).__name__}: {e}"}).encode(),
+                    "application/json")
         if path == "/api/network/antioverfit":
             # CANON-43: anti-overfit telemetry (backtests / free-params / research age).
             try:

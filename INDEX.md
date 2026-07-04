@@ -526,6 +526,11 @@ _Market-segment taxonomy — the CORTEX overlay that tags every neuron with a_
 - **functions:** `segment_for(name, kind) -> str`; `get_segment(key) -> Segment`; `group_by_segment(factories, names, kinds) -> dict[str, list[tuple]]`; `segment_layout(grouped) -> list[dict]`
 - **imports:** __future__, dataclasses
 
+## `core/system_map.py`
+_System map — the WHOLE brain as a wired graph with honest live statuses._
+- **functions:** `_age(path) -> float | None`; `_fmt_age(a) -> str`; `_json_len(path) -> int`; `_probe(port, path) -> bool`; `_proc_running(needle) -> bool`; `_env_on(name) -> bool`; `_node(id_, label, layer, status, evidence, inputs, outputs)`; `_fresh_status(age, window_s, standby_why)`; `system_map() -> dict`
+- **imports:** __future__, glob, json, os, time
+
 ## `core/trust.py`
 _TrustLedger — CORTEX T7: regret-bounded per-node trust (design §1 T7, stitch rows 20-21)._
 - **classes:** _OnlineBOCD, TrustLedger

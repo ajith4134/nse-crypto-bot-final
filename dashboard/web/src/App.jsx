@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import NetworkPanel from './NetworkPanel.jsx'
+import SystemMapPanel from './SystemMapPanel.jsx'
 import ChatPanel from './ChatPanel.jsx'
 import StreamOfMind from './StreamOfMind.jsx'
 import { useBrainThoughts } from './useBrainThoughts.js'
@@ -153,6 +154,8 @@ export default function App() {
           })()}
         </section>
       )}
+
+      <SystemMapPanel />
 
       <NetworkPanel />
 
