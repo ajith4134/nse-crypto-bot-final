@@ -48,7 +48,7 @@ except Exception:  # pragma: no cover - degrade to numpy formula
     _HAS_KEEKS = False
 
 
-_VALID_METHODS = {"atr_risk", "kelly", "vol_target", "ai_meta", "auto"}
+_VALID_METHODS = {"atr_risk", "kelly", "kelly_drawdown", "vol_target", "ai_meta", "auto"}
 
 
 def _side_sign(side: str) -> int:
@@ -240,6 +240,8 @@ class PositionSizer:
             fraction_abs, reason = self._size_atr(capital, per_unit_risk, entry_price)
         elif method == "kelly":
             fraction_abs, reason = self._size_kelly(win_rate, payoff)
+        elif method == "kelly_drawdown":
+            fraction_abs, reason = self._size_kelly_drawdown(win_rate, payoff)
         elif method == "vol_target":
             fraction_abs, reason = self._size_vol_target(volatility)
         elif method == "ai_meta":
@@ -316,6 +318,34 @@ class PositionSizer:
         return fraction, (
             f"atr_risk: risk {self.max_risk_pct:g}% (={risk_amount:.2f}) "
             f"/ per-unit {per_unit_risk:.4f}"
+        )
+
+    def _kelly_drawdown_fraction(self, win_rate, payoff) -> float:
+        """Drawdown-CONSTRAINED Kelly via ``keeks.DrawdownAdjustedKelly``: bounds the bet so the
+        probability of breaching ``max_drawdown_pct`` stays acceptable — more capital-protective
+        than plain fractional Kelly. Falls back to ``_kelly_fraction`` if keeks is absent.
+        """
+        p = float(win_rate)
+        b = float(payoff)
+        if _HAS_KEEKS and DrawdownAdjustedKelly is not None:
+            try:
+                strat = DrawdownAdjustedKelly(
+                    payoff=b, loss=1.0, transaction_cost=0.0,
+                    max_acceptable_drawdown=max(0.01, self.max_drawdown_pct / 100.0),
+                )
+                f = strat.evaluate(p, 1.0)  # bankroll=1 -> result is a fraction of capital
+                return max(0.0, float(f) * self.kelly_fraction)
+            except Exception:  # pragma: no cover - degrade to plain fractional Kelly
+                pass
+        return self._kelly_fraction(win_rate, payoff)
+
+    def _size_kelly_drawdown(self, win_rate, payoff):
+        if win_rate is None or payoff is None:
+            return 0.0, "kelly_drawdown: missing win_rate/payoff -> 0"
+        f = self._kelly_drawdown_fraction(win_rate, payoff)
+        return f, (
+            f"kelly_drawdown: DAK(max_dd={self.max_drawdown_pct:g}%)x{self.kelly_fraction:g} "
+            f"on p={float(win_rate):.2f}, b={float(payoff):.2f} -> {f:.4f}"
         )
 
     def _size_kelly(self, win_rate, payoff):

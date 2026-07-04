@@ -29,6 +29,7 @@ import StrategyLibraryPanel from './StrategyLibraryPanel.jsx'
 import FoundryPanel from './FoundryPanel.jsx'
 import BrainLearningPanel from './BrainLearningPanel.jsx'
 import BrainUltraPanel from './BrainUltraPanel.jsx'
+import BrainOpsPanel from './BrainOpsPanel.jsx'
 import DecisionMemoryPanel from './DecisionMemoryPanel.jsx'
 import ComputerUsePanel from './ComputerUsePanel.jsx'
 import LLMProvidersPanel from './LLMProvidersPanel.jsx'
@@ -167,6 +168,10 @@ export default function TradingDashboard() {
 
       <Card title="Brain Ultra — associative memory · micro-LLM · perception · continual" hint="HippoRAG+A-MEM recall · Claude-style file memory · cloned nanoGPT/llama2.c · Docling reads docs · Avalanche no-forgetting">
         <BrainUltraPanel />
+      </Card>
+
+      <Card title="Brain Ops — subsystems the audit found hidden (real boss/R&D/mind-bus + honest real/demo catalog)" hint="boss directives · R&D inventions · mind event bus (live) + memory/hybrid/librarian/autonomy/stream endpoints, honestly labelled real vs offline-demo">
+        <BrainOpsPanel />
       </Card>
 
       <Card title="LLM Providers — cloud-LLM failover telemetry" hint="per-provider hit-rate · free calls used · failures/rate-limits · last latency · reload cooldown — real core.llm.chat call stats">

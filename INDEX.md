@@ -290,6 +290,11 @@ _ai-scientist state snapshot — grounds ideation in REAL project state._
 - **functions:** `root_of(start) -> Path`; `read_head(p, n) -> str`; `git(root) -> str`; `deps(root)`; `module_inventory(root)`; `latest_audit(root)`; `idea_ledger(root)`; `vendored(root)`; `main()`
 - **imports:** __future__, argparse, collections, json, os, pathlib, re, subprocess, time
 
+## `.claude/skills/cpu-solo/cpu_solo.py`
+_cpu-solo — free all cores for the current test/build/feature by PAUSING (SIGSTOP) the project's_
+- **functions:** `_procs()`; `_self_tree(rows)`; `pause(include_all, min_cpu)`; `resume()`; `status()`; `main()`
+- **imports:** __future__, argparse, os, pathlib, re, signal, subprocess
+
 ## `.claude/skills/dashboard-visual-qa/hook_dashboard_edit.py`
 _PostToolUse hook: when an Edit/Write/MultiEdit touches dashboard / FreqUI / OpenAlgo_
 - **functions:** `is_dashboard_view(path) -> bool`; `main()`
@@ -305,6 +310,12 @@ _founder-intent — gather the REAL build history + the owner's captured intent 
 - **functions:** `sh()`; `read(p, n)`; `git_journey()`; `goal_pillars()`; `memories()`; `research_docs()`; `main()`
 - **imports:** __future__, glob, json, os, pathlib, re, subprocess, time
 
+## `.claude/skills/hot-path/hotpath.py`
+_hot-path — find Python hot paths worth compiling, and report the tooling to do it._
+- **classes:** _Hot
+- **functions:** `cmd_tools()`; `_score(node)`; `cmd_scan(dirs, top)`; `main()`
+- **imports:** __future__, argparse, ast, os, pathlib, shutil
+
 ## `.claude/skills/independent-audit/audit.py`
 _independent-audit — real code+architecture connectivity auditor (REPORT-ONLY)._
 - **functions:** `find_repo_root(start) -> Path`; `is_entrypoint(mod) -> bool`; `is_test(mod) -> bool`; `discover_python(root)`; `build_graph_grimp(pkgs)`; `_resolve(target, known, first_party_top)`; `build_graph_ast(root, modules)`; `is_pkg(mod, modules) -> bool`; `analyse_graph(nodes, edges, max_list)`; `_norm_path(p) -> str`; `audit_dashboard(root)`; `audit_dead_code(root, source_dirs, max_list)`; `audit_index_drift(root, modules, max_list)`; `write_report(root, data) -> Path`; `main()`
@@ -319,6 +330,11 @@ _money-lens — judge any step through the PRIME DIRECTIVE:_
 _Video ingest for the video-understand skill._
 - **functions:** `run(cmd) -> subprocess.CompletedProcess`; `slugify(s) -> str`; `download(url, scratch) -> Path`; `duration_of(video) -> float`; `mmss(t) -> str`; `extract_frames(video, out, scene_th, cap, dur) -> list[dict]`; `transcribe(video, out_dir, model_size) -> dict`; `main() -> None`
 - **imports:** __future__, argparse, json, pathlib, re, subprocess, sys
+
+## `.cortex_build_job.py`
+_run_network.py — CORTEX B7: unified network-state generator → network_state.json._
+- **functions:** `_split(X, y, frac, seed)`; `_split_chrono(X, y, frac)`; `_pair_block(path, n_rows, tf_min, horizon_bars) -> dict | None`; `_real_dataset_multi(rows_per_pair, max_pairs, tf_min, horizon_bars) -> dict`; `_real_dataset(n_rows, tf_min, horizon_bars) -> dict`; `_deep_lane_factories() -> list[tuple]`; `_trust_ledger()`; `main() -> dict`
+- **imports:** __future__, argparse, collections, core.columns, core.segments, data.benchmarks, eval.golden, json, nodes.active_subnet, nodes.reflex, numpy, os, random, run_columns, time
 
 ## `.julia/packages/CondaPkg/lKlVY/test/data/example-python-package/src/example_python_package/__init__.py`
 _(no summary)_

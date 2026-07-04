@@ -4,6 +4,16 @@
 > taken blindly. It captures the user's own words/plans. Secrets are NOT stored
 > here (see `.env.example` / `config.py`).
 
+## ⭐ PRIME DIRECTIVE — the WHY (added 2026-07-04)
+**This project exists to generate consistent, risk-managed income for its owner — a real,
+repeatable living, not a lottery.** Every capability below is a means to that end. Honest truth:
+no system guarantees profit; the path to income is *protect capital, take small risk-managed
+edges, and compound.* **Dual-mode risk:** **PAPER** = unlimited-risk learning lab (blowups are
+training data, no caps — discover what makes money); **LIVE / real money** = capital-preservation
+FIRST, balanced risk, all guardrails enforced, never blow up — reached only after a strategy proves
+consistent profitability on paper. Full statement + the `/money-lens` decision rule live in the
+`/goal` skill; run `/money-lens` before any money/risk/build decision.
+
 ## The Goal (one paragraph)
 Build a **CPU-first "network of prediction models with a brain"**: hundreds of
 ML/DL/quant models wired as **graph "nodes"** (each a full model with its own

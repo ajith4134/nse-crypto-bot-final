@@ -193,6 +193,47 @@ def foundation_names():
     return [c[1] for c in _foundation_candidates_cached()]
 
 
+def _extra_candidates():
+    """Opt-in (MLNB_EXTRA_NODES=1): lightweight quant/denoise/detect/online nodes that were
+    built (nodes/{quant_signal,quant_factor,denoise,detect,noise_router,online}_nodes.py) but
+    never added to the growth pool. Enumerated from an EXPLICIT module list only — NOT a blanket
+    package auto-import — so the dashboard-524 lazy-load guarantee (no heavy torch/chronos chain
+    pulled in at pool-import) is preserved. Each module import and each zero-arg ``*_node`` factory
+    is guarded, so a missing optional dep skips that node instead of breaking the pool.
+    """
+    import importlib
+    import inspect
+
+    mods = ["quant_signal_nodes", "quant_factor_nodes", "denoise_nodes",
+            "detect_nodes", "noise_router", "online_nodes"]
+    out: list = []
+    seen: set = set(n for _, n in _OSS) if "_OSS" in globals() else set()
+    for mname in mods:
+        try:
+            mod = importlib.import_module(f"nodes.{mname}")
+        except Exception:
+            continue  # optional deps absent → skip the whole module, never break the pool
+        for fname, fn in inspect.getmembers(mod, inspect.isfunction):
+            if not fname.endswith("_node") or fname.startswith("_"):
+                continue
+            if getattr(fn, "__module__", None) != mod.__name__:
+                continue  # only factories DEFINED here, not imported helpers
+            try:
+                required = [p for p in inspect.signature(fn).parameters.values()
+                            if p.default is p.empty
+                            and p.kind in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY)]
+            except (TypeError, ValueError):
+                continue
+            if required:
+                continue  # needs args we can't supply generically → skip
+            name = fname[:-5] or fname          # strip the "_node" suffix
+            if name in seen:
+                continue
+            seen.add(name)
+            out.append((lambda fn=fn: fn(), name))
+    return out
+
+
 _OSS = _oss_candidates()
 USING_OSS = bool(_OSS)
 if _OSS:
@@ -200,6 +241,10 @@ if _OSS:
     # Opt-in only: importing the heavy foundation stack is deferred unless explicitly enabled.
     if os.environ.get("MLNB_FOUNDATION_NODES") == "1":
         _OSS.extend(_foundation_candidates_cached())
+    # Opt-in: ~60 lightweight quant/denoise/detect/online nodes that were built but never pooled.
+    # Kept OFF by default to protect the growth-pool fit time (the NoldsChaosNode lesson).
+    if os.environ.get("MLNB_EXTRA_NODES") == "1":
+        _OSS.extend(_extra_candidates())
 
 # OSS pool is primary; falls back to the stdlib miniatures if the stack is absent.
 CANDIDATES = _OSS if USING_OSS else STDLIB_CANDIDATES
