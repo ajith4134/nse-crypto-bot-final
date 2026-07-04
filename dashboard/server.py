@@ -88,8 +88,12 @@ def _network_refresh_start(now: float = None) -> dict:
         kw["preexec_fn"] = lambda: os.nice(15)
     except Exception:
         pass
+    # interactive tier: the ⟳ Refresh button trains a BOUNDED pool (24 pairs,
+    # ~15 min) so it stays responsive and can't clobber a deliberate full-run
+    # (ML_COLUMNS_FULL all-pairs jobs are launched manually and take hours).
+    env = {**os.environ, "ML_NETWORK_PAIRS": os.environ.get("ML_NETWORK_PAIRS_UI", "24")}
     _NETWORK_REFRESH["proc"] = subprocess.Popen(
-        [sys.executable, os.path.join(ROOT, "run_network.py")], **kw)
+        [sys.executable, os.path.join(ROOT, "run_network.py")], env=env, **kw)
     _NETWORK_REFRESH["last"] = now
     return {"started": True, "note": note}
 
