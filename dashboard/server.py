@@ -1020,79 +1020,33 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             with open(os.path.join(STATIC, "index.html"), "rb") as f:
                 return self._send(200, f.read(), "text/html; charset=utf-8")
-        if path == "/api/state":
-            if os.path.exists(STATE):
-                with open(STATE, "rb") as f:
-                    return self._send(200, f.read(), "application/json")
-            return self._send(200, json.dumps(
-                {"project": "no state yet — run `make phase1`",
-                 "nodes": [], "edges": [], "history": []}).encode(),
-                "application/json")
-        if path == "/api/state/routing":
-            # The learned-routing / DGMG comparison (Hellsemble circles-of-difficulty + L2/L3 deep
-            # routers, DESlib KNORA/META-DES, conformal-gated, Caruana, deep-cascade, dynamic-bus,
-            # structure-search) — computed by run_phase3.py into phase3.json but previously unserved.
-            if os.path.exists(PHASE3):
-                with open(PHASE3, "rb") as f:
-                    return self._send(200, f.read(), "application/json")
-            return self._send(200, json.dumps(
-                {"note": "no routing snapshot — run `python -m run_phase3` (writes phase3.json)",
-                 "results": []}).encode(), "application/json")
-        if path == "/api/network/state":
-            # CORTEX B7 unified feed: network_state.json (run_network.py) + freshness.
-            return self._send(200, json.dumps(_network_state_payload()).encode(),
-                              "application/json")
-        if path == "/api/network/trust":
-            # Raw TrustLedger file (real per-node losses/counts — never fabricated).
-            return self._send(200, json.dumps(_network_trust_payload()).encode(),
-                              "application/json")
+        if path == "/api/state":                              # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_state(self)
+        if path == "/api/state/routing":                      # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_state_routing(self)
+        if path == "/api/network/state":                      # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_network_state(self)
+        if path == "/api/network/trust":                      # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_network_trust(self)
         if path == "/api/trading/practice":                   # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_practice(self)
-        if path == "/api/network/system":
-            # Whole-brain system map: every subsystem with working/standby status
-            # from real evidence + wired edges (core/system_map.py). 20s cache —
-            # the probes/stats are cheap but not free.
-            global _SYSMAP_CACHE
-            try:
-                hit = _SYSMAP_CACHE
-                if hit and (time.time() - hit[0]) < 20:
-                    return self._send(200, hit[1], "application/json")
-                from core.system_map import system_map
-                body = json.dumps(system_map()).encode()
-                _SYSMAP_CACHE = (time.time(), body)
-                return self._send(200, body, "application/json")
-            except Exception as e:
-                return self._send(200, json.dumps(
-                    {"note": f"system map unavailable: {type(e).__name__}: {e}"}).encode(),
-                    "application/json")
-        if path == "/api/network/antioverfit":
-            # CANON-43: anti-overfit telemetry (backtests / free-params / research age).
-            try:
-                from trading.antioverfit import telemetry as _ao_tel
-                payload = _ao_tel()
-            except Exception as e:
-                payload = {"note": f"antioverfit telemetry unavailable: {type(e).__name__}: {e}"}
-            return self._send(200, json.dumps(payload).encode(), "application/json")
-        if path == "/api/knowledge":
-            kp = os.path.join(ROOT, "knowledge_state.json")
-            if os.path.exists(kp):
-                with open(kp, "rb") as f:
-                    return self._send(200, f.read(), "application/json")
-            return self._send(200, b'{"nodes":[],"edges":[],"stats":{}}', "application/json")
-        if path == "/api/llm/telemetry":
-            # Real per-provider cloud-LLM call stats (hit-rate / free calls used / cooldown),
-            # recorded inside core.llm.chat's failover loop. Never fabricated.
-            try:
-                from core import llm, llm_telemetry
-                try:
-                    order = llm.configured_order()
-                except Exception:
-                    order = None
-                snap = llm_telemetry.snapshot(order)
-            except Exception as e:
-                snap = {"providers": [], "totals": {}, "error": str(e)[:120]}
-            return self._send(200, json.dumps(snap).encode(), "application/json")
+        if path == "/api/network/system":                     # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_network_system(self)
+        if path == "/api/network/antioverfit":                # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_network_antioverfit(self)
+        if path == "/api/knowledge":                          # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_knowledge(self)
+        if path == "/api/llm/telemetry":                      # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_llm_telemetry(self)
         if path == "/api/trading/venues":                     # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_venues(self)
@@ -1323,11 +1277,9 @@ class Handler(BaseHTTPRequestHandler):
         with _ENDPOINT_CACHE_LOCK:
             for k, v in list(_ENDPOINT_CACHE.items()):
                 _ENDPOINT_CACHE[k] = (0.0, v[1])
-        if path == "/api/network/refresh":
-            # CORTEX B7: rebuild network_state.json via a niced run_network.py
-            # SUBPROCESS (throttled; never trains in the dashboard process — 524).
-            return self._send(200, json.dumps(_network_refresh_start()).encode(),
-                              "application/json")
+        if path == "/api/network/refresh":                    # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
+            from dashboard.routes import network_ext
+            return network_ext.handle_network_refresh(self)
         if path == "/api/trading/practice/start":
             # Start a practice replay (brain trades historic data) as a niced
             # SUBPROCESS — one in-flight run at a time, honest busy answer.
