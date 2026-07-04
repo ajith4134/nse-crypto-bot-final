@@ -564,6 +564,11 @@ _Assemble per-node golden datasets from cached crypto data._
 - **functions:** `ensure(coins, days) -> dict`; `make_combined(coins, target, days) -> dict`; `make_dataset(coin, target) -> dict`; `chrono_split(X, y, train_frac) -> tuple`
 - **imports:** __future__, data, data.sources
 
+## `data/downloads.py`
+_CORTEX B6 — real market-data downloaders (research/ultra-network-data-plan.md)._
+- **functions:** `_ensure_cache() -> str`; `cached_path(name) -> str`; `download_stooq_daily(symbol) -> dict`; `download_binance(symbol, interval, total) -> list[tuple]`; `locate_freqtrade_1m(base) -> list[str]`
+- **imports:** __future__, csv, io, numpy, os, urllib.request
+
 ## `data/external.py`
 _External real-world datasets — multi-dataset evaluation (CONVENTIONS §14)._
 - **functions:** `_rows_from_values(dates, values) -> list[tuple]`; `load_indian_equity(symbol, period) -> list[tuple]`; `load_klines_yf(symbol, interval, period) -> list[tuple]`; `make_mtf_indian(symbol) -> dict`; `load_sunspots() -> list[tuple]`; `load_weather(lat, lon, start, end) -> list[tuple]`; `load_energy() -> list[tuple]`; `load_ecg(record, n, every) -> list[tuple]`; `make_external_dataset(source) -> dict`
@@ -1281,6 +1286,12 @@ _CORTEX B5 acceptance tests — evolution lane + SimLab._
 - **classes:** TestSignals, TestZeroCostTriage, TestNeatLane, TestReinforceEdgeLearner, TestGrowPruneController, TestSimLab
 - **functions:** `_sim_close(seed, n)`
 - **imports:** __future__, nodes.neat_lane, numpy, trading.simlab, unittest
+
+## `tests/test_cortex_b6.py`
+_CORTEX B6 acceptance tests — forecast heads + data downloaders._
+- **classes:** TestRolloutHead, TestEvaluateHead, TestBuildFoundationHeads, TestDownloads
+- **functions:** `_windows(series, L, k, n)`
+- **imports:** __future__, data, io, numpy, trading.heads, unittest
 
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
@@ -2606,6 +2617,12 @@ _Technical-feature layer — thin pandas-ta-classic wrapper (CANON-24/25)._
 _CORTEX fitness engine — mark-to-market scoring + honesty gates (B1, stitch-map rows 1-3)._
 - **functions:** `_to_series(arr, index, name) -> pd.Series`; `_f(x, default) -> float`; `run_signals(close, entries, exits, fee, freq) -> 'vbt.Portfolio'`; `scorecard(pf) -> dict`; `underwater_fitness(pf) -> float`; `persistence_gate(y_true, y_pred, p_max) -> tuple[bool, dict]`; `majority_gate(y_true, y_pred_cls) -> tuple[bool, dict]`; `benchmark_gate(pf, close, fee) -> tuple[bool, dict]`; `honest_report(pf, close, y_true, y_pred, y_true_cls, y_pred_cls) -> dict`
 - **imports:** __future__, dieboldmariano, math, numpy, pandas, vectorbt
+
+## `trading/heads.py`
+_CORTEX B6 — forecast heads: direct + autoregressive rollout on foundation nodes._
+- **classes:** RolloutHead
+- **functions:** `evaluate_head(head, windows, y_true_matrix, k, floor_model, p_max) -> dict`; `build_foundation_heads() -> dict`
+- **imports:** __future__, numpy, trading.rollout
 
 ## `trading/instruments.py`
 _trading/instruments.py — NSE/NFO/MCX instrument master via OpenAlgo._
