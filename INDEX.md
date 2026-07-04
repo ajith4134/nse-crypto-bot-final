@@ -966,6 +966,12 @@ _ReflexArc — CORTEX T3: conditional compute (compute routed like signal)._
 - **functions:** `ltt_threshold(conf, correct, alpha, min_support) -> float`
 - **imports:** __future__, core.node_protocol, nodes.gated_node, numpy
 
+## `nodes/regime_moe.py`
+_AI-scientist idea #7 — Regime-conditioned MoE router (learned gating over frozen experts)._
+- **classes:** RegimeMoERouter
+- **functions:** `_default_experts()`; `regime_moe_node(name) -> RegimeMoERouter`
+- **imports:** __future__, core.node_protocol, numpy
+
 ## `nodes/router_node.py`
 _LearnedRouterNode — Phase 3: dynamic routing between full-model nodes._
 - **classes:** LearnedRouterNode, HellsembleRouterNode, DeepRouterNode
@@ -1635,6 +1641,12 @@ _Trader-psychology engine (order-book depth) — pure-computation tests._
 - **classes:** TestSnapshots, TestSignals, TestJournalWiring, TestDeepLob
 - **functions:** `_snap(mid, bid_boost, ask_boost, ts, levels)`; `_ring(n, bid_boost, ask_boost, seed)`
 - **imports:** collections, pathlib, random, tempfile, time, trading.brain.psychology, trading.state, unittest
+
+## `tests/test_regime_moe.py`
+_AI-scientist idea #7 — Regime-conditioned MoE router (learned gate over frozen experts)._
+- **classes:** TestRegimeMoE
+- **functions:** `_regime_dataset(n, d, seed)`
+- **imports:** core.node_protocol, nodes.regime_moe, numpy, unittest
 
 ## `tests/test_reset_closed.py`
 _tests/test_reset_closed.py — closed-trade reset is brain-safe + isolated._
