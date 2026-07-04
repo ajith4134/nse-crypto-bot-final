@@ -16,6 +16,7 @@ instruction→execution path doesn't change.
 """
 from __future__ import annotations
 
+import os
 import time
 
 import pandas as pd
@@ -211,6 +212,8 @@ class BrainExecutor:
         for sym in self.symbols():
             try:
                 d = self.decider.decide("CRYPTO", sym, None, in_position=(sym in open_pairs))
+                # CORTEX B8 (CANON-51): OPT-IN shadow lane. Env unset → zero change.
+                d = self._cortex_shadow(sym, d, in_position=(sym in open_pairs))
                 act = d.get("action")
                 tag = d.get("tag")                       # brain's chosen strategy for this coin
                 brain = d.get("_brain") or {}
@@ -366,6 +369,49 @@ class BrainExecutor:
         self._last_picks = picks
         return {"entered": entered, "exited": exited, "skipped": skipped,
                 "universe": len(self.symbols()), "picks": picks, "vetoes": []}
+
+    # ── CORTEX B8: shadow signal lane (CANON-51) ──────────────────────────────
+    def _cortex_shadow(self, sym: str, d: dict, *, in_position: bool) -> dict:
+        """OPT-IN CORTEX signal alongside the existing decider.
+
+        CORTEX_SIGNAL=1 : consult CortexSignalSource, LOG both decisions and
+                          persist the comparison (shadow mode) — the existing
+                          decider's decision still trades.
+        CORTEX_TRADE=1  : (additionally) the CORTEX decision REPLACES the
+                          decider's (paper-first; execution path unchanged).
+        Env unset → returns `d` untouched. Never raises."""
+        if os.environ.get("CORTEX_SIGNAL", "") not in ("1", "true", "TRUE", "yes"):
+            return d
+        try:
+            from trading import cortex_signal as cx
+            src = cx.get_cortex_source()
+            df = self.decider._ohlcv(sym)
+            sig = src.signal(sym, df)
+            print(f"[cortex:{self.segment}] {sym} shadow side={sig.get('side')} "
+                  f"frac={sig.get('size_fraction')} conf={sig.get('confidence')} "
+                  f"tier={sig.get('tier_reached')} experts={sig.get('experts_fired')} "
+                  f"regime={sig.get('regime_label')} reason={sig.get('reason')} "
+                  f"| decider={d.get('action')}", flush=True)
+            cx.record_shadow(self.segment, sym, sig, d.get("action"))
+            if sig.get("side") in ("long", "short"):
+                # remember the fired experts → trust feedback on trade close
+                cx.record_pending(sym, sig["side"], sig.get("experts_fired") or [])
+            if os.environ.get("CORTEX_TRADE", "") in ("1", "true", "TRUE", "yes"):
+                meta = {"source": "cortex_b8", **{k: sig.get(k) for k in
+                        ("confidence", "tier_reached", "experts_fired",
+                         "regime_probs", "regime_label", "reason")}}
+                if sig.get("side") == "long":
+                    return {"action": "LONG", "size": sig.get("size_fraction", 1.0),
+                            "tag": "cortex", "_brain": meta}
+                if sig.get("side") == "short":
+                    return {"action": "SHORT", "size": sig.get("size_fraction", 1.0),
+                            "tag": "cortex", "_brain": meta}
+                # cortex says flat: exit an open position, else stay out
+                return {"action": ("EXIT" if in_position else "FLAT"),
+                        "tag": "cortex", "_brain": meta}
+        except Exception as e:
+            print(f"[cortex:{self.segment}] shadow error for {sym}: {e!r}", flush=True)
+        return d
 
     def _entry_vetoed(self, sym: str, act: str, brain: dict) -> bool:
         """True when the learner's CONFIRMED hypotheses strongly contradict this entry.

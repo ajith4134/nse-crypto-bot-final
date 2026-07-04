@@ -55,6 +55,17 @@ def main() -> int:
                       + (f" vetoed={veto}" if veto else ""), flush=True)
             except Exception as e:  # never die on a transient bot/API hiccup
                 print(f"[brain-loop:{seg}] cycle error: {e!r}", flush=True)
+        # CORTEX B8 trust feedback: closed trades → TrustLedger.update for the
+        # experts that fired in the cortex signal (opt-in with CORTEX_SIGNAL=1).
+        if os.environ.get("CORTEX_SIGNAL", "") in ("1", "true", "TRUE", "yes"):
+            try:
+                from trading.cortex_signal import apply_trust_feedback
+                credited = apply_trust_feedback(cli.closed_trades())
+                if credited:
+                    print(f"[cortex-trust] credited {credited} closed trade(s) "
+                          f"to the trust ledger", flush=True)
+            except Exception as e:
+                print(f"[cortex-trust] feedback error: {e!r}", flush=True)
         # Closed learning loop — self-gated by interval; never breaks execution.
         try:
             ls = learn.maybe_run(symbols=bx.symbols())

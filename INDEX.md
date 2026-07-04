@@ -1304,6 +1304,12 @@ _CORTEX B7 tests — run_network.py generator + /api/network/* server helpers._
 - **functions:** `_load_server()`
 - **imports:** importlib.util, json, os, subprocess, sys, tempfile, unittest
 
+## `tests/test_cortex_b8.py`
+_CORTEX B8 acceptance tests — final integration (CANON-51/42)._
+- **classes:** TestCortexSignalSource, _StubDecider, TestShadowMode, TestValidationHoldout, TestTrustFeedback
+- **functions:** `_ohlcv(n, seed, trend)`
+- **imports:** __future__, json, numpy, os, pandas, pathlib, tempfile, trading, trading.state, unittest
+
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
 - **classes:** TestConfig, TestLiquidation, TestOrderBookFill, TestPaperEngine, TestFundingSpread, TestCryptoWatchlist
@@ -2022,6 +2028,12 @@ _trading/config.py — central trading configuration (T1)._
 - **functions:** `_load() -> TradingConfig`
 - **imports:** __future__, config, dataclasses
 
+## `trading/cortex_signal.py`
+_CORTEX B8 — CortexSignalSource: the per-bar live signal pipeline (CANON-51)._
+- **classes:** CortexSignalSource
+- **functions:** `build_features(df) -> tuple[np.ndarray, np.ndarray]`; `default_arc()`; `get_cortex_source() -> CortexSignalSource`; `record_pending(symbol, side, experts_fired) -> None`; `record_shadow(segment, symbol, cortex, decider_action) -> None`; `apply_trust_feedback(closed_trades) -> int`
+- **imports:** __future__, numpy, time
+
 ## `trading/crypto/__init__.py`
 _trading/crypto/ — Trading Phase T2 (Crypto Foundation)._
 - **imports:** __future__, trading.crypto.config
@@ -2060,7 +2072,7 @@ _trading/crypto/freqtrade/ — managed Freqtrade config + launch helper (T-split
 _trading/crypto/freqtrade/brain_executor.py — brain reads strategies as instructions (Phase G)._
 - **classes:** LibraryBrainDecider, BrainExecutor
 - **functions:** `_spot(symbol) -> str`; `library_brain_decider()`
-- **imports:** __future__, pandas, time
+- **imports:** __future__, os, pandas, time
 
 ## `trading/crypto/freqtrade/brain_learning.py`
 _trading/crypto/freqtrade/brain_learning.py — the brain's CLOSED LEARNING LOOP._
@@ -3181,6 +3193,11 @@ _trading/uq/conformal.py — conformal trade-outcome calibration (Pillar 17)._
 - **classes:** TradeUQ
 - **functions:** `self_uncertainty_from_votes(longs, shorts) -> float | None`; `_feat(conf, direction, market, psych) -> list[float]`; `_trade_conf(t)`; `get_uq() -> TradeUQ`
 - **imports:** __future__, math, numpy, os, threading, time, trading
+
+## `trading/validation_holdout.py`
+_CORTEX B8 — live-unseen validation protocol (CANON-42)._
+- **functions:** `_jsonl_path() -> Path`; `_accuracy_path() -> Path`; `record_prediction(ts, symbol, pred, horizon) -> dict`; `_load_all() -> list[dict]`; `_rewrite(records) -> None`; `_candle_close(symbol, ts) -> float | None`; `score_matured(now) -> dict`
+- **imports:** __future__, json, os, pathlib, time
 
 ## `trading/watchlist.py`
 _trading/watchlist.py — persisted NSE watchlist (T1 §6)._
