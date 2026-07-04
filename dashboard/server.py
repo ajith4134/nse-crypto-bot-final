@@ -1046,21 +1046,9 @@ class Handler(BaseHTTPRequestHandler):
             # Raw TrustLedger file (real per-node losses/counts — never fabricated).
             return self._send(200, json.dumps(_network_trust_payload()).encode(),
                               "application/json")
-        if path == "/api/trading/practice":
-            # Practice mode: brain trades HISTORIC data (trading/practice.py).
-            try:
-                from data.downloads import list_nse_dump_symbols
-                from trading.practice import list_runs
-                proc = _PRACTICE.get("proc")
-                body = json.dumps({
-                    "runs": list_runs(),
-                    "running": proc is not None and proc.poll() is None,
-                    "nse_symbols": list_nse_dump_symbols(),
-                }).encode()
-            except Exception as e:
-                body = json.dumps({"note": f"practice unavailable: {e}",
-                                   "runs": [], "nse_symbols": []}).encode()
-            return self._send(200, body, "application/json")
+        if path == "/api/trading/practice":                   # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_practice(self)
         if path == "/api/network/system":
             # Whole-brain system map: every subsystem with working/standby status
             # from real evidence + wired edges (core/system_map.py). 20s cache —
@@ -1105,26 +1093,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 snap = {"providers": [], "totals": {}, "error": str(e)[:120]}
             return self._send(200, json.dumps(snap).encode(), "application/json")
-        if path == "/api/trading/venues":
-            # Multi-venue market-DATA pool telemetry (ban-proofing): per-venue calls, errors,
-            # budget, and ban cooldown across binance/bybit/okx/kucoin — so you can SEE the pool
-            # spreading load and backing off banned venues. Read-only; never constructs a pool.
-            try:
-                from trading.crypto.exchange_pool import all_pools_status
-                blob = all_pools_status()
-            except Exception as e:
-                blob = {"enabled": None, "pools": [], "error": str(e)[:120]}
-            return self._send(200, json.dumps(blob).encode(), "application/json")
-        if path == "/api/trading/brain/discovery":
-            # Concept Discovery Engine: last run's self-invented features + concept manifold.
-            # Read-only (returns the persisted result); POST /run triggers a fresh discovery.
-            try:
-                from trading.brain.discovery import ConceptDiscoveryEngine
-                blob = ConceptDiscoveryEngine.load()
-            except Exception as e:
-                blob = {"features": [], "manifold": {"points": [], "n_clusters": 0},
-                        "stats": {}, "error": str(e)[:120]}
-            return self._send(200, json.dumps(blob).encode(), "application/json")
+        if path == "/api/trading/venues":                     # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_venues(self)
+        if path == "/api/trading/brain/discovery":            # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_brain_discovery(self)
         if path == "/api/brain/agent/status":                 # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
             from dashboard.routes import brain_ext
             return brain_ext.handle_agent_status(self)
@@ -1161,45 +1135,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/brain/embodiment/status":            # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
             from dashboard.routes import brain_ext
             return brain_ext.handle_embodiment_status(self)
-        if path == "/api/trading/status":
-            # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
-            # Lazy import so the dashboard still serves if the trading deps are absent.
-            try:
-                body = json.dumps(_trading_session().status()).encode()
-            except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "Trading T1 not configured — set OPENALGO_API_KEY in .env "
-                            "and start the OpenAlgo server (see trading-execution-blueprint.md).",
-                }).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/trading/crypto/status":
-            # Honest crypto status: reuses a single CryptoSession. Degrades to an
-            # error payload (never crashes the dashboard) if ccxt/config absent.
-            try:
-                snap = _crypto_session().status()
-            except Exception as e:
-                snap = {
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "Crypto T2 not ready — pip install ccxt; optionally set "
-                            "CRYPTO_EXCHANGES in .env (see trading-execution-blueprint.md §7 T2).",
-                }
-            # Additive (T-split B): report the Freqtrade engine state alongside the legacy
-            # crypto session, so the migration is honestly visible. Best-effort — never crashes.
-            try:
-                from trading.crypto.engine_client import CryptoEngineClient
-                snap["engine"] = CryptoEngineClient().as_status()
-            except Exception as e:
-                snap["engine"] = {
-                    "engine": "freqtrade", "connected": False,
-                    "detail": f"{type(e).__name__}: {e}",
-                    "hint": "Freqtrade not ready — pip install freqtrade freqtrade-client; "
-                            "start a bot with api_server enabled (see research/trading-engine-split.md).",
-                }
-            body = json.dumps(snap, default=str).encode()
-            return self._send(200, body, "application/json")
+        if path == "/api/trading/status":                     # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_status(self)
+        if path == "/api/trading/crypto/status":              # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_crypto_status(self)
         if path == "/api/trading/crypto/trades":
             # Phase F+: open + closed Freqtrade trades with full columns (MFE/MAE, USDT P&L,
             # capital placed, leverage). Open via map_open_trade; closed via the 85-col schema.
@@ -1295,20 +1236,9 @@ class Handler(BaseHTTPRequestHandler):
             finally:
                 _PRED_MAP_LOCK.release()
             return self._send(200, body, "application/json")
-        if path == "/api/trading/crypto/markets":
-            # Binance-style live markets/screener feed the brain picks from. Query: segment
-            # (perp|spot), sort (volume|movers|gainers|losers|volatility|funding|price), limit, q.
-            from urllib.parse import parse_qs, urlparse
-            qs = parse_qs(urlparse(self.path).query)
-            g = lambda k, d="": (qs.get(k, [d])[0])
-            try:
-                from trading.crypto.markets import live_markets
-                rows = live_markets(segment=g("segment", "perp"), sort=g("sort", "volume"),
-                                    limit=int(g("limit", "80") or 80), search=g("q", ""))
-                out = {"rows": rows, "n": len(rows), "segment": g("segment", "perp"), "sort": g("sort", "volume")}
-            except Exception as e:
-                out = {"rows": [], "error": f"{type(e).__name__}: {e}"}
-            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
+        if path == "/api/trading/crypto/markets":             # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_crypto_markets(self)
         if path == "/api/trading/crypto/ingest":
             # Phase D: pull Freqtrade CLOSED crypto trades into the journal so the trade→NN
             # bridge keeps learning from crypto. Idempotent (dedup by trade_id). Best-effort.
