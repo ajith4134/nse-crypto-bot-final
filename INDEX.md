@@ -344,6 +344,11 @@ _PostToolUse hook: when an Edit/Write/MultiEdit touches dashboard / FreqUI / Ope
 - **functions:** `is_dashboard_view(path) -> bool`; `main()`
 - **imports:** json, os, sys, time
 
+## `.claude/skills/dashboard-visual-qa/interaction_qa.py`
+_interaction_qa — end-to-end INPUT + BUTTON tester for every dashboard view._
+- **functions:** `_drive(page, ctrl)`; `run(only)`; `_write_md(report, path)`
+- **imports:** argparse, json, os, pathlib, playwright.sync_api, re, time
+
 ## `.claude/skills/dashboard-visual-qa/visual_qa.py`
 _dashboard-visual-qa — screenshot + before/after diff + load-perf + "landed" check_
 - **functions:** `views()`; `reachable(url) -> bool`; `capture(label, only)`; `_pixel_diff(base, cur)`; `compare()`; `promote()`; `lighthouse(url)`; `main()`
