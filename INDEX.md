@@ -602,7 +602,7 @@ _Extracted network / state / knowledge HTTP routes (dashboard/server.py split �
 
 ## `dashboard/routes/post_ext.py`
 _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
-- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`
+- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`; `handle_chat_stream(h)`; `handle_agui(h)`; `handle_crypto_params(h)`; `handle_closedtrades_reset(h)`; `handle_crypto_mode(h)`; `handle_online_control(h)`; `handle_gui_action(h)`
 - **imports:** json, os, sys, threading
 
 ## `dashboard/routes/trading_ext.py`
