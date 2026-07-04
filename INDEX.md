@@ -2,6 +2,25 @@
 
 Regenerate with `make index` (parses the source via AST).
 
+## `.cache/huggingface/hub/models--Maple728--TimeMoE-50M/.no_exist/446753ee48ff3726d0606a81d0092d54acee995e/custom_generate/generate.py`
+_(no summary)_
+
+## `.cache/huggingface/hub/models--Maple728--TimeMoE-50M/snapshots/446753ee48ff3726d0606a81d0092d54acee995e/configuration_time_moe.py`
+_(no summary)_
+- **classes:** TimeMoeConfig
+- **imports:** transformers, typing
+
+## `.cache/huggingface/hub/models--Maple728--TimeMoE-50M/snapshots/446753ee48ff3726d0606a81d0092d54acee995e/modeling_time_moe.py`
+_(no summary)_
+- **classes:** TimeMoeInputEmbedding, TimeMoeRotaryEmbedding, TimeMoeRMSNorm, TimeMoeTemporalBlock, TimeMoeMLP, TimeMoeSparseExpertsLayer, TimeMoeAttention, TimeMoeFlashAttention2, TimeMoeDecoderLayer, TimeMoePreTrainedModel, TimeMoeModel, TimeMoeOutputLayer, TimeMoeForPrediction
+- **functions:** `_get_unpad_data(attention_mask)`; `load_balancing_loss_func(gate_logits, top_k, num_experts, attention_mask) -> torch.Tensor`; `repeat_kv(hidden_states, n_rep) -> torch.Tensor`; `rotate_half(x)`; `apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim)`
+- **imports:** configuration_time_moe, math, torch, torch.nn.functional, transformers, transformers.activations, transformers.modeling_attn_mask_utils, transformers.modeling_outputs, transformers.utils, ts_generation_mixin, typing, warnings
+
+## `.cache/huggingface/hub/models--Maple728--TimeMoE-50M/snapshots/446753ee48ff3726d0606a81d0092d54acee995e/ts_generation_mixin.py`
+_(no summary)_
+- **classes:** TSGenerationMixin
+- **imports:** torch, transformers, transformers.generation, transformers.generation.utils, transformers.utils, typing, warnings
+
 ## `.cache/huggingface/hub/models--amazon--chronos-t5-tiny/.no_exist/29d808298f1a62493e7b9a5e08529d0d930fa189/custom_generate/generate.py`
 _(no summary)_
 
@@ -68,6 +87,31 @@ _(no summary)_
 - **imports:** PIL, config, image_crops, layers, numpy, torch, torch.nn, torch.nn.functional, typing
 
 ## `.cache/huggingface/modules/__init__.py`
+_(no summary)_
+
+## `.cache/huggingface/modules/transformers_modules/Maple728/TimeMoE_hyphen_50M/446753ee48ff3726d0606a81d0092d54acee995e/__init__.py`
+_(no summary)_
+
+## `.cache/huggingface/modules/transformers_modules/Maple728/TimeMoE_hyphen_50M/446753ee48ff3726d0606a81d0092d54acee995e/configuration_time_moe.py`
+_(no summary)_
+- **classes:** TimeMoeConfig
+- **imports:** transformers, typing
+
+## `.cache/huggingface/modules/transformers_modules/Maple728/TimeMoE_hyphen_50M/446753ee48ff3726d0606a81d0092d54acee995e/modeling_time_moe.py`
+_(no summary)_
+- **classes:** TimeMoeInputEmbedding, TimeMoeRotaryEmbedding, TimeMoeRMSNorm, TimeMoeTemporalBlock, TimeMoeMLP, TimeMoeSparseExpertsLayer, TimeMoeAttention, TimeMoeFlashAttention2, TimeMoeDecoderLayer, TimeMoePreTrainedModel, TimeMoeModel, TimeMoeOutputLayer, TimeMoeForPrediction
+- **functions:** `_get_unpad_data(attention_mask)`; `load_balancing_loss_func(gate_logits, top_k, num_experts, attention_mask) -> torch.Tensor`; `repeat_kv(hidden_states, n_rep) -> torch.Tensor`; `rotate_half(x)`; `apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim)`
+- **imports:** configuration_time_moe, math, torch, torch.nn.functional, transformers, transformers.activations, transformers.modeling_attn_mask_utils, transformers.modeling_outputs, transformers.utils, ts_generation_mixin, typing, warnings
+
+## `.cache/huggingface/modules/transformers_modules/Maple728/TimeMoE_hyphen_50M/446753ee48ff3726d0606a81d0092d54acee995e/ts_generation_mixin.py`
+_(no summary)_
+- **classes:** TSGenerationMixin
+- **imports:** torch, transformers, transformers.generation, transformers.generation.utils, transformers.utils, typing, warnings
+
+## `.cache/huggingface/modules/transformers_modules/Maple728/TimeMoE_hyphen_50M/__init__.py`
+_(no summary)_
+
+## `.cache/huggingface/modules/transformers_modules/Maple728/__init__.py`
 _(no summary)_
 
 ## `.cache/huggingface/modules/transformers_modules/__init__.py`
@@ -840,7 +884,7 @@ _Nonlinear-dynamics / chaos / physics nodes — the reuse-first dynamics layer._
 
 ## `nodes/foundation_nodes.py`
 _Tier-1 foundation / SOTA model nodes (groups A–F of research/model-catalog-22parts.md)._
-- **classes:** _ExternalForecastBase, ChronosNode, TimesFMNode, TinyTimeMixerNode, MoiraiNode, LagLlamaNode, _NFForecastBase, PatchTSTNode, ITransformerNode, TFTNode, GPyTorchGPNode, _TorchLoadTrusted, GluonTSDeepARNode, CrossAssetGNNNode, TigramiteCausalNode, RiskfolioWeightNode, PyPortfolioOptWeightNode
+- **classes:** _ExternalForecastBase, ChronosNode, TimesFMNode, TimeMoENode, TinyTimeMixerNode, MoiraiNode, LagLlamaNode, _NFForecastBase, PatchTSTNode, ITransformerNode, TFTNode, GPyTorchGPNode, _TorchLoadTrusted, GluonTSDeepARNode, CrossAssetGNNNode, TigramiteCausalNode, RiskfolioWeightNode, PyPortfolioOptWeightNode
 - **functions:** `_add_vendor_path()`
 - **imports:** __future__, core.node_protocol, nodes.cross_sectional_nodes, nodes.dl_nodes, nodes.quant_nodes, numpy, os, sys, warnings
 
@@ -1051,6 +1095,12 @@ _Remaining catalog ADDs (the MED/LOW-priority nodes skipped in passes 1–4)._
 _Tier-3 infra nodes (groups D/I/J of research/model-catalog-22parts.md)._
 - **classes:** SB3RLExecNode, Alpha360Node, PyGODAnomalyNode, TemporalGraphNode
 - **imports:** __future__, core.node_protocol, nodes.quant_nodes, numpy, warnings
+
+## `nodes/tsfm_ensemble.py`
+_AI-scientist idea #5 — TSFM ensemble + conformal calibration._
+- **classes:** TSFMEnsembleNode
+- **functions:** `_member_classes()`; `tsfm_ensemble_node(name) -> TSFMEnsembleNode`
+- **imports:** __future__, core.node_protocol, nodes.foundation_nodes, numpy
 
 ## `nodes/universal_node.py`
 _UniversalNode — builds a NodeProtocol node from any AlgoSpec (core/algo_registry)._
@@ -1776,6 +1826,12 @@ _Trading Phase T1 (NSE Foundation) acceptance tests._
 _Tests for trading/exits/ — four trailing-exit components over one signed engine._
 - **functions:** `_first_exit(engine, path)`; `test_long_stop_trail_exits_on_drop_from_peak()`; `test_long_stop_trail_ratchets_up_only()`; `test_long_stop_no_exit_while_rising()`; `test_long_profit_trail_arms_only_after_offset()`; `test_long_profit_trail_ratchets_after_arming()`; `test_short_loss_trail_exits_on_rise_from_trough()`; `test_short_profit_trail_ratchets_down()`; `test_short_profit_arms_only_after_offset()`; `test_long_stop_trail_matches_vectorbt_tsl()`; `test_short_trail_matches_vectorbt()`; `test_atr_mode_produces_volatility_scaled_stop()`; `test_chandelier_mode_uses_pandas_ta_classic()`; `test_supertrend_mode_uses_pandas_ta_classic()`; `test_make_exit_returns_correct_wrappers()`; `test_make_exit_passes_config_through()`; `test_make_exit_rejects_unknown_purpose()`; `test_reset_re_arms_for_new_position()`; `test_status_snapshot_shape()`; `test_build_demo_trailing_snapshot()`; `test_engine_signed_core_direct_construction()`
 - **imports:** __future__, numpy, pandas, pytest, trading.exits
+
+## `tests/test_tsfm_ensemble.py`
+_AI-scientist idea #5 — TSFM ensemble + conformal calibration._
+- **classes:** TestTSFMEnsemble, TestTimeMoENode
+- **functions:** `_dataset(n, d, seed)`
+- **imports:** core.node_protocol, nodes.tsfm_ensemble, numpy, os, unittest
 
 ## `tests/test_uq_conformal.py`
 _Pillar 17 — conformal calibrated uncertainty (trading/uq) + sizing gate tests._

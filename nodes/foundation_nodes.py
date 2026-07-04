@@ -203,6 +203,64 @@ class TimesFMNode(_ExternalForecastBase):
         return v[:h]
 
 
+class TimeMoENode(_ExternalForecastBase):
+    """Time-MoE (Maple728/TimeMoE-50M) — a billion-scale-family Mixture-of-Experts TS foundation
+    model (2024/25), decoder-only, zero-shot one-step forecasts via HF transformers. Downloads once
+    from HF (trust_remote_code); CPU inference. AR-falls-back (base class) if transformers/model or
+    network is absent."""
+
+    _MODEL = None
+    REPO = "Maple728/TimeMoE-50M"
+    MIN_CTX = 32
+    STRIDE = 8
+    MAX_CTX = 256
+
+    def __init__(self, name="time_moe", col=0):
+        super().__init__(name, "Time-MoE mixture-of-experts TS foundation model (zero-shot, CPU).", col)
+
+    @classmethod
+    def _model(cls):
+        if cls._MODEL is None:
+            import torch  # noqa: F401
+            from transformers import AutoModelForCausalLM
+            cls._MODEL = AutoModelForCausalLM.from_pretrained(
+                cls.REPO, trust_remote_code=True, device_map="cpu")
+            cls._MODEL.eval()
+        return cls._MODEL
+
+    @staticmethod
+    def _gen(model, ctx: np.ndarray, h: int) -> np.ndarray:
+        """One-shot Time-MoE forecast over a normalized context (its documented usage)."""
+        import torch
+        seq = torch.tensor(ctx, dtype=torch.float32).reshape(1, -1)
+        mean = seq.mean(dim=-1, keepdim=True)
+        std = seq.std(dim=-1, keepdim=True) + 1e-8
+        with torch.no_grad():
+            out = model.generate((seq - mean) / std, max_new_tokens=max(1, h))
+        pred = out[:, -max(1, h):] * std + mean
+        return pred.reshape(-1).cpu().numpy()
+
+    def _fit_forecaster(self, y: np.ndarray) -> np.ndarray:
+        m = self._model()
+        n = len(y)
+        anchors = list(range(self.MIN_CTX, n, self.STRIDE))
+        if not anchors:
+            return np.concatenate([y[:1], y[:-1]])
+        out = np.empty(n, float)
+        out[:anchors[0]] = y[:anchors[0]]
+        for i, a in enumerate(anchors):
+            end = anchors[i + 1] if i + 1 < len(anchors) else n
+            out[a:end] = self._gen(m, y[max(0, a - self.MAX_CTX):a], 1)[0]
+        return out
+
+    def _forecast(self, h: int) -> np.ndarray:
+        m = self._model()
+        v = self._gen(m, self._ytr[-self.MAX_CTX:], max(1, h))
+        if len(v) < h:
+            v = np.concatenate([v, np.full(h - len(v), v[-1] if len(v) else 0.0)])
+        return v[:h]
+
+
 class TinyTimeMixerNode(_ExternalForecastBase):
     """IBM Granite TinyTimeMixer (TTM) — tiny (<1M param) pretrained zero-shot forecaster.
     Vendored (vendor/granite_tsfm). Left-pads/truncates the series to the model context."""

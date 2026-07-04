@@ -103,6 +103,9 @@ def _foundation_candidates():
         (lambda: F.TinyTimeMixerNode(name="tinytimemixer"), "tinytimemixer"),
         (lambda: F.MoiraiNode(name="moirai"), "moirai"),
         (lambda: F.LagLlamaNode(name="lag_llama"), "lag_llama"),
+        (lambda: F.TimeMoENode(name="time_moe"), "time_moe"),                 # idea #5: Time-MoE head
+        (lambda: __import__("nodes.tsfm_ensemble", fromlist=["x"]).tsfm_ensemble_node("tsfm_ensemble"),
+         "tsfm_ensemble"),                                                    # idea #5: ensemble + conformal
         (lambda: F.PatchTSTNode(name="patchtst"), "patchtst"),
         (lambda: F.ITransformerNode(name="itransformer"), "itransformer"),
         (lambda: F.TFTNode(name="tft"), "tft"),
