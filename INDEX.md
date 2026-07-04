@@ -812,6 +812,12 @@ _Advanced ML / topology / control nodes — the reuse-first expansion of the_
 - **functions:** `_readout(task)`; `_ar_fit(s, p)`; `_ar_forecast_column(coef, c0, p, s_train, s_eval) -> np.ndarray`; `gaussian_process_node(max_rows, name) -> GaussianProcessNode`; `catch22_node(win, col, name) -> Catch22Node`; `tsfresh_node(win, col, name) -> TsfreshNode`; `tda_node(win, col, name) -> TDANode`; `causal_select_node(top_k, name) -> CausalSelectNode`; `darts_forecast_node(lags, col, name) -> DartsForecastNode`; `control_sysid_node(lags, col, name) -> ControlSysIDNode`
 - **imports:** __future__, core.node_protocol, numpy, warnings
 
+## `nodes/neat_lane.py`
+_CORTEX B5 — Evolution lane (design §1 T6 signal 5, §6 B5)._
+- **classes:** EvolveTelemetry, NeatLane, ReinforceEdgeLearner, GrowPruneController
+- **functions:** `signals_from_scores(scores, enter, exit_) -> tuple[np.ndarray, np.ndarray]`; `zero_cost_triage(scores, close) -> tuple[bool, dict]`
+- **imports:** __future__, dataclasses, numpy, os, tempfile, trading.fitness
+
 ## `nodes/noise_router.py`
 _NoiseRegimeRouter (ii) — route by detected noise/chaos regime, learning which_
 - **classes:** NoiseRegimeRouter
@@ -1269,6 +1275,12 @@ _CORTEX B4 acceptance tests — brain hub meta-controller._
 - **classes:** TestDFABroadcaster, TestJumpRegime, TestDriftSentry, TestChampionManager, TestBrainHub
 - **functions:** `_trust_path(name) -> str`
 - **imports:** __future__, numpy, os, tempfile, trading.brain, trading.brain.regime_hub, unittest, vendor.dfa
+
+## `tests/test_cortex_b5.py`
+_CORTEX B5 acceptance tests — evolution lane + SimLab._
+- **classes:** TestSignals, TestZeroCostTriage, TestNeatLane, TestReinforceEdgeLearner, TestGrowPruneController, TestSimLab
+- **functions:** `_sim_close(seed, n)`
+- **imports:** __future__, nodes.neat_lane, numpy, trading.simlab, unittest
 
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
@@ -2817,6 +2829,11 @@ _trading/screener/stubs.py — deterministic OFFLINE candidate lists per segment
 _trading/session.py — NSE T1 orchestrator (single honest entry point)._
 - **classes:** NSESession
 - **imports:** __future__, trading, trading.config, trading.instruments, trading.market_toggle, trading.openalgo_client, trading.tick_cache, trading.watchlist
+
+## `trading/simlab.py`
+_CORTEX B5 — SimLab: a psychology-free order-matching market environment (KRF-06/13)._
+- **classes:** SimResult, SimLab
+- **imports:** __future__, dataclasses, datetime, numpy
 
 ## `trading/sizing/__init__.py`
 _Phase-T8: Position / capital sizing layer (NSE + crypto, long & short)._
