@@ -1728,6 +1728,11 @@ _tests/test_reset_closed.py — closed-trade reset is brain-safe + isolated._
 - **functions:** `isolated_state(tmp_path, monkeypatch)`; `test_bad_confirm_deletes_nothing(isolated_state)`; `test_reset_clears_journal_and_freqtrade_and_backs_up(isolated_state)`; `test_case_insensitive_confirm(isolated_state)`; `test_empty_journal_no_backup_no_crash(isolated_state)`
 - **imports:** __future__, json, pytest, trading, trading.journal.reset
 
+## `tests/test_rl_execution.py`
+_AI-scientist idea #8 — RL execution agent (SB3-PPO order slicing beats TWAP)._
+- **classes:** TestExecutionEnv, TestRLExecutionAgent
+- **imports:** trading.execution.rl_exec_env, trading.execution.rl_execution, unittest
+
 ## `tests/test_robust.py`
 _Acceptance test (hardening): the router-grown brain must beat the naive_
 - **classes:** TestRobust
@@ -2853,6 +2858,17 @@ _trading/execution/profit_booking.py — partial profit-booking ladder (T3 §6).
 - **classes:** Rung, BookEvent, ProfitLadder
 - **functions:** `_is_long(side) -> bool`
 - **imports:** __future__, dataclasses
+
+## `trading/execution/rl_exec_env.py`
+_AI-scientist idea #8 — order-execution environment (gymnasium) for the RL slicing agent._
+- **classes:** ExecutionEnv
+- **functions:** `twap_episode_reward(env, seed) -> float`
+- **imports:** __future__, numpy
+
+## `trading/execution/rl_execution.py`
+_AI-scientist idea #8 — RL execution agent (SB3-PPO order slicing over ExecutionEnv)._
+- **classes:** RLExecutionAgent
+- **imports:** __future__, numpy, trading.execution.rl_exec_env
 
 ## `trading/execution/trailing.py`
 _trading/execution/trailing.py — trailing-stop strategies (T3 §3, §4, §5)._
