@@ -597,7 +597,7 @@ _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first ver
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`
 - **imports:** json, sys
 
 ## `dashboard/server.py`
