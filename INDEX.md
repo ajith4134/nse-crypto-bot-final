@@ -600,6 +600,11 @@ _Extracted network / state / knowledge HTTP routes (dashboard/server.py split �
 - **functions:** `_srv(h)`; `handle_state(h)`; `handle_state_routing(h)`; `handle_network_state(h)`; `handle_network_trust(h)`; `handle_network_system(h)`; `handle_network_antioverfit(h)`; `handle_knowledge(h)`; `handle_llm_telemetry(h)`; `handle_network_refresh(h)`
 - **imports:** json, os, sys, time
 
+## `dashboard/routes/post_ext.py`
+_Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
+- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`
+- **imports:** json, os, sys, threading
+
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
 - **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_online_status(h)`

@@ -1280,189 +1280,27 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/network/refresh":                    # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
             from dashboard.routes import network_ext
             return network_ext.handle_network_refresh(self)
-        if path == "/api/trading/practice/start":
-            # Start a practice replay (brain trades historic data) as a niced
-            # SUBPROCESS — one in-flight run at a time, honest busy answer.
-            try:
-                body_in = json.loads(self.rfile.read(
-                    int(self.headers.get("Content-Length", 0)) or 0) or b"{}")
-            except Exception:
-                body_in = {}
-            proc = _PRACTICE.get("proc")
-            if proc is not None and proc.poll() is None:
-                return self._send(200, json.dumps(
-                    {"started": False, "note": "a practice run is already in flight"}).encode(),
-                    "application/json")
-            sym = str(body_in.get("symbol") or "RELIANCE").upper()
-            interval = str(body_in.get("interval") or "15m")
-            bars = min(5000, max(300, int(body_in.get("bars") or 1200)))
-            explore = bool(body_in.get("explore", True))
-            code = (
-                "from data.downloads import download_nse_history;"
-                "from trading.practice import replay;"
-                f"df = download_nse_history({sym!r}, {interval!r});"
-                f"r = replay(df.tail({bars}).reset_index(drop=True), 'NSE:'+{sym!r},"
-                f" warmup_frac=0.6, explore={explore});"
-                "print(r['run_id'], r['n_trades'])")
-            import subprocess
-            kw = {"cwd": ROOT, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
-            try:
-                kw["preexec_fn"] = lambda: os.nice(15)
-            except Exception:
-                pass
-            _PRACTICE["proc"] = subprocess.Popen([sys.executable, "-c", code], **kw)
-            return self._send(200, json.dumps(
-                {"started": True, "symbol": sym, "interval": interval, "bars": bars,
-                 "explore": explore,
-                 "note": "practice run started — results appear in the runs list"}).encode(),
-                "application/json")
-        if path == "/api/trading/brain/discovery/run":
-            # Trigger a fresh concept-discovery run on REAL recent market data (public Binance
-            # klines). Body {symbol?, interval?, use_llm?}. Returns the discovered features +
-            # manifold and persists them for the panel. Never fabricates — needs real candles.
-            try:
-                n = int(self.headers.get("Content-Length", 0) or 0)
-                data = json.loads(self.rfile.read(n) or b"{}")
-                symbol = str(data.get("symbol", "BTCUSDT")).upper().replace("/", "")
-                interval = str(data.get("interval", "1h"))
-                use_llm = bool(data.get("use_llm", False))
-                from data.binance import fetch_klines, load_klines
-                fetch_klines(symbol=symbol, interval=interval, total=800)
-                rows = load_klines(symbol=symbol, interval=interval)   # (date, close, volume)
-                import numpy as np
-                if len(rows) < 60:
-                    raise ValueError("not enough candles")
-                rows = rows[-400:]                                     # bound work for latency
-                closes = np.array([float(r[1]) for r in rows], float)
-                cv = np.array([[float(r[1]), float(r[2])] for r in rows], float)
-
-                def _run_discovery():
-                    try:
-                        from trading.brain.discovery import ConceptDiscoveryEngine
-                        eng = ConceptDiscoveryEngine(use_llm=use_llm)
-                        res = eng.discover(series=closes, ohlcv=cv)
-                        res["symbol"] = symbol
-                        res["interval"] = interval
-                        eng.save()
-                    except Exception:
-                        pass
-
-                # discovery (encoder+SAE+UMAP) is too heavy for a sync HTTP request — run it in
-                # the background and let the panel's GET poll pick up the saved result.
-                threading.Thread(target=_run_discovery, daemon=True).start()
-                return self._send(200, json.dumps(
-                    {"ok": True, "started": True, "symbol": symbol,
-                     "note": "discovery running — results appear in a few seconds"}).encode(),
-                    "application/json")
-            except Exception as e:
-                return self._send(200, json.dumps({"ok": False, "error": str(e)[:160]}).encode(),
-                                  "application/json")
-        if path == "/api/trading/credentials":
-            # Credential vault control. Body {op, site, ...}: op=submit {site, values{}} stores
-            # (encrypted) the operator's answer to a brain login request; op=request {site,
-            # fields[]} raises a pending request; op=forget {site} deletes. Secret values are
-            # accepted here but NEVER echoed back (receipt = field names only) or logged.
-            try:
-                n = int(self.headers.get("Content-Length", 0) or 0)
-                data = json.loads(self.rfile.read(n) or b"{}")
-                from trading.brain.credentials import get_vault
-                v = get_vault(); op = str(data.get("op", "")).lower()
-                if op == "submit":
-                    out = v.submit(str(data.get("site", "")), data.get("values") or {})
-                elif op == "request":
-                    out = v.request_login(str(data.get("site", "")),
-                                          data.get("fields") or ("username", "password"),
-                                          str(data.get("note", "")))
-                elif op == "forget":
-                    out = {"site": data.get("site"), "forgotten": v.forget(str(data.get("site", "")))}
-                else:
-                    out = {"error": "op must be submit|request|forget"}
-            except Exception as e:
-                out = {"error": f"server error: {type(e).__name__}"}
-            return self._send(200, json.dumps(out).encode(), "application/json")
-        if path == "/api/brain/learn":
-            # Brain self-learning control. Body {op, ...}: op=topic {topic} learns a topic
-            # (arXiv+web → KnowledgeBrain); op=pdf {url} ingests a PDF; op=self_eval {topics[]}
-            # quizzes itself (incl. non-trading) for a mastery curve. Runs in a bg thread so the
-            # request never blocks (learning is slow); returns accepted + current status.
-            try:
-                n = int(self.headers.get("Content-Length", 0) or 0)
-                data = json.loads(self.rfile.read(n) or b"{}")
-                from trading.brain.learner import get_learner
-                L = get_learner(); op = str(data.get("op", "")).lower()
-                if op in ("loop_on", "loop_off", "queue", "loop_status"):
-                    # CONTINUOUS learning loop control (trading/brain/learn_loop.py):
-                    # loop_on/off toggles autonomous interval learning; queue adds a topic
-                    # the loop studies next; state persists across restarts.
-                    from trading.brain.learn_loop import get_learn_loop
-                    lp = get_learn_loop()
-                    if op == "loop_on":
-                        out = lp.enable(True)
-                    elif op == "loop_off":
-                        out = lp.enable(False)
-                    elif op == "queue":
-                        out = lp.queue_topic(str(data.get("topic", "")))
-                    else:
-                        out = lp.status()
-                elif op == "self_eval":
-                    out = L.self_evaluate(data.get("topics"))
-                else:
-                    import threading as _th
-                    if op == "topic":
-                        tgt = str(data.get("topic", ""))
-                        _th.Thread(target=lambda: L.learn_topic(tgt), daemon=True).start()
-                    elif op == "pdf":
-                        url = str(data.get("url", ""))
-                        _th.Thread(target=lambda: L.ingest_pdf(url), daemon=True).start()
-                    out = {"accepted": op, "note": "learning in background — watch the activity feed",
-                           "status": L.status()}
-            except Exception as e:
-                out = {"error": f"server error: {type(e).__name__}: {e}"[:200]}
-            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
-        if path == "/api/brain/web":
-            # Autonomous READ-ONLY web screener. Body {op, url|query, site?}: op=screen opens a
-            # URL read-only (screenshot+OCR+DOM text+controls, login via vault if walled);
-            # op=google browses a knowledge-gap query. Emits ephemeral feed events. Never places
-            # orders (execution is API-only). trading/brain/gui/web_screener.py.
-            try:
-                n = int(self.headers.get("Content-Length", 0) or 0)
-                data = json.loads(self.rfile.read(n) or b"{}")
-                from trading.brain.gui.web_screener import get_screener
-                sc = get_screener(); op = str(data.get("op", "screen")).lower()
-                if op == "google":
-                    out = sc.google_gap(str(data.get("query", "")),
-                                        max_sites=int(data.get("max_sites", 1)))
-                else:
-                    out = sc.screen(str(data.get("url", "")), site=data.get("site"),
-                                    want_ocr=bool(data.get("ocr", True)))
-                # never echo secrets; trim big fields
-                if isinstance(out, dict):
-                    out.pop("text", None)
-            except Exception as e:
-                out = {"available": False, "error": f"server error: {type(e).__name__}: {e}"[:200]}
-            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
-        if path == "/api/chat":
-            try:
-                n = int(self.headers.get("Content-Length", 0) or 0)
-                data = json.loads(self.rfile.read(n) or b"{}")
-                from core.chat_brain import chat as brain_chat       # lazy: server starts without it
-                out = brain_chat(data.get("message", ""), data.get("history"))
-            except Exception as e:
-                out = {"reply": "", "sources": [], "thoughts": [],
-                       "error": f"server error: {type(e).__name__}"}
-            return self._send(200, json.dumps(out).encode(), "application/json")
-        if path == "/api/brain/agent":
-            # P4.1 LangGraph BrainAgent: {message, history?} → recall→respond.
-            # Mirrors /api/chat — lazy singleton agent, degrades to an error payload.
-            try:
-                n = int(self.headers.get("Content-Length", 0) or 0)
-                data = json.loads(self.rfile.read(n) or b"{}")
-                out = _brain_agent().ask(data.get("message", ""),
-                                         history=data.get("history"))
-            except Exception as e:
-                out = {"reply": "", "llm_used": False, "used_memory": False,
-                       "recalled": [], "error": f"server error: {type(e).__name__}"}
-            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
+        if path == "/api/trading/practice/start":             # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_practice_start(self)
+        if path == "/api/trading/brain/discovery/run":        # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_brain_discovery_run(self)
+        if path == "/api/trading/credentials":                # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_credentials_post(self)
+        if path == "/api/brain/learn":                        # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_brain_learn(self)
+        if path == "/api/brain/web":                          # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_brain_web(self)
+        if path == "/api/chat":                               # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_chat(self)
+        if path == "/api/brain/agent":                        # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_brain_agent(self)
         if path == "/api/chat/stream":
             n = int(self.headers.get("Content-Length", 0) or 0)
             try:
@@ -1729,22 +1567,9 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
             return self._send(200, json.dumps(out, default=str).encode(), "application/json")
-        if path == "/api/trading/brain/ultra/remember":
-            # Write a durable Claude-style memory note (one fact per file in brain_memory/,
-            # indexed + associatively linked). Body {name, description, body, type}.
-            try:
-                n = int(self.headers.get("Content-Length", 0) or 0)
-                data = json.loads(self.rfile.read(n) or b"{}")
-                from trading.brain import ultra
-                out = ultra.remember(str(data.get("name", "note")),
-                                     str(data.get("description", "")),
-                                     str(data.get("body", "")),
-                                     type=str(data.get("type", "lesson")))
-                body = json.dumps({"ok": True, **out}).encode()
-            except Exception as e:
-                body = json.dumps({"ok": False,
-                                   "error": f"{type(e).__name__}: {e}"}).encode()
-            return self._send(200, body, "application/json")
+        if path == "/api/trading/brain/ultra/remember":       # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
+            from dashboard.routes import post_ext
+            return post_ext.handle_brain_ultra_remember(self)
         if path == "/api/trading/gui/action":
             # Drive the computer-use / GUI agent. JSON body {op, ...}:
             #   op=observe   {target}                      → SEE a dashboard (live read)
