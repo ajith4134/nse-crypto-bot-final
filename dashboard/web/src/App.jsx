@@ -1,14 +1,15 @@
-import React, { useRef, useState } from 'react'
-import Graph3D from './Graph3D.jsx'
-import SigmaNetwork from './SigmaNetwork.jsx'
+import React, { useEffect, useRef, useState } from 'react'
 import NetworkPanel from './NetworkPanel.jsx'
-import { AccuracyBars, NoiseSweep } from './Charts.jsx'
 import ChatPanel from './ChatPanel.jsx'
 import StreamOfMind from './StreamOfMind.jsx'
 import { useBrainThoughts } from './useBrainThoughts.js'
-import { useNetworkState, KIND_COLOR } from './useState.js'
 import TradingDashboard from './trading/TradingDashboard.jsx'
 import MarketWindow from './trading/MarketWindow.jsx'
+
+// The brain page is the LIVING CORTEX view: real trained routing graph from
+// /api/network/state (run_network.py on real market candles) — the old
+// synthetic multi-output demo (run_active.py / mackey_glass) was removed
+// 2026-07-04 on the honest-wiring rule: truth, real data, no demos.
 
 function Kpi({ label, value, sub, pct }) {
   return (
@@ -35,7 +36,16 @@ export default function App() {
   }
 
   const [view, setView] = useState('brain')   // 'brain' | 'trading'
-  const { state, err } = useNetworkState(4000)
+  // CORTEX header state: real network_state.json (real candles, real weights).
+  const [net, setNet] = useState(null)
+  useEffect(() => {
+    let on = true
+    const load = () => fetch('/api/network/state').then((r) => r.json())
+      .then((j) => { if (on) setNet(j) }).catch(() => {})
+    load()
+    const t = setInterval(load, 30000)
+    return () => { on = false; clearInterval(t) }
+  }, [])
   const [thoughts, setThoughts] = useState([])
   const thoughtSeq = useRef(0)
   const onThought = (text) => {
@@ -88,20 +98,15 @@ export default function App() {
     )
   }
 
-  if (!state) {
-    return <div className="loading">{err ? `connection error: ${err}` : 'connecting to ML Network Brain…'}</div>
-  }
-
-  const nodes = state.nodes || []
-  const edges = state.edges || []
-  const heads = state.heads && state.heads.length ? state.heads : null
-  const baseline = state.dataset?.naive_baseline
-  const headline = state.headline_accuracy
-  const getAcc = (n) => n.metrics?.value ?? n.metrics?.test_accuracy ?? 0
-  const best = nodes.filter((n) => !['output', 'input'].includes(n.kind)).reduce((b, n) => {
-    const a = getAcc(n); return a > (b.acc ?? -1) ? { name: n.name, acc: a } : b
-  }, {})
-  const stackChips = (state.stack || '').split('·').map((s) => s.trim()).filter(Boolean)
+  // Real CORTEX summary for the header + KPI strip (network_state.json only).
+  const nodes = net?.nodes || []
+  const edges = net?.edges || []
+  const dsName = net?.dataset?.name
+  const isReal = net?.dataset?.real !== false && !!dsName
+  const headline = net?.headline_accuracy
+  const baseline = net?.dataset?.naive_baseline
+  const compute = net?.compute
+  const stackChips = (net?.stack || '').split('·').map((s) => s.trim()).filter(Boolean)
 
   return (
     <div className="app">
@@ -109,8 +114,9 @@ export default function App() {
         <div className="brand">
           <span className="dot" />
           <div>
-            <h1>{state.project || 'ML Network Brain'}</h1>
-            <small>{state.dataset?.name}</small>
+            <h1>{net?.project || 'ML Network Brain — CORTEX'}</h1>
+            <small>{dsName ? `${dsName}${isReal ? '' : ' ⚠ non-real state — press Refresh'}`
+              : 'live market cortex · real data only'}</small>
           </div>
         </div>
         <div className="chips">
@@ -119,127 +125,52 @@ export default function App() {
         <TabBar />
         <div className="spacer" />
         <div className="gen">
-          updated<br />{state.generated_at || '—'}
+          built<br />{net?.generated_at || '—'}
         </div>
       </header>
 
-      <section className="kpis">
-        {heads ? (
-          <>
-            {heads.map((h) => (
-              <Kpi key={h.name} label={`${h.name} · ${h.task}`}
-                value={Number(h.value).toFixed(3)}
-                sub={`${h.metric} · base ${Number(h.baseline).toFixed(2)} · ${h.beats_baseline ? 'beats ✓' : 'below'}`}
-                pct={(h.task === 'regression' ? Math.max(0, h.value) : h.value) * 100} />
-            ))}
-            <Kpi label="Output heads" value={heads.length}
-              sub={`${nodes.length} nodes · ${edges.length} real edges`} />
-          </>
-        ) : (
-          <>
-            <Kpi label="Headline accuracy" value={headline != null ? headline.toFixed(3) : '—'}
-              sub={`vs baseline ${baseline?.toFixed?.(3) ?? '—'}`}
-              pct={headline ? headline * 100 : 0} />
-            <Kpi label="Nodes" value={nodes.length} sub={`${edges.length} wired edges`} />
-            <Kpi label="Best node" value={best.name || '—'} sub={best.acc ? best.acc.toFixed(3) : ''} />
-            <Kpi label="Stacking (sklearn)" value={state.stacking_accuracy?.toFixed?.(3) ?? '—'}
-              sub="cross-validated meta-learner" />
-            {state.autogluon_accuracy != null &&
-              <Kpi label="AutoGluon" value={state.autogluon_accuracy.toFixed(3)} sub="multi-layer ensemble" />}
-            {state.router_accuracy != null &&
-              <Kpi label="Learned router" value={state.router_accuracy.toFixed(3)} sub="dynamic per-input routing" />}
-            {state.gate_accuracy != null &&
-              <Kpi label="Diff. gate (P3.5)" value={state.gate_accuracy.toFixed(3)} sub="backprop over frozen experts" />}
-            {state.cascade_accuracy != null &&
-              <Kpi label="Deep cascade (P3.6)" value={state.cascade_accuracy.toFixed(3)} sub={`grown depth ${state.cascade_depth ?? '—'} · skip-connected`} />}
-            {state.bus_accuracy != null &&
-              <Kpi label="Dynamic I/O bus (P3.7)" value={state.bus_accuracy.toFixed(3)} sub="heterogeneous-width sources" />}
-            {state.active_subnet != null &&
-              <Kpi label="Active subnetwork (P3.8)" value={`top-${state.active_subnet.top_k}/${state.active_subnet.n_experts}`}
-                sub={`per-input · ${state.active_subnet.n_communities} communities · ${state.active_subnet.mean_active} avg active`} />}
-          </>
-        )}
-      </section>
+      {nodes.length > 0 && (
+        <section className="kpis">
+          <Kpi label="Holdout accuracy" value={headline != null ? Number(headline).toFixed(3) : '—'}
+            sub={`vs naive baseline ${baseline?.toFixed?.(3) ?? '—'} · chronological split`}
+            pct={headline ? headline * 100 : 0} />
+          <Kpi label="Network" value={nodes.length} sub={`${edges.length} real trained edges`} />
+          {net?.active_subnet && (
+            <Kpi label="Active subnetwork"
+              value={`top-${net.active_subnet.top_k}/${net.active_subnet.n_experts}`}
+              sub={`${net.active_subnet.n_communities} Leiden communities · ${net.active_subnet.mean_active} avg active`} />
+          )}
+          {compute && (
+            <Kpi label="Reflex compute" value={`${Math.round((compute.escalation_rate || 0) * 100)}%`}
+              sub={`escalation over ${compute.n_inputs} inputs · stay-flat is a routing outcome`} />
+          )}
+        </section>
+      )}
 
       <NetworkPanel />
 
       <section className="grid">
-        <div className="card graphwrap-card" style={{ padding: 0 }}>
-          {state.firing?.length ? (
-            <SigmaNetwork state={state} />
-          ) : (
-            <>
-              <Graph3D nodes={nodes} edges={edges} dataset={state.dataset} heads={heads} />
-              <div className="legend">
-                {Object.entries(KIND_COLOR).filter(([k]) => nodes.some((n) => n.kind === k)).map(([k, c]) => (
-                  <span key={k}><i style={{ background: c }} />{k}</span>
-                ))}
-              </div>
-            </>
-          )}
+        <div className="card mind-card">
+          <h2>Stream of Mind
+            <button className="think-btn" onClick={() => think('How does the brain decide when to ask for help?')}
+              style={{ marginLeft: 10, fontSize: 12, padding: '2px 10px', cursor: 'pointer',
+                background: '#1b2433', color: '#4cc2ff', border: '1px solid #1e2837', borderRadius: 8 }}>
+              ⚡ Think
+            </button>
+          </h2>
+          <div className="hint">The brain's live state of mind (AG-UI stream) — thoughts fire, glow, then fade; salient ones consolidate to memory.</div>
+          <StreamOfMind thoughts={thoughts} />
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {heads ? (
-            <div className="card">
-              <h2>Output heads (multi-output layer)</h2>
-              <div className="hint">Each head is a real sub-network on the same inputs · walk-forward · vs its task baseline.</div>
-              <div className="bars">
-                {heads.map((h) => {
-                  const v = h.task === 'regression' ? Math.max(0, h.value) : h.value
-                  const b = h.task === 'regression' ? Math.max(0, h.baseline) : h.baseline
-                  return (
-                    <div className="row" key={h.name}>
-                      <div className="nm" title={`${h.name} (${h.task})`}>{h.name}</div>
-                      <div className="track">
-                        <div className="fill" style={{ width: `${Math.min(100, v * 100)}%` }} />
-                      </div>
-                      <div className="pc">{Number(h.value).toFixed(3)}</div>
-                      <div className="pc" style={{ color: h.beats_baseline ? 'var(--good)' : 'var(--bad)' }}>
-                        {h.beats_baseline ? '✓' : '✗'}{Number(b).toFixed(2)}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="baseline-note">✓ = beats the task baseline (majority for classification, mean-predictor for regression).</div>
-            </div>
-          ) : (
-            <div className="card">
-              <h2>Node accuracy ranking</h2>
-              <div className="hint">Per-node test accuracy (walk-forward). Bar colour = node family.</div>
-              <AccuracyBars nodes={nodes} baseline={baseline} />
-            </div>
-          )}
-          {state.noise_sweep?.length > 0 && (
-            <div className="card">
-              <h2>Reservoir accuracy vs injected noise</h2>
-              <div className="hint">How a reservoir node degrades as chaos-noise rises.</div>
-              <NoiseSweep sweep={state.noise_sweep} />
-            </div>
-          )}
-          <div className="card mind-card">
-            <h2>Stream of Mind
-              <button className="think-btn" onClick={() => think('How does the brain decide when to ask for help?')}
-                style={{ marginLeft: 10, fontSize: 12, padding: '2px 10px', cursor: 'pointer',
-                  background: '#1b2433', color: '#4cc2ff', border: '1px solid #1e2837', borderRadius: 8 }}>
-                ⚡ Think
-              </button>
-            </h2>
-            <div className="hint">The brain's live state of mind (AG-UI stream) — thoughts fire, glow, then fade; salient ones consolidate to memory.</div>
-            <StreamOfMind thoughts={thoughts} />
-          </div>
-          <div className="card chat-card">
-            <h2>Brain Chat</h2>
-            <div className="hint">Chat with the brain about the network, nodes and results.</div>
-            <ChatPanel onThought={onThought} />
-          </div>
+        <div className="card chat-card">
+          <h2>Brain Chat</h2>
+          <div className="hint">Chat with the brain about the network, nodes and results.</div>
+          <ChatPanel onThought={onThought} />
         </div>
       </section>
 
       <div className="footer">
-        ML Network Brain · live registry-driven dashboard · React + Three.js + D3 ·
-        {' '}{nodes.length} nodes auto-synced from <code>/api/state</code>
+        ML Network Brain · living CORTEX dashboard · real trained state only ·
+        {' '}{nodes.length} nodes auto-synced from <code>/api/network/state</code>
       </div>
     </div>
   )

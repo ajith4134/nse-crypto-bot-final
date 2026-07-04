@@ -31,59 +31,9 @@ function withAlphaSafe(hex, a) {
   try { return withAlpha(hex, a) } catch { return `rgba(77,163,255,${a})` }
 }
 
-// --- DEMO DATA (deterministic) -------------------------------------------------
-// Generated only when no `candles` prop is supplied so the build/preview always
-// shows something. Clearly marked as demo.
-function demoCandles(n = 120) {
-  const out = []
-  let price = 30000
-  let seed = 1337
-  // tiny deterministic PRNG (mulberry32-ish) so the demo book is stable.
-  const rnd = () => {
-    seed |= 0
-    seed = (seed + 0x6d2b79f5) | 0
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-  const start = Math.floor(Date.UTC(2024, 0, 1) / 1000)
-  for (let i = 0; i < n; i++) {
-    const drift = (rnd() - 0.48) * 600
-    const open = price
-    const close = Math.max(1000, open + drift)
-    const high = Math.max(open, close) + rnd() * 200
-    const low = Math.min(open, close) - rnd() * 200
-    out.push({
-      time: start + i * 3600,
-      open: round2(open),
-      high: round2(high),
-      low: round2(low),
-      close: round2(close),
-    })
-    price = close
-  }
-  return out
-}
-
-function demoVolume(candles) {
-  let seed = 4242
-  const rnd = () => {
-    seed |= 0
-    seed = (seed + 0x6d2b79f5) | 0
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-  return candles.map((c) => ({
-    time: c.time,
-    value: round2(50 + rnd() * 950),
-    color: c.close >= c.open ? withAlpha(T.good, 0.5) : withAlpha(T.bad, 0.5),
-  }))
-}
-
-function round2(v) {
-  return Math.round(v * 100) / 100
-}
+// NO DEMO DATA: this chart renders REAL candles only (honest-wiring rule,
+// user directive 2026-07-04 "truth real data, no demos"). With no candles it
+// shows an explicit waiting state instead of fabricating a series.
 
 // Convert a #rrggbb hex into an rgba() string with the given alpha.
 function withAlpha(hex, a) {
@@ -106,26 +56,23 @@ export default function PriceChart({
 }) {
   const containerRef = useRef(null)
 
-  const isDemo = !candles
-  // Memo-free: cheap deterministic generation; recompute only when props change
-  // is handled inside the effect's dependency list below.
+  const hasData = !!(candles && candles.length)
 
   useEffect(() => {
     const el = containerRef.current
-    if (!el) return
+    if (!el || !hasData) return
 
-    const data = candles && candles.length ? candles : demoCandles()
+    const data = candles
     // Real candles embed `volume` per bar; map volume→value for the histogram.
-    // Falls back to demoVolume only when neither a volume prop nor real volume exists.
     const realVol =
-      candles && candles.length && candles[0].volume != null
+      candles[0].volume != null
         ? candles.map((c) => ({
             time: c.time,
             value: c.volume,
             color: c.close >= c.open ? withAlpha(T.good, 0.5) : withAlpha(T.bad, 0.5),
           }))
         : null
-    const vol = volume && volume.length ? volume : realVol || demoVolume(data)
+    const vol = volume && volume.length ? volume : realVol || []
 
     const chart = createChart(el, {
       width: el.clientWidth || 600,
@@ -249,23 +196,16 @@ export default function PriceChart({
         }}
       >
         <span style={{ fontWeight: 600, letterSpacing: 0.4 }}>{symbol}</span>
-        {isDemo && (
-          <span
-            style={{
-              fontSize: 10,
-              color: T.warn,
-              border: `1px solid ${T.warn}`,
-              borderRadius: 4,
-              padding: '1px 6px',
-              textTransform: 'uppercase',
-              letterSpacing: 0.6,
-            }}
-          >
-            demo data
-          </span>
-        )}
+        <span style={{ fontSize: 10, color: T.muted, letterSpacing: 0.4 }}>live data only</span>
       </div>
-      <div ref={containerRef} style={{ width: '100%' }} />
+      {hasData ? (
+        <div ref={containerRef} style={{ width: '100%' }} />
+      ) : (
+        <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: T.muted, fontSize: 13, fontFamily: 'system-ui, sans-serif' }}>
+          waiting for live candles… (no data is ever fabricated)
+        </div>
+      )}
     </div>
   )
 }

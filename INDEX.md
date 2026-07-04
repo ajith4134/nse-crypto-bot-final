@@ -1074,7 +1074,7 @@ _run_multi.py — the MULTI-OUTPUT network: an output layer of several heads._
 
 ## `run_network.py`
 _run_network.py — CORTEX B7: unified network-state generator → network_state.json._
-- **functions:** `_split(X, y, frac, seed)`; `_trust_ledger()`; `main() -> dict`
+- **functions:** `_split(X, y, frac, seed)`; `_split_chrono(X, y, frac)`; `_real_dataset(n_rows) -> dict`; `_trust_ledger()`; `main() -> dict`
 - **imports:** __future__, argparse, collections, core.columns, core.segments, data.benchmarks, eval.golden, json, nodes.active_subnet, nodes.reflex, numpy, os, random, run_columns, time
 
 ## `run_noise_router.py`

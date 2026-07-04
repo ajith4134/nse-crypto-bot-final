@@ -2,8 +2,10 @@
 
 Supersedes run_active.py/run_columns.py for the dashboard VIZ feed (saved-plan
 Step 4, design §3): fits a HierarchicalGateNode (T4 — per-input active
-subnetwork over Leiden co-activation communities) on the standard synthetic
-regime dataset, runs a small ReflexArc (T3 — conditional compute: cheap sklearn
+subnetwork over Leiden co-activation communities) on REAL market candles from
+the freqtrade store (cortex_signal.build_features, next-bar-up labels,
+chronological split; synthetic regime data survives only in TINY test mode),
+runs a small ReflexArc (T3 — conditional compute: cheap sklearn
 tier → deep hgate tier) to capture the real compute log, and writes
 network_state.json (repo root, NOT state.json) with the SigmaNetwork superset
 schema: every node tagged with column (core.columns), segment+stage
@@ -64,6 +66,43 @@ def _split(X, y, frac=0.7, seed=7):
     return p(X, idx[:cut]), p(y, idx[:cut]), p(X, idx[cut:]), p(y, idx[cut:])
 
 
+def _split_chrono(X, y, frac=0.7):
+    """Ordered train/test cut for REAL market data (CANON-30: no shuffle)."""
+    cut = int(len(X) * frac)
+    return list(X[:cut]), list(y[:cut]), list(X[cut:]), list(y[cut:])
+
+
+def _real_dataset(n_rows: int) -> dict:
+    """REAL market dataset (no demos): freqtrade 1m candles on disk →
+    trading.cortex_signal.build_features (CANON-24 warm-up gated, the SAME
+    features the live shadow signal uses) → next-bar-up labels (CANON-27).
+    Raises if no real data is on disk — never silently falls back to synthetic
+    (honest-wiring / never-data-gate)."""
+    import pandas as pd
+    from data.downloads import locate_freqtrade_1m
+    from trading.cortex_signal import FEATURE_NAMES, build_features
+    files = locate_freqtrade_1m()
+    pick = ([f for f in files if "BTC_USDT_USDT-1m-futures" in f]
+            or [f for f in files if "BTC_USDT" in f] or files)
+    if not pick:
+        raise RuntimeError("no real 1m candle data on disk — run the freqtrade "
+                           "downloader first (never fake a dataset)")
+    path = pick[0]
+    df = pd.read_feather(path).tail(n_rows + 400)     # +warm-up headroom
+    X, close = build_features(df)
+    if len(X) < 50:
+        raise RuntimeError(f"real dataset too short after warm-up gating: {len(X)} rows")
+    y = (close[1:] > close[:-1]).astype(int)          # label i = next-bar direction
+    X = X[:-1][-n_rows:]
+    y = y[-n_rows:]
+    parts = os.path.basename(path).split("-1m")[0].split("_")
+    pair = f"{parts[0]}/{parts[1]}" + (f":{parts[2]}" if len(parts) > 2 else "")
+    return {"name": f"{pair} 1m (real candles, next-bar-up)", "n": len(X),
+            "X": [list(map(float, r)) for r in X], "y": [int(v) for v in y],
+            "features": len(FEATURE_NAMES), "feature_names": list(FEATURE_NAMES),
+            "source": f"freqtrade store: {os.path.basename(path)}"}
+
+
 def _trust_ledger():
     """Real TrustLedger IF its JSON file exists (never fabricate trust)."""
     from core.trust import TrustLedger
@@ -85,8 +124,14 @@ def main() -> dict:
     epochs = 40 if TINY else 150
     folds = 2 if TINY else 3
 
-    ds = make_regime_dataset(n=n_rows, noise_hi=0.15, seed=7)
-    Xtr, ytr, Xte, yte = _split(ds["X"], ds["y"])
+    # REAL market data in production (no demos); the synthetic regime set survives
+    # ONLY in TINY mode (test smoke of the generator machinery, labeled as such).
+    if TINY:
+        ds = make_regime_dataset(n=n_rows, noise_hi=0.15, seed=7)
+        Xtr, ytr, Xte, yte = _split(ds["X"], ds["y"])
+    else:
+        ds = _real_dataset(n_rows)
+        Xtr, ytr, Xte, yte = _split_chrono(ds["X"], ds["y"])   # CANON-30
 
     trust_ledger, trust_snap = _trust_ledger()
 
@@ -152,7 +197,9 @@ def main() -> dict:
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "stack": "Leiden-community hgate · reflex conditional compute · trust-biased routing",
         "dataset": {"name": ds["name"], "n": ds["n"], "train": len(Xtr), "test": len(Xte),
-                    "naive_baseline": round(max(up, 1 - up), 4)},
+                    "naive_baseline": round(max(up, 1 - up), 4),
+                    "source": ds.get("source", "synthetic (TINY test mode)"),
+                    "real": not TINY},
         "headline_accuracy": acc,
         "gate_accuracy": acc,
         "nodes": nodes,
