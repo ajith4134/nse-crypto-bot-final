@@ -1267,33 +1267,9 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 out = {"events": [], "error": f"{type(e).__name__}: {e}"[:160]}
             return self._send(200, json.dumps(out, default=str).encode(), "application/json")
-        if path == "/api/brain/ops":
-            # Brain-Ops overview (2026-07-04, Wave-0 ④): surfaces the brain subsystems the audit
-            # found had backend endpoints but NO panel. REAL data where cheap (boss directives,
-            # R&D inventions, mind event-bus stats); the heavier subsystems are listed with an
-            # HONEST real/demo flag + their own path (fetched per-tile), never fabricated.
-            out = {"live": {}, "subsystems": []}
-            try:
-                from trading.brain import boss as _boss
-                from trading.brain import rnd as _rnd
-                from trading.brain import mind_events as _me
-                d = _boss.directives()
-                if isinstance(d, dict):
-                    d.pop("history", None)
-                out["live"] = {"boss": d, "rnd": _rnd.status(), "mind_bus": _me.status()}
-            except Exception as e:
-                out["error"] = f"{type(e).__name__}: {e}"[:160]
-            out["subsystems"] = [
-                {"key": "boss", "label": "Boss directives + R&D", "path": "/api/brain/boss/status", "real": True},
-                {"key": "mind", "label": "Mind event bus", "path": "/api/brain/mind/events", "real": True},
-                {"key": "agent", "label": "Brain agent", "path": "/api/brain/agent/status", "real": False},
-                {"key": "autonomy", "label": "Self-coding autonomy", "path": "/api/brain/autonomy/status", "real": False},
-                {"key": "memory", "label": "Human memory", "path": "/api/brain/memory/status", "real": False},
-                {"key": "hybrid", "label": "Hybrid memory", "path": "/api/brain/hybrid/status", "real": False},
-                {"key": "librarian", "label": "Librarian", "path": "/api/brain/librarian/status", "real": False},
-                {"key": "stream", "label": "Stream of mind", "path": "/api/brain/stream/status", "real": False},
-            ]
-            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
+        if path == "/api/brain/ops":                          # body extracted → dashboard/routes/brain_ext.py (Wave0-⑤ seam)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_ops(self)
         if path == "/api/brain/boss":
             # Boss command engine: directives in force + R&D drive inventions. NOT named
             # */status on purpose — that suffix gets the 8s dispatch cache, and this must

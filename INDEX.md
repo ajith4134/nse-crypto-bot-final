@@ -587,6 +587,14 @@ _dashboard/brain_live.py — LIVE brain snapshots from REAL data._
 - **functions:** `_cached(key, fn)`; `_ccxt_client()`; `_real_journal()`; `_real_ohlcv(symbol, tf, limit)`; `_experience() -> dict`; `_patterns() -> dict`; `_pipeline() -> dict`; `_news() -> dict`; `live_news() -> dict`; `_skills() -> dict`; `live_skills() -> dict`; `_ensure_warm()`; `_warming(extra) -> dict`; `live_experience() -> dict`; `live_patterns() -> dict`; `live_pipeline() -> dict`
 - **imports:** __future__, threading, time
 
+## `dashboard/routes/__init__.py`
+_(no summary)_
+
+## `dashboard/routes/brain_ext.py`
+_Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
+- **functions:** `handle_ops(h)`
+- **imports:** json
+
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
 - **classes:** Handler, BoundedHTTPServer
