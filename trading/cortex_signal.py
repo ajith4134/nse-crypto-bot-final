@@ -185,20 +185,23 @@ class CortexSignalSource:
         return self
 
     def _stash_and_maybe_pool(self, symbol: str, X, close) -> None:
-        """Stash this pair's (X,y) and, once POOL_MIN_PAIRS distinct pairs have
-        been seen, refit the shared arc on ALL pairs pooled (one-time, logged).
-        Features are scale-invariant so pooling is honest across coins."""
+        """Stash this pair's (X,y) and refit the shared arc pooled at every
+        DOUBLING of distinct pairs seen (8, 16, 32, … — user mandate: train on
+        ALL pairs, so the arc keeps converging toward the full universe as the
+        loop touches it). Features are scale-invariant so pooling is honest."""
         try:
             y = (close[1:] > close[:-1]).astype(int)
             self._pool[symbol] = (X[:-1][-800:], y[-800:])     # bounded memory
-            if not self._pooled and len(self._pool) >= POOL_MIN_PAIRS:
+            n = len(self._pool)
+            next_at = POOL_MIN_PAIRS if not self._pooled else self._pooled * 2
+            if n >= next_at:
                 Xp = np.vstack([x for x, _ in self._pool.values()])
                 yp = np.concatenate([v for _, v in self._pool.values()])
                 arc = default_arc()
                 arc.fit(Xp.tolist(), yp.tolist())
                 self.arc = arc
-                self._pooled = True
-                print(f"[cortex] arc refit POOLED on {len(self._pool)} pairs "
+                self._pooled = n                               # last pool size
+                print(f"[cortex] arc refit POOLED on {n} pairs "
                       f"({len(yp)} rows, {Xp.shape[1]} features incl. order-book)",
                       flush=True)
         except Exception as e:

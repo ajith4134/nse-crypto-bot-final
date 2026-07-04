@@ -230,7 +230,9 @@ def main() -> dict:
     else:
         ds = _real_dataset_multi(
             rows_per_pair=int(os.environ.get("ML_NETWORK_ROWS", "400")),
-            max_pairs=int(os.environ.get("ML_NETWORK_PAIRS", "24")))
+            # ALL pairs on disk by default (user mandate 2026-07-04); set
+            # ML_NETWORK_PAIRS to bound CPU time for a quick refresh.
+            max_pairs=int(os.environ.get("ML_NETWORK_PAIRS", "100000")))
         blocks = ds["blocks"]
         # pooled chronological split per pair (CANON-30: no shuffle within a pair)
         def _cat(frac_a, frac_b):
