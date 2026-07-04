@@ -1264,6 +1264,12 @@ _CORTEX B3 acceptance tests — reflex arc + hierarchical gates + trust._
 - **functions:** `_pool(want)`; `_split(X, y, frac, seed)`; `_naive(y)`; `_fresh_path(name)`; `_gate_problem(seed, n, d)`; `_easy_data(n, seed)`; `_xor_data(n, seed)`; `_noise_data(n, seed)`
 - **imports:** __future__, core.trust, data.benchmarks, nodes, nodes.active_subnet, nodes.gated_node, nodes.reflex, numpy, os, random, tempfile, unittest
 
+## `tests/test_cortex_b4.py`
+_CORTEX B4 acceptance tests — brain hub meta-controller._
+- **classes:** TestDFABroadcaster, TestJumpRegime, TestDriftSentry, TestChampionManager, TestBrainHub
+- **functions:** `_trust_path(name) -> str`
+- **imports:** __future__, numpy, os, tempfile, trading.brain, trading.brain.regime_hub, unittest, vendor.dfa
+
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
 - **classes:** TestConfig, TestLiquidation, TestOrderBookFill, TestPaperEngine, TestFundingSpread, TestCryptoWatchlist
@@ -1913,6 +1919,12 @@ _trading/brain/regime.py — market-regime detection + regime-gated activation (
 - **classes:** RegimeModel, RegimeGate
 - **functions:** `_observations(ohlcv) -> np.ndarray`
 - **imports:** __future__, dataclasses, hmmlearn, numpy, pandas
+
+## `trading/brain/regime_hub.py`
+_CORTEX B4 — Brain hub: the meta-controller (design §1 T7)._
+- **classes:** JumpRegime, DriftSentry, _EwmaDrift, ChampionManager, HubDecision, BrainHub
+- **functions:** `_feed(det, x) -> bool`
+- **imports:** __future__, core.trust, dataclasses, numpy, vendor.dfa, warnings
 
 ## `trading/brain/researcher.py`
 _trading/brain/researcher.py — Phase-T8 (deferred A2): lightweight autonomous web research._
