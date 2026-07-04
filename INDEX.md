@@ -526,6 +526,11 @@ _Market-segment taxonomy — the CORTEX overlay that tags every neuron with a_
 - **functions:** `segment_for(name, kind) -> str`; `get_segment(key) -> Segment`; `group_by_segment(factories, names, kinds) -> dict[str, list[tuple]]`; `segment_layout(grouped) -> list[dict]`
 - **imports:** __future__, dataclasses
 
+## `core/trust.py`
+_TrustLedger — CORTEX T7: regret-bounded per-node trust (design §1 T7, stitch rows 20-21)._
+- **classes:** _OnlineBOCD, TrustLedger
+- **imports:** __future__, json, math, numpy, os
+
 ## `dashboard/brain_live.py`
 _dashboard/brain_live.py — LIVE brain snapshots from REAL data._
 - **functions:** `_cached(key, fn)`; `_ccxt_client()`; `_real_journal()`; `_real_ohlcv(symbol, tf, limit)`; `_experience() -> dict`; `_patterns() -> dict`; `_pipeline() -> dict`; `_news() -> dict`; `live_news() -> dict`; `_skills() -> dict`; `live_skills() -> dict`; `_ensure_warm()`; `_warming(extra) -> dict`; `live_experience() -> dict`; `live_patterns() -> dict`; `live_pipeline() -> dict`
@@ -664,6 +669,12 @@ _ctypes wrapper for native hot kernels, with pure-Python fallback._
 ## `nodes/__init__.py`
 _(no summary)_
 
+## `nodes/active_subnet.py`
+_HierarchicalGateNode — CORTEX T4: hierarchical per-input active subnetwork._
+- **classes:** HierarchicalGateNode
+- **functions:** `_igraph_communities(coact) -> list[int]`; `_nx_communities(coact) -> list[int]`; `detect_communities(coact) -> list[int]`
+- **imports:** __future__, core.node_protocol, nodes.gated_node, numpy
+
 ## `nodes/advanced_ml_nodes.py`
 _Sklearn-style estimator wrappers for advanced ML libraries that are NOT_
 - **classes:** BayesianGMMClassifier, SurvivalForestClassifier, XGBoostLSSRegressor, XGBoostLSSClassifier, LightGBMLSSRegressor, MetricLearnKNN, BARTRegressor, BARTClassifier, MMDFeature
@@ -758,7 +769,7 @@ _Frontier nodes: quantum-inspired kernels, a reinforcement-learning policy, and_
 ## `nodes/gated_node.py`
 _GatedMoENode — P3.5: the DIFFERENTIABLE GATE (the real neural-network loop)._
 - **classes:** GatedMoENode
-- **functions:** `kfold_indices(n, folds) -> list[list[int]]`; `standardize_fit(Xa) -> tuple[np.ndarray, np.ndarray]`; `gate_train(Xz, meta, y, cls, epochs, lr, balance_coef, noisy, top_k, seed)`; `gate_weights(gate, noise, Xz, top_k, E) -> np.ndarray`; `gate_combine(w, meta, cls) -> np.ndarray`
+- **functions:** `kfold_indices(n, folds) -> list[list[int]]`; `standardize_fit(Xa) -> tuple[np.ndarray, np.ndarray]`; `_build_gate(d, E, use_kan)`; `gate_train(Xz, meta, y, cls, epochs, lr, balance_coef, noisy, top_k, seed, prior_bias, use_kan)`; `gate_weights(gate, noise, Xz, top_k, E, prior_bias) -> np.ndarray`; `gate_combine(w, meta, cls) -> np.ndarray`
 - **imports:** __future__, core.node_protocol, numpy
 
 ## `nodes/github_feature_nodes.py`
@@ -858,6 +869,12 @@ _Quant-finance SIGNAL + LABELING nodes behind the project NodeProtocol._
 - **classes:** TSMOMNode, OUMeanReversionNode, BollingerZNode, MetaLabelingNode, TripleBarrierNode
 - **functions:** `_log_returns(win) -> np.ndarray`; `_realized_vol(win) -> float`; `tsmom_node() -> TSMOMNode`; `ou_meanrev_node() -> OUMeanReversionNode`; `bollinger_z_node() -> BollingerZNode`; `meta_labeling_node() -> MetaLabelingNode`; `triple_barrier_node() -> TripleBarrierNode`
 - **imports:** __future__, nodes.quant_nodes, numpy, warnings
+
+## `nodes/reflex.py`
+_ReflexArc — CORTEX T3: conditional compute (compute routed like signal)._
+- **classes:** ReflexArc
+- **functions:** `ltt_threshold(conf, correct, alpha, min_support) -> float`
+- **imports:** __future__, core.node_protocol, nodes.gated_node, numpy
 
 ## `nodes/router_node.py`
 _LearnedRouterNode — Phase 3: dynamic routing between full-model nodes._
@@ -1240,6 +1257,12 @@ _CORTEX B2 tests — video lanes, scratch core, risk overlay, rollout, TA._
 - **classes:** TestBuildWindows, TestVideoLanes, TestScratchCore, TestRiskOverlay, TestRollout, TestFeaturesTA
 - **functions:** `_sine_data(n, f, seed)`
 - **imports:** __future__, core.node_protocol, numpy, unittest
+
+## `tests/test_cortex_b3.py`
+_CORTEX B3 acceptance tests — reflex arc + hierarchical gates + trust._
+- **classes:** TestTrustLedger, TestGatePriorBias, TestHierarchicalGateNode, TestReflexArc
+- **functions:** `_pool(want)`; `_split(X, y, frac, seed)`; `_naive(y)`; `_fresh_path(name)`; `_gate_problem(seed, n, d)`; `_easy_data(n, seed)`; `_xor_data(n, seed)`; `_noise_data(n, seed)`
+- **imports:** __future__, core.trust, data.benchmarks, nodes, nodes.active_subnet, nodes.gated_node, nodes.reflex, numpy, os, random, tempfile, unittest
 
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._

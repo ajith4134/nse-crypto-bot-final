@@ -44,13 +44,31 @@ def standardize_fit(Xa: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 # --------------------------------------------------------------------------- #
 #  Reusable differentiable-gate primitives (shared by GatedMoENode + cascade)
 # --------------------------------------------------------------------------- #
+def _build_gate(d: int, E: int, use_kan: bool):
+    """Gate builder: nn.Linear by default; vendored KANLinear when use_kan=True
+    (learnable-activation capacity in the WIRING only — falls back to Linear if
+    the vendor import fails, so use_kan can never break a caller)."""
+    import torch
+    if use_kan:
+        try:
+            from vendor.efficient_kan.kan import KANLinear
+            return KANLinear(d, E)
+        except Exception:
+            pass
+    return torch.nn.Linear(d, E)
+
+
 def gate_train(Xz: np.ndarray, meta: np.ndarray, y: np.ndarray, cls: bool,
                epochs: int, lr: float, balance_coef: float, noisy: bool,
-               top_k: int, seed: int):
+               top_k: int, seed: int, prior_bias: np.ndarray | None = None,
+               use_kan: bool = False):
     """Train a softmax gate g(x) over E experts by backprop. Returns (gate, noise).
 
     Xz   : (n, d) standardized gate inputs.
     meta : (n, E, K) frozen expert outputs (detached constants).
+    prior_bias : optional (E,) logits added BEFORE softmax/top-k (e.g. the brain's
+                 TrustLedger.bias_vector — T7 trust bias). None = exact old behavior.
+    use_kan    : replace the gate's nn.Linear with the vendored KANLinear.
     """
     import torch
     torch.manual_seed(seed)
@@ -60,13 +78,17 @@ def gate_train(Xz: np.ndarray, meta: np.ndarray, y: np.ndarray, cls: bool,
     Mt = torch.tensor(meta, dtype=torch.float32)
     yt = (torch.tensor(y.astype(int), dtype=torch.long) if cls
           else torch.tensor(y.astype(float), dtype=torch.float32))
-    gate = torch.nn.Linear(d, E)
+    bias_t = (torch.tensor(np.asarray(prior_bias, dtype=float), dtype=torch.float32)
+              if prior_bias is not None else None)
+    gate = _build_gate(d, E, use_kan)
     noise = torch.nn.Linear(d, E) if noisy else None
     params = list(gate.parameters()) + (list(noise.parameters()) if noise else [])
     opt = torch.optim.Adam(params, lr=lr)
     for _ in range(epochs):
         opt.zero_grad()
         logits = gate(Xt)
+        if bias_t is not None:
+            logits = logits + bias_t
         if noise is not None:                                   # noisy gating → spreads load
             logits = logits + torch.randn_like(logits) * torch.nn.functional.softplus(noise(Xt))
         if top_k and 0 < top_k < E:                             # optional sparse routing
@@ -89,11 +111,15 @@ def gate_train(Xz: np.ndarray, meta: np.ndarray, y: np.ndarray, cls: bool,
     return gate, noise
 
 
-def gate_weights(gate, noise, Xz: np.ndarray, top_k: int, E: int) -> np.ndarray:
+def gate_weights(gate, noise, Xz: np.ndarray, top_k: int, E: int,
+                 prior_bias: np.ndarray | None = None) -> np.ndarray:
     """Per-input gate weights (n, E) at inference (no noise)."""
     import torch
     with torch.no_grad():
         logits = gate(torch.tensor(Xz, dtype=torch.float32))
+        if prior_bias is not None:
+            logits = logits + torch.tensor(np.asarray(prior_bias, dtype=float),
+                                           dtype=torch.float32)
         if top_k and 0 < top_k < E:
             topv, topi = torch.topk(logits, top_k, dim=1)
             logits = torch.full_like(logits, float("-inf")).scatter(1, topi, topv)
@@ -116,7 +142,10 @@ class GatedMoENode(BaseNode):
     def __init__(self, expert_factories: list[NodeFactory], epochs: int = 250,
                  lr: float = 0.05, top_k: int = 0, noisy: bool = True,
                  balance_coef: float = 0.01, folds: int = 5, seed: int = 7,
-                 task: str = "binary", head: str = "y", name: str = "gated_moe"):
+                 task: str = "binary", head: str = "y", name: str = "gated_moe",
+                 prior_bias: np.ndarray | None = None, use_kan: bool = False):
+        self.prior_bias = prior_bias          # (E,) trust logits; None = old behavior
+        self.use_kan = use_kan                # KANLinear gate (vendored) instead of Linear
         self.name = name
         self.expert_factories = expert_factories
         self.epochs = epochs
@@ -148,17 +177,21 @@ class GatedMoENode(BaseNode):
 
         # ── keep only experts whose output width matches the head (cf. run_multi) ──
         m = max(1, int(n * 0.8))
-        facs = []
-        for f in self.expert_factories:
+        facs, kept_idx = [], []
+        for fi, f in enumerate(self.expert_factories):
             try:
                 e = self._new_expert(f).fit(Xa[:m].tolist(), ya[:m].tolist())
                 if len(e.predict_output(Xa[m:m + 3].tolist())[0]) == K:
                     facs.append(f)
+                    kept_idx.append(fi)
             except Exception:
                 pass
         if not facs:
             raise ValueError(f"no experts emit width {K} for head '{self.head}'")
         E = len(facs)
+        # trust prior aligned to the SURVIVING experts (None → byte-identical old path)
+        self._bias = (np.asarray(self.prior_bias, dtype=float)[kept_idx]
+                      if self.prior_bias is not None else None)
 
         # ── out-of-fold expert outputs (leakage-safe gate training set) ──
         meta = np.zeros((n, E, K), dtype=float)
@@ -171,7 +204,9 @@ class GatedMoENode(BaseNode):
         self._mean, self._std = standardize_fit(Xa)
         Xz = (Xa - self._mean) / self._std
         self._gate, self._noise = gate_train(Xz, meta, ya, self._cls, self.epochs, self.lr,
-                                              self.balance_coef, self.noisy, self.top_k, self.seed)
+                                              self.balance_coef, self.noisy, self.top_k,
+                                              self.seed, prior_bias=self._bias,
+                                              use_kan=self.use_kan)
         # ── refit kept experts on ALL data for inference ──
         self.experts = [self._new_expert(f).fit(X, y) for f in facs]
         self.expert_names = [e.name for e in self.experts]
@@ -181,7 +216,8 @@ class GatedMoENode(BaseNode):
 
     def _w(self, X: Matrix) -> np.ndarray:
         Xz = (np.asarray(X, dtype=float) - self._mean) / self._std
-        return gate_weights(self._gate, self._noise, Xz, self.top_k, len(self.experts))
+        return gate_weights(self._gate, self._noise, Xz, self.top_k, len(self.experts),
+                            prior_bias=self._bias)
 
     def predict_output(self, X: Matrix) -> list[list[float]]:
         return gate_combine(self._w(X), self._outputs(self.experts, X), self._cls).tolist()
