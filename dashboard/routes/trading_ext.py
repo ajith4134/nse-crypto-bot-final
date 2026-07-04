@@ -408,3 +408,106 @@ def handle_selfeval_status(h):
                     "(see trading/brain/ and trading-execution-blueprint.md §T8).",
         }).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_crypto_trades(h):
+    """GET /api/trading/crypto/trades — Phase F+: open + closed Freqtrade trades with full columns
+    (MFE/MAE, USDT P&L, capital, leverage). Cached 30s in the server-level _CT_CACHE behind a
+    single-flight _CT_LOCK — the outcome-NN retrains as the journal grows (minutes over 1000+
+    trades), so without the cache the poll times out and the Freqtrade panel renders empty.
+
+    _srv(h) keeps _CT_CACHE/_CT_LOCK the SAME objects the inline code used, so the single-flight
+    (one rebuild, others serve stale) still coordinates across ALL requests to this route.
+    """
+    srv = _srv(h)
+    path = "/api/trading/crypto/trades"
+    import time as _ct_t
+    _hit = srv._CT_CACHE.get(path)
+    if _hit and (_ct_t.time() - _hit[0]) < 30:
+        return h._send(200, _hit[1], "application/json")
+    # Single-flight: if a stale snapshot exists and another thread is already rebuilding,
+    # serve the stale snapshot immediately instead of stacking another rebuild.
+    if not srv._CT_LOCK.acquire(blocking=(_hit is None)):
+        return h._send(200, _hit[1], "application/json")
+    try:
+        # Re-check after acquiring — the previous builder may have just refreshed it.
+        _hit = srv._CT_CACHE.get(path)
+        if _hit and (_ct_t.time() - _hit[0]) < 30:
+            return h._send(200, _hit[1], "application/json")
+        try:
+            from trading.crypto.engine_client import CryptoEngineClient
+            from trading.crypto import freqtrade_ingest as _fi
+            from trading.crypto.freqtrade_ingest import open_trades_view, closed_view
+            from trading.crypto.freqtrade import control as _ctl
+            cli = CryptoEngineClient()
+            openrows = open_trades_view(cli)
+            closed = closed_view(cli)
+            # Enrich with strategy + brain + NN predictions. NN runs on all OPEN rows but
+            # only the newest closed rows — predicting a 1000+-row history every poll is
+            # what made this endpoint stall (open trades are the actionable ones).
+            srv._enrich_predictions(openrows, closed[:80])
+            for r in closed[80:]:
+                r["strategy_label"] = (r.get("enter_tag") or r.get("strategy")
+                                       or r.get("strategy_name") or "—")
+                r["brain_pred"] = r.get("direction") or "—"
+                r["nn_pred"] = "—"
+            # FIXED column schemas (not data-derived) so the dashboard column count is
+            # stable as trades open/close — same contract as the dark dashboard.
+            out = {"open": openrows, "closed": closed,
+                   "open_columns": _fi.OPEN_VIEW_COLUMNS + srv.PREDICTION_COLUMNS,
+                   "closed_columns": _fi.CLOSED_VIEW_COLUMNS + srv.PREDICTION_COLUMNS,
+                   "params": _ctl.status(), "n_open": len(openrows), "n_closed": len(closed)}
+        except Exception as e:
+            out = {"open": [], "closed": [], "error": f"{type(e).__name__}: {e}"}
+        _body = json.dumps(out, default=str).encode()
+        if not out.get("error"):
+            srv._CT_CACHE[path] = (_ct_t.time(), _body)
+    finally:
+        srv._CT_LOCK.release()
+    return h._send(200, _body, "application/json")
+
+
+def handle_crypto_predictions(h):
+    """GET /api/trading/crypto/predictions — LIGHTWEIGHT per-trade Strategy/Brain/NN map keyed by
+    trade_id for overlaying onto the native FreqUI table cross-origin. Skips the slow peak-OHLCV
+    enrichment (map_trade directly) + caches ~15s in the server-level _PRED_MAP_CACHE behind a
+    single-flight _PRED_MAP_LOCK (same avalanche fix as /crypto/trades)."""
+    srv = _srv(h)
+    import time as _pt
+    hit = srv._PRED_MAP_CACHE
+    if hit and (_pt.time() - hit[0]) < 15:
+        return h._send(200, hit[1], "application/json")
+    # Single-flight: stale + rebuild-in-progress → serve stale now; only one thread pays the cost.
+    if not srv._PRED_MAP_LOCK.acquire(blocking=(hit is None)):
+        return h._send(200, hit[1], "application/json")
+    try:
+        hit = srv._PRED_MAP_CACHE
+        if hit and (_pt.time() - hit[0]) < 15:
+            return h._send(200, hit[1], "application/json")
+        try:
+            from trading.crypto.engine_client import CryptoEngineClient
+            from trading.crypto.freqtrade_ingest import open_trades_view, map_trade
+            cli = CryptoEngineClient()
+            openrows = open_trades_view(cli)
+            try:
+                # Only the most recent ~120 closed trades are visible in the native table's first
+                # pages; enriching all 500 makes net.predict ~26s. Newest-first by trade_id.
+                raw = [ft for ft in cli.closed_trades() if isinstance(ft, dict)]
+                raw.sort(key=lambda ft: ft.get("trade_id") or 0, reverse=True)
+                closed_light = [map_trade(ft).to_dict() for ft in raw[:120]]
+            except Exception:
+                closed_light = []
+            srv._enrich_predictions(openrows, closed_light)
+            pmap = {}
+            for r in [*openrows, *closed_light]:
+                tid = str(r.get("trade_id", "")).replace("FT-", "")
+                if tid:
+                    pmap[tid] = {"strategy_label": r.get("strategy_label"),
+                                 "brain_pred": r.get("brain_pred"), "nn_pred": r.get("nn_pred")}
+            body = json.dumps({"map": pmap, "n": len(pmap)}, default=str).encode()
+        except Exception as e:
+            body = json.dumps({"map": {}, "error": f"{type(e).__name__}: {e}"}).encode()
+        srv._PRED_MAP_CACHE = (_pt.time(), body)
+    finally:
+        srv._PRED_MAP_LOCK.release()
+    return h._send(200, body, "application/json")

@@ -1141,101 +1141,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/crypto/status":              # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_crypto_status(self)
-        if path == "/api/trading/crypto/trades":
-            # Phase F+: open + closed Freqtrade trades with full columns (MFE/MAE, USDT P&L,
-            # capital placed, leverage). Open via map_open_trade; closed via the 85-col schema.
-            # Cached 30s: the outcome-NN retrains whenever the journal count grows, which is
-            # minutes over 1000+ trades — without the cache the panel poll times out and the
-            # Freqtrade panel renders empty.
-            import time as _ct_t
-            _hit = _CT_CACHE.get(path)
-            if _hit and (_ct_t.time() - _hit[0]) < 30:
-                return self._send(200, _hit[1], "application/json")
-            # Single-flight: if a stale snapshot exists and another thread is already rebuilding,
-            # serve the stale snapshot immediately instead of stacking another rebuild.
-            if not _CT_LOCK.acquire(blocking=(_hit is None)):
-                return self._send(200, _hit[1], "application/json")
-            try:
-                # Re-check after acquiring — the previous builder may have just refreshed it.
-                _hit = _CT_CACHE.get(path)
-                if _hit and (_ct_t.time() - _hit[0]) < 30:
-                    return self._send(200, _hit[1], "application/json")
-                try:
-                    from trading.crypto.engine_client import CryptoEngineClient
-                    from trading.crypto import freqtrade_ingest as _fi
-                    from trading.crypto.freqtrade_ingest import open_trades_view, closed_view
-                    from trading.crypto.freqtrade import control as _ctl
-                    cli = CryptoEngineClient()
-                    openrows = open_trades_view(cli)
-                    closed = closed_view(cli)
-                    # Enrich with strategy + brain + NN predictions. NN runs on all OPEN rows but
-                    # only the newest closed rows — predicting a 1000+-row history every poll is
-                    # what made this endpoint stall (open trades are the actionable ones).
-                    _enrich_predictions(openrows, closed[:80])
-                    for r in closed[80:]:
-                        r["strategy_label"] = (r.get("enter_tag") or r.get("strategy")
-                                               or r.get("strategy_name") or "—")
-                        r["brain_pred"] = r.get("direction") or "—"
-                        r["nn_pred"] = "—"
-                    # FIXED column schemas (not data-derived) so the dashboard column count is
-                    # stable as trades open/close — same contract as the dark dashboard.
-                    out = {"open": openrows, "closed": closed,
-                           "open_columns": _fi.OPEN_VIEW_COLUMNS + PREDICTION_COLUMNS,
-                           "closed_columns": _fi.CLOSED_VIEW_COLUMNS + PREDICTION_COLUMNS,
-                           "params": _ctl.status(), "n_open": len(openrows), "n_closed": len(closed)}
-                except Exception as e:
-                    out = {"open": [], "closed": [], "error": f"{type(e).__name__}: {e}"}
-                _body = json.dumps(out, default=str).encode()
-                if not out.get("error"):
-                    _CT_CACHE[path] = (_ct_t.time(), _body)
-            finally:
-                _CT_LOCK.release()
-            return self._send(200, _body, "application/json")
-        if path == "/api/trading/crypto/predictions":
-            # LIGHTWEIGHT per-trade Strategy/Brain/NN map keyed by trade_id, for overlaying onto the
-            # native FreqUI table cross-origin. Skips closed_view's slow peak-OHLCV enrichment (uses
-            # map_trade directly) and caches ~15s so the 8s frontend poll stays cheap (the full
-            # /crypto/trades enrichment is ~20s+ and was starving this overlay → columns showed "–").
-            import time as _pt
-            global _PRED_MAP_CACHE
-            hit = _PRED_MAP_CACHE
-            if hit and (_pt.time() - hit[0]) < 15:
-                return self._send(200, hit[1], "application/json")
-            # Single-flight (same avalanche fix as /crypto/trades): stale + rebuild-in-progress
-            # → serve stale now; only one thread pays the enrichment cost.
-            if not _PRED_MAP_LOCK.acquire(blocking=(hit is None)):
-                return self._send(200, hit[1], "application/json")
-            try:
-                hit = _PRED_MAP_CACHE
-                if hit and (_pt.time() - hit[0]) < 15:
-                    return self._send(200, hit[1], "application/json")
-                try:
-                    from trading.crypto.engine_client import CryptoEngineClient
-                    from trading.crypto.freqtrade_ingest import open_trades_view, map_trade
-                    cli = CryptoEngineClient()
-                    openrows = open_trades_view(cli)
-                    try:
-                        # Only the most recent ~120 closed trades are visible in the native table's first
-                        # pages; enriching all 500 makes net.predict ~26s. Newest-first by trade_id.
-                        raw = [ft for ft in cli.closed_trades() if isinstance(ft, dict)]
-                        raw.sort(key=lambda ft: ft.get("trade_id") or 0, reverse=True)
-                        closed_light = [map_trade(ft).to_dict() for ft in raw[:120]]
-                    except Exception:
-                        closed_light = []
-                    _enrich_predictions(openrows, closed_light)
-                    pmap = {}
-                    for r in [*openrows, *closed_light]:
-                        tid = str(r.get("trade_id", "")).replace("FT-", "")
-                        if tid:
-                            pmap[tid] = {"strategy_label": r.get("strategy_label"),
-                                         "brain_pred": r.get("brain_pred"), "nn_pred": r.get("nn_pred")}
-                    body = json.dumps({"map": pmap, "n": len(pmap)}, default=str).encode()
-                except Exception as e:
-                    body = json.dumps({"map": {}, "error": f"{type(e).__name__}: {e}"}).encode()
-                _PRED_MAP_CACHE = (_pt.time(), body)
-            finally:
-                _PRED_MAP_LOCK.release()
-            return self._send(200, body, "application/json")
+        if path == "/api/trading/crypto/trades":              # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_crypto_trades(self)
+        if path == "/api/trading/crypto/predictions":         # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_crypto_predictions(self)
         if path == "/api/trading/crypto/markets":             # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_crypto_markets(self)
