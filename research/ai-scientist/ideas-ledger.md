@@ -24,3 +24,26 @@ Grounded in: state snapshot (132 deps · 31 vendored OSS · 538 files) + indepen
 | 11 | **On-chain whale + news-NLP alt-data lane** (live features) | new/wire | Free alt-data the goal says IS in scope; whale-flow repo already vendored. | crypto_whale_watching ★ | M / Low-Med | 2,15 | proposed |
 
 Sources: TSFM finance benchmark (arxiv 2606.27100), 2026 TS toolkit (machinelearningmastery.com), LiT LOB transformer (frontiersin.org/…/frai.2025.1616485), latency-efficient LOB (arxiv 2606.25986), FinRL (arxiv 2111.09395), TradeR hierarchical RL execution (arxiv 2104.00620), AlphaEvolve (arxiv 2103.16196), Alpha-R1 (arxiv 2512.23515).
+
+## COMPLETION — 2026-07-04 (all 11 ideas DONE)
+
+Owner directive: complete every idea fully. Status of the Run 2026-07-04 table:
+
+| # | Idea | Status | Delivery |
+|---|------|--------|----------|
+| 1 | Node auto-loader | ✅ done | `nodes/autoload.py` pkgutil sweep (162 families recovered) + `MLNB_AUTOLOAD_NODES=1` + `/api/network/autoload` |
+| 2 | Wire DrawdownAdjustedKelly | ✅ done | `trading/sizing/position_sizer.py` (Wave 0) |
+| 3 | Split `dashboard/server.py` | ✅ done | `dashboard/routes/{brain,trading,network,post}_ext.py`; server.py 3777→1524 |
+| 4 | Brain-Ops panel | ✅ done | `dashboard/web/src/trading/BrainOpsPanel.jsx` (Wave 0) |
+| 5 | TSFM ensemble | ✅ done | `foundation_nodes.TimeMoENode` + `nodes/tsfm_ensemble.py` (ensemble + isotonic conformal) |
+| 6 | LiT order-book transformer | ✅ done | `nodes/lob_transformer.py` (torch TransformerEncoder, CLS readout) |
+| 7 | Regime-conditioned MoE router | ✅ done | `nodes/regime_moe.py` (learned torch gate over frozen experts) |
+| 8 | RL execution agent | ✅ done | `trading/execution/rl_exec_env.py` + `rl_execution.py` (SB3-PPO beats TWAP) |
+| 9 | GAN/VAE factors | ✅ done | `nodes/vae_factor.py` (β-VAE latent factors + scenario generator) |
+| 10 | Intermarket GNN | ✅ done | `nodes/intermarket_gnn.py` (PyG GCN over the cross-feature graph) |
+| 11 | On-chain whale + news lane | ✅ done | news = `trading/brain/news.py`; on-chain = `trading/altdata/onchain.py` + `/api/trading/onchain` (live free sources) |
+
+Each new node auto-registers into the live pool via idea #1's autoloader. New TSFM/LiT/GNN/MoE/VAE
+nodes ship behind the existing opt-in pool flags to protect growth-pool fit time. All shipped with
+tests (test_autoload, test_vae_factor, test_regime_moe, test_intermarket_gnn, test_lob_transformer,
+test_tsfm_ensemble, test_rl_execution, test_onchain_altdata) and per-idea commits.
