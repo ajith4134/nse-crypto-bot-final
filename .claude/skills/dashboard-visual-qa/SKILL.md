@@ -77,3 +77,26 @@ also drive every user control end-to-end and verify the effect — never assume 
    verdict(ok/dead/error/skipped)`, grouped by view. Call out every `dead/unwired` and `error`
    control explicitly with the fix. Use `interaction_qa.py` (headless playwright, mirrors visual_qa.py)
    — same guardrails: paper/dry-run only, secrets from env, never click a destructive/arm-live control.
+
+## Data-consistency: dashboard ↔ disk TRUTH (added 2026-07-04, owner directive)
+
+Render ✓ and controls ✓ still don't prove the NUMBERS are honest. Verify what the dashboard shows
+is TRUE to the data on disk — and that the disk data actually reaches the dashboard — BOTH ways:
+
+- **disk → dashboard:** every record on disk is reflected (counts/keys match; nothing silently
+  dropped so a panel under-reports).
+- **dashboard → disk:** every value served traces to disk; anything not disk-backed is honestly
+  flagged `demo`/`available:false`, never shown as real. (This automates honest-dashboard-wiring.)
+
+Run `data_consistency_qa.py`: it fetches each data-bearing endpoint, loads its source file (paths
+resolve via `trading.state.STATE_DIR` for journals/wallets), and reports per source
+`consistent · mismatch · demo · no-disk · error`. A **mismatch is a real bug** (the dashboard is
+lying about the data) — fix it, don't accept it. Extend the `MANIFEST` when you add a data panel:
+`(name, api_path, disk_file, extract_api, extract_disk, note)`. Cross-checks live values too (e.g.
+`/api/trading/closedtrades` rows == `trading/state/journal.json` trade count).
+
+## Redesign / "invent a better version"
+Verifying the current UI is this skill's job; **inventing a dramatically better design is a separate
+skill — `dashboard-redesign`** (research SOTA dashboards → propose variants → build the best →
+prove it back here with visual-qa + interaction-qa + data-consistency). Reach for it when the goal
+is "make it better", not "check it works".

@@ -339,6 +339,11 @@ _cpu-solo — free all cores for the current test/build/feature by PAUSING (SIGS
 - **functions:** `_procs()`; `_self_tree(rows)`; `pause(include_all, min_cpu)`; `resume()`; `status()`; `main()`
 - **imports:** __future__, argparse, os, pathlib, re, signal, subprocess
 
+## `.claude/skills/dashboard-visual-qa/data_consistency_qa.py`
+_data_consistency_qa — verify the dashboard tells the TRUTH about the data on disk (both ways)._
+- **functions:** `_api(path)`; `_disk(fname)`; `_len(x)`; `run()`
+- **imports:** json, os, pathlib, subprocess, time
+
 ## `.claude/skills/dashboard-visual-qa/hook_dashboard_edit.py`
 _PostToolUse hook: when an Edit/Write/MultiEdit touches dashboard / FreqUI / OpenAlgo_
 - **functions:** `is_dashboard_view(path) -> bool`; `main()`
