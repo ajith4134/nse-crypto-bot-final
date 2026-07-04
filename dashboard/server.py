@@ -2163,109 +2163,12 @@ class Handler(BaseHTTPRequestHandler):
                     }).encode()
             body = _cached_body("brain/predict", 8.0, _produce_brain_predict)
             return self._send(200, body, "application/json")
-        if path == "/api/brain/worldmodel":
-            # World-Model + Imagination (MuZero MCTS): the brain rolls a LEARNED market
-            # dynamics model forward and plans entry/direction/stoploss/profit-trailing in
-            # imagined R BEFORE acting. Adapted reuse-first from vendor/muzero_general.
-            # Uses live OHLCV when available, else a deterministic synthetic series so the
-            # panel always renders.
-            def _p_worldmodel():
-                import numpy as _np
-                import pandas as _pd
-                from trading.brain.worldmodel import build_planner, register_world_model
-                ohlcv = None
-                try:                                     # prefer a live recent series
-                    from trading.online.live_loop import get_loop
-                    ohlcv = get_loop().recent_ohlcv()    # may not exist on all builds
-                except Exception:
-                    ohlcv = None
-                if ohlcv is None or len(ohlcv) < 60:     # REAL ccxt BTC series (not synthetic)
-                    try:
-                        import brain_live
-                        ohlcv = brain_live._real_ohlcv("BTC/USDT", "5m", 260)
-                    except Exception:
-                        ohlcv = None
-                demo = ohlcv is None or len(ohlcv) < 60
-                if demo:                                 # deterministic synthetic uptrend+noise
-                    rng = _np.random.default_rng(7); n = 260
-                    ret = rng.normal(0.0004, 0.01, n) + 0.002 * _np.sin(_np.arange(n) / 15)
-                    close = 100 * _np.exp(_np.cumsum(ret))
-                    hi = close * (1 + _np.abs(rng.normal(0, 0.004, n)))
-                    lo = close * (1 - _np.abs(rng.normal(0, 0.004, n)))
-                    ohlcv = _pd.DataFrame({"open": close, "high": hi, "low": lo,
-                                           "close": close, "volume": rng.uniform(1e3, 9e3, n)})
-                node = register_world_model()            # dashboard-sync: appears in node graph
-                planner = build_planner(ohlcv, num_simulations=64, horizon=12)
-                entry_plan = planner.plan(ohlcv)
-                manage_plan = planner.plan(ohlcv, position_side="LONG")
-                return {
-                    "node": {"name": node.name, "kind": node.kind, "summary": node.summary},
-                    "backend": entry_plan["backend"],
-                    "actions": ["HOLD", "ENTER_LONG", "ENTER_SHORT", "EXIT",
-                                "TIGHTEN_STOP", "SCALE_OUT"],
-                    "entry_decision": entry_plan,
-                    "manage_decision": manage_plan,
-                    "demo": demo,
-                    "note": ("learned market world-model (torch MuZero-FC, numpy-ridge "
-                             "fallback) + MCTS imagination over trade actions. 'entry_decision' "
-                             "plans entry/direction from a flat book; 'manage_decision' plans "
-                             "exit/stop-tighten/scale-out for an open long. imagined_R is the "
-                             "MCTS value (R-multiples) per action. demo=true → synthetic series."),
-                }
-            return self._send(200, _bg_snapshot("worldmodel", _p_worldmodel), "application/json")
-        if path == "/api/brain/hypotheses":
-            # HypothesisLedger (AI-Scientist loop): propose→experiment→Bayesian-credence→
-            # confirm/refute trading hypotheses over the REAL closed-trade journal. Falls
-            # back to a deterministic demo set of trades so the panel renders before the
-            # live journal has enough closed trades.
-            try:
-                from trading.brain.hypothesis import (HypothesisLedger,
-                                                      register_hypothesis_ledger)
-                trades = []
-                try:
-                    from trading.journal.journal import TradeJournal
-                    jr = TradeJournal(state_file="journal.json", persist=True)
-                    trades = [t.to_dict() for t in jr.trades]
-                except Exception:
-                    trades = []
-                demo = len(trades) < 16
-                if demo:                                 # deterministic synthetic journal
-                    import numpy as _np
-                    rng = _np.random.default_rng(3)
-                    trades = []
-                    for i in range(120):
-                        regime = "Trending" if i % 2 else "Ranging"
-                        direction = "LONG" if rng.random() < 0.6 else "SHORT"
-                        edge = 0.6 if (regime == "Trending" and direction == "LONG") else -0.05
-                        r = float(rng.normal(edge, 1.0))
-                        trades.append({"trade_id": str(i), "symbol": "BTC/USDT",
-                                       "market": "CRYPTO", "direction": direction,
-                                       "market_regime_entry": regime, "r_multiple": r,
-                                       "net_pnl": r * 100,
-                                       "brain_confidence_entry": float(rng.random()),
-                                       "strategy_name": "demo"})
-                # persist=False on demo so a synthetic run never pollutes the live ledger
-                led = HypothesisLedger(persist=not demo)
-                summary = led.run_cycle(trades, seed=1)
-                register_hypothesis_ledger(led)          # dashboard-sync: node graph
-                body = json.dumps({
-                    "ledger": led.to_json(),
-                    "summary": {"n_hypotheses": summary["n_hypotheses"],
-                                "confirmed": summary["confirmed"],
-                                "refuted": summary["refuted"], "open": summary["open"],
-                                "insights": summary["insights"]},
-                    "n_trades": len(trades), "demo": demo,
-                    "note": ("brain's research notebook: each hypothesis is split-tested on "
-                             "the closed-trade journal (Bayesian Beta-Binomial A/B on win-rate "
-                             "+ Welch t on R), confirmed→insight notes, refuted→failure DB. "
-                             "demo=true → synthetic journal until ≥16 real closed trades."),
-                }, default=str).encode()
-            except Exception as e:
-                body = json.dumps({
-                    "available": False, "error": f"{type(e).__name__}: {e}",
-                    "hint": "hypothesis loop via trading/brain/hypothesis.py (HypothesisLedger).",
-                }).encode()
-            return self._send(200, body, "application/json")
+        if path == "/api/brain/worldmodel":                   # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_worldmodel(self)
+        if path == "/api/brain/hypotheses":                   # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_hypotheses(self)
         if path == "/api/trading/psychology":
             # Trader Psychology (order-book depth): LIVE crowd metrics per symbol — OBI, OFI,
             # Stoikov microprice drift, depth-slope, whale walls, spread/λ/VPIN fear and the
@@ -2476,56 +2379,9 @@ class Handler(BaseHTTPRequestHandler):
                     "hint": "computer-use agent via trading/brain/gui (ComputerUseAgent).",
                 }).encode()
             return self._send(200, body, "application/json")
-        if path == "/api/brain/evolve":
-            # Self-evolving strategy loop: evolve → admit guardrail-passed winners into the
-            # growing SkillLibrary → compound. The genetic engine is gated OFF for this phase
-            # (library-first); we run a FORCED offline demo over a synthetic series so the
-            # panel shows the loop working, and report the real gate status honestly.
-            try:
-                # _bg_snapshot, NOT inline: this demo runs DEAP GP evolution + dozens of
-                # vectorbt backtests (~minutes of GIL-bound compute). Running it inside
-                # every cold-cache GET meant a UI polling burst after each restart put
-                # 10+ handler threads into backtests and 503-wedged the whole server
-                # for ~10 min (2026-07-03). The warmer builds it ONCE, serially.
-                def _p_evolve():
-                    import numpy as _np
-                    import pandas as _pd
-                    from trading.strategy.control import evolution_enabled
-                    from trading.strategy.self_evolve import (SelfEvolvingLoop,
-                                                              register_self_evolve)
-                    rng = _np.random.default_rng(5); n = 360
-                    ret = rng.normal(0.0006, 0.012, n) + 0.003 * _np.sin(_np.arange(n) / 18)
-                    close = 100 * _np.exp(_np.cumsum(ret))
-                    ohlcv = _pd.DataFrame({"open": close,
-                                           "high": close * (1 + _np.abs(rng.normal(0, 0.004, n))),
-                                           "low": close * (1 - _np.abs(rng.normal(0, 0.004, n))),
-                                           "close": close, "volume": rng.uniform(1e3, 9e3, n)})
-                    # persist=False so the demo never writes to the live library/history
-                    loop = SelfEvolvingLoop(persist=False)
-                    run = loop.run_generation(ohlcv, market="CRYPTO", generations=4,
-                                              pop_size=14, seed=5, force=True)
-                    register_self_evolve(loop)           # dashboard-sync: node graph
-                    return json.dumps({
-                        "gate_enabled": evolution_enabled(),  # real production gate status
-                        "demo_forced": True,
-                        "run": {k: run.get(k) for k in ("ran", "evaluated", "promoted",
-                                                        "admitted", "best_score", "pbo",
-                                                        "gen_history", "admitted_skills")},
-                        "library": run.get("library"),
-                        "status": loop.status(),
-                        "note": ("lifelong loop (trading/strategy/self_evolve.py): DEAP NSGA-II "
-                                 "evolves a population → guardrail-passed survivors are admitted "
-                                 "into the persisted SkillLibrary (Voyager-style growth) → "
-                                 "reevaluate() retires stale skills. gate_enabled=false means the "
-                                 "engine is OFF in production (library-first); this is a forced demo."),
-                    }, default=str).encode()
-                body = _bg_snapshot("brain/evolve", _p_evolve)
-            except Exception as e:
-                body = json.dumps({
-                    "available": False, "error": f"{type(e).__name__}: {e}",
-                    "hint": "self-evolving loop via trading/strategy/self_evolve.py.",
-                }).encode()
-            return self._send(200, body, "application/json")
+        if path == "/api/brain/evolve":                       # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_evolve(self)
         if path == "/api/trading/closedtrades":
             # T6 Closed Trades journal: LIVE persisted journal (journal.json) — the full
             # 110-column closed trades the trade loop actually saved. Falls back to the demo
