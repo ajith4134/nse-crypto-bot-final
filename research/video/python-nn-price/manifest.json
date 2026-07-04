@@ -1,0 +1,413 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/fb7ed47a-Algorithmic_Trading_and_Price_Prediction_using_Python_Neural_Network_Models_1.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/fb7ed47a-Algorithmic_Trading_and_Price_Prediction_using_Python_Neural_Network_Models_1.mp4",
+  "duration_s": 1166.97,
+  "n_frames": 80,
+  "frames": [
+    {
+      "file": "f_0000_001.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_002.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0020_003.jpg",
+      "t": 20.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0030_004.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0040_005.jpg",
+      "t": 40.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0050_006.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_007.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0110_008.jpg",
+      "t": 70.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0120_009.jpg",
+      "t": 80.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0130_010.jpg",
+      "t": 90.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0140_011.jpg",
+      "t": 100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0150_012.jpg",
+      "t": 110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0200_013.jpg",
+      "t": 120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0210_014.jpg",
+      "t": 130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0220_015.jpg",
+      "t": 140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0230_016.jpg",
+      "t": 150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0240_017.jpg",
+      "t": 160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0250_018.jpg",
+      "t": 170.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0300_019.jpg",
+      "t": 180.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0310_020.jpg",
+      "t": 190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0320_021.jpg",
+      "t": 200.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0330_022.jpg",
+      "t": 210.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0340_023.jpg",
+      "t": 220.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0350_024.jpg",
+      "t": 230.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0355_000.jpg",
+      "t": 235.75,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0410_025.jpg",
+      "t": 250.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0420_026.jpg",
+      "t": 260.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0430_027.jpg",
+      "t": 270.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0440_028.jpg",
+      "t": 280.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0450_029.jpg",
+      "t": 290.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0500_030.jpg",
+      "t": 300.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0510_031.jpg",
+      "t": 310.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0520_032.jpg",
+      "t": 320.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0530_033.jpg",
+      "t": 330.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0540_034.jpg",
+      "t": 340.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0550_035.jpg",
+      "t": 350.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0600_036.jpg",
+      "t": 360.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0610_037.jpg",
+      "t": 370.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0620_038.jpg",
+      "t": 380.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0630_039.jpg",
+      "t": 390.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0640_040.jpg",
+      "t": 400.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1300_078.jpg",
+      "t": 780.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1310_079.jpg",
+      "t": 790.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1320_080.jpg",
+      "t": 800.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1330_081.jpg",
+      "t": 810.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1340_082.jpg",
+      "t": 820.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1350_083.jpg",
+      "t": 830.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1400_084.jpg",
+      "t": 840.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1410_085.jpg",
+      "t": 850.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1420_086.jpg",
+      "t": 860.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1430_087.jpg",
+      "t": 870.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1440_088.jpg",
+      "t": 880.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1450_089.jpg",
+      "t": 890.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1500_090.jpg",
+      "t": 900.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1510_091.jpg",
+      "t": 910.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1520_092.jpg",
+      "t": 920.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1530_093.jpg",
+      "t": 930.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1540_094.jpg",
+      "t": 940.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1550_095.jpg",
+      "t": 950.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1600_096.jpg",
+      "t": 960.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1610_097.jpg",
+      "t": 970.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1620_098.jpg",
+      "t": 980.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1630_099.jpg",
+      "t": 990.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1640_100.jpg",
+      "t": 1000.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1650_101.jpg",
+      "t": 1010.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1700_102.jpg",
+      "t": 1020.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1710_103.jpg",
+      "t": 1030.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1720_104.jpg",
+      "t": 1040.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1730_105.jpg",
+      "t": 1050.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1740_106.jpg",
+      "t": 1060.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1750_107.jpg",
+      "t": 1070.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1800_108.jpg",
+      "t": 1080.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1810_109.jpg",
+      "t": 1090.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1820_110.jpg",
+      "t": 1100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1830_111.jpg",
+      "t": 1110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1840_112.jpg",
+      "t": 1120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1850_113.jpg",
+      "t": 1130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1900_114.jpg",
+      "t": 1140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1910_115.jpg",
+      "t": 1150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1920_116.jpg",
+      "t": 1160.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 345,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/python-nn-price"
+}

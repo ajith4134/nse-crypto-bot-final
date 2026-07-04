@@ -1,0 +1,413 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/5ec71dd1-I_Built_a_Neural_Network_from_Scratch__Green_Code_240p_h264.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/5ec71dd1-I_Built_a_Neural_Network_from_Scratch__Green_Code_240p_h264.mp4",
+  "duration_s": 554.63,
+  "n_frames": 80,
+  "frames": [
+    {
+      "file": "f_0003_000.jpg",
+      "t": 3.64,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0005_001.jpg",
+      "t": 5.04,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0005_002.jpg",
+      "t": 5.88,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0007_003.jpg",
+      "t": 7.36,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0009_004.jpg",
+      "t": 9.64,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0013_005.jpg",
+      "t": 13.32,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0015_006.jpg",
+      "t": 15.4,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0016_007.jpg",
+      "t": 16.36,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0022_008.jpg",
+      "t": 22.16,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0028_009.jpg",
+      "t": 28.84,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0045_010.jpg",
+      "t": 45.44,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0114_011.jpg",
+      "t": 74.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0119_012.jpg",
+      "t": 79.48,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0121_013.jpg",
+      "t": 81.44,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0123_014.jpg",
+      "t": 83.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0127_015.jpg",
+      "t": 87.36,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0129_016.jpg",
+      "t": 89.68,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0141_017.jpg",
+      "t": 101.56,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0142_018.jpg",
+      "t": 102.44,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0145_019.jpg",
+      "t": 105.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0147_020.jpg",
+      "t": 107.56,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0151_021.jpg",
+      "t": 111.84,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0152_022.jpg",
+      "t": 112.72,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0155_023.jpg",
+      "t": 115.36,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0158_024.jpg",
+      "t": 118.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0200_025.jpg",
+      "t": 120.16,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0204_026.jpg",
+      "t": 124.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0204_027.jpg",
+      "t": 124.64,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0205_028.jpg",
+      "t": 125.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0208_029.jpg",
+      "t": 128.36,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0212_030.jpg",
+      "t": 132.52,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0213_031.jpg",
+      "t": 133.04,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0215_032.jpg",
+      "t": 135.24,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0217_033.jpg",
+      "t": 137.76,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0230_034.jpg",
+      "t": 150.76,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0234_035.jpg",
+      "t": 154.56,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0239_036.jpg",
+      "t": 159.44,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0240_037.jpg",
+      "t": 160.76,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0243_038.jpg",
+      "t": 163.72,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0244_039.jpg",
+      "t": 164.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0645_082.jpg",
+      "t": 405.92,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0650_083.jpg",
+      "t": 410.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0659_084.jpg",
+      "t": 419.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0705_085.jpg",
+      "t": 425.84,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0706_086.jpg",
+      "t": 426.4,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0709_087.jpg",
+      "t": 429.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0711_088.jpg",
+      "t": 431.32,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0715_089.jpg",
+      "t": 435.84,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0718_090.jpg",
+      "t": 438.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0718_091.jpg",
+      "t": 438.96,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0720_092.jpg",
+      "t": 440.56,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0727_093.jpg",
+      "t": 447.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0733_094.jpg",
+      "t": 453.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0734_095.jpg",
+      "t": 454.08,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0737_096.jpg",
+      "t": 457.56,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0748_097.jpg",
+      "t": 468.88,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0750_098.jpg",
+      "t": 470.88,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0753_099.jpg",
+      "t": 473.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0754_100.jpg",
+      "t": 474.52,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0759_101.jpg",
+      "t": 479.16,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0800_102.jpg",
+      "t": 480.28,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0801_103.jpg",
+      "t": 481.68,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0805_104.jpg",
+      "t": 485.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0807_105.jpg",
+      "t": 487.08,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0809_106.jpg",
+      "t": 489.96,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0812_107.jpg",
+      "t": 492.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0817_108.jpg",
+      "t": 497.84,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0819_109.jpg",
+      "t": 499.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0833_110.jpg",
+      "t": 513.56,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0835_111.jpg",
+      "t": 515.92,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0854_112.jpg",
+      "t": 534.4,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0856_113.jpg",
+      "t": 536.88,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0857_114.jpg",
+      "t": 537.88,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0858_115.jpg",
+      "t": 538.96,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0900_116.jpg",
+      "t": 540.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0901_117.jpg",
+      "t": 541.96,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0903_118.jpg",
+      "t": 543.12,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0904_119.jpg",
+      "t": 544.76,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0908_120.jpg",
+      "t": 548.04,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0909_121.jpg",
+      "t": 549.76,
+      "kind": "scene"
+    }
+  ],
+  "transcript": {
+    "segments": 104,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/greencode-scratch"
+}

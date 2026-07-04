@@ -1,0 +1,413 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/6e727d73-Recurrent_Neural_Networks_LSTM_Price_Movement_Predictions_For_Trading_Algorithms__CodeTrading_360p_h264.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/6e727d73-Recurrent_Neural_Networks_LSTM_Price_Movement_Predictions_For_Trading_Algorithms__CodeTrading_360p_h264.mp4",
+  "duration_s": 890.66,
+  "n_frames": 80,
+  "frames": [
+    {
+      "file": "f_0000_005.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_006.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0018_000.jpg",
+      "t": 18.1,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0030_007.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0035_001.jpg",
+      "t": 35.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0050_008.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_009.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0109_002.jpg",
+      "t": 69.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0120_010.jpg",
+      "t": 80.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0130_011.jpg",
+      "t": 90.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0140_012.jpg",
+      "t": 100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0150_013.jpg",
+      "t": 110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0200_014.jpg",
+      "t": 120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0210_015.jpg",
+      "t": 130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0220_016.jpg",
+      "t": 140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0228_003.jpg",
+      "t": 148.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0232_004.jpg",
+      "t": 152.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0240_017.jpg",
+      "t": 160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0250_018.jpg",
+      "t": 170.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0300_019.jpg",
+      "t": 180.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0310_020.jpg",
+      "t": 190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0320_021.jpg",
+      "t": 200.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0330_022.jpg",
+      "t": 210.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0340_023.jpg",
+      "t": 220.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0350_024.jpg",
+      "t": 230.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0400_025.jpg",
+      "t": 240.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0410_026.jpg",
+      "t": 250.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0420_027.jpg",
+      "t": 260.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0430_028.jpg",
+      "t": 270.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0440_029.jpg",
+      "t": 280.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0450_030.jpg",
+      "t": 290.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0500_031.jpg",
+      "t": 300.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0510_032.jpg",
+      "t": 310.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0520_033.jpg",
+      "t": 320.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0530_034.jpg",
+      "t": 330.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0540_035.jpg",
+      "t": 340.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0550_036.jpg",
+      "t": 350.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0600_037.jpg",
+      "t": 360.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0610_038.jpg",
+      "t": 370.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0620_039.jpg",
+      "t": 380.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0630_040.jpg",
+      "t": 390.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0640_041.jpg",
+      "t": 400.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0650_042.jpg",
+      "t": 410.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0850_054.jpg",
+      "t": 530.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0900_055.jpg",
+      "t": 540.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0910_056.jpg",
+      "t": 550.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0920_057.jpg",
+      "t": 560.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0930_058.jpg",
+      "t": 570.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0940_059.jpg",
+      "t": 580.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0950_060.jpg",
+      "t": 590.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1000_061.jpg",
+      "t": 600.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1010_062.jpg",
+      "t": 610.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1020_063.jpg",
+      "t": 620.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1030_064.jpg",
+      "t": 630.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1040_065.jpg",
+      "t": 640.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1050_066.jpg",
+      "t": 650.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1100_067.jpg",
+      "t": 660.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1110_068.jpg",
+      "t": 670.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1120_069.jpg",
+      "t": 680.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1130_070.jpg",
+      "t": 690.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1140_071.jpg",
+      "t": 700.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1150_072.jpg",
+      "t": 710.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1200_073.jpg",
+      "t": 720.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1210_074.jpg",
+      "t": 730.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1220_075.jpg",
+      "t": 740.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1230_076.jpg",
+      "t": 750.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1240_077.jpg",
+      "t": 760.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1250_078.jpg",
+      "t": 770.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1300_079.jpg",
+      "t": 780.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1310_080.jpg",
+      "t": 790.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1320_081.jpg",
+      "t": 800.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1330_082.jpg",
+      "t": 810.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1340_083.jpg",
+      "t": 820.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1350_084.jpg",
+      "t": 830.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1400_085.jpg",
+      "t": 840.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1410_086.jpg",
+      "t": 850.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1420_087.jpg",
+      "t": 860.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1430_088.jpg",
+      "t": 870.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1440_089.jpg",
+      "t": 880.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1450_090.jpg",
+      "t": 890.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 329,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/lstm-codetrading"
+}

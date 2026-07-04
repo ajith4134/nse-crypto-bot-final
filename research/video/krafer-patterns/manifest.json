@@ -1,0 +1,413 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/6cc02c72-I_made_an_AI_learn_Stock_Market_Patterns__Krafer_360p_h264.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/6cc02c72-I_made_an_AI_learn_Stock_Market_Patterns__Krafer_360p_h264.mp4",
+  "duration_s": 985.49,
+  "n_frames": 80,
+  "frames": [
+    {
+      "file": "f_0002_000.jpg",
+      "t": 2.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0004_001.jpg",
+      "t": 4.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0013_002.jpg",
+      "t": 13.93,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0017_003.jpg",
+      "t": 17.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0017_004.jpg",
+      "t": 17.87,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0018_005.jpg",
+      "t": 18.1,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0020_006.jpg",
+      "t": 20.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0028_007.jpg",
+      "t": 28.03,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0031_008.jpg",
+      "t": 31.97,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0035_009.jpg",
+      "t": 35.83,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0040_010.jpg",
+      "t": 40.73,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0048_011.jpg",
+      "t": 48.87,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0100_012.jpg",
+      "t": 60.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0105_013.jpg",
+      "t": 65.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0113_014.jpg",
+      "t": 73.7,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0137_015.jpg",
+      "t": 97.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0140_016.jpg",
+      "t": 100.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0154_017.jpg",
+      "t": 114.9,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0208_018.jpg",
+      "t": 128.13,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0215_019.jpg",
+      "t": 135.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0218_020.jpg",
+      "t": 138.93,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0221_021.jpg",
+      "t": 141.7,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0223_022.jpg",
+      "t": 143.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0224_023.jpg",
+      "t": 144.83,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0226_024.jpg",
+      "t": 146.13,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0226_025.jpg",
+      "t": 146.97,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0227_026.jpg",
+      "t": 147.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0228_027.jpg",
+      "t": 148.5,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0229_028.jpg",
+      "t": 149.5,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0230_029.jpg",
+      "t": 150.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0231_030.jpg",
+      "t": 151.03,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0231_031.jpg",
+      "t": 151.87,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0232_032.jpg",
+      "t": 152.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0234_033.jpg",
+      "t": 154.97,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0237_034.jpg",
+      "t": 157.13,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0237_035.jpg",
+      "t": 157.5,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0240_036.jpg",
+      "t": 160.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0244_037.jpg",
+      "t": 164.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0246_038.jpg",
+      "t": 166.37,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0255_039.jpg",
+      "t": 175.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0929_130.jpg",
+      "t": 569.87,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0934_131.jpg",
+      "t": 574.73,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1000_132.jpg",
+      "t": 600.83,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1006_133.jpg",
+      "t": 606.1,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1010_134.jpg",
+      "t": 610.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1014_135.jpg",
+      "t": 614.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1025_136.jpg",
+      "t": 625.13,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1029_137.jpg",
+      "t": 629.83,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1035_138.jpg",
+      "t": 635.67,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1039_139.jpg",
+      "t": 639.23,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1045_140.jpg",
+      "t": 645.7,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1052_141.jpg",
+      "t": 652.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1129_142.jpg",
+      "t": 689.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1137_143.jpg",
+      "t": 697.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1141_144.jpg",
+      "t": 701.73,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1159_145.jpg",
+      "t": 719.87,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1204_146.jpg",
+      "t": 724.67,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1218_147.jpg",
+      "t": 738.13,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1223_148.jpg",
+      "t": 743.87,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1305_149.jpg",
+      "t": 785.7,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1402_150.jpg",
+      "t": 842.23,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1408_151.jpg",
+      "t": 848.13,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1420_152.jpg",
+      "t": 860.9,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1425_153.jpg",
+      "t": 865.43,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1430_154.jpg",
+      "t": 870.43,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1438_155.jpg",
+      "t": 878.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1441_156.jpg",
+      "t": 881.23,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1445_157.jpg",
+      "t": 885.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1448_158.jpg",
+      "t": 888.5,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1507_159.jpg",
+      "t": 907.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1520_160.jpg",
+      "t": 920.97,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1526_161.jpg",
+      "t": 926.03,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1531_162.jpg",
+      "t": 931.9,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1536_163.jpg",
+      "t": 936.53,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1538_164.jpg",
+      "t": 938.67,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1541_165.jpg",
+      "t": 941.37,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1545_166.jpg",
+      "t": 945.73,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1548_167.jpg",
+      "t": 948.13,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1554_168.jpg",
+      "t": 954.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1559_169.jpg",
+      "t": 959.77,
+      "kind": "scene"
+    }
+  ],
+  "transcript": {
+    "segments": 166,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/krafer-patterns"
+}

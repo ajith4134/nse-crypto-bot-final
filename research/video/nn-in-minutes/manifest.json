@@ -1,0 +1,413 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/2ac3e124-why_ai_neural_networks_will_change_trading_forever_and_how_to_build_yours_in_minutes_5_1_1.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/2ac3e124-why_ai_neural_networks_will_change_trading_forever_and_how_to_build_yours_in_minutes_5_1_1.mp4",
+  "duration_s": 1272.57,
+  "n_frames": 80,
+  "frames": [
+    {
+      "file": "f_0002_000.jpg",
+      "t": 2.28,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0003_001.jpg",
+      "t": 3.82,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0005_002.jpg",
+      "t": 5.85,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0007_003.jpg",
+      "t": 7.88,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0009_004.jpg",
+      "t": 9.53,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0014_005.jpg",
+      "t": 14.32,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0019_006.jpg",
+      "t": 19.68,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0030_045.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0040_046.jpg",
+      "t": 40.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0050_047.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_048.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0110_049.jpg",
+      "t": 70.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0120_050.jpg",
+      "t": 80.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0130_051.jpg",
+      "t": 90.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0140_052.jpg",
+      "t": 100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0150_053.jpg",
+      "t": 110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0200_054.jpg",
+      "t": 120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0210_055.jpg",
+      "t": 130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0220_056.jpg",
+      "t": 140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0230_057.jpg",
+      "t": 150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0240_058.jpg",
+      "t": 160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0250_059.jpg",
+      "t": 170.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0300_060.jpg",
+      "t": 180.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0310_061.jpg",
+      "t": 190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0320_062.jpg",
+      "t": 200.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0711_007.jpg",
+      "t": 431.85,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0717_008.jpg",
+      "t": 437.47,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0724_009.jpg",
+      "t": 444.08,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0732_010.jpg",
+      "t": 452.78,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0737_011.jpg",
+      "t": 457.28,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0741_012.jpg",
+      "t": 461.37,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0825_013.jpg",
+      "t": 505.97,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0830_014.jpg",
+      "t": 510.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0850_015.jpg",
+      "t": 530.55,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0911_016.jpg",
+      "t": 551.07,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0911_017.jpg",
+      "t": 551.93,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0922_018.jpg",
+      "t": 562.88,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0925_019.jpg",
+      "t": 565.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0948_020.jpg",
+      "t": 588.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1055_021.jpg",
+      "t": 655.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1104_022.jpg",
+      "t": 664.75,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1104_023.jpg",
+      "t": 664.97,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1120_024.jpg",
+      "t": 680.35,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1157_025.jpg",
+      "t": 717.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1246_026.jpg",
+      "t": 766.05,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1305_027.jpg",
+      "t": 785.28,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1306_028.jpg",
+      "t": 786.38,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1308_029.jpg",
+      "t": 788.32,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1322_030.jpg",
+      "t": 802.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1326_031.jpg",
+      "t": 806.73,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1500_032.jpg",
+      "t": 900.83,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1511_033.jpg",
+      "t": 911.82,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1740_129.jpg",
+      "t": 1060.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1745_034.jpg",
+      "t": 1065.73,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1748_035.jpg",
+      "t": 1068.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1800_130.jpg",
+      "t": 1080.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1810_131.jpg",
+      "t": 1090.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1820_132.jpg",
+      "t": 1100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1830_133.jpg",
+      "t": 1110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1840_134.jpg",
+      "t": 1120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1850_135.jpg",
+      "t": 1130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1900_136.jpg",
+      "t": 1140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1910_137.jpg",
+      "t": 1150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1920_138.jpg",
+      "t": 1160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1934_036.jpg",
+      "t": 1174.95,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1936_037.jpg",
+      "t": 1176.03,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1936_038.jpg",
+      "t": 1176.05,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1941_039.jpg",
+      "t": 1181.18,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1950_139.jpg",
+      "t": 1190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2000_140.jpg",
+      "t": 1200.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2007_040.jpg",
+      "t": 1207.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_2010_041.jpg",
+      "t": 1210.55,
+      "kind": "scene"
+    },
+    {
+      "file": "f_2010_042.jpg",
+      "t": 1210.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_2010_043.jpg",
+      "t": 1210.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_2020_141.jpg",
+      "t": 1220.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2026_044.jpg",
+      "t": 1226.7,
+      "kind": "scene"
+    },
+    {
+      "file": "f_2040_142.jpg",
+      "t": 1240.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2050_143.jpg",
+      "t": 1250.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2100_144.jpg",
+      "t": 1260.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2110_145.jpg",
+      "t": 1270.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 238,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/nn-in-minutes"
+}

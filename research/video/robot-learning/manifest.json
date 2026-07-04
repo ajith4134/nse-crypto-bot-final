@@ -1,0 +1,23 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/85dedd09-Neural_Nets_Robot_is_Learning_to_Trade.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/85dedd09-Neural_Nets_Robot_is_Learning_to_Trade.mp4",
+  "duration_s": 15.42,
+  "n_frames": 2,
+  "frames": [
+    {
+      "file": "f_0000_000.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_001.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 0,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/robot-learning"
+}

@@ -1,0 +1,33 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/720f10b3-vidssave.com_I_built_a_neural_network_that_trades_stocks__Joshua_Kyan_Aalampour_10_24_2025_720P.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/43d24424-32f0-4737-8fe0-44cc51ad1c0b/720f10b3-vidssave.com_I_built_a_neural_network_that_trades_stocks__Joshua_Kyan_Aalampour_10_24_2025_720P.mp4",
+  "duration_s": 24.07,
+  "n_frames": 4,
+  "frames": [
+    {
+      "file": "f_0001_000.jpg",
+      "t": 1.94,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0013_001.jpg",
+      "t": 13.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0016_002.jpg",
+      "t": 16.75,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0021_003.jpg",
+      "t": 21.43,
+      "kind": "scene"
+    }
+  ],
+  "transcript": {
+    "segments": 7,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/joshua-trades"
+}
