@@ -1225,272 +1225,33 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/opentrades":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_opentrades(self)
-        if path == "/api/trading/brain/predict":
-            # The trade-row → NEURAL-NETWORK bridge (operator's first ask): the project
-            # node network (GatedMoENode over real sklearn experts) is TRAINED on the
-            # closed-trade journal and run on every OPEN trade. We also replay the last
-            # few CLOSED trades through it (predicted vs actual) so the panel shows the
-            # network's output even with zero open positions. Honest: untrained until the
-            # journal has ≥12 closed trades with both outcomes.
-            # Memoized (single-flight, 8s): torch NN inference on every hit otherwise
-            # stampeded the GIL under continuous hub polling (2026-07-02 audit fix).
-            def _produce_brain_predict():
-                try:
-                    from trading.online.live_loop import get_loop
-                    net = _trade_outcome_net()
-                    if net is None:
-                        raise RuntimeError("trading stack not importable")
-                    live = get_loop().open_positions()
-                    open_preds = net.predict(live)
-                    # replay recent closed trades (predicted p_win vs actual outcome)
-                    replay = []
-                    try:
-                        from trading.journal.journal import TradeJournal
-                        jr = TradeJournal(state_file="journal.json", persist=True)
-                        for t in jr._trades[-10:]:
-                            d = t.to_dict()
-                            pr = net.predict_one(d)
-                            actual = "WIN" if float(d.get("net_pnl") or 0.0) > 0 else "LOSS"
-                            replay.append({"symbol": d.get("symbol"), "p_win": pr.get("p_win"),
-                                           "verdict": pr.get("verdict"), "actual": actual,
-                                           "net_pnl": d.get("net_pnl")})
-                    except Exception:
-                        replay = []
-                    return json.dumps({
-                        "model": net.info(),
-                        "open_predictions": open_preds,
-                        "closed_replay": replay,
-                        "demo": False,
-                        "note": ("trade rows → project node network → outcome. The network is "
-                                 "trained on the live closed-trade journal and run on each open "
-                                 "trade; closed_replay shows predicted p_win vs the actual result. "
-                                 "engine 'gated_moe' = the real node MoE; 'numpy_logreg' = the "
-                                 "offline fallback; 'untrained' = need ≥12 closed trades."),
-                    }, default=str).encode()
-                except Exception as e:
-                    return json.dumps({
-                        "available": False, "error": f"{type(e).__name__}: {e}",
-                        "hint": "trade→NN bridge via trading/brain/trade_features.py "
-                                "(TradeOutcomeNet) + the closed journal.",
-                    }).encode()
-            body = _cached_body("brain/predict", 8.0, _produce_brain_predict)
-            return self._send(200, body, "application/json")
+        if path == "/api/trading/brain/predict":              # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_brain_predict(self)
         if path == "/api/brain/worldmodel":                   # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
             from dashboard.routes import brain_ext
             return brain_ext.handle_worldmodel(self)
         if path == "/api/brain/hypotheses":                   # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
             from dashboard.routes import brain_ext
             return brain_ext.handle_hypotheses(self)
-        if path == "/api/trading/psychology":
-            # Trader Psychology (order-book depth): LIVE crowd metrics per symbol — OBI, OFI,
-            # Stoikov microprice drift, depth-slope, whale walls, spread/λ/VPIN fear and the
-            # composite score/label (trading/brain/psychology.py, stitched from vendored
-            # lob-regime-scanner + microprice + crypto-whale-watching + lob-deep-learning).
-            # ?market=CRYPTO|NSE&symbol=X&segment=Y evaluates ONE symbol on demand; default =
-            # every currently OPEN position (loop + Freqtrade) — real books only, no demo rows.
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.brain.psychology import get_engine
-                qs = parse_qs(urlparse(self.path).query)
-                eng = get_engine()
-                out, errors = [], []
-                sym = (qs.get("symbol", [""])[0] or "").strip()
-                if sym:
-                    mkt = (qs.get("market", ["CRYPTO"])[0] or "CRYPTO").upper()
-                    seg = (qs.get("segment", [""])[0] or None)
-                    r = eng.evaluate(mkt, sym, segment=seg)
-                    if r:
-                        out.append(r)
-                    else:
-                        errors.append(f"no depth for {mkt}:{sym}")
-                else:
-                    targets = []
-                    try:
-                        from trading.online.live_loop import get_loop
-                        targets += [(p["market"], p["symbol"], p.get("segment"))
-                                    for p in get_loop().open_positions()]
-                    except Exception:
-                        pass
-                    try:
-                        from trading.crypto.engine_client import CryptoEngineClient
-                        from trading.crypto.freqtrade_ingest import open_trades_view
-                        targets += [("CRYPTO", t.get("symbol"), "futures")
-                                    for t in open_trades_view(CryptoEngineClient())]
-                    except Exception:
-                        pass
-                    seen = set()
-                    for mkt, s, seg in targets[:12]:      # cap per request; engine caches 5s
-                        if not s or (mkt, s) in seen:
-                            continue
-                        seen.add((mkt, s))
-                        r = eng.evaluate(mkt, s, segment=seg)
-                        if r:
-                            out.append(r)
-                body = json.dumps({"available": True, "rows": out, "errors": errors},
-                                  default=str).encode()
-            except Exception as e:
-                body = json.dumps({"available": False,
-                                   "error": f"{type(e).__name__}: {e}"}).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/trading/brain/ultra":
-            # Brain ultra-upgrade (Phases A–E, 2026-07-02): REAL statuses of the new stack —
-            # associative memory (HippoRAG PPR + A-MEM evolution over the knowledge graph),
-            # Claude-style file memory (brain_memory/), the cloned micro-LLM (nanoGPT node +
-            # llama2.c C kernel), Docling/Surya perception, Avalanche continual learning and
-            # the gpt-researcher deep-research engine. ?q=... also runs a LIVE associative
-            # recall so the panel shows actual multi-hop hits, never canned JSON.
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.brain import ultra
-                qs = parse_qs(urlparse(self.path).query)
-
-                def _p_ultra():
-                    st = ultra.status()
-                    return json.dumps({**st, "available": True}, default=str).encode()
-                q = (qs.get("q", [""])[0] or "").strip()
-                if q:
-                    body = json.dumps({"query": q, "hits": ultra.recall(q, k=6),
-                                       "available": True}, default=str).encode()
-                else:
-                    # _bg_snapshot, NOT _cached_body: ultra.status() first-run does LLM
-                    # calls + file-memory init IN the request thread — 6+ pollers stuck
-                    # there was half of the post-restart 503 wedge (2026-07-03).
-                    body = _bg_snapshot("brain/ultra", _p_ultra, ttl=300.0)
-            except Exception as e:
-                body = json.dumps({"available": False,
-                                   "error": f"{type(e).__name__}: {e}"}).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/trading/brain/metacognition":
-            # Pillar 17 (trading/uq/conformal.py): REAL calibration state of the conformal
-            # UQ engine — crepes CPS coverage (static vs ACI-adapted), ECE, adaptive width
-            # cap, the reliability diagram bins (predicted p_up vs realized win-rate on the
-            # chronological holdout) and the first-class abstention log. ?recalibrate=1
-            # forces a refit (otherwise the learn-loop refits every 6h).
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.uq import get_uq
-                uq = get_uq()
-                qs = parse_qs(urlparse(self.path).query)
-                if (qs.get("recalibrate", ["0"])[0] or "0") in ("1", "true"):
-                    uq.recalibrate()
-
-                def _p_meta():
-                    st = uq.status()
-                    return json.dumps({"available": True, "status": st,
-                                       "reliability": st.get("reliability", []),
-                                       "abstentions": uq.abstentions(40)},
-                                      default=str).encode()
-                # background snapshot: the first fit reads the full journal + trains —
-                # never in the request thread (same wedge as brain/ultra)
-                body = _bg_snapshot("brain/metacognition", _p_meta, ttl=120.0)
-            except Exception as e:
-                body = json.dumps({"available": False,
-                                   "error": f"{type(e).__name__}: {e}"}).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/trading/brain/debate":
-            # Pillar 18 (trading/brain/debate_gate.py): adversarial bull/bear/risk debate +
-            # process-reward step verifier over a candidate trade. ?symbol=&direction=&p_up=&
-            # sharpe=&regime=&psychology= runs a live deliberation; returns the auditable
-            # decision_snapshot (votes, arguments, per-step verifier scores) + gate decision.
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.brain.debate_gate import get_debate_gate
-                qs = parse_qs(urlparse(self.path).query)
-
-                def _g(k, d=None):
-                    v = qs.get(k, [d])[0]
-                    return v if v not in (None, "") else d
-                symbol = _g("symbol", "BTC/USDT")
-                direction = _g("direction", "LONG")
-                feats = {}
-                for k in ("p_up", "sharpe", "atr", "volatility"):
-                    v = _g(k)
-                    if v is not None:
-                        try:
-                            feats[k] = float(v)
-                        except ValueError:
-                            pass
-                for k in ("regime", "psychology"):
-                    v = _g(k)
-                    if v is not None:
-                        feats[k] = v
-
-                def _p_debate():
-                    gate = get_debate_gate()
-                    res = gate.assess(symbol, direction, features=feats or None)
-                    return json.dumps({"available": True, "symbol": symbol,
-                                       "direction": direction, "features": feats,
-                                       **res}, default=str).encode()
-                # deliberation calls the LLM failover → run off the request thread
-                body = _bg_snapshot(f"brain/debate/{symbol}/{direction}", _p_debate, ttl=45.0)
-            except Exception as e:
-                body = json.dumps({"available": False,
-                                   "error": f"{type(e).__name__}: {e}"}).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/trading/brain/decisions":
-            # Decision memory (trading/brain/decision_memory.py — FinMem layers +
-            # TradingAgents outcome-closure + SHAP attribution): REAL episodes only.
-            # ?symbol=X&q=... runs a live recall; default returns stats + newest episodes.
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.brain.decision_memory import get_memory
-                dm = get_memory()
-                qs = parse_qs(urlparse(self.path).query)
-                sym = (qs.get("symbol", [""])[0] or "").strip()
-                q = (qs.get("q", [""])[0] or "").strip()
-
-                def _trim(ep):
-                    out = {k: ep.get(k) for k in
-                           ("episode_id", "trade_id", "engine", "ts", "symbol", "market",
-                            "segment", "direction", "entry_price", "strategy", "outcome",
-                            "reflection", "pending", "layer", "importance", "recency",
-                            "_score")}
-                    out["attribution_top"] = (ep.get("attribution") or {}).get("top", [])
-                    return out
-                if sym or q:
-                    eps = dm.recall(symbol=sym, query=q, k=12, resolved_only=False)
-                else:
-                    eps = [dict(e) for e in dm.episodes[-40:]][::-1]
-                body = json.dumps({"available": True, "stats": dm.stats(),
-                                   "episodes": [_trim(e) for e in eps]},
-                                  default=str).encode()
-            except Exception as e:
-                body = json.dumps({"available": False,
-                                   "error": f"{type(e).__name__}: {e}"}).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/trading/gui/status":
-            # Computer-use / GUI agent (trading/brain/gui): the brain SEEING dashboards (own +
-            # Freqtrade/FreqUI), pressing their buttons, experimenting, reflecting (Reflexion)
-            # and growing a Voyager-style skill library. Honest capability flags: api+html read
-            # works today (stdlib); DOM-click (playwright) + chart-pixel OCR (paddleocr) are
-            # activate-on-install upgrade layers. observe=1 in the query also reads our own
-            # dashboard live so the panel shows what the agent currently sees.
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.brain.gui import register_computer_use_agent
-                agent = _gui_agent()
-                qs = parse_qs(urlparse(self.path).query)
-                if qs.get("observe", ["0"])[0] == "1":
-                    agent.observe("own_dashboard")        # live read (reachable + controls + chart)
-                register_computer_use_agent(agent)        # dashboard-sync: node graph
-                blob = agent.to_json()
-                caps = blob["action_capabilities"]
-                body = json.dumps({
-                    **blob, "available": True,
-                    "armed_for_live": caps.get("armed_for_live", False),
-                    "note": ("the brain's computer-use agent: it reads the same JSON the panels/"
-                             "charts draw + enumerates pressable controls (stdlib, live today), "
-                             "presses buttons via the SAME in-process control surface the UI uses "
-                             "(paper-first, dry-run default), and compounds skills by practicing. "
-                             "install playwright+paddleocr to add pixel-true DOM clicking + chart "
-                             "OCR (vendored source in vendor/browser_use_src + vendor/omniparser)."),
-                }, default=str).encode()
-            except Exception as e:
-                body = json.dumps({
-                    "available": False, "error": f"{type(e).__name__}: {e}",
-                    "hint": "computer-use agent via trading/brain/gui (ComputerUseAgent).",
-                }).encode()
-            return self._send(200, body, "application/json")
+        if path == "/api/trading/psychology":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_psychology(self)
+        if path == "/api/trading/brain/ultra":                # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_brain_ultra(self)
+        if path == "/api/trading/brain/metacognition":        # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_brain_metacognition(self)
+        if path == "/api/trading/brain/debate":               # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_brain_debate(self)
+        if path == "/api/trading/brain/decisions":            # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_brain_decisions(self)
+        if path == "/api/trading/gui/status":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_gui_status(self)
         if path == "/api/brain/evolve":                       # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
             from dashboard.routes import brain_ext
             return brain_ext.handle_evolve(self)

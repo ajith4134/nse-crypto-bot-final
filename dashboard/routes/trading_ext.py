@@ -1033,3 +1033,257 @@ def handle_opentrades(h):
         body = json.dumps({"available": False, "error": f"{type(e).__name__}: {e}",
                            "hint": "live open trades via trading/online/live_loop.py"}).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_brain_predict(h):
+    """GET /api/trading/brain/predict — the trade-row → NEURAL-NETWORK bridge: the project node
+    network (GatedMoENode over sklearn experts) trained on the closed-trade journal, run on every
+    OPEN trade + a closed-trade replay (predicted vs actual). Memoized single-flight 8s (torch NN
+    inference every hit otherwise stampeded the GIL under hub polling)."""
+    def _produce_brain_predict():
+        try:
+            from trading.online.live_loop import get_loop
+            net = _srv(h)._trade_outcome_net()
+            if net is None:
+                raise RuntimeError("trading stack not importable")
+            live = get_loop().open_positions()
+            open_preds = net.predict(live)
+            # replay recent closed trades (predicted p_win vs actual outcome)
+            replay = []
+            try:
+                from trading.journal.journal import TradeJournal
+                jr = TradeJournal(state_file="journal.json", persist=True)
+                for t in jr._trades[-10:]:
+                    d = t.to_dict()
+                    pr = net.predict_one(d)
+                    actual = "WIN" if float(d.get("net_pnl") or 0.0) > 0 else "LOSS"
+                    replay.append({"symbol": d.get("symbol"), "p_win": pr.get("p_win"),
+                                   "verdict": pr.get("verdict"), "actual": actual,
+                                   "net_pnl": d.get("net_pnl")})
+            except Exception:
+                replay = []
+            return json.dumps({
+                "model": net.info(),
+                "open_predictions": open_preds,
+                "closed_replay": replay,
+                "demo": False,
+                "note": ("trade rows → project node network → outcome. The network is "
+                         "trained on the live closed-trade journal and run on each open "
+                         "trade; closed_replay shows predicted p_win vs the actual result. "
+                         "engine 'gated_moe' = the real node MoE; 'numpy_logreg' = the "
+                         "offline fallback; 'untrained' = need ≥12 closed trades."),
+            }, default=str).encode()
+        except Exception as e:
+            return json.dumps({
+                "available": False, "error": f"{type(e).__name__}: {e}",
+                "hint": "trade→NN bridge via trading/brain/trade_features.py "
+                        "(TradeOutcomeNet) + the closed journal.",
+            }).encode()
+    body = _srv(h)._cached_body("brain/predict", 8.0, _produce_brain_predict)
+    return h._send(200, body, "application/json")
+
+
+def handle_psychology(h):
+    """GET /api/trading/psychology — Trader Psychology (order-book depth): LIVE crowd metrics per
+    symbol (OBI, OFI, Stoikov microprice drift, depth-slope, whale walls, spread/λ/VPIN fear +
+    composite). ?market&symbol&segment evaluates one on demand; default = every OPEN position."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.brain.psychology import get_engine
+        qs = parse_qs(urlparse(h.path).query)
+        eng = get_engine()
+        out, errors = [], []
+        sym = (qs.get("symbol", [""])[0] or "").strip()
+        if sym:
+            mkt = (qs.get("market", ["CRYPTO"])[0] or "CRYPTO").upper()
+            seg = (qs.get("segment", [""])[0] or None)
+            r = eng.evaluate(mkt, sym, segment=seg)
+            if r:
+                out.append(r)
+            else:
+                errors.append(f"no depth for {mkt}:{sym}")
+        else:
+            targets = []
+            try:
+                from trading.online.live_loop import get_loop
+                targets += [(p["market"], p["symbol"], p.get("segment"))
+                            for p in get_loop().open_positions()]
+            except Exception:
+                pass
+            try:
+                from trading.crypto.engine_client import CryptoEngineClient
+                from trading.crypto.freqtrade_ingest import open_trades_view
+                targets += [("CRYPTO", t.get("symbol"), "futures")
+                            for t in open_trades_view(CryptoEngineClient())]
+            except Exception:
+                pass
+            seen = set()
+            for mkt, s, seg in targets[:12]:      # cap per request; engine caches 5s
+                if not s or (mkt, s) in seen:
+                    continue
+                seen.add((mkt, s))
+                r = eng.evaluate(mkt, s, segment=seg)
+                if r:
+                    out.append(r)
+        body = json.dumps({"available": True, "rows": out, "errors": errors},
+                          default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_brain_ultra(h):
+    """GET /api/trading/brain/ultra — Brain ultra-upgrade (Phases A–E): REAL statuses of associative
+    memory (HippoRAG PPR + A-MEM), file memory, cloned micro-LLM, Docling perception, Avalanche
+    continual, gpt-researcher. ?q=... runs a LIVE associative recall. status → _bg_snapshot (first
+    run does LLM calls + file-memory init; not in the request thread)."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.brain import ultra
+        qs = parse_qs(urlparse(h.path).query)
+
+        def _p_ultra():
+            st = ultra.status()
+            return json.dumps({**st, "available": True}, default=str).encode()
+        q = (qs.get("q", [""])[0] or "").strip()
+        if q:
+            body = json.dumps({"query": q, "hits": ultra.recall(q, k=6),
+                               "available": True}, default=str).encode()
+        else:
+            body = _srv(h)._bg_snapshot("brain/ultra", _p_ultra, ttl=300.0)
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_brain_metacognition(h):
+    """GET /api/trading/brain/metacognition — Pillar 17: REAL calibration state of the conformal UQ
+    engine (crepes CPS coverage static vs ACI, ECE, adaptive width cap, reliability bins, abstention
+    log). ?recalibrate=1 forces a refit. First fit reads the full journal + trains → _bg_snapshot."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.uq import get_uq
+        uq = get_uq()
+        qs = parse_qs(urlparse(h.path).query)
+        if (qs.get("recalibrate", ["0"])[0] or "0") in ("1", "true"):
+            uq.recalibrate()
+
+        def _p_meta():
+            st = uq.status()
+            return json.dumps({"available": True, "status": st,
+                               "reliability": st.get("reliability", []),
+                               "abstentions": uq.abstentions(40)},
+                              default=str).encode()
+        body = _srv(h)._bg_snapshot("brain/metacognition", _p_meta, ttl=120.0)
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_brain_debate(h):
+    """GET /api/trading/brain/debate — Pillar 18: adversarial bull/bear/risk debate + process-reward
+    step verifier over a candidate trade. ?symbol&direction&p_up&sharpe&regime&psychology runs a
+    live deliberation → auditable decision_snapshot. LLM failover → _bg_snapshot (off request thread)."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.brain.debate_gate import get_debate_gate
+        qs = parse_qs(urlparse(h.path).query)
+
+        def _g(k, d=None):
+            v = qs.get(k, [d])[0]
+            return v if v not in (None, "") else d
+        symbol = _g("symbol", "BTC/USDT")
+        direction = _g("direction", "LONG")
+        feats = {}
+        for k in ("p_up", "sharpe", "atr", "volatility"):
+            v = _g(k)
+            if v is not None:
+                try:
+                    feats[k] = float(v)
+                except ValueError:
+                    pass
+        for k in ("regime", "psychology"):
+            v = _g(k)
+            if v is not None:
+                feats[k] = v
+
+        def _p_debate():
+            gate = get_debate_gate()
+            res = gate.assess(symbol, direction, features=feats or None)
+            return json.dumps({"available": True, "symbol": symbol,
+                               "direction": direction, "features": feats,
+                               **res}, default=str).encode()
+        body = _srv(h)._bg_snapshot(f"brain/debate/{symbol}/{direction}", _p_debate, ttl=45.0)
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_brain_decisions(h):
+    """GET /api/trading/brain/decisions — Decision memory (FinMem layers + TradingAgents outcome-
+    closure + SHAP attribution): REAL episodes only. ?symbol&q runs a live recall; default returns
+    stats + newest episodes."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.brain.decision_memory import get_memory
+        dm = get_memory()
+        qs = parse_qs(urlparse(h.path).query)
+        sym = (qs.get("symbol", [""])[0] or "").strip()
+        q = (qs.get("q", [""])[0] or "").strip()
+
+        def _trim(ep):
+            out = {k: ep.get(k) for k in
+                   ("episode_id", "trade_id", "engine", "ts", "symbol", "market",
+                    "segment", "direction", "entry_price", "strategy", "outcome",
+                    "reflection", "pending", "layer", "importance", "recency",
+                    "_score")}
+            out["attribution_top"] = (ep.get("attribution") or {}).get("top", [])
+            return out
+        if sym or q:
+            eps = dm.recall(symbol=sym, query=q, k=12, resolved_only=False)
+        else:
+            eps = [dict(e) for e in dm.episodes[-40:]][::-1]
+        body = json.dumps({"available": True, "stats": dm.stats(),
+                           "episodes": [_trim(e) for e in eps]},
+                          default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_gui_status(h):
+    """GET /api/trading/gui/status — Computer-use / GUI agent (trading/brain/gui): the brain SEEING
+    dashboards, pressing buttons, experimenting, reflecting + growing a Voyager skill library.
+    api+html read works today; DOM-click (playwright) + chart OCR (paddleocr) are install-gated.
+    observe=1 reads our own dashboard live."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.brain.gui import register_computer_use_agent
+        agent = _srv(h)._gui_agent()
+        qs = parse_qs(urlparse(h.path).query)
+        if qs.get("observe", ["0"])[0] == "1":
+            agent.observe("own_dashboard")        # live read (reachable + controls + chart)
+        register_computer_use_agent(agent)        # dashboard-sync: node graph
+        blob = agent.to_json()
+        caps = blob["action_capabilities"]
+        body = json.dumps({
+            **blob, "available": True,
+            "armed_for_live": caps.get("armed_for_live", False),
+            "note": ("the brain's computer-use agent: it reads the same JSON the panels/"
+                     "charts draw + enumerates pressable controls (stdlib, live today), "
+                     "presses buttons via the SAME in-process control surface the UI uses "
+                     "(paper-first, dry-run default), and compounds skills by practicing. "
+                     "install playwright+paddleocr to add pixel-true DOM clicking + chart "
+                     "OCR (vendored source in vendor/browser_use_src + vendor/omniparser)."),
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False, "error": f"{type(e).__name__}: {e}",
+            "hint": "computer-use agent via trading/brain/gui (ComputerUseAgent).",
+        }).encode()
+    return h._send(200, body, "application/json")
