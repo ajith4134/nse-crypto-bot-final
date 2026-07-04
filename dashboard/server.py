@@ -1125,196 +1125,42 @@ class Handler(BaseHTTPRequestHandler):
                 blob = {"features": [], "manifold": {"points": [], "n_clusters": 0},
                         "stats": {}, "error": str(e)[:120]}
             return self._send(200, json.dumps(blob).encode(), "application/json")
-        if path == "/api/brain/agent/status":
-            # P4.1 LangGraph BrainAgent status: engine, has_memory, active LLM (or null
-            # offline), recall_k. Degrades to an error payload (never crashes the server).
-            # Background snapshot: LangGraph agent init is slow on first hit (2026-07-02 fix).
-            def _p_agent():
-                return _brain_agent().status()
-            return self._send(200, _bg_snapshot("agent", _p_agent), "application/json")
-        if path == "/api/brain/memory/status":
-            # P4.2 human-like memory: importance + Ebbinghaus decay, Letta tiers, and an
-            # auto_dream consolidation pass. Returns the OFFLINE deterministic demo snapshot
-            # (a real KnowledgeBrain downloads an embedding model = network), labelled demo.
-            # Degrades to an error payload (never crashes the server).
-            try:
-                from run_human_memory import build_demo_human_memory
-                snap = build_demo_human_memory()
-                snap["demo"] = True
-                snap["note"] = ("offline deterministic demo (run_human_memory.py over a stub "
-                                "brain, injected clock); shows real HumanMemory dynamics — "
-                                "decay/tiers/dream — not live brain memory")
-                body = json.dumps(snap, default=str).encode()
-            except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "P4.2 human-like memory not importable (see memory/human_memory.py, "
-                            "run_human_memory.py and ml-network-brain-ultra-blueprint.md §4).",
-                }).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/brain/hybrid/status":
-            # P4.2 hybrid memory: fuses REAL reused projects — vendored Stanford
-            # Generative-Agents memory stream (Apache-2.0; importance+recency+relevance
-            # retrieval + reflection), real Letta tiered core-memory (pip), mem0 semantic
-            # store (pip, gated) + our Ebbinghaus decay/auto_dream. Returns the OFFLINE
-            # deterministic demo snapshot (real brain/LLM = network), labelled demo.
-            # Degrades to an error payload (never crashes the server).
-            try:
-                from run_hybrid_memory import build_demo_hybrid_memory
-                snap = build_demo_hybrid_memory()
-                snap["demo"] = True
-                snap["note"] = ("offline deterministic demo (run_hybrid_memory.py over a stub "
-                                "brain + stub LLM, injected clock); shows real HybridMemory "
-                                "fusion — GA stream + Letta tiers + Ebbinghaus decay/dream — "
-                                "not live brain memory")
-                body = json.dumps(snap, default=str).encode()
-            except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "P4.2 hybrid memory not importable (see memory/hybrid_memory.py, "
-                            "run_hybrid_memory.py and ml-network-brain-ultra-blueprint.md §4).",
-                }).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/brain/librarian/status":
-            # P4.3 self-feeding internet: the Librarian discovers (ddgs web / arxiv /
-            # feedparser RSS), extracts (trafilatura), dedups (content+URL), and ingests
-            # into KnowledgeBrain — on an APScheduler loop in live use. Returns the OFFLINE
-            # deterministic demo snapshot (live mode needs network + an embedding model),
-            # labelled demo. Degrades to an error payload (never crashes the server).
-            try:
-                from run_librarian import build_demo_librarian
-                snap = build_demo_librarian()
-                snap["demo"] = True
-                snap["note"] = ("offline deterministic demo (run_librarian.py over a stub "
-                                "brain, injected stub web/arxiv sources + extractor); shows "
-                                "real Librarian discover/feed/dedup — not live ingestion")
-                body = json.dumps(snap, default=str).encode()
-            except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "P4.3 self-feeding Librarian not importable (see memory/librarian.py, "
-                            "run_librarian.py and ml-network-brain-ultra-blueprint.md §4).",
-                }).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/brain/quiz/status":
-            # P4.4 self-quiz mastery: the brain quizzes ITSELF (cloze questions from
-            # ingested memories → recall → grade) and tracks a FSRS-driven mastery/
-            # retention curve — a RISING accuracy+retention curve is the honest "it gets
-            # smarter" test (vs a never-learning control). Returns the OFFLINE
-            # deterministic demo snapshot (a real KnowledgeBrain downloads an embedding
-            # model = network), labelled demo. Degrades to an error payload (never crashes).
-            def _p_quiz():
-                from run_self_quiz import build_demo_self_quiz
-                snap = build_demo_self_quiz()
-                snap["demo"] = True
-                snap["note"] = ("offline deterministic demo (run_self_quiz.py over a stub "
-                                "brain, injected clock); shows the real FSRS-driven mastery "
-                                "curve rising for a learning brain vs a flat never-learning "
-                                "control — not live brain self-testing")
-                return snap
-            return self._send(200, _bg_snapshot("quiz", _p_quiz), "application/json")
-        if path == "/api/brain/thinking/status":
-            # P4.5 thinking + knowing-what-it-knows: the brain REASONS deliberately over its
-            # own memory (LangGraph ReAct/ToT), updates pymdp active-inference beliefs (surprise
-            # + curiosity), reasons symbolically (pyDatalog traceable transitive logic) and
-            # causally (DoWhy + causal-learn), then STAYS CALIBRATED — a conformal selective gate
-            # (MAPIE/netcal) makes it ABSTAIN and escalate to the human when it isn't sure — and
-            # passes a NeMo-Guardrails constitution. Returns the OFFLINE deterministic demo
-            # snapshot, labelled demo. Degrades to an error payload (never crashes the server).
-            def _p_thinking():
-                from run_thinking_p45 import build_demo_thinking
-                snap = build_demo_thinking()
-                snap["demo"] = True
-                snap["note"] = ("offline deterministic demo (run_thinking_p45.py over a stub "
-                                "brain): real ReAct/ToT reasoning + pymdp surprise/curiosity + "
-                                "pyDatalog/DoWhy reasoning + conformal abstention + NeMo "
-                                "constitution — answers when confident, abstains + escalates "
-                                "when not; not live brain reasoning")
-                return snap
-            return self._send(200, _bg_snapshot("thinking", _p_thinking), "application/json")
-        if path == "/api/brain/stream/status":
-            # P4.6 Stream-of-Mind: the brain's live, EPHEMERAL state of mind — each think()
-            # cycle becomes a stream of REAL thought-events (goal, ReAct steps, pymdp surprise/
-            # curiosity, symbolic insight, calibrated verdict); a Global Workspace competition
-            # broadcasts the most salient each tick and CONSOLIDATES winners to long-term memory
-            # (visible working→long-term pipeline). Each cycle is a durable Langfuse trace
-            # (no-op offline). Returns the OFFLINE deterministic demo snapshot, labelled demo.
-            def _p_stream():
-                from run_stream_of_mind import build_demo_thinking
-                snap = build_demo_thinking()
-                snap["demo"] = True
-                snap["note"] = ("offline deterministic demo (run_stream_of_mind.py over a stub "
-                                "brain): real Thinker think-cycle → thought stream → Global "
-                                "Workspace consolidation to long-term memory; live panel streams "
-                                "via AG-UI (POST /api/agui). Langfuse offline no-op unless keys set")
-                return snap
-            return self._send(200, _bg_snapshot("stream", _p_stream), "application/json")
+        if path == "/api/brain/agent/status":                 # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_agent_status(self)
+        if path == "/api/brain/memory/status":                # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_memory_status(self)
+        if path == "/api/brain/hybrid/status":                # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_hybrid_status(self)
+        if path == "/api/brain/librarian/status":             # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_librarian_status(self)
+        if path == "/api/brain/quiz/status":                  # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_quiz_status(self)
+        if path == "/api/brain/thinking/status":              # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_thinking_status(self)
+        if path == "/api/brain/stream/status":                # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_stream_status(self)
         if path == "/api/brain/mind/events":                  # body extracted → dashboard/routes/brain_ext.py (Wave0-⑤)
             from dashboard.routes import brain_ext
             return brain_ext.handle_mind_events(self)
         if path == "/api/brain/ops":                          # body extracted → dashboard/routes/brain_ext.py (Wave0-⑤ seam)
             from dashboard.routes import brain_ext
             return brain_ext.handle_ops(self)
-        if path == "/api/brain/boss":
-            # Boss command engine: directives in force + R&D drive inventions. NOT named
-            # */status on purpose — that suffix gets the 8s dispatch cache, and this must
-            # reflect a just-executed boss command immediately (cheap state-file read).
-            try:
-                from trading.brain import boss as _boss
-                from trading.brain import rnd as _rnd
-                out = {"ok": True, "directives": _boss.directives(), "rnd": _rnd.status()}
-                out["directives"].pop("history", None)
-            except Exception as e:
-                out = {"ok": False, "error": f"{type(e).__name__}: {e}"[:160]}
-            return self._send(200, json.dumps(out, default=str).encode(), "application/json")
-        if path == "/api/brain/autonomy/status":
-            # P4.7 Autonomy + self-coding: the brain INVENTS new model-nodes, fits + scores each
-            # in a SANDBOX (isolated subprocess · CPU/mem rlimits · wall-clock timeout · no
-            # network), and admits only winners that BEAT the incumbent on golden data into its
-            # own registry — bounded self-improvement on the safe substrate (P4.4 self-test +
-            # P4.5 calibration/guardrails). Returns the OFFLINE deterministic demo snapshot.
-            def _p_autonomy():
-                from run_self_coding_p47 import build_demo_self_coding
-                snap = build_demo_self_coding()
-                snap["demo"] = True
-                snap["note"] = ("offline deterministic demo (run_self_coding_p47.py): real "
-                                "propose→sandbox→benchmark-gate→admit loop over golden data; "
-                                "shows the rising best-score curve + the safety gate rejecting a "
-                                "malicious spec without running it. No network, no LLM")
-                return snap
-            return self._send(200, _bg_snapshot("autonomy", _p_autonomy), "application/json")
-        if path == "/api/brain/embodiment/status":
-            # P4.8 Multimodal + identity + society + affect: the brain's personality with senses —
-            # it SEES (Moondream2→BLIP), HEARS (faster-whisper), SPEAKS (kokoro-onnx), FEELS
-            # (GoEmotions→NRCLex mood), holds an INTERNAL DEBATE (specialist roles → vote), and
-            # keeps a persistent IDENTITY (Letta persona/human blocks). Computed in a SUBPROCESS so
-            # the ~4GB of real models load in a child that exits (the dashboard server stays lean);
-            # the JSON result is cached. First call is slow (model loads), then instant.
-            try:
-                global _EMBODIMENT_CACHE
-                if _EMBODIMENT_CACHE is None:
-                    import subprocess
-                    import sys as _sys
-                    proc = subprocess.run([_sys.executable, "run_embodiment_p48.py", "--json"],
-                                          capture_output=True, text=True, timeout=300, cwd=os.getcwd())
-                    _EMBODIMENT_CACHE = json.loads(proc.stdout.strip().splitlines()[-1])
-                snap = dict(_EMBODIMENT_CACHE)
-                snap["demo"] = True
-                snap["note"] = ("REAL models active (see/hear/speak + GoEmotions mood + internal "
-                                "debate + persistent Letta identity), computed in a subprocess and "
-                                "cached. run_embodiment_p48.py for the live CLI demo")
-                body = json.dumps(snap, default=str).encode()
-            except Exception as e:
-                body = json.dumps({
-                    "available": False,
-                    "error": f"{type(e).__name__}: {e}",
-                    "hint": "P4.8 embodiment not importable (see cognition/embodiment.py, "
-                            "cognition/{affect,identity,society,multimodal}.py, run_embodiment_p48.py).",
-                }).encode()
-            return self._send(200, body, "application/json")
+        if path == "/api/brain/boss":                         # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_boss(self)
+        if path == "/api/brain/autonomy/status":              # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_autonomy_status(self)
+        if path == "/api/brain/embodiment/status":            # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_embodiment_status(self)
         if path == "/api/trading/status":
             # Honest trading status: real OpenAlgo connectivity + toggle/feed/watchlist.
             # Lazy import so the dashboard still serves if the trading deps are absent.
@@ -1606,47 +1452,12 @@ class Handler(BaseHTTPRequestHandler):
                                        "hint": "trading/strategy/foundry.py"}).encode()
             return self._send(200, _cached_body("trading/foundry", 8.0, _p_foundry),
                               "application/json")
-        if path == "/api/brain/activity":
-            # Ephemeral transparency feed: what the autonomous web agent did + learned. GET
-            # drains (marks viewed → disappears) so it's a temporary chat; ?peek=1 to look
-            # without clearing. trading/brain/activity_feed.py.
-            try:
-                from urllib.parse import parse_qs, urlparse
-                from trading.brain import activity_feed as _af
-                qs = parse_qs(urlparse(self.path).query)
-                events = _af.peek() if qs.get("peek") else _af.drain()
-                body = json.dumps({"events": events, "status": _af.status()}, default=str).encode()
-            except Exception as e:
-                body = json.dumps({"events": [], "error": f"{type(e).__name__}: {e}"}).encode()
-            return self._send(200, body, "application/json")
-        if path == "/api/brain/learning":
-            # Brain self-learning + web panel feed: knowledge stats + what it's learned +
-            # ephemeral web-activity + pending credential requests. Read-only aggregate.
-            def _p_learning():
-                out = {}
-                try:
-                    from trading.brain.learner import get_learner
-                    out["learner"] = get_learner().status()
-                except Exception as e:
-                    out["learner"] = {"error": f"{type(e).__name__}: {e}"[:120]}
-                try:
-                    from trading.brain import activity_feed as _af
-                    out["activity"] = _af.peek(30)
-                except Exception:
-                    out["activity"] = []
-                try:
-                    from trading.brain.credentials import get_vault
-                    out["pending_logins"] = get_vault().pending()
-                except Exception:
-                    out["pending_logins"] = []
-                try:
-                    from trading.brain.learn_loop import get_learn_loop
-                    out["loop"] = get_learn_loop().status()
-                except Exception:
-                    out["loop"] = {"enabled": False, "running": False}
-                return json.dumps(out, default=str).encode()
-            return self._send(200, _cached_body("brain/learning", 6.0, _p_learning),
-                              "application/json")
+        if path == "/api/brain/activity":                     # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_activity(self)
+        if path == "/api/brain/learning":                     # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_learning(self)
         if path == "/api/trading/credentials":
             # Brain credential vault status — pending login requests + stored site NAMES only
             # (never secret values; Fernet-encrypted at rest, gitignored). The chat surfaces
