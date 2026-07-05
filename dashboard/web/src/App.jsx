@@ -138,7 +138,7 @@ export default function App() {
           <Kpi label="Network" value={nodes.length} sub={`${edges.length} real trained edges`} />
           {net?.active_subnet && (
             <Kpi label="Active subnetwork"
-              value={`top-${net.active_subnet.top_k}/${net.active_subnet.n_experts}`}
+              value={`top-${Math.round(net.active_subnet.mean_active)}/${net.active_subnet.n_experts}`}
               sub={`${net.active_subnet.n_communities} Leiden communities · ${net.active_subnet.mean_active} avg active`} />
           )}
           {compute && (

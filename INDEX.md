@@ -351,7 +351,7 @@ _PostToolUse hook: when an Edit/Write/MultiEdit touches dashboard / FreqUI / Ope
 
 ## `.claude/skills/dashboard-visual-qa/interaction_qa.py`
 _interaction_qa — end-to-end INPUT + BUTTON tester for every dashboard view._
-- **functions:** `_drive(page, ctrl)`; `run(only)`; `_write_md(report, path)`
+- **functions:** `_drive(page, ctrl)`; `_await_app(page, settle)`; `_enumerate(page, tries)`; `run(only)`; `_write_md(report, path)`
 - **imports:** argparse, json, os, pathlib, playwright.sync_api, re, time
 
 ## `.claude/skills/dashboard-visual-qa/visual_qa.py`
