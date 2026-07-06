@@ -568,7 +568,7 @@ _core/brain_agent.py — LangGraph brain agent: "talk to the brain" (Phase P4.1)
 
 ## `core/chat_brain.py`
 _core/chat_brain.py — P4.1: chat with the brain (RAG-grounded, cloud-LLM)._
-- **functions:** `_brain_state() -> str`; `_build_brain()`; `_brain()`; `_boss_route(message, history)`; `chat(message, history) -> dict`; `_build_messages(message, context, history) -> list[dict]`; `chat_stream(message, history)`
+- **functions:** `_brain_state() -> str`; `_build_brain()`; `_brain()`; `_boss_route(message, history)`; `_credential_route(message)`; `chat(message, history) -> dict`; `_build_messages(message, context, history) -> list[dict]`; `chat_stream(message, history)`
 - **imports:** __future__, core, glob, os, threading
 
 ## `core/columns.py`
@@ -596,8 +596,8 @@ _Optuna-backed hyperparameter optimization (Tier-2/3 infra, group H of the model
 ## `core/llm.py`
 _core/llm.py — P4.1 cloud-LLM access (the brain's "mouth"), reuse-first via LiteLLM._
 - **classes:** NoLLMConfigured
-- **functions:** `_candidates() -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `chat(messages, max_tokens, temperature, timeout) -> str`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
-- **imports:** __future__, config, os, time
+- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
+- **imports:** __future__, base64, config, os, time
 
 ## `core/llm_telemetry.py`
 _Per-provider cloud-LLM telemetry (real call stats for the dashboard)._
@@ -656,13 +656,13 @@ _Extracted network / state / knowledge HTTP routes (dashboard/server.py split �
 
 ## `dashboard/routes/post_ext.py`
 _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
-- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`; `handle_chat_stream(h)`; `handle_agui(h)`; `handle_crypto_params(h)`; `handle_closedtrades_reset(h)`; `handle_crypto_mode(h)`; `handle_online_control(h)`; `handle_gui_action(h)`
+- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`; `handle_chat_stream(h)`; `handle_agui(h)`; `handle_crypto_params(h)`; `handle_closedtrades_reset(h)`; `handle_crypto_mode(h)`; `handle_online_control(h)`; `handle_gui_action(h)`; `handle_broker_sense_post(h)`
 - **imports:** json, os, sys, threading
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`
-- **imports:** json, sys, time
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
 _dashboard/server.py — zero-dependency dashboard server (stdlib http.server)._
@@ -1359,6 +1359,11 @@ _Pillar 20 — anti-overfitting backbone: CPCV, meta-labeling, and the mandatory
 - **classes:** TestCPCV, TestMetaLabel, TestFoundryGate
 - **imports:** numpy, os, pandas, tempfile, unittest
 
+## `tests/test_app_school.py`
+_Tests for the App Driving School (trading/broker_sense/app_school) — offline, no browser._
+- **classes:** _IsolatedState, TestAppMap, TestRouteTo, TestRanking, _FakePage, _FakeCortex, _FakeRegistry, _FakeRecorder, TestExplore, TestFastMovers, TestAccountScreenWiring
+- **imports:** __future__, pathlib, tempfile, trading.broker_sense, trading.state, unittest
+
 ## `tests/test_associative_memory.py`
 _Tests for memory/associative.py — HippoRAG PPR recall + A-MEM evolution (offline path)._
 - **functions:** `_seed(mem)`; `test_add_links_related_notes()`; `test_recall_is_associative_multihop()`; `test_persistence_across_instances(tmp_path)`; `test_llm_path_used_when_available()`
@@ -1396,6 +1401,21 @@ _Unit tests for BrainExecutor's options/prediction segment cycles (audit gap 4).
 - **classes:** FakeClient, FakeDecider, TestOptionParse, TestOptionsCycle, TestPredictionCycle, TestPerSegmentMaxOpenTrades
 - **functions:** `_candles(closes)`
 - **imports:** trading.crypto.freqtrade.brain_executor, unittest
+
+## `tests/test_broker_features.py`
+_Tests for the broker built-in-feature exploitation subsystem (trading/broker_sense/broker_features)._
+- **classes:** _Isolated, TestCatalog, TestFusion, TestPerfStacking, TestNewEntry, TestPresetInvention, TestWatchlistGated
+- **imports:** __future__, pathlib, tempfile, trading.state, unittest
+
+## `tests/test_broker_login.py`
+_Tests for the broker login flow (trading/broker_sense/sessions) — multi-step aware, offline._
+- **classes:** _IsolatedState, _El, _FakeBinance, TestLoginDetection, TestChallengeDetection, TestClickLoginSelectivity, TestChallengeNoFalsePositive, TestMultiStepLogin
+- **imports:** __future__, pathlib, tempfile, trading.broker_sense, trading.state, unittest
+
+## `tests/test_broker_sense.py`
+_Tests for the Broker-Sense Funnel (trading/broker_sense) — offline, STATE_DIR-isolated._
+- **classes:** _IsolatedState, TestBrokerRoles, TestVaultMerge, TestWatchlist, TestLearningColumns, TestChartVision, TestBookMonitor, TestExecAdapter, TestFunnelCycle, TestCnnModel, TestOtpBoxDetection, TestWedgeRegressions
+- **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
 ## `tests/test_candle_updater.py`
 _candle_updater throttle — batched, de-prioritised OHLCV refresh._
@@ -1488,10 +1508,25 @@ _CORTEX B9 — the 13 PARTIAL→FULL canon gap-closers._
 - **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestSelectiveAccuracy, TestFeatureBus, TestDownloadersImportable, TestNSEPractice
 - **imports:** numpy, os, pandas, tempfile, unittest
 
+## `tests/test_credential_chat.py`
+_Tests for capturing a credential answer typed into Brain Chat (trading/brain/credential_chat)._
+- **classes:** _IsolatedState, TestCapture, TestChatRouting
+- **imports:** __future__, pathlib, tempfile, trading.state, unittest
+
+## `tests/test_credential_requests.py`
+_Tests for the credential-request → Brain Chat flow (cross-process) + proactive login ask._
+- **classes:** _IsolatedState, TestCrossProcessPending, TestProactiveAsk
+- **imports:** __future__, pathlib, tempfile, time, trading.state, unittest
+
 ## `tests/test_crypto_t2.py`
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
 - **classes:** TestConfig, TestLiquidation, TestOrderBookFill, TestPaperEngine, TestFundingSpread, TestCryptoWatchlist
 - **imports:** __future__, pathlib, tempfile, trading.crypto.config, trading.crypto.funding, trading.crypto.liquidation, trading.crypto.paper_engine, trading.crypto.watchlist, trading.state, unittest
+
+## `tests/test_data_sources.py`
+_Tests for the per-broker public↔account data-source switch (data_sources + screen_all gating)._
+- **classes:** _IsolatedState, TestSwitch, TestScreenAllGating, TestAccountScreenRequiresLogin
+- **imports:** __future__, pathlib, tempfile, trading.broker_sense, trading.state, unittest
 
 ## `tests/test_debate_verifier_p18.py`
 _Pillar 18 — adversarial debate + verifier-guided reasoning. Deterministic via injected_
@@ -1549,6 +1584,12 @@ _Trading Phase T8.4 (episodic experience bank + semantic memory) acceptance test
 - **functions:** `_trade() -> ClosedTrade`; `_long_low_vix_winner(i) -> ClosedTrade`; `_long_high_vix_loser(i) -> ClosedTrade`
 - **imports:** __future__, json, tempfile, trading.brain.experience, trading.brain.semantic, trading.journal.journal, trading.journal.schema, unittest, warnings
 
+## `tests/test_fast_candles.py`
+_Tests for fast candle direction (trading/broker_sense/fast_candles) + crypto order type._
+- **classes:** TestDirection, TestRead, TestOrderType
+- **functions:** `_uptrend(n, start, step)`; `_downtrend(n, start, step)`
+- **imports:** __future__, trading.broker_sense, unittest
+
 ## `tests/test_file_memory.py`
 _Tests for memory/file_memory.py — Claude-style durable file memory (Phase B)._
 - **functions:** `test_write_creates_note_and_index(tmp_path)`; `test_persists_across_processes_and_recalls(tmp_path)`; `test_keyword_fallback_without_associative(tmp_path)`
@@ -1599,6 +1640,17 @@ _Phase P4.2 HybridMemory acceptance tests — fully OFFLINE + deterministic._
 _tests/test_hypothesis.py — the brain's hypothesis→experiment→belief loop._
 - **functions:** `isolated_state(tmp_path, monkeypatch)`; `_trades(n, seed) -> list[dict]`; `test_confirms_true_edge_and_refutes_false(isolated_state)`; `test_reflect_promotes_and_archives(isolated_state)`; `test_persists_and_reloads(isolated_state)`; `test_node_protocol_and_registry(isolated_state)`; `test_pipeline_integration_with_ledger(isolated_state)`
 - **imports:** __future__, core.node_protocol, numpy, pytest
+
+## `tests/test_indicator_fusion.py`
+_Tests for the ultra-advanced multi-timeframe indicator-fusion engine (offline, no network)._
+- **classes:** TestIndicators, TestBarriers, TestMetaLabel, TestFuse
+- **functions:** `_series(trend, n, start, noise) -> list`
+- **imports:** __future__, math, trading.broker_sense, unittest
+
+## `tests/test_interception.py`
+_Tests for the network-interception recorder + endpoint registry (offline, no browser)._
+- **classes:** _IsolatedState, TestUrlPattern, TestClassify, TestRegistry, _FakeRequest, _FakeResponse, TestRecorder
+- **imports:** __future__, pathlib, tempfile, time, trading.broker_sense, trading.state, unittest
 
 ## `tests/test_intermarket_gnn.py`
 _AI-scientist idea #10 — Intermarket GNN (PyG GCN over the cross-feature graph)._
@@ -1670,6 +1722,18 @@ _Trading Phase T8.7 (Autonomous news research + sentiment) acceptance tests — 
 - **classes:** TestSentimentScorer, TestNewsItem, TestNewsResearcher, TestNewsSentimentNode
 - **imports:** __future__, core.node_protocol, os, trading.brain.news, trading.brain.sentiment, unittest, warnings
 
+## `tests/test_ocular_cortex.py`
+_Tests for the Ocular Cortex (trading/brain/vision/ocular_cortex) — offline, no browser._
+- **classes:** _IsolatedState, TestPerceptualFrame, TestLayoutMemory, TestOcularCortex
+- **functions:** `_controls(labels)`
+- **imports:** __future__, pathlib, tempfile, trading.brain.vision, trading.state, unittest
+
+## `tests/test_ocular_perception.py`
+_Tests for OcularPerception (trading/broker_sense/ocular_perception) — funnel eyes, offline._
+- **classes:** _IsolatedState, TestSummarizeBook, TestEnrich, TestVisionSink, TestLinkage
+- **functions:** `_perception(network)`
+- **imports:** __future__, pathlib, tempfile, trading.brain.vision.ocular_cortex, trading.broker_sense, trading.broker_sense.learning_columns, trading.state, unittest
+
 ## `tests/test_onchain_altdata.py`
 _AI-scientist idea #11 — on-chain + whale alt-data lane (hermetic, injected fetchers)._
 - **classes:** TestOnChainAltData
@@ -1725,6 +1789,11 @@ _Trading Phase T8.9 (end-to-end brain trading pipeline + safety) acceptance test
 - **classes:** TestDecideContract, TestTracing, TestSafetyGate, TestSafetyReview, TestDeterminism, TestSerialization, TestBothMarkets
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`; `_stub_news()`; `_strategy(market, seed)`; `_full_pipeline(market)`; `_assert_no_numpy(case, obj, path)`
 - **imports:** __future__, json, numpy, pandas, trading.brain.entryexit, trading.brain.experience, trading.brain.news, trading.brain.observability, trading.brain.patterns, trading.brain.pipeline, trading.brain.regime, trading.execution.circuit_breaker, trading.execution.kill_switch, trading.strategy.genome, trading.strategy.operators, unittest, warnings
+
+## `tests/test_profit_tailgate.py`
+_Tests for profit tailgating (trading/execution/profit_tailgate) — the ratcheting profit lock._
+- **classes:** _Iso, TestRatchet
+- **imports:** pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_psychology.py`
 _Trader-psychology engine (order-book depth) — pure-computation tests._
@@ -1866,6 +1935,16 @@ _AI-scientist idea #9 — VAE factor node + synthetic scenario generator._
 - **functions:** `_dataset(n, d, seed)`
 - **imports:** core.node_protocol, nodes.vae_factor, numpy, unittest
 
+## `tests/test_vision_computer_use.py`
+_Tests for the FREE computer-use loop (trading/brain/vision/computer_use) — offline._
+- **classes:** _IsolatedState, _FakeElement, _FakePage, TestActionParsing, TestGuard, TestLoop, TestPaidBackendOff
+- **imports:** __future__, pathlib, tempfile, trading.brain.vision, trading.brain.vision.ocular_cortex, trading.state, unittest
+
+## `tests/test_vision_engine.py`
+_Tests for the free vision engine (core.llm.vision_chat) — the brain's FREE eyes._
+- **classes:** TestImageDataUrl, TestVisionChat
+- **imports:** __future__, base64, core, os, tempfile, unittest
+
 ## `tests/test_worldmodel.py`
 _tests/test_worldmodel.py — world-model + MuZero imagination planner._
 - **functions:** `_series(drift, n, seed) -> pd.DataFrame`; `test_features_shape()`; `test_node_protocol_and_registry()`; `test_world_model_learns_dynamics()`; `test_planner_prefers_long_on_uptrend()`; `test_planner_manages_open_position()`; `test_pipeline_integration_with_planner()`
@@ -1880,6 +1959,11 @@ _gen_index.py — auto-generate INDEX.md from the source tree (AST, stdlib only)
 _Live Binance L2 order-book snapshot collector (no key)._
 - **functions:** `snapshot(symbol, levels)`; `main(symbol, every)`
 - **imports:** __future__, json, os, sys, time, urllib.request
+
+## `tools/remote_login_browser.py`
+_tools/remote_login_browser.py — a HEADFUL chromium the operator drives over VNC to complete_
+- **functions:** `_on_term(_sig, _frame)`; `main() -> int`
+- **imports:** __future__, os, pathlib, signal, sys, time, trading, trading.broker_sense.brokers
 
 ## `tools/test_runner.py`
 _Parallel sharded test runner — runs each tests/test_*.py module in its OWN subprocess, N in_
@@ -2019,14 +2103,24 @@ _Per-trade feature attribution — WHICH data led to this decision and HOW MUCH.
 ## `trading/brain/boss.py`
 _trading/brain/boss.py — the BOSS COMMAND ENGINE: talk to the brain like a boss._
 - **classes:** BossRegistry
-- **functions:** `directives() -> dict`; `_save(d) -> None`; `segment_enabled(market, segment) -> bool | None`; `target_for(market, segment) -> int`; `is_paused(market) -> bool`; `focus_of(market) -> str | None`; `mode() -> str`; `intensity() -> float`; `entry_policy(market, segment) -> dict`; `report_progress(market, segment, open_now) -> None`; `_norm_market(market) -> str`; `_bg(fn) -> None`; `set_segments(market, enable, disable) -> dict`; `_engine_segments() -> list`; `set_target_open_trades(market, segment, target) -> dict`; `focus_segment(market, segment) -> dict`; `set_mode(mode) -> dict`; `set_intensity(level) -> dict`; `pause_trading(market) -> dict`; `resume_trading(market) -> dict`; `_set_paused(market, val) -> dict`; `research_online(topic) -> dict`; `add_goal(text) -> dict`; `get_status() -> dict`; `_looks_like_command(msg) -> bool`; `_market_in(msg) -> str`; `parse_deterministic(msg) -> list[dict]`; `parse_llm(msg) -> list[dict] | None`; `handle(message, history) -> dict | None`
+- **functions:** `directives() -> dict`; `_save(d) -> None`; `segment_enabled(market, segment) -> bool | None`; `all_segments(market) -> tuple`; `active_segments(market) -> list`; `segment_focus_active(market, segment) -> bool`; `target_for(market, segment) -> int`; `is_paused(market) -> bool`; `focus_of(market) -> str | None`; `mode() -> str`; `intensity() -> float`; `entry_policy(market, segment) -> dict`; `report_progress(market, segment, open_now) -> None`; `_norm_market(market) -> str`; `_bg(fn) -> None`; `set_segments(market, enable, disable) -> dict`; `_engine_segments() -> list`; `set_target_open_trades(market, segment, target) -> dict`; `focus_segment(market, segment) -> dict`; `set_mode(mode) -> dict`; `set_intensity(level) -> dict`; `pause_trading(market) -> dict`; `resume_trading(market) -> dict`; `_set_paused(market, val) -> dict`; `research_online(topic) -> dict`; `add_goal(text) -> dict`; `get_status() -> dict`; `_looks_like_command(msg) -> bool`; `_market_in(msg) -> str`; `parse_deterministic(msg) -> list[dict]`; `parse_llm(msg) -> list[dict] | None`; `handle(message, history) -> dict | None`
 - **imports:** __future__, json, re, threading, time, trading.brain
+
+## `trading/brain/connectivity_monitor.py`
+_trading/brain/connectivity_monitor.py — a light, always-on wiring watchdog._
+- **functions:** `_py_files(sub) -> list`; `scan_async() -> dict`; `scan() -> dict`; `rebaseline() -> dict`
+- **imports:** __future__, os, re, time
 
 ## `trading/brain/continual.py`
 _trading/brain/continual.py — online/continual learning + experience replay (T8.5)._
 - **classes:** OnlineNode, ReplayBuffer, ContinualLearner
 - **functions:** `_row_dict(features, row) -> dict`; `_new_model()`; `replay_retrain(features, new_samples, buffer, rng) -> OnlineNode`; `clone_model(model)`
 - **imports:** __future__, copy, core.node_protocol, dataclasses, numpy, river
+
+## `trading/brain/credential_chat.py`
+_trading/brain/credential_chat.py — capture a credential answer typed into Brain Chat._
+- **functions:** `_secret_like(message) -> bool`; `_cred_shaped(value, message) -> bool`; `_pick(pending, message) -> dict`; `_synthesize(message) -> dict | None`; `_lone_value(message) -> str | None`; `_parse(message, fields) -> dict`; `try_capture(message, pending)`
+- **imports:** __future__, re
 
 ## `trading/brain/credentials.py`
 _trading/brain/credentials.py — the brain's ENCRYPTED credential vault + chat-request flow._
@@ -2276,11 +2370,173 @@ _trading/brain/ultra.py — glue singleton for the brain ultra-upgrade (Phases A
 - **functions:** `file_memory()`; `remember(name, description, body, type) -> dict`; `recall(query, k) -> list[dict]`; `set_llm_node(node) -> None`; `status() -> dict`
 - **imports:** __future__, pathlib
 
+## `trading/brain/vision/__init__.py`
+_trading/brain/vision — the brain's ultra-advanced eyes + visual memory (Ocular Cortex)._
+
+## `trading/brain/vision/computer_use.py`
+_trading/brain/vision/computer_use.py — the FREE computer-use loop (cloned, read-only)._
+- **classes:** GuardViolation, Action, ComputerUseAgent
+- **functions:** `_control_forbidden(text) -> bool`; `_parse_action(text) -> Action`; `_is_forbidden(action) -> bool`; `_find_control(page, target)`; `get_agent() -> ComputerUseAgent`
+- **imports:** __future__, dataclasses, json, os, re, time, trading.brain.vision.ocular_cortex
+
+## `trading/brain/vision/ocular_cortex.py`
+_trading/brain/vision/ocular_cortex.py — the Ocular Cortex: ultra-advanced eyes + memory._
+- **classes:** PerceptualFrame, LayoutMemory, OcularCortex
+- **functions:** `_norm_label(s) -> str`; `_label_set(controls) -> set[str]`; `_jaccard(a, b) -> float`; `_fingerprint(controls) -> str`; `_vision_online() -> bool`; `_known_kinds()`; `_extract_from_page(page)`; `get_cortex() -> OcularCortex`
+- **imports:** __future__, dataclasses, hashlib, time, trading
+
 ## `trading/brain/worldmodel.py`
 _trading/brain/worldmodel.py — learned market world-model + imagination planner._
 - **classes:** MarketWorldModel, _MinMax, _MCTSNode, PositionState, ImaginationPlanner, WorldModelNode
 - **functions:** `market_features(ohlcv) -> np.ndarray`; `_feature_matrix(ohlcv) -> np.ndarray`; `build_planner(ohlcv) -> ImaginationPlanner`; `register_world_model() -> WorldModelNode`
 - **imports:** __future__, core.node_protocol, dataclasses, math, numpy, pandas
+
+## `trading/broker_sense/__init__.py`
+_trading/broker_sense — the Broker-Sense Funnel (owner-approved 2026-07-05)._
+
+## `trading/broker_sense/app_explorer.py`
+_trading/broker_sense/app_explorer.py — use EVERY feature a trading app offers (decision #6)._
+- **classes:** FeatureCatalog
+- **functions:** `classify_feature(label) -> str`; `get_catalog() -> FeatureCatalog`; `_crawl_page(app, pg, where, cat, symbol) -> dict`; `explore(broker, sessions) -> dict`; `human_checklist(symbol, market, sessions) -> dict`
+- **imports:** __future__, time, trading, trading.broker_sense.brokers, trading.broker_sense.learning_columns
+
+## `trading/broker_sense/app_school.py`
+_trading/broker_sense/app_school.py — the brain LEARNS to drive a broker app (self-driving-car_
+- **classes:** AppMap, AppSchool
+- **functions:** `market_status(broker) -> dict`; `_min_quote_volume() -> float`; `_ccxt_exchange(segment)`; `get_school() -> AppSchool`
+- **imports:** __future__, datetime, os, time, trading, trading.broker_sense.brokers, zoneinfo
+
+## `trading/broker_sense/book_monitor.py`
+_trading/broker_sense/book_monitor.py — non-invasive screen-mirror order-book reader._
+- **classes:** BookMonitor
+- **functions:** `_shot_dir()`
+- **imports:** __future__, hashlib, os, re, time, trading, trading.broker_sense, trading.broker_sense.brokers
+
+## `trading/broker_sense/broker_features.py`
+_trading/broker_sense/broker_features.py — USE the broker apps' OWN built-in pickers._
+- **classes:** FeaturePerf
+- **functions:** `current_regime() -> str`; `_classify_label(label)`; `discovered_pickers(broker) -> list[dict]`; `features_for(broker, segment) -> list[dict]`; `_route(broker, feat) -> str`; `read_feature(broker, feat, sessions) -> list[dict]`; `_slice_by_kind(universe, kind, limit) -> list`; `_max_workers() -> int`; `read_all_features(broker, sessions) -> dict`; `_detect_ignitions(broker, feature_map) -> list`; `recent_igniters(broker) -> dict`; `get_perf() -> FeaturePerf`; `fuse(broker, feature_map) -> list[dict]`; `_record_snapshots(broker, feature_map) -> None`; `credit_symbol(broker, symbol) -> list`; `new_entries(broker, feature, current_syms) -> list`; `cross_broker_signals() -> dict`; `order_preview(broker, symbol, sessions) -> dict`; `watchlist_remember(broker, symbols, sessions) -> dict`; `live_movers(broker, sessions) -> list[dict]`; `invent_preset(broker, cycle) -> dict`; `invented_presets(broker) -> dict`; `status() -> dict`
+- **imports:** __future__, concurrent.futures, os, re, time, trading
+
+## `trading/broker_sense/brokers.py`
+_trading/broker_sense/brokers.py — broker-app registry + ROLE ENFORCEMENT in code._
+- **classes:** BrokerApp, RoleViolation
+- **functions:** `_overrides() -> dict`; `set_real_nse_broker(name) -> dict`; `real_broker(market) -> str | None`; `screening_brokers(market) -> list[BrokerApp]`; `assert_can_execute(name, market) -> None`; `status() -> dict`
+- **imports:** __future__, dataclasses, trading
+
+## `trading/broker_sense/chart_vision.py`
+_trading/broker_sense/chart_vision.py — screenshot the candles, read them, delete them._
+- **classes:** ChartVision
+- **functions:** `_shot_dir()`; `wipe() -> int`; `_tv_symbol(symbol, market) -> str`
+- **imports:** __future__, hashlib, os, time, trading, trading.broker_sense, trading.broker_sense.brokers
+
+## `trading/broker_sense/cnn_direction.py`
+_trading/broker_sense/cnn_direction.py — candle-IMAGE → direction (savers B, F)._
+- **classes:** CandleDirectionModel, CandleVisionNode
+- **functions:** `_build_net()`; `get_model() -> CandleDirectionModel`; `llm_escalate(symbol, tf, candles) -> dict | None`; `register_candle_vision_node() -> CandleVisionNode`
+- **imports:** __future__, core.node_protocol, numpy, os
+
+## `trading/broker_sense/data_failsafe.py`
+_trading/broker_sense/data_failsafe.py — the owner's rule 4: NEVER skip a trade for data._
+- **functions:** `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
+- **imports:** __future__, time
+
+## `trading/broker_sense/data_sources.py`
+_trading/broker_sense/data_sources.py — per-broker PUBLIC-vs-ACCOUNT data-source switch._
+- **functions:** `_load() -> dict`; `public_enabled(broker) -> bool`; `set_public(broker, on) -> dict`; `account_first(broker) -> bool`; `primary_broker(market) -> str`; `set_primary(market, broker) -> dict`; `status() -> dict`
+- **imports:** __future__, trading
+
+## `trading/broker_sense/direct_feeds.py`
+_trading/broker_sense/direct_feeds.py — record market-data routes for WEBSOCKET-ONLY feeds that a_
+- **functions:** `has_feed(broker, kind) -> bool`; `verify_and_record(broker, kind, app_map) -> bool`
+- **imports:** __future__, asyncio, json
+
+## `trading/broker_sense/exec_adapter.py`
+_trading/broker_sense/exec_adapter.py — APIs are used ONLY here (owner's step 8)._
+- **classes:** ExecAdapter
+- **imports:** __future__, os, trading.broker_sense.brokers
+
+## `trading/broker_sense/fast_candles.py`
+_trading/broker_sense/fast_candles.py — direction from OHLCV DATA, not chart screenshots._
+- **functions:** `_ema(vals, n) -> float`; `_rsi(closes, n) -> float`; `_clamp(x, lo, hi) -> float`; `direction_from_ohlcv(rows) -> dict`; `_ohlcv_fast(sym, market, tf) -> list | None`; `read(picks, market, timeframes, deadline) -> dict[str, dict[str, dict]]`
+- **imports:** __future__, time, trading.broker_sense
+
+## `trading/broker_sense/funnel.py`
+_trading/broker_sense/funnel.py — the cascade orchestrator (savers B + I: every cycle_
+- **classes:** BrokerSenseFunnel
+- **functions:** `_budget_s() -> float`; `_fast_book(symbol, market) -> dict`; `_fast_candles() -> bool`; `_login_brokers(market) -> list[str]`; `_vote(chart) -> tuple[str, float]`
+- **imports:** __future__, os, time, trading, trading.broker_sense, trading.broker_sense.app_explorer, trading.broker_sense.book_monitor, trading.broker_sense.exec_adapter, trading.broker_sense.ocular_perception, trading.broker_sense.screeners, trading.broker_sense.watchlist
+
+## `trading/broker_sense/indicator_fusion.py`
+_trading/broker_sense/indicator_fusion.py — ultra-advanced multi-timeframe indicator fusion._
+- **functions:** `_ohlc(rows)`; `_sma(vals, n) -> float`; `_ema_series(vals, n) -> list[float]`; `_true_ranges(h, l, c) -> list[float]`; `_wilder(vals, n) -> float`; `_atr(h, l, c, n) -> float`; `_adx(h, l, c, n) -> tuple[float, float, float]`; `_supertrend(h, l, c, n, mult) -> tuple[int, float]`; `_parabolic_sar(h, l, c, af0, af_max) -> tuple[int, float]`; `_macd(c) -> tuple[float, float, float]`; `_bollinger(c, n, k) -> tuple[float, float, float]`; `_stoch_rsi(c, n) -> float`; `indicators_from_ohlcv(rows) -> dict`; `_fetch(sym, market, tf, bars) -> list | None`; `_meta_label(confluence, direction, market, symbol) -> dict`; `_barriers(direction, price, atr, k_stop, k_tp, time_bars) -> dict`; `fuse(symbol, market, timeframes, vision) -> dict`
+- **imports:** __future__, math, time, trading.broker_sense, trading.broker_sense.fast_candles
+
+## `trading/broker_sense/interception.py`
+_trading/broker_sense/interception.py — the brain's peripheral nerve: capture the broker_
+- **classes:** EndpointRegistry, NetworkRecorder
+- **functions:** `_url_pattern(url) -> str`; `classify(url, body) -> str`; `_sample_keys(body) -> list[str]`; `get_recorder() -> NetworkRecorder`
+- **imports:** __future__, time, trading, urllib.parse
+
+## `trading/broker_sense/learning_columns.py`
+_trading/broker_sense/learning_columns.py — discovered app data → DYNAMIC learning columns._
+- **classes:** ColumnRegistry
+- **functions:** `_norm(label) -> str`; `get_registry() -> ColumnRegistry`; `discover_from_text(source, text) -> list[str]`
+- **imports:** __future__, re, time, trading
+
+## `trading/broker_sense/live_browser.py`
+_trading/broker_sense/live_browser.py — an interactive HEADLESS browser streamed to the_
+- **classes:** _Session, LiveBrowser
+- **functions:** `get_live_browser() -> LiveBrowser`
+- **imports:** __future__, queue, threading, time, trading
+
+## `trading/broker_sense/ocular_perception.py`
+_trading/broker_sense/ocular_perception.py — the funnel's NEW eyes (Phase-2 deep read)._
+- **classes:** OcularPerception
+- **functions:** `_vision_quota() -> int`; `_flag(name, default) -> bool`; `_flatten_numbers(obj, prefix) -> str`; `_summarize_book(ob) -> dict`
+- **imports:** __future__, os, time, trading.broker_sense.learning_columns
+
+## `trading/broker_sense/run_app_school.py`
+_trading/broker_sense/run_app_school.py — run ONE App Driving School crawl in its own process._
+- **functions:** `main() -> int`
+- **imports:** __future__, json, sys
+
+## `trading/broker_sense/run_broker_features.py`
+_trading/broker_sense/run_broker_features.py — read every built-in broker picker in one process._
+- **functions:** `main() -> int`
+- **imports:** __future__, json, sys
+
+## `trading/broker_sense/run_funnel_loop.py`
+_run_funnel_loop.py — the Broker-Sense driver (replaces the wedged run_brain_loop)._
+- **functions:** `_next_bar_close() -> float`; `_nse_open() -> bool`; `main() -> int`
+- **imports:** __future__, datetime, os, sys, time
+
+## `trading/broker_sense/run_school_monitor.py`
+_trading/broker_sense/run_school_monitor.py — DEDICATED App-Driving-School learning monitor._
+- **functions:** `_explore_symbol(broker) -> dict`; `_market_open(broker) -> bool`; `_coverage(broker) -> dict`; `_log(msg) -> None`; `main() -> int`; `_snapshot(rounds, done, stale) -> None`
+- **imports:** __future__, json, sys, time, trading, trading.broker_sense.app_school
+
+## `trading/broker_sense/screeners.py`
+_trading/broker_sense/screeners.py — the whole-universe screen runs on OTHER people's servers._
+- **classes:** PresetStore
+- **functions:** `_crypto_pair(raw) -> str | None`; `_tv_query(preset, market, limit)`; `tv_screen(market, preset, limit) -> list[dict]`; `_parse_screen_page(broker, sessions, url) -> list[dict]`; `app_screen(broker, sessions) -> list[dict]`; `account_screen(broker, sessions) -> list[dict]`; `screen_all(market, sessions) -> list[dict]`
+- **imports:** __future__, re, time, trading, trading.broker_sense.brokers
+
+## `trading/broker_sense/sessions.py`
+_trading/broker_sense/sessions.py — persistent logged-in broker browser sessions (saver H)._
+- **classes:** SessionManager
+- **functions:** `_sess_path(broker)`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `_challenge_present(pg) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
+- **imports:** __future__, os, re, stat, time, trading, trading.broker_sense.brokers
+
+## `trading/broker_sense/trade_columns.py`
+_trading/broker_sense/trade_columns.py — turn the App Driving School's discovered app labels_
+- **functions:** `_norm(label) -> str`; `journal_fields() -> set`; `discovered_labels() -> list`; `propose() -> dict`; `accepted() -> list`; `accept(column) -> dict`; `reject(column) -> dict`
+- **imports:** __future__, re, trading
+
+## `trading/broker_sense/watchlist.py`
+_trading/broker_sense/watchlist.py — hot watchlist with TTL (saver E)._
+- **classes:** HotWatchlist
+- **imports:** __future__, time, trading
 
 ## `trading/classification_eval.py`
 _Classification evaluation artifacts (CANON-37) + confusion-structure verdicts_
@@ -2312,7 +2568,8 @@ _trading/crypto/config.py — crypto trading configuration (T2)._
 ## `trading/crypto/engine_client.py`
 _trading/crypto/engine_client.py — thin, honest wrapper over Freqtrade's REST API (T-split B)._
 - **classes:** FreqtradeError, CryptoEngineClient
-- **imports:** __future__, trading.crypto.config, trading.openalgo_client, typing
+- **functions:** `_order_type() -> str`
+- **imports:** __future__, json, os, trading.crypto.config, trading.openalgo_client, typing
 
 ## `trading/crypto/exchange_client.py`
 _trading/crypto/exchange_client.py — thin ccxt wrapper (T2)._
@@ -2379,7 +2636,7 @@ _trading/crypto/freqtrade/ml_decider.py — real ML direction models → brain i
 _trading/crypto/freqtrade/percoin_decider.py — brain picks the BEST strategy PER COIN (Phase G+)._
 - **classes:** PerCoinBrainDecider
 - **functions:** `per_coin_brain_decider()`
-- **imports:** __future__, math, numpy, trading.crypto.freqtrade.brain_executor
+- **imports:** __future__, math, numpy, os, time, trading.crypto.freqtrade.brain_executor
 
 ## `trading/crypto/freqtrade/run_brain_loop.py`
 _run_brain_loop.py — the missing driver: run the brain→Freqtrade entry/exit loop._
@@ -2798,7 +3055,7 @@ _AUTO-GENERATED by trading.strategy.freqtrade_adapter — do not edit by hand._
 
 ## `trading/crypto/freqtrade_ingest.py`
 _trading/crypto/freqtrade_ingest.py — Freqtrade closed trades → 85-col journal → NN bridge (Phase D)._
-- **functions:** `_f(v, default) -> float`; `_peak_client(perp)`; `_fmt_ms(ms) -> str | None`; `_peak_fields(ft, allow_net) -> dict`; `map_trade(ft) -> ClosedTrade`; `map_open_trade(ft) -> dict`; `closed_view(client, net_budget) -> list[dict]`; `open_trades_view(client) -> list[dict]`; `ingest_closed(journal, client) -> dict`
+- **functions:** `_f(v, default) -> float`; `_broker_context(pair, seg) -> dict`; `_peak_client(perp)`; `_fmt_ms(ms) -> str | None`; `_peak_fields(ft, allow_net) -> dict`; `map_trade(ft) -> ClosedTrade`; `map_open_trade(ft) -> dict`; `_tailgate_open_cols(ft) -> dict`; `closed_view(client, net_budget) -> list[dict]`; `open_trades_view(client) -> list[dict]`; `ingest_closed(journal, client) -> dict`
 - **imports:** __future__, dataclasses, datetime, time, trading.journal.schema
 
 ## `trading/crypto/funding.py`
@@ -2883,6 +3140,11 @@ _trading/execution/profit_booking.py — partial profit-booking ladder (T3 §6).
 - **classes:** Rung, BookEvent, ProfitLadder
 - **functions:** `_is_long(side) -> bool`
 - **imports:** __future__, dataclasses
+
+## `trading/execution/profit_tailgate.py`
+_trading/execution/profit_tailgate.py — adaptive trailing take-profit ("profit tailgating")._
+- **functions:** `_key(market, segment, regime) -> str`; `_store() -> dict`; `learned_distance(market, segment, regime) -> float`; `locked_profit(market, segment) -> dict`; `clear_lock(trade_id) -> None`; `should_exit(market, segment, profit_pct, peak_profit_pct) -> tuple`; `learn(market, segment) -> None`; `status() -> dict`
+- **imports:** __future__, trading
 
 ## `trading/execution/rl_exec_env.py`
 _AI-scientist idea #8 — order-execution environment (gymnasium) for the RL slicing agent._
@@ -3109,6 +3371,20 @@ _Risk-map overlay — CANON-49 (JKA-07..10 spec, made honest)._
 _Rollout engine — CANON-47/48 (KRF-18/21/22)._
 - **functions:** `_call_model(model, window) -> np.ndarray`; `_default_update(window, pred) -> np.ndarray`; `autoregressive_rollout(model, window, k, update_fn) -> np.ndarray`; `per_horizon_errors(y_true_matrix, y_pred_matrix) -> dict`; `persistence_rollout(window, k) -> np.ndarray`; `compare_to_floors(model, windows, y_true_matrix, k, floor_model, update_fn) -> dict`
 - **imports:** __future__, numpy
+
+## `trading/sandbox/__init__.py`
+_(no summary)_
+
+## `trading/sandbox/paper_sandbox.py`
+_trading/sandbox/paper_sandbox.py — the brain's FAST paper-trading sandbox._
+- **classes:** PaperSandbox
+- **functions:** `_book_from_price(price) -> dict`; `get_sandbox() -> PaperSandbox`
+- **imports:** __future__, os, time, trading, trading.crypto.paper_engine
+
+## `trading/sandbox/run_sandbox_loop.py`
+_trading/sandbox/run_sandbox_loop.py — drive the fast paper sandbox on a short interval._
+- **functions:** `main() -> int`
+- **imports:** __future__, os, time
 
 ## `trading/screener/__init__.py`
 _trading/screener — per-segment ranked candidate screeners (NSE + crypto)._
