@@ -78,13 +78,19 @@ def maybe_auto_flip(shortlist: list[str] | None = None,
         covered = sum(1 for s in shortlist if _flat(s) in have or
                       _norm_symbol(s) in have)
         short_cov = covered / max(1, len(shortlist))
-    ready = (hr is not None and hr >= min_hit_rate and n >= min_symbols
-             and (short_cov is None or short_cov >= 0.8))
+    # Primary criterion = SHORTLIST COVERAGE (can the eyes feed the symbols we actually
+    # trade?). hit_rate is only meaningful AFTER the flip (pre-flip almost nothing reads
+    # ui_ohlcv, so it sits near 0 forever — original hit-rate gate could never fire).
+    if short_cov is not None:
+        need_n = min(min_symbols, max(3, len(shortlist)))   # small shortlists still flip
+        ready = short_cov >= 0.8 and n >= need_n
+        needs = f"shortlist>=80% (now {short_cov:.0%}), symbols>={need_n} (now {n})"
+    else:
+        ready = hr is not None and hr >= min_hit_rate and n >= min_symbols
+        needs = f"hit_rate>={min_hit_rate}, symbols>={min_symbols}"
     if not ready:
         return {"enabled": False, "hit_rate": hr, "symbols": n,
-                "shortlist_coverage": short_cov,
-                "needs": f"hit_rate>={min_hit_rate}, symbols>={min_symbols}, "
-                         f"shortlist>=80%"}
+                "shortlist_coverage": short_cov, "needs": needs}
     state.save_json("ui_only_mode.json",
                     {"enabled": True, "flipped_ts": time.time(),
                      "evidence": {"hit_rate": hr, "symbols": n,
