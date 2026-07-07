@@ -651,3 +651,25 @@ def handle_briefing(h):
         body = _json.dumps({"available": False,
                             "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_connectivity(h):
+    """GET /api/trading/connectivity — #13: per-feature PRESENT/MISSING proof over the
+    newest real entries + closed rows (does every capability actually fire on trades?).
+    ?refresh=1 recomputes."""
+    import json as _json
+    from urllib.parse import parse_qs, urlparse
+
+    from trading import state
+    from trading.connectivity_check import check
+    try:
+        q = parse_qs(urlparse(h.path).query)
+        if q.get("refresh", ["0"])[0] in ("1", "true"):
+            body = _json.dumps(check()).encode()
+        else:
+            body = _json.dumps(state.load_json("connectivity_check.json", {})
+                               or check()).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")

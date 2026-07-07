@@ -651,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -955,6 +955,11 @@ _AI-scientist idea #6 — LiT: Limit-Order-Book Transformer for short-horizon di
 - **classes:** LOBTransformerNode
 - **functions:** `lob_transformer_node(name) -> LOBTransformerNode`
 - **imports:** __future__, core.node_protocol, math, numpy
+
+## `nodes/loop_nodes.py`
+_nodes/loop_nodes.py — autoload shims for the trading-side LOOP nodes (#13 fix)._
+- **classes:** SelfEvolveLoopNode, RlExecPolicyNode
+- **imports:** __future__, core.node_protocol
 
 ## `nodes/micro_transformer_node.py`
 _nodes/micro_transformer_node.py — the brain's OWN micro-LLM (Phase C, clone-and-extend)._
@@ -2696,6 +2701,11 @@ _trading/config.py — central trading configuration (T1)._
 - **classes:** TradingConfig
 - **functions:** `_load() -> TradingConfig`
 - **imports:** __future__, config, dataclasses
+
+## `trading/connectivity_check.py`
+_trading/connectivity_check.py — #13: prove every feature is CONNECTED and USED on_
+- **functions:** `_dig(d, dotted)`; `check(n_recent) -> dict`
+- **imports:** __future__, time, trading
 
 ## `trading/cortex_signal.py`
 _CORTEX B8 — CortexSignalSource: the per-bar live signal pipeline (CANON-51)._

@@ -130,6 +130,18 @@ def generate(deliver: bool = True) -> dict:
     except Exception:
         pass
 
+    # 6 ── connectivity proof (#13): which features actually fired on recent trades
+    try:
+        from trading.connectivity_check import check as _conn
+        c = _conn()
+        brief["sections"]["connectivity"] = {
+            "present": c["summary"]["present"], "total": c["summary"]["total"],
+            "missing": [k for k, v in c["features"].items()
+                        if v["status"] == "MISSING"]}
+        sources.append("connectivity check (recent entry sidecars + journal)")
+    except Exception:
+        pass
+
     brief["provenance"] = "sources checked: " + "; ".join(sources) if sources else \
         "no live sources reachable"
     state.save_json(_FILE, brief)

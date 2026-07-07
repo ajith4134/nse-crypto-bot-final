@@ -1077,6 +1077,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/briefing":                   # body → dashboard/routes/brain_ext.py (W8 morning brief)
             from dashboard.routes import brain_ext
             return brain_ext.handle_briefing(self)
+        if path == "/api/trading/connectivity":               # body → dashboard/routes/brain_ext.py (#13 feature-usage proof)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_connectivity(self)
         if path == "/api/brain/agent/status":                 # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
             from dashboard.routes import brain_ext
             return brain_ext.handle_agent_status(self)
