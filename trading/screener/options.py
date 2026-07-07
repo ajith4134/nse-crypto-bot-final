@@ -19,9 +19,21 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Optional
 
-# Index underlyings always screened for options; stock underlyings are added from
-# the live most-active F&O list (ranked by option volume).
-INDEX_UNDERLYINGS = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]
+# Index underlyings always screened for options — with the exchange each one's
+# SPOT quote and OPTION contracts live on. NSE indices → NSE_INDEX spot + NFO
+# options; BSE indices (SENSEX/BANKEX) → BSE_INDEX spot + BFO options. Previously
+# only INDEX_UNDERLYINGS[:2] (NIFTY, BANKNIFTY) were seeded and the rest relied on
+# the IP-blocked nselib active_underlying feed → NIFTY-only options (2026-07-07 fix).
+INDEX_EXCHANGES: dict[str, tuple[str, str]] = {
+    "NIFTY": ("NSE_INDEX", "NFO"),
+    "BANKNIFTY": ("NSE_INDEX", "NFO"),
+    "FINNIFTY": ("NSE_INDEX", "NFO"),
+    "MIDCPNIFTY": ("NSE_INDEX", "NFO"),
+    "NIFTYNXT50": ("NSE_INDEX", "NFO"),
+    "SENSEX": ("BSE_INDEX", "BFO"),
+    "BANKEX": ("BSE_INDEX", "BFO"),
+}
+INDEX_UNDERLYINGS = list(INDEX_EXCHANGES.keys())
 _INDEX_SET = {u.upper() for u in INDEX_UNDERLYINGS}
 _MODES = ("atm", "ladder", "chain")
 
@@ -130,11 +142,21 @@ def _broker():
         return None
 
 
+def _spot_exch(underlying: str) -> str:
+    """Exchange for the underlying's SPOT quote (NSE_INDEX / BSE_INDEX / NSE)."""
+    return INDEX_EXCHANGES.get(underlying.upper(), (None, None))[0] or "NSE"
+
+
+def _opt_exch(underlying: str) -> str:
+    """Exchange the underlying's OPTION contracts live on (NFO for NSE, BFO for BSE)."""
+    return INDEX_EXCHANGES.get(underlying.upper(), (None, "NFO"))[1] or "NFO"
+
+
 def _ltp(client: Any, underlying: str) -> float:
     # REST quotes(), NOT get_ltp(): the SDK's get_ltp is the websocket-stream helper and
     # returns {'ltp': {}} without a live subscription — which made every ATM strike
     # uncomputable and the options screener return [] forever.
-    exch = "NSE_INDEX" if underlying.upper() in _INDEX_SET else "NSE"
+    exch = _spot_exch(underlying)
     try:
         r = client.quotes(exchange=exch, symbol=underlying)
         d = r.get("data", r) if isinstance(r, dict) else {}
@@ -143,9 +165,9 @@ def _ltp(client: Any, underlying: str) -> float:
         return 0.0
 
 
-def _search_options(client: Any, underlying: str) -> list[dict]:
+def _search_options(client: Any, underlying: str, exchange: str = "NFO") -> list[dict]:
     try:
-        return _norm_rows(client.search(query=underlying, exchange="NFO"))
+        return _norm_rows(client.search(query=underlying, exchange=exchange))
     except Exception:
         return []
 
@@ -160,8 +182,11 @@ def screen_nse_options(source: Any, *, limit: int = 5, filters: dict | None = No
     if client is None:
         return []
 
-    # Universe: index underlyings + top-liquid F&O stock underlyings (by option volume).
-    underlyings: list[str] = list(INDEX_UNDERLYINGS[:2])  # NIFTY, BANKNIFTY
+    # Universe: ALL index underlyings (NSE + BSE) — always screened — plus top-liquid
+    # F&O STOCK underlyings. nselib active_underlying is IP-blocked, so stock names come
+    # from the reliable liquid F&O universe (trading/screener/universe.py). This is what
+    # makes BankNifty/FinNifty/Sensex options open too, not just NIFTY (2026-07-07 fix).
+    underlyings: list[str] = list(INDEX_UNDERLYINGS)          # every index, NSE + BSE
     try:
         au = source.active_underlying() or [] if source is not None else []
         au.sort(key=lambda r: float(r.get("optVolume") or r.get("totVolume") or 0), reverse=True)
@@ -169,22 +194,32 @@ def screen_nse_options(source: Any, *, limit: int = 5, filters: dict | None = No
             u = str(r.get("symbol") or r.get("underlying") or "").upper()
             if u and u not in _INDEX_SET and u not in underlyings:
                 underlyings.append(u)
-            if len(underlyings) >= max(4, limit):
-                break
+    except Exception:
+        pass
+    try:                                                     # reliable stock F&O names
+        from trading.screener.universe import NSE_FO_STOCKS
+        for u in NSE_FO_STOCKS:
+            if u not in underlyings:
+                underlyings.append(u)
+                if len(underlyings) >= max(len(INDEX_UNDERLYINGS) + 8, limit):
+                    break
     except Exception:
         pass
 
     out: list[dict] = []
     for u in underlyings:
         ltp = _ltp(client, u)
-        rows = _search_options(client, u)
+        opt_exch = _opt_exch(u)                              # NFO (NSE) or BFO (BSE)
+        rows = _search_options(client, u, exchange=opt_exch)
         picks = pick_contracts(rows, ltp, mode)
         for i, p in enumerate(picks):
             score = round(0.9 - i * 0.05, 6)
             out.append(_cand(
                 p["symbol"], "options", "NSE", max(score, 0.1),
-                f"NSE options {mode}: {u} {p['opt_type']} {p['strike']:g} exp {p['expiry']}",
+                f"{opt_exch} options {mode}: {u} {p['opt_type']} {p['strike']:g} exp {p['expiry']}",
+                # `oa_exchange` tells the loop which venue to quote/route on (BFO for
+                # SENSEX/BANKEX, else NFO) — see live_loop._oa_exch_for_option.
                 {"underlying": u, "strike": p["strike"], "opt_type": p["opt_type"],
-                 "expiry": p["expiry"], "ltp": ltp, "mode": mode},
+                 "expiry": p["expiry"], "ltp": ltp, "mode": mode, "oa_exchange": opt_exch},
                 "openalgo"))
     return out

@@ -185,6 +185,11 @@ _(no summary)_
 ## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/__init__.py`
 _(no summary)_
 
+## `.claude/hooks/hook_skill_learnings.py`
+_PostToolUse hook on the Skill tool — the "read learnings first" half of the self-improving loop._
+- **functions:** `main() -> int`
+- **imports:** json, pathlib, sys
+
 ## `.claude/plugins/marketplaces/claude-plugins-official/plugins/hookify/core/__init__.py`
 _(no summary)_
 
@@ -646,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -661,7 +666,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -1508,6 +1513,11 @@ _CORTEX B9 — the 13 PARTIAL→FULL canon gap-closers._
 - **classes:** TestGapMap, TestPatternLevels, TestOneHot, TestArbitrate, TestClassificationEval, TestSweep, TestAntiOverfit, TestSelectiveAccuracy, TestFeatureBus, TestDownloadersImportable, TestNSEPractice
 - **imports:** numpy, os, pandas, tempfile, unittest
 
+## `tests/test_created_strategies.py`
+_tests/test_created_strategies.py — the strategy-creator loop is closed._
+- **functions:** `isolated_state(tmp_path, monkeypatch)`; `_admit_one_genome(seed, metric) -> str`; `_full_feature_df(n) -> pd.DataFrame`; `test_created_strategy_wrapped_and_executable(isolated_state)`; `test_created_reaches_registry_and_executor(isolated_state)`; `test_signal_is_feature_guarded(isolated_state)`; `test_registry_auto_refreshes_on_store_change(isolated_state)`; `test_min_metric_gate(isolated_state)`
+- **imports:** __future__, numpy, pandas, pytest, trading.strategy.features
+
 ## `tests/test_credential_chat.py`
 _Tests for capturing a credential answer typed into Brain Chat (trading/brain/credential_chat)._
 - **classes:** _IsolatedState, TestCapture, TestChatRouting
@@ -1607,6 +1617,12 @@ _Regression: NSE futures/options screeners must emit BROKER-TRADABLE symbols._
 - **functions:** `test_ltp_uses_rest_quotes_not_websocket_get_ltp()`; `test_nse_futures_resolve_to_near_month_contract(monkeypatch)`; `test_min_open_legacy_fno_key_lands_on_futures()`; `test_lot_size_prefers_real_master_contract_over_segment_default()`; `test_lot_size_falls_back_when_openalgo_unreachable()`
 - **imports:** pathlib, tempfile, trading.state
 
+## `tests/test_generators.py`
+_tests/test_generators.py — the Strategy-Generator Portfolio (offline/CPU parts)._
+- **classes:** TestScaffold, TestGenerators, TestFamilyWise
+- **functions:** `_synth(n, seed)`
+- **imports:** numpy, pandas, pathlib, tempfile, trading.state, unittest
+
 ## `tests/test_guardrails_t8.py`
 _Trading Phase T8.2 acceptance tests — journal-fitness + overfitting guardrails._
 - **classes:** TestProbabilisticDeflatedSharpe, TestPBO, TestInformationCoefficient, TestFitness, TestGuardrailGate
@@ -1701,6 +1717,11 @@ _AI-scientist idea #6 — LiT order-book transformer node._
 _P4.2 acceptance: human-like ASSOCIATIVE recall (Personalized-PageRank + RRF fusion)._
 - **classes:** TestAssociativeRecall
 - **imports:** __future__, memory.brain, unittest
+
+## `tests/test_memory_search.py`
+_Tests for trading/brain/memory_search.py — FTS5 full-text memory search (offline, isolated)._
+- **classes:** TestMemorySearch
+- **imports:** __future__, json, pathlib, tempfile, trading.brain, trading.state, unittest
 
 ## `tests/test_micro_transformer.py`
 _Tests for nodes/micro_transformer_node.py — cloned-LLM node (Phase C)._
@@ -1860,6 +1881,11 @@ _Tests for trading/sizing -- per-trade position/capital sizer._
 - **functions:** `test_atr_risk_respects_max_risk_pct()`; `test_atr_risk_uses_stop_distance_when_no_atr()`; `test_atr_risk_scales_with_max_risk_pct()`; `test_atr_risk_zero_when_no_stop_or_atr()`; `test_kelly_fraction_known_values()`; `test_kelly_fraction_between_0_and_1()`; `test_kelly_no_edge_gives_nonpositive_size()`; `test_kelly_missing_inputs_zero()`; `test_afml_bet_size_zero_at_half()`; `test_afml_bet_size_grows_to_one()`; `test_ai_meta_zero_at_half_and_caps_near_one()`; `test_ai_meta_monotonic_in_prob()`; `test_vol_target_formula()`; `test_max_position_pct_cap_binds()`; `test_kelly_cap_binds()`; `test_short_flips_sign_atr()`; `test_short_flips_sign_ai_meta()`; `test_auto_blend_takes_min_of_edge_and_atr()`; `test_auto_drawdown_reduces_size()`; `test_auto_falls_back_when_no_signal()`; `test_zero_capital_returns_empty()`; `test_return_keys_present()`; `test_invalid_method_raises()`; `test_status_shape()`; `test_build_demo_sizing_deterministic()`
 - **imports:** __future__, math, pytest, trading.sizing
 
+## `tests/test_skill_learnings.py`
+_Tests for tools/skill_learnings.py — the self-improving-skills learning loop (isolated tmp dir)._
+- **classes:** TestSkillLearnings
+- **imports:** __future__, pathlib, tempfile, tools, unittest
+
 ## `tests/test_skills_t8.py`
 _Trading Phase T8.8 (skill library + observability + self-improvement) tests — offline._
 - **classes:** TestSkillRoundTrip, TestSkillLibraryGate, TestSkillLibraryRetrieval, TestAdmitStrategy, TestSkillPersistence, TestBrainTracer, TestSelfImprover, TestDSPyOptimizerGatedOff
@@ -1964,6 +1990,11 @@ _Live Binance L2 order-book snapshot collector (no key)._
 _tools/remote_login_browser.py — a HEADFUL chromium the operator drives over VNC to complete_
 - **functions:** `_on_term(_sig, _frame)`; `main() -> int`
 - **imports:** __future__, os, pathlib, signal, sys, time, trading, trading.broker_sense.brokers
+
+## `tools/skill_learnings.py`
+_tools/skill_learnings.py — self-improving skills (Hermes-Agent / "self-improving Claude skills")._
+- **functions:** `_path(skill) -> Path`; `skill_exists(skill) -> bool`; `read(skill) -> str`; `record(skill) -> dict`; `_count_entries(text) -> int`; `all_skills() -> list[str]`; `status() -> dict`; `_main() -> int`
+- **imports:** __future__, argparse, os, pathlib, time
 
 ## `tools/test_runner.py`
 _Parallel sharded test runner — runs each tests/test_*.py module in its OWN subprocess, N in_
@@ -2249,6 +2280,12 @@ _trading/brain/learner.py — the brain's self-directed LEARNING + SELF-EVALUATI
 - **functions:** `get_learner() -> KnowledgeLearner`
 - **imports:** __future__, time
 
+## `trading/brain/memory_search.py`
+_trading/brain/memory_search.py — cross-session FULL-TEXT search over the brain's whole memory._
+- **classes:** MemorySearch
+- **functions:** `_rows_associative(d)`; `_rows_episodes(d)`; `_rows_reflections(d)`; `_rows_mind(d)`; `_rows_learnlog(d)`; `_md_sources()`; `_corpus_mtime() -> float`; `get_search() -> MemorySearch`
+- **imports:** __future__, json, os, pathlib, sqlite3, time, trading
+
 ## `trading/brain/metalearn.py`
 _trading/brain/metalearn.py — MAML-style meta-init for sample-efficiency (T8.5)._
 - **classes:** MetaLearner
@@ -2438,8 +2475,8 @@ _trading/broker_sense/cnn_direction.py — candle-IMAGE → direction (savers B,
 
 ## `trading/broker_sense/data_failsafe.py`
 _trading/broker_sense/data_failsafe.py — the owner's rule 4: NEVER skip a trade for data._
-- **functions:** `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
-- **imports:** __future__, time
+- **functions:** `_rss_bytes() -> int`; `_guard_ram()`; `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
+- **imports:** __future__, os, time
 
 ## `trading/broker_sense/data_sources.py`
 _trading/broker_sense/data_sources.py — per-broker PUBLIC-vs-ACCOUNT data-source switch._
@@ -3281,6 +3318,11 @@ _trading/online/replay.py — NSE off-hours candle/tick replay feed (Phase O3)._
 - **functions:** `_as_bar(bar) -> dict`; `synthetic_ticks(bar, n) -> list[float]`
 - **imports:** __future__, datetime, numpy, pandas, time, typing
 
+## `trading/online/run_live_loop.py`
+_trading/online/run_live_loop.py — run the OnlineTrader live loop as its OWN process._
+- **functions:** `main() -> int`
+- **imports:** __future__, sys, time
+
 ## `trading/online/session.py`
 _trading/online/session.py — market calendar + LIVE↔REPLAY mode (O1)._
 - **classes:** MarketSession
@@ -3402,7 +3444,7 @@ _trading/screener/filters.py — standalone, composable screener filter algorith
 
 ## `trading/screener/options.py`
 _trading/screener/options.py — single-leg NSE option (CE/PE) candidate generation._
-- **functions:** `atm_strike(ltp, strikes) -> Optional[float]`; `_strike_step(strikes) -> float`; `nearest_expiry(expiries) -> Optional[str]`; `pick_contracts(rows, ltp, mode, otm_depth, chain_cap) -> list[dict]`; `_norm_rows(raw) -> list[dict]`; `_broker()`; `_ltp(client, underlying) -> float`; `_search_options(client, underlying) -> list[dict]`; `screen_nse_options(source) -> list[dict]`
+- **functions:** `atm_strike(ltp, strikes) -> Optional[float]`; `_strike_step(strikes) -> float`; `nearest_expiry(expiries) -> Optional[str]`; `pick_contracts(rows, ltp, mode, otm_depth, chain_cap) -> list[dict]`; `_norm_rows(raw) -> list[dict]`; `_broker()`; `_spot_exch(underlying) -> str`; `_opt_exch(underlying) -> str`; `_ltp(client, underlying) -> float`; `_search_options(client, underlying, exchange) -> list[dict]`; `screen_nse_options(source) -> list[dict]`
 - **imports:** __future__, typing
 
 ## `trading/screener/prediction.py`
@@ -3426,6 +3468,11 @@ _trading/screener/sources.py — INJECTABLE, offline-safe market-data sources._
 _trading/screener/stubs.py — deterministic OFFLINE candidate lists per segment._
 - **functions:** `stub_candidates(market, segment) -> list[dict]`
 - **imports:** __future__
+
+## `trading/screener/universe.py`
+_trading/screener/universe.py — the LIQUID, tradeable NSE equity universe._
+- **functions:** `is_liquid(symbol) -> bool`; `liquid_movers(oa_quote) -> list[dict]`
+- **imports:** __future__, typing
 
 ## `trading/session.py`
 _trading/session.py — NSE T1 orchestrator (single honest entry point)._
@@ -3485,6 +3532,11 @@ _trading/strategy/evolve.py — DEAP NSGA-II evolution loop (T8.3)._
 - **functions:** `_assign_fitness(strat, ohlcv, feats, n_folds) -> Strategy`; `evolve(ohlcv) -> EvolutionResult`
 - **imports:** __future__, copy, dataclasses, deap, numpy, pandas, trading.strategy.control, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, trading.strategy.registry
 
+## `trading/strategy/evolved_link.py`
+_trading/strategy/evolved_link.py — the live wire between the self-evolving strategy_
+- **functions:** `_loop()`; `_portfolio()`; `breed(ohlcv_by_market) -> dict`; `best_evolved_strategy(market)`; `attach_to_pipeline(pipeline, market) -> bool`; `status() -> dict`
+- **imports:** __future__, time, trading.strategy.control
+
 ## `trading/strategy/features.py`
 _trading/strategy/features.py — OHLCV → feature frame via TA-Lib (T8.1, reuse-first)._
 - **functions:** `_talib_feats(df, close, high, low, fast, slow, mom_n)`; `_pandas_feats(df, close_s, fast, slow, mom_n)`; `compute_features(ohlcv) -> pd.DataFrame`
@@ -3521,6 +3573,73 @@ _trading/strategy/freqtrade_adapter.py — translate LibraryStrategy → Freqtra
 _trading/strategy/freqtrade_strategy_base.py — concrete Freqtrade base for library strategies._
 - **classes:** LibraryStrategyBase
 - **imports:** __future__, freqtrade.strategy, pandas
+
+## `trading/strategy/generators/__init__.py`
+_trading/strategy/generators — the Strategy-Generator Portfolio._
+- **imports:** __future__, trading.strategy.generators.base, trading.strategy.generators.expression, trading.strategy.generators.portfolio
+
+## `trading/strategy/generators/alpha_mining.py`
+_trading/strategy/generators/alpha_mining.py — generator ⑤: formulaic-alpha mining._
+- **classes:** AlphaMiningGenerator
+- **functions:** `_rand_expr(rng, depth) -> str`
+- **imports:** __future__, numpy, pandas, trading.strategy.generators.base, trading.strategy.generators.expression
+
+## `trading/strategy/generators/alpha_ops.py`
+_trading/strategy/generators/alpha_ops.py — formulaic-alpha operator library._
+- **functions:** `_s(x, index)`; `Abs(x)`; `Sign(x)`; `Log(x)`; `Add(a, b)`; `Sub(a, b)`; `Mul(a, b)`; `Div(a, b)`; `Pow(a, b)`; `Greater(a, b)`; `Less(a, b)`; `Ref(x, d)`; `Delta(x, d)`; `Mean(x, d)`; `Sum(x, d)`; `Std(x, d)`; `Var(x, d)`; `Skew(x, d)`; `Kurt(x, d)`; `Max(x, d)`; `Min(x, d)`; `Med(x, d)`; `Mad(x, d)`; `Rank(x, d)`; `WMA(x, d)`; `EMA(x, d)`; `Cov(a, b, d)`; `Corr(a, b, d)`; `alpha_namespace(df) -> dict`
+- **imports:** __future__, numpy, pandas
+
+## `trading/strategy/generators/base.py`
+_trading/strategy/generators/base.py — the Strategy-Generator Portfolio backbone._
+- **classes:** Candidate, StrategyGenerator
+- **functions:** `register_candidate_type(tag)`; `rebuild(payload)`; `evaluate_and_admit(candidates, ohlcv) -> dict`
+- **imports:** __future__, pandas, typing
+
+## `trading/strategy/generators/expression.py`
+_trading/strategy/generators/expression.py — a candidate whose signal is a discovered_
+- **classes:** ExpressionStrategy
+- **functions:** `_protected_div(a, b)`; `_protected_sqrt(a)`; `_protected_log(a)`; `_protected_inv(a)`; `_causal_z(s) -> pd.Series`; `eval_expression(expr, kind, df, features) -> pd.Series`
+- **imports:** __future__, dataclasses, numpy, pandas, trading.strategy.generators.base
+
+## `trading/strategy/generators/llm_mutation.py`
+_trading/strategy/generators/llm_mutation.py — generator ②: LLM-as-mutation-operator._
+- **classes:** LLMMutationGenerator
+- **functions:** `_valid_src(src, features) -> bool`; `_extract_json(text)`
+- **imports:** __future__, json, numpy, os, re, trading.strategy.generators.base
+
+## `trading/strategy/generators/optuna_tune.py`
+_trading/strategy/generators/optuna_tune.py — generator ⑥ (part B): Optuna tuning._
+- **classes:** OptunaGenerator
+- **imports:** __future__, numpy, pandas, trading.strategy.generators.base, trading.strategy.generators.expression
+
+## `trading/strategy/generators/portfolio.py`
+_trading/strategy/generators/portfolio.py — runs the whole generator portfolio._
+- **classes:** StrategyPortfolio
+- **functions:** `_try(factory)`; `default_generators() -> list`
+- **imports:** __future__, pandas, trading.strategy.generators.base
+
+## `trading/strategy/generators/quality_diversity.py`
+_trading/strategy/generators/quality_diversity.py — generator ④: Quality-Diversity (pyribs)._
+- **classes:** QualityDiversityGenerator
+- **functions:** `_standardize(feats, flist) -> np.ndarray`
+- **imports:** __future__, numpy, pandas, trading.strategy.generators.base, trading.strategy.generators.expression
+
+## `trading/strategy/generators/rd_agent.py`
+_trading/strategy/generators/rd_agent.py — generator ⑦: RD-Agent(Q)-style factor researcher._
+- **classes:** RDAgentGenerator
+- **functions:** `_extract_json(text)`
+- **imports:** __future__, json, numpy, os, re, trading.strategy.generators.base, trading.strategy.generators.expression
+
+## `trading/strategy/generators/stats_gate.py`
+_trading/strategy/generators/stats_gate.py — generator ⑥ (part A): family-wise error control._
+- **functions:** `family_wise_superior(fold_returns_by_id) -> set`
+- **imports:** __future__, numpy
+
+## `trading/strategy/generators/symbolic.py`
+_trading/strategy/generators/symbolic.py — generator ③: symbolic regression (BOTH engines)._
+- **classes:** GplearnGenerator, PysrGenerator
+- **functions:** `_feature_matrix(feats, market)`
+- **imports:** __future__, numpy, pandas, trading.strategy.generators.base, trading.strategy.generators.expression
 
 ## `trading/strategy/genome.py`
 _trading/strategy/genome.py — DEAP genetic-programming strategy genome (T8.1, reuse-first)._
@@ -3661,6 +3780,11 @@ _catalog/volatility.py — realized-volatility regime family (executable on OHLC
 _catalog/volume_flow.py — volume / money-flow family (executable on OHLCV+volume)._
 - **functions:** `_obv_trend(f)`; `_adosc(f)`; `_volume_breakout(f)`; `_rvol_shock(f)`; `_vwap_trend(f)`; `_mfi_trend(f)`; `_accumulation(f)`; `_mk(name, family, logic, signal, oss, tf)`
 - **imports:** __future__, pandas, trading.strategy.library.base
+
+## `trading/strategy/library/created.py`
+_trading/strategy/library/created.py — brain-CREATED strategies as first-class library entries._
+- **functions:** `_segments_for(market) -> tuple`; `_guarded_signal(candidate)`; `load_created_strategies() -> list[LibraryStrategy]`; `created_store_signature(state_file)`
+- **imports:** __future__, os, pandas, trading.strategy.library.base
 
 ## `trading/strategy/library/data_sources/__init__.py`
 _trading/strategy/library/data_sources/ — REAL data fetchers for the library strategies._

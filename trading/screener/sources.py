@@ -96,6 +96,27 @@ class LiveNSESource:
         except Exception:
             return []
 
+    # ── LIQUID equity universe (OpenAlgo-ranked, reliable) ───────────────────
+    # nselib movers are IP-blocked from the VM + surface illiquid micro-caps; the
+    # liquid NSE F&O stock list ranked by LIVE OpenAlgo momentum is the correct,
+    # deeply-liquid intraday universe (see trading/screener/universe.py).
+    def _oa_quote(self, symbol: str, exchange: str = "NSE") -> Any:
+        try:
+            from trading.openalgo_client import OpenAlgoClient
+            if not hasattr(self, "_oa_cli"):
+                self._oa_cli = OpenAlgoClient()._client()
+            return self._oa_cli.quotes(exchange=exchange, symbol=symbol)
+        except Exception:
+            return None
+
+    def liquid_movers(self, limit: int = 60) -> list[dict]:
+        """Liquid NSE F&O stocks ranked by live intraday % move (OpenAlgo)."""
+        try:
+            from trading.screener.universe import liquid_movers as _lm
+            return _lm(self._oa_quote, limit=limit)
+        except Exception:
+            return []
+
     # ── commodities (MCX) ────────────────────────────────────────────────────
     def commodities(self) -> list[str]:
         return list(MCX_UNIVERSE)

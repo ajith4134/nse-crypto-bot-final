@@ -11,8 +11,9 @@ source .dashboard_creds 2>/dev/null || true
 echo "[1/7] OpenAlgo (NSE engine)  :5000 REST  :8765 WS"
 bash srv/openalgo/start_local.sh
 
-echo "[2/7] Freqtrade (crypto engine)  :8080"
-if ! pgrep -f "freqtrade trade" >/dev/null; then
+echo "[2/7] Freqtrade (crypto engine)  :8080  — ACTIVE (owner graduated from the sandbox 2026-07-06)."
+echo "      Set CRYPTO_ENGINE=sandbox to fall back to the fast paper-learning sandbox."
+if [ "${CRYPTO_ENGINE:-freqtrade}" = "freqtrade" ] && ! pgrep -f "freqtrade trade" >/dev/null; then
   .venv/bin/python -m trading.crypto.freqtrade.launch   # regenerates config.json + start.sh
   setsid bash trading/crypto/freqtrade/start.sh >logs/freqtrade.log 2>&1 </dev/null &
 fi
@@ -25,13 +26,101 @@ echo "[4/7] Brain loop (this is what actually opens crypto trades)"
 # CORTEX shadow mode: log the cortex signal beside the live decider every bar
 # (paper-first — promote to live with CORTEX_TRADE=1). See memory cortex-network-built.
 export CORTEX_SIGNAL="${CORTEX_SIGNAL:-1}"
-pgrep -f "freqtrade.run_brain_loop" >/dev/null || \
-  CORTEX_SIGNAL="$CORTEX_SIGNAL" setsid .venv/bin/python -m trading.crypto.freqtrade.run_brain_loop >logs/brain_loop.log 2>&1 </dev/null &
+# UQ gate: PAPER learn-lab lets every directional signal through so trades actually
+# open (calibrated p_up is currently < θ0.55 for most coins → all abstained otherwise).
+# REVERT to UQ_GATE=1 before going live (capital-preservation). See memory pillar17-conformal-uq.
+export UQ_GATE="${UQ_GATE:-0}"
+# High-throughput paper mode + profit tailgating (owner)
+export CRYPTO_MIN_SCORE="${CRYPTO_MIN_SCORE:-0.25}"
+export CRYPTO_MIN_PSR="${CRYPTO_MIN_PSR:-0.10}"
+export PROFIT_TAILGATE="${PROFIT_TAILGATE:-1}"
+# Strategy CREATION/MUTATION/EVOLUTION engine (DEAP NSGA-II). PAPER learn-lab: armed so the
+# brain breeds new strategies each learning cycle and trades the best guardrail-passed survivor
+# (trading/strategy/evolved_link.py). REVERT to =0 before going live until the paper→live
+# promotion gate is proven. See memory strategy-foundry / project-prime-directive.
+export STRATEGY_EVOLUTION_ENABLED="${STRATEGY_EVOLUTION_ENABLED:-1}"
+# Strategy-Generator Portfolio (trading/strategy/generators): the DEAP evolver + 6 SOTA
+# generators, all scored through ONE CPCV+DSR+PBO + family-wise gate. Per-generator kill
+# switches (all default ON). Flip PYSR_GEN=0 if the Julia warm-up makes the brain cycle slow,
+# or LLM_MUTATION/RD_AGENT=0 to cut LLM calls. FWER_GATE=1 = family-wise error control on.
+export LLM_MUTATION="${LLM_MUTATION:-1}"        # ② LLM-as-mutation-operator (needs an LLM key)
+export PYSR_GEN="${PYSR_GEN:-1}"                # ③ PySR symbolic regression (Julia warm-up ~min)
+export ALPHA_MINING="${ALPHA_MINING:-1}"        # ⑤ formulaic-alpha mining (AlphaGen vocabulary)
+export OPTUNA_GEN="${OPTUNA_GEN:-1}"            # ⑥ Optuna NSGA-II linear-alpha tuner
+export RD_AGENT="${RD_AGENT:-1}"                # ⑦ RD-Agent(Q) LLM factor researcher (needs LLM)
+export FWER_GATE="${FWER_GATE:-1}"             # ⑥ family-wise (StepM) error control in the gate
+# ZERO-LAG RAM budget (owner 2026-07-06): use ~27 of 32 GB, spare 5 GB. RAM headroom feeds
+# warm candle/quote/book caches (hold ALL whitelisted pairs in memory → no re-fetch lag) for the
+# Binance (crypto) + Upstox (NSE) funnel. Broker-picker parallelism stays ban-safe (NOT raised).
+export BRAIN_RAM_BUDGET_GB="${BRAIN_RAM_BUDGET_GB:-27}"
+export BROKER_SENSE_BUDGET="${BROKER_SENSE_BUDGET:-120}"   # longer scan/cycle using the headroom
+export BRAIN_WARM_ALL_PAIRS="${BRAIN_WARM_ALL_PAIRS:-1}"   # keep every pair's candles warm in RAM
+# EXPLORE OPEN-ALL (owner 2026-07-06): until the brain has learned, PAPER-open EVERY candidate the
+# pickers surface (direction from the symbol's app data, vetoes advisory) so the journal fills with
+# richly-labelled trades to learn from. Auto-graduates to the selective gate at GRADUATE_N closed
+# trades. PAPER ONLY (never fires when allow_live). Set BRAIN_EXPLORE_OPEN_ALL=0 to disable.
+export BRAIN_EXPLORE_OPEN_ALL="${BRAIN_EXPLORE_OPEN_ALL:-1}"
+# GRADUATION SIGNAL (owner 2026-07-06): graduate on the brain CONSISTENTLY PICKING PROFITABLE /
+# CORRECT-DIRECTION trades, NOT a raw trade COUNT (thousands of trades exist yet a big count proves
+# no skill). ACC = rolling win-rate the brain must hold over the last WINDOW closed trades before it
+# earns the selective gate (a profitable directional trade == a correct entry direction). At today's
+# ~34% last-50 win rate this keeps exploring; it graduates only once the brain sustains 55%+.
+export BRAIN_EXPLORE_GRADUATE_ACC="${BRAIN_EXPLORE_GRADUATE_ACC:-0.55}"
+export BRAIN_EXPLORE_GRADUATE_WINDOW="${BRAIN_EXPLORE_GRADUATE_WINDOW:-50}"
+# Legacy count gate — used only when ACC is unset/0. 0 = never graduate on count.
+export BRAIN_EXPLORE_GRADUATE_N="${BRAIN_EXPLORE_GRADUATE_N:-0}"
+# TRADE DRIVER: the broker-sense funnel (below) is the SOLE driver — it selects trades from
+# Binance's built-in ranked pickers/features + discovered URLs (API OHLCV as fallback). The old
+# API-path run_brain_loop is OFF by default (set USE_API_BRAIN_LOOP=1 to run it too — NOT advised,
+# both call /forceenter → double entries). Owner directive 2026-07-06.
+if [ "${CRYPTO_ENGINE:-freqtrade}" = "freqtrade" ] && [ "${USE_API_BRAIN_LOOP:-0}" = "1" ]; then
+  pgrep -f "freqtrade.run_brain_loop" >/dev/null || \
+    CORTEX_SIGNAL="$CORTEX_SIGNAL" UQ_GATE="$UQ_GATE" \
+    STRATEGY_EVOLUTION_ENABLED="$STRATEGY_EVOLUTION_ENABLED" \
+    LLM_MUTATION="$LLM_MUTATION" PYSR_GEN="$PYSR_GEN" ALPHA_MINING="$ALPHA_MINING" \
+    OPTUNA_GEN="$OPTUNA_GEN" RD_AGENT="$RD_AGENT" FWER_GATE="$FWER_GATE" \
+    setsid .venv/bin/python -m trading.crypto.freqtrade.run_brain_loop >logs/brain_loop.log 2>&1 </dev/null &
+fi
+# Brain SANDBOX loop: fast paper learning — ONLY when CRYPTO_ENGINE=sandbox. The owner has
+# graduated to Freqtrade (CRYPTO_ENGINE=freqtrade), so the sandbox stays OFF unless explicitly
+# re-selected. Code is kept; this is just the engine switch (2026-07-06).
+if [ "${CRYPTO_ENGINE:-freqtrade}" = "sandbox" ]; then
+  pgrep -f "sandbox.run_sandbox_loop" >/dev/null || \
+    setsid .venv/bin/python -m trading.sandbox.run_sandbox_loop >logs/sandbox_loop.log 2>&1 </dev/null &
+fi
+# Broker-Sense funnel: THE trade driver. Screens the universe on the BROKERS' servers (Binance
+# built-in ranked pickers/features + discovered URLs), selects entries for crypto (always) + NSE
+# (Upstox, inside exchange hours), API OHLCV as fallback. Paper-first. Uses the RAM budget above.
+# SEPARATE PROCESSES (2026-07-07): crypto and NSE each run in their OWN funnel process, so a slow
+# crypto cycle (blew 120s→2455s) can never starve NSE and stop NSE trades opening during market
+# hours. Select the market with BROKER_SENSE_MARKETS. Shared env below.
+_bs_env() { echo "CORTEX_SIGNAL=$CORTEX_SIGNAL UQ_GATE=$UQ_GATE BRAIN_RAM_BUDGET_GB=$BRAIN_RAM_BUDGET_GB \
+BROKER_SENSE_BUDGET=$BROKER_SENSE_BUDGET BRAIN_WARM_ALL_PAIRS=$BRAIN_WARM_ALL_PAIRS \
+BRAIN_EXPLORE_OPEN_ALL=$BRAIN_EXPLORE_OPEN_ALL BRAIN_EXPLORE_GRADUATE_N=$BRAIN_EXPLORE_GRADUATE_N \
+BRAIN_EXPLORE_GRADUATE_ACC=$BRAIN_EXPLORE_GRADUATE_ACC BRAIN_EXPLORE_GRADUATE_WINDOW=$BRAIN_EXPLORE_GRADUATE_WINDOW"; }
+pgrep -f "run_funnel_loop crypto" >/dev/null || \
+  env $(_bs_env) \
+  setsid .venv/bin/python -m trading.broker_sense.run_funnel_loop crypto >>logs/funnel_crypto.log 2>&1 </dev/null &
+pgrep -f "run_funnel_loop nse" >/dev/null || \
+  env $(_bs_env) BROKER_SENSE_NSE=1 \
+  setsid .venv/bin/python -m trading.broker_sense.run_funnel_loop nse >>logs/funnel_nse.log 2>&1 </dev/null &
 
-echo "[5/7] Dashboard (brain + NSE trading)  :8000"
+echo "[5/7] Dashboard (brain + NSE trading)  :8000  — VIEWER (NO_LOOP=1, no in-process trading)"
+# NO_LOOP=1 (2026-07-07): the dashboard must NOT run the heavy trade loop in-process — a big
+# watchlist pricing tick starves the GIL and wedges the HTTP server (memory dashboard-524-wedge).
+# The live trade loop runs as its OWN process below, so the UI stays responsive.
 pgrep -f "dashboard/server.py" >/dev/null || \
-  DASH_USER="${DASH_USER:-admin}" DASH_PASS="${DASH_PASS:-}" BRAIN_LOOP=1 \
+  DASH_USER="${DASH_USER:-admin}" DASH_PASS="${DASH_PASS:-}" BRAIN_LOOP=1 NO_LOOP=1 \
+  STRATEGY_EVOLUTION_ENABLED="$STRATEGY_EVOLUTION_ENABLED" \
   setsid .venv/bin/python dashboard/server.py 8000 >dashboard/server.log 2>&1 </dev/null &
+
+# Online live trade loop — its OWN process (NSE intraday/mtf/options + crypto paper driver).
+# Separate from the dashboard (no GIL wedge) AND from the funnels (no cross-market blocking):
+# three independent loops. This is the NSE OPTIONS driver (all indices incl. BSE Sensex/Bankex).
+pgrep -f "trading.online.run_live_loop" >/dev/null || \
+  CORTEX_SIGNAL="$CORTEX_SIGNAL" UQ_GATE="$UQ_GATE" \
+  BRAIN_EXPLORE_OPEN_ALL="$BRAIN_EXPLORE_OPEN_ALL" BRAIN_EXPLORE_GRADUATE_N="$BRAIN_EXPLORE_GRADUATE_N" \
+  setsid .venv/bin/python -m trading.online.run_live_loop >>logs/live_loop.log 2>&1 </dev/null &
 
 echo "[6/7] Gateway (Caddy, single entry point)  :8100"
 pgrep -x caddy >/dev/null || \

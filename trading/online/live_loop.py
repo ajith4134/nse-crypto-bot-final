@@ -114,11 +114,37 @@ class BrainDecider:
         if m not in self._pipelines:
             try:
                 from trading.brain.pipeline import BrainTradingPipeline
-                self._pipelines[m] = BrainTradingPipeline(market=m)
+                pipe = BrainTradingPipeline(market=m)
+                self._attach_evolved(pipe, m)      # feed the best bred strategy in (if any)
+                self._pipelines[m] = pipe
             except Exception:
                 self._unavailable.add(m)
                 self._pipelines[m] = None
         return self._pipelines[m]
+
+    # ── evolved-strategy link: keep the pipeline pointed at the best bred survivor ──────
+    _EVO_REFRESH_S = 300.0                          # re-read the skill library at most every 5 min
+
+    def _attach_evolved(self, pipe, market: str) -> None:
+        """Point the pipeline's `evolved_strategy` at the current best bred Strategy from the
+        persisted SkillLibrary (trading.strategy.evolved_link). Gate-aware + best-effort: a
+        no-op when evolution is OFF or the library is empty, so it never breaks a decision."""
+        try:
+            from trading.strategy.evolved_link import attach_to_pipeline
+            attach_to_pipeline(pipe, market)
+            self._evo_refreshed = time.monotonic()
+        except Exception:
+            pass
+
+    def _maybe_refresh_evolved(self, market: str) -> None:
+        """Periodically re-attach so strategies bred by the learning loop flow into live
+        decisions without a restart (throttled — the library read is cached under the hood)."""
+        now = time.monotonic()
+        if now - getattr(self, "_evo_refreshed", 0.0) < self._EVO_REFRESH_S:
+            return
+        pipe = self._pipelines.get(market.upper())
+        if pipe is not None:
+            self._attach_evolved(pipe, market.upper())
 
     # ── rolling OHLCV window per symbol (seed from REAL history, then live-refresh) ──
     def _seed_window(self, market: str, symbol: str):
@@ -184,6 +210,7 @@ class BrainDecider:
             pipe = self._pipeline(market)
             if pipe is None:
                 return None
+            self._maybe_refresh_evolved(market)     # pull in freshly-bred strategies (throttled)
             now = time.monotonic()
             cache = getattr(self, "_decision_cache", None)
             if cache is None:
@@ -282,6 +309,7 @@ class LiveTradeLoop:
         self._sessions: dict[str, MarketSession] = {}
         self._symbol_segments: dict = {}           # (MARKET, symbol) -> segment (Phase 2 screener)
         self._symbol_score: dict = {}              # (MARKET, symbol) -> screener score (auto-open rank)
+        self._symbol_oa_exchange: dict = {}        # (MARKET, symbol) -> OpenAlgo exch override (BFO)
         self._open: dict[str, dict] = {}           # (market:symbol) -> open trade dict
         self._marks: dict[str, dict] = {}          # market -> {symbol: price}
         self._last_brain: dict[str, dict] = {}     # symbol -> latest brain decision dict
@@ -390,7 +418,7 @@ class LiveTradeLoop:
             # commodities→MCX. Hardcoding "NSE" meant MCX commodities (GOLD/CRUDEOIL…) and
             # NFO futures/options were quoted on NSE, always failed → "no price" → those
             # segments never traded even while their market was open (commodities bug).
-            oa_exch = self._OA_EXCHANGE.get((segment or "").lower(), "NSE")
+            oa_exch = self._oa_exch_for(symbol, segment)
             q = self._openalgo().quote(symbol, exchange=oa_exch)
             self._nse_auth_ok = True
             # OpenAlgo returns {"data": {"ltp": ...}, "status": "success"}
@@ -412,6 +440,24 @@ class LiveTradeLoop:
     # OpenAlgo exchange code per segment (equity→NSE, F&O/options→NFO, commodities→MCX).
     _OA_EXCHANGE = {"intraday": "NSE", "mtf": "NSE", "delivery": "NSE",
                     "futures": "NFO", "fno": "NFO", "options": "NFO", "commodities": "MCX"}
+    # BSE index derivatives live on the BFO exchange, not NFO — SENSEX/BANKEX options
+    # (and futures) must be quoted + routed on BFO or every order 'not found' (2026-07-07).
+    _BSE_FNO_PREFIXES = ("SENSEX", "BANKEX")
+
+    def _oa_exch_for(self, symbol: str, segment: str) -> str:
+        """OpenAlgo exchange for this symbol+segment — BFO for BSE index F&O, else the
+        per-segment default (options/futures→NFO, equity→NSE, commodities→MCX)."""
+        seg = (segment or "").lower()
+        # explicit screener hint (set on BSE option candidates) wins
+        overrides = getattr(self, "_symbol_oa_exchange", None) or {}
+        for m in ("NSE", "CRYPTO"):
+            ex = overrides.get((m, symbol))
+            if ex:
+                return ex
+        if seg in ("options", "futures", "fno") and \
+                str(symbol or "").upper().startswith(self._BSE_FNO_PREFIXES):
+            return "BFO"
+        return self._OA_EXCHANGE.get(seg, "NSE")
     # OpenAlgo product code (valid set MIS/CNC/NRML); MTF≈leveraged delivery→CNC.
     _OA_PRODUCT = {"MIS": "MIS", "MTF": "CNC", "CNC": "CNC", "NRML": "NRML"}
 
@@ -436,7 +482,7 @@ class LiveTradeLoop:
         from trading.config import trading_config
         if not trading_config.is_configured:
             return "", "sim-only (OpenAlgo not configured)"
-        exch = self._OA_EXCHANGE.get((segment or "").lower(), "NSE")
+        exch = self._oa_exch_for(symbol, segment)
         prod = self._OA_PRODUCT.get((product or "MIS").upper(), "MIS")
         try:
             resp = self._openalgo().place_order(
@@ -909,8 +955,21 @@ class LiveTradeLoop:
             segs = list(getattr(ms, "segments", []) or [])
             if not ms.enabled or not segs:
                 continue
+            # Watchlist depth is config-driven so the loop can actually hold the whole
+            # tradeable universe — the liquid intraday equity list AND every index's
+            # options at once. The old per_segment=6 / [:16] caps truncated options to
+            # 4 (dropping FinNifty/Sensex) and left almost no room for equity, which is
+            # why only NIFTY options ever opened (2026-07-07 fix).
+            # Bounded so the in-process loop can't GIL-starve the dashboard HTTP server
+            # (memory: dashboard-524-wedge). 14/segment fits all 6 index-option pairs (12)
+            # + a liquid equity slice, and keeps per-tick OpenAlgo pricing under the tick
+            # interval. Raise via watchlist_per_segment only if the loop runs standalone.
+            per_seg = int(self.cfg.get("watchlist_per_segment") or 14)
+            cap = int(self.cfg.get("watchlist_cap")
+                      or max(42, per_seg * max(1, len(segs)) + 6))
             try:
-                wl = sc.watchlist(market, segs, per_segment=6, filters=self._screen_filters())
+                wl = sc.watchlist(market, segs, per_segment=per_seg,
+                                  filters=self._screen_filters())
             except Exception:
                 continue
             syms = []
@@ -920,8 +979,11 @@ class LiveTradeLoop:
                     syms.append(sym)
                     self._symbol_segments[(market.upper(), sym)] = seg
                     self._symbol_score[(market.upper(), sym)] = float(c.get("score") or 0.0)
+                    meta = c.get("metrics") or {}
+                    if meta.get("oa_exchange"):       # BSE options → route on BFO
+                        self._symbol_oa_exchange[(market.upper(), sym)] = meta["oa_exchange"]
             if syms:
-                self.symbols[market] = syms[:16]     # cap the per-market watchlist
+                self.symbols[market] = syms[:cap]    # cap the per-market watchlist
 
     # ── one tick ─────────────────────────────────────────────────────────────────────
     def tick(self, *, when=None) -> dict:

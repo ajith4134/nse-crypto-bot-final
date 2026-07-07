@@ -185,6 +185,18 @@ class BrokerSenseFunnel:
                         fused_n += 1
             except Exception:
                 pass
+        # NSE: keep only the liquid, F&O-eligible universe. The broker-feature pickers
+        # (Upstox movers/gainers) surface illiquid micro-caps (DBSTOCKBRO, IOLCP…) the
+        # brain rightly abstains on; the owner wants the liquid 500+ intraday names. This
+        # runs AFTER fusion so it catches picker candidates too. (2026-07-07 fix)
+        if self.market == "nse":
+            try:
+                from trading.screener.universe import is_liquid
+                liq = [r for r in rows if is_liquid(r.get("symbol", ""))]
+                if liq:
+                    rows = liq
+            except Exception:
+                pass
         rep["stages"]["screen"] = {"preset": preset, "surfaced": len(rows), "fused": fused_n}
 
         # 2 ── HEAT: watchlist TTL bound + pin open positions
@@ -227,6 +239,11 @@ class BrokerSenseFunnel:
         # 4 ── VERIFY: top-of-book (screen-mirror + API fail-safe) + risk rules IN CODE
         app_signals: dict = {}
         tradeable = []
+        # EXPLORE OPEN-ALL (owner 2026-07-06): in paper, until the brain has learned, let EVERY
+        # candidate through the VERIFY cull (spread/liq become advisory, still recorded) so the
+        # executor can open them all — the risk rules re-arm automatically once it graduates.
+        _explore = (not allow_live) and os.environ.get(
+            "BRAIN_EXPLORE_OPEN_ALL", "1") in ("1", "true", "TRUE", "yes", "on")
         for s in candidates:
             if time.monotonic() - t0 > budget * 0.85:          # saver I: finish > perfect
                 break
@@ -278,7 +295,7 @@ class BrokerSenseFunnel:
                     liq_ok = dist > 0.01               # liq >1% away (else the broker warns it's tight)
                 except Exception:
                     liq_ok = True
-            if (s in open_syms or sp is None or sp <= _MAX_SPREAD_PCT) and liq_ok:
+            if _explore or ((s in open_syms or sp is None or sp <= _MAX_SPREAD_PCT) and liq_ok):
                 tradeable.append(s)
         rep["stages"]["verify"] = {"checked": len(app_signals), "tradeable": len(tradeable),
                                    **self.book.stats}

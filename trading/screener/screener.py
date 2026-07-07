@@ -56,12 +56,23 @@ def screen_nse_movers(source: Any, segment: str = "intraday", *, limit: int = 5,
             cur.update({k: v for k, v in r.items() if k != "symbol"})
             cur["tags"].append(tag)
 
+    # BASE = the liquid NSE F&O stock universe ranked by LIVE OpenAlgo momentum
+    # (reliable). The nselib movers below are IP-blocked from the VM and, when they
+    # answer, surface illiquid micro-caps the brain rightly abstains on — so the
+    # liquid universe is the primary, tradeable intraday set (2026-07-07 fix).
+    try:
+        _merge(source.liquid_movers(limit=120) if hasattr(source, "liquid_movers")
+               else [], "liquid")
+    except Exception:
+        pass
+
     try:
         _merge(source.movers("gainers"), "gainer")
         _merge(source.movers("losers"), "loser")
         _merge(source.most_active(), "active")
     except Exception:
-        return []
+        if not rows:
+            return []
 
     # 52-week proximity flag (varied universe / breakout extremes)
     try:
@@ -69,6 +80,18 @@ def screen_nse_movers(source: Any, segment: str = "intraday", *, limit: int = 5,
             sym = str(r.get("symbol") or r.get("SYMBOL") or "").upper()
             if sym in rows:
                 rows[sym]["tags"].append("52w")
+    except Exception:
+        pass
+
+    # Keep only the liquid, F&O-eligible universe when it is available — this drops
+    # illiquid micro-caps (ZSARACOM/KAUSHALYA/TARC…) that nselib surfaces, so the
+    # loop only ever trades deep-liquidity intraday names.
+    try:
+        from trading.screener.universe import is_liquid, _FO_SET
+        if _FO_SET:
+            liq = {s: r for s, r in rows.items() if is_liquid(s)}
+            if liq:
+                rows = liq
     except Exception:
         pass
 
