@@ -58,7 +58,7 @@ vision → invent it. Full design: research/universe-scan-architecture.md.
 
 | # | Idea | Type | Why it beats what we have | Reuse | Effort/Risk | Pillar | Status |
 |---|---|---|---|---|---|---|---|
-| 12 | **Broker-Sense Funnel** — 3-layer coarse→fine: Layer-1 PERCEIVE offloads the whole-universe screen to external screeners (tradingview-screener API for NSE+crypto; Chartink→OpenAlgo; GUI-fallback via browser-use w/ OTP-via-chat for API-less/blocked screens) → ~20-40 shortlist/segment/bar; Layer-2 REASON runs the 153-strategy brain+UQ ONLY on the shortlist (cycles complete in seconds); Layer-3 EXECUTE via OpenAlgo/Freqtrade | new/architecture | Removes the wedge (whole universe screened every bar for ~0 local compute vs never-completing 293×153 loop); finds MORE trades across all segments; NSE+crypto | tradingview-screener ★, Chartink→OpenAlgo ★(have OpenAlgo), browser_use_src ★, gui/agent.py ★, credentials.py vault ★ | M-L / Med | 7,21,25 | proposed |
+| 12 | **Broker-Sense Funnel** — 3-layer coarse→fine: Layer-1 PERCEIVE offloads the whole-universe screen to external screeners (tradingview-screener API for NSE+crypto; Chartink→OpenAlgo; GUI-fallback via browser-use w/ OTP-via-chat for API-less/blocked screens) → ~20-40 shortlist/segment/bar; Layer-2 REASON runs the 153-strategy brain+UQ ONLY on the shortlist (cycles complete in seconds); Layer-3 EXECUTE via OpenAlgo/Freqtrade | new/architecture | Removes the wedge (whole universe screened every bar for ~0 local compute vs never-completing 293×153 loop); finds MORE trades across all segments; NSE+crypto | tradingview-screener ★, Chartink→OpenAlgo ★(have OpenAlgo), browser_use_src ★, gui/agent.py ★, credentials.py vault ★ | M-L / Med | 7,21,25 | done — trading/broker_sense/funnel.py + run_funnel_loop crypto+nse; THE trade driver since 2026-07-06 |
 
 Honest design note (baked in): raw candles/order-book via API (exact, fast) — GUI-reading only for
 data with NO API (some NSE); the compute problem was the backtest, not the fetch. Prior art = pieces
@@ -122,11 +122,11 @@ Scaffold: base.py (Candidate/evaluate_and_admit/rebuild) + expression.py + alpha
 Grounded in state-20260707-140924.md + audit-20260707 + the 8 videos. Owner NAMED
 several of these in the goal message → treated as pre-approved (marked ★).
 
-1. ★ **Curiosity-driven feature discovery on app screens** (new) — a scout that scores
+1. ★ [DONE `baac5e1` — broker_sense/curiosity.py + /api route + 7 tests] **Curiosity-driven feature discovery on app screens** (new) — a scout that scores
    NEW numeric fields appearing on the broker pages by novelty and auto-proposes them as
    trade columns. Extends trade_columns.py discovery with a curiosity signal. Serves the
    owner's "each and every data on the trading account web page." Effort LOW, risk LOW.
-2. ★ **Active-inference page exploration** (replace ui_crawl round-robin) — the crawl
+2. ★ [DONE `baac5e1` — ui_crawl._expected_info_gain; live scores visible in ui_crawl_cursor.json] **Active-inference page exploration** (replace ui_crawl round-robin) — the crawl
    visits the page that maximizes expected information gain about coverage gaps (min
    expected free energy) instead of round-robin. Upgrades ui_crawl.py. Effort MED.
 3. ★ **Self-supervised UI world-model** (new) — the eyes predict the next screen's key

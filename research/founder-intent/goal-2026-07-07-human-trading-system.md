@@ -51,28 +51,49 @@ the existing one save it as a goal you need to achieve"
    observing performance.**
 
 ## The goal, decomposed (checklist the brain must achieve)
-- [ ] W1 Goal-scoreboard layer (goal.yaml per segment; every trade scored vs goal)
-- [ ] W2 Scientific-method rails (one-variable-only, versioned rules w/ evidence,
+_Statuses verified against code + live state 2026-07-07 post-session (all W-tests green: 99/99)._
+- [x] W1 Goal-scoreboard layer (goal.yaml per segment; every trade scored vs goal)
+      — `94c0e5a`/`e8284eb`: trading/goal.py+goal.yaml, /api/trading/goal_score, boss reads it
+- [x] W2 Scientific-method rails (one-variable-only, versioned rules w/ evidence,
       parameter-ownership map, read-only-first mode flags)
-- [ ] W3 Evidence lane (blind baselines, missed-winners/avoided-losers counterfactuals,
+      — `e8284eb`: trading/brain/surface.py (ownership map, read_only|live, rule_versions.json)
+- [x] W3 Evidence lane (blind baselines, missed-winners/avoided-losers counterfactuals,
       autonomy gates, fee-bleed & frozen-balance watchdogs)
-- [ ] W4 Smart-money scout swarm + ≥3-of-5 consensus oracle + read-only dispatcher
-- [ ] W5 Champion-loop hardening (lineage, look-ahead tripwire, dev-branch promotion
+      — `e8284eb`/`90b7e78`: trading/evidence.py; evidence_lane.json live
+- [x] W4 Smart-money scout swarm + consensus oracle + read-only dispatcher
+      — `5c096c0`/`9dc0d5d`: trading/scouts.py (Eddie/Maya/Frank/on-chain + Sophie + Ross);
+      UI-only-data-compliant scout set; DELPHI_MIN_AGREE=2 while swarm is small (env-raisable
+      to 3); NSE insider/FII-DII/cenbank scouts join when the crawl captures those pages
+- [x] W5 Champion-loop hardening (lineage, look-ahead tripwire, dev-branch promotion
       with dual-horizon triple-metric gate)
-- [ ] W6 RL execution-policy node (PPO, (direction,SL,TP)-menu actions, paper-only)
-- [ ] W7 Meta-articles per execution + per-agent/strategy track records + rule-of-three
-- [ ] W8 Chat-employee layer (daily briefing w/ regime gate + sizing math, provenance)
-- [ ] Human-UI engine: eyes (headed-Xvfb screen-mirror perception of Binance + Upstox
+      — `cf14c2d`: generators/base.py champion/challenger ledger (DSR+Sharpe+return ALL-improve
+      gate = vp5's dev→main mechanic) + leak_tripwire.json
+- [x] W6 RL execution-policy node (PPO, (direction,SL,TP)-menu actions, paper-only)
+      — `947d685`: trading/rl/exec_policy.py (SL+TP-same-candle=LOSS, strict holdout)
+- [x] W7 Meta-articles per execution + per-agent/strategy track records + rule-of-three
+      — `612d7bc`: trading/brain/track_record.py (hot-path-safe meta queue → brain_memory)
+- [x] W8 Chat-employee layer (daily briefing w/ regime gate + sizing math, provenance)
+      — `6e59911`: trading/brain/briefing.py (provenance line on every brief)
+- [x] Human-UI engine: eyes (headed-Xvfb screen-mirror perception of Binance + Upstox
       web apps, EVERY datum on the page) → brain → hand (mouse navigation using ALL app
       features, stock/coin picking like an experienced trader) → memory (episodic UI
       knowledge); execution API-only (Zerodha NSE / Binance crypto)
-- [ ] Free-API data polling disabled; UI-only market data; CPU strain reduced
-- [ ] Open/closed-trade columns extended with UI-derived data for brain + NN learning
-- [ ] Profit-tailgate columns on EVERY crypto and NSE trade
-- [ ] All features (self-evolve, learning, research, memory, knowledge, strategy
+      — `b4ea143`/`8eac96b`/`2eb6078`: human_ui.py + crawl parity + ui_health chain check
+- [x] Free-API data polling disabled; UI-only market data; CPU strain reduced
+      — `fc00590`/`f999224`: governor auto-flipped ui_only_mode 2026-07-07 14:00 (verified live)
+- [x] Open/closed-trade columns extended with UI-derived data for brain + NN learning
+      — `b0cd103` (#12): decision_snapshot.ui_view at the entry_meta.record chokepoint
+- [x] Profit-tailgate columns on EVERY crypto and NSE trade — `94c0e5a` (+ crypto tailgate)
+- [x] All features (self-evolve, learning, research, memory, knowledge, strategy
       exploration) verifiably connected AND used on future open trades (crypto + NSE)
-- [ ] Freqtrade not-opening-trades bug fixed
-- [ ] All dashboards screenshot-QA'd (working + correct design)
-- [ ] Independent outside-specialist audit; full authority to replace/redesign anything
+      — `4d6789b`/`93bd410` (#13): trading/connectivity_check.py PRESENT/MISSING proof
+- [x] Freqtrade not-opening-trades bug fixed — `e8284eb` (entry-wedge fix)
+- [x] All dashboards screenshot-QA'd (working + correct design)
+      — research/visual-qa/report-20260707-135402.md + data-consistency runs (`fffc3cc`)
+- [x] Independent outside-specialist audit; full authority to replace/redesign anything
       when a better approach exists (no bias toward existing code)
-- [ ] Ultra-advanced eyes-brain-UI ideas proposed beyond the above
+      — `9dc0d5d` (#15): research/audits/independent-audit-20260707-140342.md + verdict
+- [x] Ultra-advanced eyes-brain-UI ideas proposed beyond the above
+      — `baac5e1` (#16): 8 invent-beyond ideas ledgered; #1 curiosity + #2 active-inference
+      crawl BUILT; #3-#8 (UI world-model, sleep-replay, live autoresearch driver, recurrent
+      exec policy, cross-app arbitrage, advintel) remain the proposed next wave
