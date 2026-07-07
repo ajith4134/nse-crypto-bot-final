@@ -33,6 +33,20 @@ def _parse_ts(iso: str) -> float | None:
 
 def record(pair: str, segment: str | None, meta: dict) -> None:
     """Persist the brain's entry-time metadata for `pair` (called at forceenter time)."""
+    # UI-VIEW AT ENTRY (owner goal 2026-07-07, #12): what the EYES had for this symbol
+    # the moment it was entered — which timeframes of the app's OWN candles were fresh
+    # in the capture store, and whether UI-only mode was on. One chokepoint covers every
+    # crypto entry path; honest empty coverage when the eyes were cold. Cheap (RAM reads).
+    try:
+        from trading.broker_sense import ui_data
+        tfs = [tf for tf in ("1m", "5m", "15m", "1h")
+               if ui_data.ui_ohlcv(pair, timeframe=tf, limit=1)]
+        if isinstance(meta.get("decision_snapshot"), dict):
+            meta["decision_snapshot"]["ui_view"] = {
+                "tfs_covered": tfs, "n_tfs": len(tfs),
+                "ui_only_mode": ui_data.enabled()}
+    except Exception:
+        pass
     data = state.load_json(FILE, {})
     now = time.time()
     rows = [r for r in data.get(_key(pair, segment), []) if now - r.get("ts", 0) < MAX_AGE_S]
