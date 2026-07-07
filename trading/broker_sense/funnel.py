@@ -300,6 +300,20 @@ class BrokerSenseFunnel:
         rep["stages"]["verify"] = {"checked": len(app_signals), "tradeable": len(tradeable),
                                    **self.book.stats}
 
+        # 4b ── SMART-MONEY SCOUTS + CONSENSUS (W4, owner goal 2026-07-07): named scouts
+        # sweep the eyes' captures + this cycle's fusion; Sophie fires only on multi-scout
+        # agreement; a fresh consensus for a symbol rides its app_signals (advisory boost,
+        # recorded in decision_snapshot like every other lens). Ross alerts; never trades.
+        try:
+            from trading import scouts as _scouts
+            _scouts.run_all(app_signals)
+            for _s in list(app_signals):
+                _c = _scouts.consensus_for(_s)
+                if _c and isinstance(app_signals.get(_s), dict):
+                    app_signals[_s]["smart_money_consensus"] = _c
+        except Exception as e:
+            rep["stages"]["scouts_error"] = f"{type(e).__name__}: {e}"[:100]
+
         # 5 ── DECIDE + EXECUTE (APIs only, owner's step 8)
         if self.market == "crypto":
             ex = self.executor(segment)

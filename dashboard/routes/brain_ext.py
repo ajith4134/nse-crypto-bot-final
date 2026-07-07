@@ -600,3 +600,18 @@ def handle_ui_data(h):
         body = _json.dumps({"available": False,
                             "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_scouts(h):
+    """GET /api/trading/scouts — W4 smart-money scout swarm: per-scout signal counts in
+    the Delphi window, recent consensus events (Sophie fires only on multi-scout
+    agreement), min-agree/window config. Ross dispatches alerts; never trades."""
+    import json as _json
+
+    from trading import scouts
+    try:
+        body = _json.dumps(scouts.status()).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
