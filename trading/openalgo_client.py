@@ -202,6 +202,18 @@ class OpenAlgoClient:
         resp = self._client().depth(symbol=symbol, exchange=exchange.upper())
         return self._check(resp, "depth")
 
+    def history(self, symbol: str, exchange: str = "NSE", *, interval: str = "5m",
+                start_date: str, end_date: str) -> dict:
+        """Historical OHLCV candles from the broker (via OpenAlgo). interval e.g. 1m/5m/15m/1h/D;
+        dates are 'YYYY-MM-DD'. Returns the raw server dict (data = list of candle rows)."""
+        resp = self._client().history(symbol=symbol, exchange=exchange.upper(),
+                                      interval=interval, start_date=start_date,
+                                      end_date=end_date)
+        # history() may return a pandas DataFrame (SDK) or a dict — normalize to a dict
+        if hasattr(resp, "to_dict"):
+            return {"status": "success", "data": resp.reset_index().to_dict("records")}
+        return self._check(resp, "history")
+
     def symbol_info(self, symbol: str, exchange: str = "NSE") -> dict:
         """Master-contract row for a symbol (lotsize, ticksize, expiry, token, …)."""
         resp = self._client().symbol(symbol=symbol, exchange=exchange.upper())

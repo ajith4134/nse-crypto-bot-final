@@ -22,11 +22,30 @@ Usage:
 """
 from __future__ import annotations
 
+import json
+import os
 from typing import Any
 
 from trading.crypto.config import CryptoConfig, crypto_config
 # Reuse the honest connectivity type + error from the NSE engine wrapper (one shape per engine).
 from trading.openalgo_client import ConnState
+
+_CFG_JSON = "/home/karan18190164/trading/crypto/freqtrade/config.json"
+
+
+def _order_type() -> str:
+    """Entry order type for crypto: MARKET by default (owner's preference — a guaranteed immediate
+    fill, no missed entries), overridable via env CRYPTO_ORDER_TYPE or config.json 'brain_order_type'
+    (config.json is the live-truth source, never the stale root settings cache)."""
+    v = os.environ.get("CRYPTO_ORDER_TYPE")
+    if not v:
+        try:
+            with open(_CFG_JSON) as fh:
+                v = json.load(fh).get("brain_order_type")
+        except Exception:
+            v = None
+    v = (v or "market").strip().lower()
+    return "limit" if v == "limit" else "market"
 
 
 class FreqtradeError(RuntimeError):
@@ -150,12 +169,21 @@ class CryptoEngineClient:
         cli = self._client(segment)
         if act in ("BUY", "LONG", "ENTER", "SHORT"):
             entry_side = "short" if act == "SHORT" else (side or "long")
-            # enter_tag is optional on older freqtrade-client builds → degrade gracefully.
+            otype = _order_type()                        # owner prefers MARKET (guaranteed fill)
+            # a market order ignores price and fills at the book — pass price only for a limit
+            oprice = None if otype == "market" else price
+            # order_type + enter_tag are optional on older freqtrade-client builds → degrade.
             try:
-                return self._check(cli.forceenter(symbol, entry_side, price=price,
-                                                  enter_tag=enter_tag), "forceenter")
+                return self._check(cli.forceenter(symbol, entry_side, price=oprice,
+                                                  order_type=otype, enter_tag=enter_tag),
+                                   "forceenter")
             except TypeError:
-                return self._check(cli.forceenter(symbol, entry_side, price=price), "forceenter")
+                try:
+                    return self._check(cli.forceenter(symbol, entry_side, price=oprice,
+                                                      order_type=otype), "forceenter")
+                except TypeError:
+                    return self._check(cli.forceenter(symbol, entry_side, price=oprice),
+                                       "forceenter")
         if act in ("SELL", "EXIT", "CLOSE"):
             tid = trade_id if trade_id is not None else "all"
             return self._check(cli.forceexit(tid), "forceexit")

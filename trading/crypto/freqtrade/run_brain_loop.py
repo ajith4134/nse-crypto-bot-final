@@ -120,12 +120,15 @@ def main() -> int:
                 lr = ls.get("learned") or {}
                 imag = ls.get("imagined") or {}
                 fdry = ls.get("foundry") or {}
+                evo = ls.get("evolved") or {}
                 print(f"[brain-learn] {time.strftime('%H:%M:%S')} "
                       f"hypotheses={lr.get('n_hypotheses')} confirmed={lr.get('confirmed')} "
                       f"refuted={lr.get('refuted')} researched={len(ls.get('research') or [])} "
                       f"imagined={imag.get('action')}({imag.get('expected_R')}) "
                       f"foundry[specs={fdry.get('n_specs')} new={fdry.get('discovered')} "
-                      f"tracked={fdry.get('tracked')}]", flush=True)
+                      f"tracked={fdry.get('tracked')}] "
+                      f"evolve[{'gated' if evo.get('gated') else 'ran'} "
+                      f"admitted={evo.get('admitted_total')}]", flush=True)
                 try:
                     mind_events.emit(
                         "learning",
@@ -139,6 +142,12 @@ def main() -> int:
                             "discovery",
                             f"Strategy Foundry created {fdry['discovered']} NEW strategies "
                             f"this cycle — tracking their real performance now", salience=0.8)
+                    if evo.get("admitted_total"):
+                        mind_events.emit(
+                            "discovery",
+                            f"Strategy Evolution BRED {evo['admitted_total']} new guardrail-"
+                            f"passed strategies into the skill library — the brain will trade "
+                            f"the best survivor now", salience=0.85, data={"evolved": evo})
                 except Exception:
                     pass
         except Exception as e:

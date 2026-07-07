@@ -23,10 +23,16 @@ class MlBridgeStrategy(IStrategy):
     # Wide, permissive risk frame — real per-trade exits come from the library adapter (Phase C).
     minimal_roi = {"0": 0.10}        # take 10% if it ever gets there
     stoploss = -0.10                 # 10% hard stop (placeholder)
+    # MARKET orders (owner's preference): guaranteed immediate fill on entry AND exit — the brain
+    # already picks the entry timing, so it wants the fill now, not a resting limit that may miss.
+    # /forceenter passes order_type=market too; this keeps exits + stoploss consistent.
+    order_types = {"entry": "market", "exit": "market", "stoploss": "market",
+                   "stoploss_on_exchange": False}
     trailing_stop = False
     process_only_new_candles = True
     startup_candle_count = 30
-    can_short = False
+    can_short = True                 # futures: allow SHORTs so the brain can trade down-movers
+                                     # (most account-first movers are falling — long-only skipped them)
 
     def leverage(self, pair, current_time, current_rate, proposed_leverage,
                  max_leverage, entry_tag, side, **kwargs):

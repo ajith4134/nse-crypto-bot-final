@@ -24,7 +24,7 @@
 	# Owns ONLY its own /api namespaces; every other /api/* (v1, docs, broker,
 	# cache, config, master-contract, strategy-portfolio, system, websocket)
 	# belongs to OpenAlgo and falls through to the default handle below.
-	@dash path / /index.html /hub /hub.html /architecture /architecture.html /knowledge /knowledge.html /api/state* /api/knowledge* /api/trading/* /api/chat* /api/brain* /api/agui* /api/network/*
+	@dash path / /index.html /hub /hub.html /architecture /architecture.html /knowledge /knowledge.html /api/state* /api/knowledge* /api/trading/* /api/chat* /api/brain* /api/agui* /api/network/* /api/llm*
 	handle @dash {
 		reverse_proxy 127.0.0.1:8000
 	}

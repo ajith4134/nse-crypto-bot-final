@@ -116,6 +116,23 @@ class ClosedTrade:
     funding_rate_entry: float | None = None
     long_short_ratio_entry: float | None = None
 
+    # ── Broker-app market context (discovered by the App Driving School from the broker's OWN
+    #    pages — real fields the apps surface that we now snapshot at entry) ──────────────────
+    mark_price_entry: float | None = None       # perp mark price (funding/liquidation ref) — crypto
+    index_price_entry: float | None = None       # spot index behind the perp — crypto
+    funding_interval_hours: float | None = None  # hours between funding payments — crypto
+    turnover_24h_entry: float | None = None      # 24h traded value (both markets)
+    high_24h_entry: float | None = None          # 24h / day high
+    low_24h_entry: float | None = None           # 24h / day low
+
+    # ── Profit Tailgating (adaptive ratchet that LOCKS profit as it climbs, tailgating the peak) ──
+    tailgate_locked_profit_pct: float | None = None  # profit% currently LOCKED — ratchets UP with the
+    #                                                  peak, never down; exit fires if profit hits it
+    tailgate_distance_pct: float | None = None   # trailing distance from peak the tailgate used
+    tailgate_peak_profit_pct: float | None = None  # the peak profit% the trade reached
+    tailgate_triggered: bool | None = None       # did the tailgate lock the exit? (vs stop/target)
+    tailgate_captured_pct: float | None = None   # profit% actually locked vs the peak (efficiency)
+
     # ── Options Greeks at Entry/Exit ────────────────────────────────────────────
     iv_entry: float | None = None
     iv_exit: float | None = None

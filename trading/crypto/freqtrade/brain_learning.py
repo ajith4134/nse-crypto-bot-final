@@ -84,7 +84,8 @@ class BrainLearningCycle:
         return self._run(symbols or [])
 
     def _run(self, symbols: list) -> dict:
-        summary: dict = {"learned": None, "research": [], "imagined": None, "foundry": None}
+        summary: dict = {"learned": None, "research": [], "imagined": None,
+                         "foundry": None, "evolved": None}
         trades = self._trades()
 
         # 1) LEARN — hypothesis ledger over real outcomes
@@ -158,6 +159,26 @@ class BrainLearningCycle:
                                   "n_specs": len(fdry.specs)}
         except Exception as e:
             summary["foundry"] = {"error": f"{type(e).__name__}: {e}"[:160]}
+
+        # 6) SELF-EVOLVE — the genetic CREATION/MUTATION engine (DEAP NSGA-II) breeds new
+        #    strategies on real OHLCV, admits guardrail-passed survivors into the persisted
+        #    SkillLibrary, and retires stale ones. Gate-aware (trading.strategy.control): a
+        #    clean {"gated": True} when disabled. The best survivor is what the brain pipeline
+        #    picks up via trading.strategy.evolved_link.attach_to_pipeline — closing the loop
+        #    create → breed → admit → the brain trades it.
+        try:
+            from trading.strategy.evolved_link import breed
+            evo_ohlcv = {}
+            import dashboard.brain_live as _bl
+            base = (str(symbols[0]).split(":")[0] if symbols else "BTC/USDT")
+            try:
+                evo_ohlcv["CRYPTO"] = _bl._real_ohlcv(base, "5m", 400)
+            except Exception:
+                pass
+            summary["evolved"] = breed(evo_ohlcv, hypotheses=self.ledger()) if evo_ohlcv \
+                else {"ran": False, "reason": "no OHLCV"}
+        except Exception as e:
+            summary["evolved"] = {"error": f"{type(e).__name__}: {e}"[:160]}
 
         # 5) AUTONOMOUS WEB (opt-in via WEB_SCREEN=1): browse open web read-only to fill a
         #    knowledge gap — one gap-browse per cycle, emits to the ephemeral feed. Off by

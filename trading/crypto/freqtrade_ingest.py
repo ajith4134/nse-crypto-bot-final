@@ -24,6 +24,50 @@ def _f(v, default=0.0) -> float:
         return float(default)
 
 
+_CTX_CACHE: dict = {}                    # (pair, seg) -> (ts, context)  — 60s TTL, ban-safe
+
+
+def _broker_context(pair: str, seg: str) -> dict:
+    """The broker's OWN market-context fields for `pair` (App-School-discovered columns:
+    mark/index price, funding interval, 24h high/low/turnover). Read the fast API ticker +
+    funding rate (ccxt, cached 60s). Best-effort — empty dict on any miss, never blocks ingest."""
+    key = (pair, seg)
+    hit = _CTX_CACHE.get(key)
+    if hit and _time.time() - hit[0] < 60:
+        return hit[1]
+    ctx: dict = {}
+    try:
+        from trading.broker_sense.app_school import _ccxt_exchange
+        ex = _ccxt_exchange("futures" if seg in ("futures", "prediction") else "spot")
+        t = ex.fetch_ticker(pair)
+        if t:
+            ctx["high_24h_entry"] = _f(t.get("high")) or None
+            ctx["low_24h_entry"] = _f(t.get("low")) or None
+            ctx["turnover_24h_entry"] = _f(t.get("quoteVolume")) or None
+            info = t.get("info") or {}
+            ctx["mark_price_entry"] = _f(info.get("markPrice")) or None
+            ctx["index_price_entry"] = _f(info.get("indexPrice")) or None
+        if seg in ("futures", "prediction"):
+            try:
+                fr = ex.fetch_funding_rate(pair)
+                info = (fr or {}).get("info") or {}
+                if ctx.get("mark_price_entry") is None:
+                    ctx["mark_price_entry"] = _f((fr or {}).get("markPrice")
+                                                 or info.get("markPrice")) or None
+                if ctx.get("index_price_entry") is None:
+                    ctx["index_price_entry"] = _f((fr or {}).get("indexPrice")
+                                                  or info.get("indexPrice")) or None
+                iv = info.get("fundingIntervalHours") or info.get("fundingInterval")
+                ctx["funding_interval_hours"] = _f(iv) or (8.0 if iv is None else None)
+            except Exception:
+                ctx.setdefault("funding_interval_hours", 8.0)   # Binance default
+    except Exception:
+        pass
+    ctx = {k: v for k, v in ctx.items() if v is not None}
+    _CTX_CACHE[key] = (_time.time(), ctx)
+    return ctx
+
+
 # ── peak profit/loss WITH timestamps (via 5m candle replay) ─────────────────────────
 # Freqtrade tracks max_rate/min_rate but NOT when they occurred. To show the TIME of the
 # peak we replay the trade's own 5m candles and read the extreme candle's timestamp; the
@@ -94,7 +138,12 @@ def _peak_fields(ft: dict, allow_net: bool = True) -> dict:
 
     try:
         cli = _peak_client(perp)
-        raw = cli.fetch_ohlcv(pair, "5m", since=int(open_ms), limit=1000)  # [ts,o,h,l,c,v]
+        # ACCURACY: 1-minute candles (not 5m) — the true peak lives inside a 5m bar, so 1m highs/
+        # lows track the real max-favourable/adverse excursion far more precisely. 1000×1m ≈ 16.7h
+        # covers most trades; longer trades fall back to 5m so the window still spans the hold.
+        span_min = ((close_ms or int(_time.time() * 1000)) - int(open_ms)) / 60000.0
+        tf = "1m" if span_min <= 990 else "5m"
+        raw = cli.fetch_ohlcv(pair, tf, since=int(open_ms), limit=1000)  # [ts,o,h,l,c,v]
         if close_ms:
             raw = [c for c in raw if c[0] <= close_ms]
         if raw:
@@ -188,6 +237,12 @@ def map_trade(ft: dict) -> ClosedTrade:
         from trading.brain.psychology import psych_columns
         from trading.crypto.freqtrade import entry_meta
         seg = "spot" if (ft.get("trading_mode") or "spot") == "spot" else "futures"
+        # broker-app market context (App-School-discovered columns) at ingest — best-effort
+        try:
+            for _k, _v in _broker_context(ft.get("pair", ""), seg).items():
+                setattr(t, _k, _v)
+        except Exception:
+            pass
         meta = entry_meta.lookup(ft.get("pair", ""), seg, ft.get("open_date", ""))
         if meta:
             t.signal_source = "brain"
@@ -229,6 +284,14 @@ def map_trade(ft: dict) -> ClosedTrade:
     if t.brain_prediction in ("UP", "DOWN") and close_rate and open_rate:
         actual = "UP" if close_rate > open_rate else "DOWN"
         t.brain_correct = (t.brain_prediction == actual)
+    # STACKING feedback: credit the broker built-in pickers that flagged this symbol with the
+    # win/loss, so each picker's learned weight tracks how its picks really performed (#3).
+    try:
+        from trading.broker_sense import broker_features as _bf
+        _bf.credit_symbol("binance", ft.get("pair", ""),
+                          win=(_f(t.net_pnl) > 0), pnl=_f(t.net_pnl))
+    except Exception:
+        pass
     # decision-memory closure (idempotent: resolve() no-ops on already-resolved episodes,
     # safe under the 30s polling that rebuilds this view)
     if t.episode_id:
@@ -276,7 +339,32 @@ def map_open_trade(ft: dict) -> dict:
         "entry_datetime": ft.get("open_date", ""),
         "strategy": ft.get("strategy", ""), "enter_tag": ft.get("enter_tag", ""),
         "stop_loss": _f(ft.get("stop_loss_abs")) or None,
+        # PROFIT TAILGATE: the live LOCKED profit% (ratchets up with the peak, never down) shown
+        # in the open-trades table so the owner watches gains getting locked in as price runs.
+        **_tailgate_open_cols(ft),
     }
+
+
+def _tailgate_open_cols(ft: dict) -> dict:
+    """Locked-profit ratchet columns for an OPEN trade (read-only view; the executor's pass does
+    the ratchet + exit — here we just reflect the current locked value for the table)."""
+    try:
+        from trading.execution import profit_tailgate as pt
+        op, mx = _f(ft.get("open_rate")), _f(ft.get("max_rate"))
+        prof = ft.get("profit_ratio")
+        profit_pct = float(prof) * 100.0 if prof is not None else None
+        peak_pct = None
+        if op and mx:
+            peak_pct = ((op - mx) / op if ft.get("is_short") else (mx - op) / op) * 100.0
+            peak_pct = max(peak_pct, profit_pct or 0.0)
+        seg = ft.get("bot_segment") or "futures"
+        dec = pt.locked_profit("crypto", seg, trade_id=str(ft.get("trade_id") or ft.get("pair")),
+                               profit_pct=profit_pct, peak_profit_pct=peak_pct)
+        return {"tailgate_locked_profit_pct": dec.get("locked_profit_pct"),
+                "tailgate_peak_profit_pct": round(peak_pct, 3) if peak_pct is not None else None,
+                "tailgate_distance_pct": round(dec.get("distance_pct", 0) * 100, 1)}
+    except Exception:
+        return {"tailgate_locked_profit_pct": None}
 
 
 def closed_view(client=None, net_budget: int = 8) -> list[dict]:

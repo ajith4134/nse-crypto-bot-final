@@ -53,6 +53,19 @@ def _load_all() -> list[LibraryStrategy]:
                 continue
             seen.add(strat.name)
             out.append(strat)
+    # brain-CREATED strategies (foundry / generators / evolution survivors admitted to the
+    # SkillLibrary) — loaded FRESH on every registry (re)build so newly-admitted strategies enter
+    # the executor's executable() choice set. This is what closes the strategy-creator loop.
+    try:
+        from trading.strategy.library.created import load_created_strategies
+        for strat in load_created_strategies():
+            if strat.name in seen:
+                continue
+            seen.add(strat.name)
+            out.append(strat)
+    except Exception as exc:  # never let the created store break the static catalog
+        import warnings
+        warnings.warn(f"created-strategy catalog failed to load: {exc}")
     return out
 
 
@@ -103,13 +116,25 @@ class LibraryRegistry:
 
 
 _REGISTRY: LibraryRegistry | None = None
+_CREATED_SIG: object | None = None
 
 
 def get_registry(*, reload: bool = False) -> LibraryRegistry:
-    """Build (once, cached) the full library registry."""
-    global _REGISTRY
-    if _REGISTRY is None or reload:
+    """Build (once, cached) the full library registry.
+
+    Auto-rebuilds when the brain-created strategy store (SkillLibrary) changes, so a strategy
+    admitted mid-run enters the executor's choice set without a restart — closing the creator loop
+    live. The static institutional catalog is otherwise cached (cheap module-level constants), so
+    this stays light on the per-cycle path that fixed the run_cycle wedge."""
+    global _REGISTRY, _CREATED_SIG
+    try:
+        from trading.strategy.library.created import created_store_signature
+        sig = created_store_signature()
+    except Exception:
+        sig = _CREATED_SIG
+    if _REGISTRY is None or reload or sig != _CREATED_SIG:
         _REGISTRY = LibraryRegistry(strategies=_load_all())
+        _CREATED_SIG = sig
     return _REGISTRY
 
 

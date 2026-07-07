@@ -439,9 +439,17 @@ def handle_evolve(h):
             run = loop.run_generation(ohlcv, market="CRYPTO", generations=4,
                                       pop_size=14, seed=5, force=True)
             register_self_evolve(loop)           # dashboard-sync: node graph
+            # LIVE state: the REAL persisted library the brain-loop breeds into + which bred
+            # survivor is currently wired into the pipeline (honest — no demo numbers here).
+            try:
+                from trading.strategy.evolved_link import status as _evo_live
+                live = _evo_live()
+            except Exception as e:
+                live = {"error": f"{type(e).__name__}: {e}"[:160]}
             return json.dumps({
                 "gate_enabled": evolution_enabled(),  # real production gate status
                 "demo_forced": True,
+                "live": live,                         # armed engine + persisted library + best/market
                 "run": {k: run.get(k) for k in ("ran", "evaluated", "promoted",
                                                 "admitted", "best_score", "pbo",
                                                 "gen_history", "admitted_skills")},
@@ -450,13 +458,71 @@ def handle_evolve(h):
                 "note": ("lifelong loop (trading/strategy/self_evolve.py): DEAP NSGA-II "
                          "evolves a population → guardrail-passed survivors are admitted "
                          "into the persisted SkillLibrary (Voyager-style growth) → "
-                         "reevaluate() retires stale skills. gate_enabled=false means the "
-                         "engine is OFF in production (library-first); this is a forced demo."),
+                         "reevaluate() retires stale skills. `live` shows the REAL armed "
+                         "engine + persisted library the brain-loop breeds into and the "
+                         "survivor now wired into the pipeline; `run`/`library` above are a "
+                         "forced offline demo on synthetic data."),
             }, default=str).encode()
         body = _srv(h)._bg_snapshot("brain/evolve", _p_evolve)
     except Exception as e:
         body = json.dumps({
             "available": False, "error": f"{type(e).__name__}: {e}",
             "hint": "self-evolving loop via trading/strategy/self_evolve.py.",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_generators(h):
+    """GET /api/trading/generators — the live Strategy-Generator Portfolio.
+
+    Honest view of trading/strategy/generators: the DEAP evolver + the SOTA generators
+    (LLM-mutation, gplearn+PySR symbolic regression, pyribs quality-diversity, formulaic-alpha
+    mining, Optuna, RD-Agent), whether evolution is armed, and the REAL persisted SkillLibrary
+    grouped BY the generator that bred each admitted strategy (skill.source). No demo numbers —
+    everything here is read from the shared library the brain-loop breeds into and the brain
+    trades from (via trading.strategy.evolved_link)."""
+    try:
+        # imports the portfolio module directly (also keeps it wired in the import graph)
+        from trading.strategy.generators.portfolio import StrategyPortfolio  # noqa: F401
+        from trading.strategy.evolved_link import _loop, status as _evo_status
+
+        st = _evo_status()
+        # group the live library by the generator that produced each skill
+        by_gen: dict = {}
+        try:
+            skills = list(_loop().library._skills.values())
+        except Exception:
+            skills = []
+        for sk in skills:
+            src = (getattr(sk, "metrics", {}) or {}).get("source") or getattr(sk, "source", "") or "unknown"
+            g = by_gen.setdefault(src, {"count": 0, "best_metric": None, "markets": {}, "sample": []})
+            g["count"] += 1
+            m = float(getattr(sk, "metric", 0.0) or 0.0)
+            g["best_metric"] = m if g["best_metric"] is None else max(g["best_metric"], m)
+            mk = getattr(sk, "market", "") or "?"
+            g["markets"][mk] = g["markets"].get(mk, 0) + 1
+            if len(g["sample"]) < 3:
+                g["sample"].append({"id": getattr(sk, "name", "?"), "metric": round(m, 4),
+                                    "market": mk})
+        for g in by_gen.values():
+            g["best_metric"] = round(g["best_metric"], 4) if g["best_metric"] is not None else None
+
+        body = json.dumps({
+            "available": True,
+            "enabled": st.get("enabled"),
+            "generators": st.get("generators", []),
+            "n_generators": len(st.get("generators", []) or []),
+            "best_by_market": st.get("best_by_market", {}),
+            "library": st.get("library", {}),
+            "by_generator": by_gen,
+            "note": ("Strategy-Generator Portfolio (trading/strategy/generators): every generator "
+                     "feeds ONE CPCV+Deflated-Sharpe+PBO + family-wise gate → the SkillLibrary → "
+                     "the brain pipeline. `by_generator` groups the live library by which "
+                     "generator bred each admitted strategy. enabled=false → evolution gated OFF."),
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False, "error": f"{type(e).__name__}: {e}",
+            "hint": "strategy-generator portfolio via trading/strategy/generators/portfolio.py.",
         }).encode()
     return h._send(200, body, "application/json")

@@ -1,0 +1,108 @@
+// LiveBrowserPanel.jsx — an interactive HEADLESS browser streamed into the dashboard so YOU can
+// complete a broker login (Binance's image CAPTCHA + OTP) that automation can't. Your clicks and
+// typing are forwarded to the real page; "Save session" persists the login so the brain reads
+// your account headless afterward. No installs, works over the public link.
+import { useEffect, useRef, useState } from 'react'
+import { T } from './theme.js'
+
+const API = '/api/trading/live_browser'
+
+async function post(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  return r.json()
+}
+
+function Btn({ children, onClick, color, disabled }) {
+  const c = color || T.accent || '#5b9dff'
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      background: T.panel2 || '#1a1f2b', color: disabled ? T.muted : c, border: `1px solid ${disabled ? T.border : c}`,
+      borderRadius: 8, padding: '6px 11px', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700,
+      opacity: disabled ? 0.6 : 1, whiteSpace: 'nowrap' }}>{children}</button>
+  )
+}
+
+const BROKERS = ['binance', 'upstox', 'groww', 'angelone']   // accounts the funnel reads (crypto + NSE); upstox = instant QR login
+
+export default function LiveBrowserPanel({ broker: initialBroker = 'binance' }) {
+  const [broker, setBroker] = useState(initialBroker)
+  const [running, setRunning] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState(null)
+  const [typed, setTyped] = useState('')
+  const [savedMsg, setSavedMsg] = useState('')
+  const [view] = useState({ w: 1280, h: 800 })
+  const imgRef = useRef(null)
+  const alive = useRef(true)
+
+  useEffect(() => {
+    alive.current = true
+    let t
+    const tick = async () => {
+      if (running && imgRef.current) imgRef.current.src = `${API}/frame?broker=${broker}&t=${Date.now()}`
+    }
+    t = setInterval(tick, 900)  // ~1 fps stream (enough to read + click a captcha)
+    return () => { alive.current = false; clearInterval(t) }
+  }, [running, broker])
+
+  const start = async () => { setBusy(true); const r = await post({ op: 'start', broker }); if (alive.current) { setRunning(!!r.ok); setStatus(r); setBusy(false) } }
+  const stop = async () => { setBusy(true); await post({ op: 'stop', broker }); if (alive.current) { setRunning(false); setBusy(false) } }
+  const save = async () => {
+    setBusy(true); const r = await post({ op: 'save', broker })
+    if (alive.current) { setSavedMsg(r.looks_logged_in ? '✅ Session saved — looks logged in! The brain can now read your account.' : '⚠️ Saved, but still looks like a login/captcha page — finish the steps then Save again.'); setBusy(false) }
+  }
+
+  const onImgClick = async (e) => {
+    if (!running || !imgRef.current) return
+    const rect = imgRef.current.getBoundingClientRect()
+    const x = Math.round((e.clientX - rect.left) / rect.width * view.w)
+    const y = Math.round((e.clientY - rect.top) / rect.height * view.h)
+    await post({ op: 'click', broker, x, y })
+  }
+  const sendText = async () => { if (typed) { await post({ op: 'type', broker, text: typed }); setTyped('') } }
+  const key = async (k) => post({ op: 'key', broker, key: k })
+
+  const card = { background: T.panel, border: `1px solid ${T.border}`, borderRadius: 12, padding: 14 }
+
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>🖥️ Live browser — connect {broker} (solve captcha / scan QR here)</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {!running && BROKERS.map((b) => (
+            <Btn key={b} onClick={() => setBroker(b)} color={b === broker ? undefined : T.muted}>
+              {b === broker ? `● ${b}` : b}
+            </Btn>
+          ))}
+          {!running ? <Btn onClick={start} disabled={busy}>Open {broker} login</Btn>
+            : <>
+              <Btn onClick={save} disabled={busy} color={T.good || '#3ecf8e'}>Save session</Btn>
+              <Btn onClick={stop} disabled={busy} color={T.bad || '#ff6b6b'}>Close</Btn>
+            </>}
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>
+        Click directly on the page below (the captcha tiles, buttons). Type your email/OTP in the box, press Send. When you&apos;re logged in, click <b>Save session</b>.
+      </div>
+      {running ? (
+        <div>
+          <img ref={imgRef} onClick={onImgClick} alt="live browser"
+            style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, cursor: 'crosshair', display: 'block' }} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="type here (email / OTP), then Send"
+              onKeyDown={(e) => { if (e.key === 'Enter') sendText() }}
+              style={{ flex: 1, minWidth: 200, background: T.panel2 || '#1a1f2b', color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: '7px 10px', fontSize: 13 }} />
+            <Btn onClick={sendText}>Send text</Btn>
+            <Btn onClick={() => key('Enter')}>Enter</Btn>
+            <Btn onClick={() => key('Backspace')}>⌫</Btn>
+          </div>
+          {savedMsg && <div style={{ marginTop: 8, fontSize: 12, color: savedMsg.startsWith('✅') ? (T.good || '#3ecf8e') : (T.warn || '#e6b800') }}>{savedMsg}</div>}
+        </div>
+      ) : (
+        <div style={{ color: T.muted, fontSize: 12, padding: '10px 0' }}>
+          Click &quot;Open {broker} login&quot; to launch the browser here. {status && status.error ? `(${status.error})` : ''}
+        </div>
+      )}
+    </div>
+  )
+}

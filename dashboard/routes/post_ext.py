@@ -559,3 +559,45 @@ def handle_gui_action(h):
     except Exception as e:
         out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
     return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_broker_sense_post(h):
+    """POST /api/trading/broker_sense — drive the Broker-Sense funnel. Body {op, ...}:
+    run_cycle (one funnel cycle in a background thread; market/segment optional),
+    set_nse_broker {name} (owner's go-live pick), wipe_screenshots. Paper-first: run_cycle
+    never passes allow_live."""
+    import threading
+    try:
+        n = int(h.headers.get("Content-Length", 0) or 0)
+        data = json.loads(h.rfile.read(n) or b"{}")
+        op = str(data.get("op", "")).lower()
+        from dashboard.routes.trading_ext import _bs_funnel
+        if op == "run_cycle":
+            market = (data.get("market") or "crypto").lower()
+            segment = data.get("segment") or ("futures" if market == "crypto" else "equity")
+            f = _bs_funnel(market)
+            if getattr(f, "_cycle_thread", None) and f._cycle_thread.is_alive():
+                out = {"ok": True, "op": op, "running": True,
+                       "note": "a cycle is already running — poll GET for the result"}
+            else:
+                t = threading.Thread(
+                    target=lambda: f.run_cycle(segment=segment, allow_live=False),
+                    daemon=True, name=f"broker-sense-{market}")
+                f._cycle_thread = t
+                t.start()
+                out = {"ok": True, "op": op, "started": True, "market": market,
+                       "segment": segment,
+                       "note": "cycle started (paper); GET /api/trading/broker_sense "
+                               "shows stages as they land"}
+        elif op == "set_nse_broker":
+            from trading.broker_sense.brokers import set_real_nse_broker
+            out = {"ok": True, "op": op,
+                   **set_real_nse_broker(str(data.get("name", "")))}
+        elif op == "wipe_screenshots":
+            from trading.broker_sense import chart_vision
+            out = {"ok": True, "op": op, "deleted": chart_vision.wipe()}
+        else:
+            out = {"ok": False, "op": op, "error": f"unknown op {op!r}"}
+    except Exception as e:
+        out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")

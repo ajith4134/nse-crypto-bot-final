@@ -82,6 +82,31 @@ def segment_enabled(market: str, segment: str) -> bool | None:
     return None if v is None else bool(v)
 
 
+def all_segments(market: str) -> tuple:
+    """The full segment set for a market (crypto vs NSE)."""
+    return CRYPTO_SEGMENTS if _norm_market(market) == "CRYPTO" else NSE_SEGMENTS
+
+
+def active_segments(market: str) -> list:
+    """THE single source of truth for "which segments the brain should focus on right now" —
+    read by EVERY brain feature (news, strategy research, feature-discovery, learning, the funnel)
+    so the owner's dashboard segment toggles gate the WHOLE brain, not just execution. A segment
+    is active unless the boss explicitly turned it OFF (segment_enabled == False). If the owner
+    turned a market fully off (all segments False) the list is empty and the brain skips it."""
+    mk = _norm_market(market)
+    out = []
+    for s in all_segments(mk):
+        v = segment_enabled(mk, s)
+        if v is None or v:                    # None = no opinion (default ON); True = ON
+            out.append(s)
+    return out
+
+
+def segment_focus_active(market: str, segment: str) -> bool:
+    """Convenience for feature code: is THIS segment currently in focus? (respects the toggles)."""
+    return segment.lower() in active_segments(market)
+
+
 def target_for(market: str, segment: str) -> int:
     t = (directives()["markets"].get(market.upper()) or {}).get("targets") or {}
     try:

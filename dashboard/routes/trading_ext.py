@@ -8,6 +8,7 @@ so a moved body reaches the SAME live singletons/caches/locks the inline code di
 stays shape-identical — every moved route is diffed against a pre-move baseline.
 """
 import json
+import os
 import sys
 import time
 
@@ -1594,5 +1595,420 @@ def handle_online_status(h):
             "error": f"{type(e).__name__}: {e}",
             "hint": "Trading O5 online controls not importable "
                     "(see trading/online/ and trading-execution-blueprint.md ONLINE).",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+# ── Broker-Sense Funnel (trading/broker_sense) ────────────────────────────────────────
+_BS_FUNNELS: dict = {}
+
+
+def _bs_funnel(market: str):
+    """Lazy per-market funnel singleton. Cheap to build: Playwright only starts when a
+    cycle actually opens a page, never on a status poll."""
+    if market not in _BS_FUNNELS:
+        from trading.broker_sense.funnel import BrokerSenseFunnel
+        _BS_FUNNELS[market] = BrokerSenseFunnel(market)
+    return _BS_FUNNELS[market]
+
+
+def handle_broker_sense(h):
+    """GET /api/trading/broker_sense — the Broker-Sense Funnel: broker web-app screeners →
+    candle-image CNN → screen-mirror book → paper exec via APIs. Shows the REAL funnel
+    state (last cycle stages, hot watchlist, sessions/pending OTP asks, discovered
+    learning columns, preset performance, execution role map). ?market=crypto|nse."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        qs = parse_qs(urlparse(h.path).query)
+        market = (qs.get("market", ["crypto"])[0] or "crypto").lower()
+        f = _bs_funnel(market if market in ("crypto", "nse") else "crypto")
+        body = json.dumps({"available": True, **f.status()}, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False, "error": f"{type(e).__name__}: {e}",
+            "hint": "Broker-Sense funnel via trading/broker_sense (see "
+                    "research/broker-sense-design.md).",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_app_school(h):
+    """GET /api/trading/app_school — what the brain has LEARNED about driving each broker app:
+    the golden routes to each market-data kind (which control led there + the endpoint), goal
+    coverage, and exploration stats. POST {op:'explore', broker} kicks off a learning run in the
+    background (read-only; it only clicks to look, never trades)."""
+    from trading.broker_sense.app_school import get_school
+    school = get_school()
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            broker = str(data.get("broker", "binance")).lower()
+            if data.get("op") == "explore":
+                # SUBPROCESS (not a thread): Playwright's sync API is bound to its creating
+                # thread — driving it from a dashboard daemon thread raises greenlet
+                # "cannot switch to a different thread". A subprocess has its own main thread
+                # + browser, so the crawl actually runs. Read-only; never places an order.
+                import subprocess
+                import sys as _sys
+                subprocess.Popen(
+                    [_sys.executable, "-m", "trading.broker_sense.run_app_school", broker,
+                     "150", "60"],
+                    cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                body = json.dumps({"ok": True, "started": broker,
+                                   "note": "learning run started in a subprocess (read-only); "
+                                           "GET to watch pages/links/routes grow"}).encode()
+            else:
+                body = json.dumps({"ok": False, "error": "unknown op"}).encode()
+        except Exception as e:
+            body = json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}).encode()
+        return h._send(200, body, "application/json")
+    body = json.dumps({"available": True, **school.status()}, default=str).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_memory_search(h):
+    """GET /api/trading/memory_search — cross-session FULL-TEXT search over the brain's whole memory
+    (associative notes, decision episodes, reflexion lessons, mind-stream, learning log, agent
+    memory files, per-skill learnings). Query: q (required), k (default 10), sources (comma list).
+    No q → the index status (honest: real counts per source)."""
+    from urllib.parse import parse_qs, urlparse
+    qs = parse_qs(urlparse(h.path).query)
+    g = lambda k, d="": (qs.get(k, [d])[0])
+    try:
+        from trading.brain.memory_search import get_search
+        ms = get_search()
+        q = g("q", "").strip()
+        if not q:
+            out = {"available": True, **ms.status()}
+        else:
+            srcs = [s for s in g("sources", "").split(",") if s] or None
+            hits = ms.search(q, k=int(g("k", "10") or 10), sources=srcs)
+            out = {"available": True, "query": q, "n": len(hits), "hits": hits,
+                   "index": ms.status()}
+    except Exception as e:
+        out = {"available": False, "error": f"{type(e).__name__}: {e}"}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_connectivity(h):
+    """GET /api/trading/connectivity — the self-healing wiring watchdog: NEW orphan modules / dead
+    endpoints since the accepted baseline (a REGRESSION = something that was wired came unwired).
+    Backlog counts shown for reference. POST {op:'rebaseline'} accepts the current wiring as OK."""
+    from trading.brain import connectivity_monitor as cm
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            out = cm.rebaseline() if str(data.get("op")) == "rebaseline" else {"ok": False}
+        except Exception as e:
+            out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+    return h._send(200, json.dumps({"available": True, **cm.scan_async()}, default=str).encode(),
+                   "application/json")
+
+
+def handle_sandbox(h):
+    """GET /api/trading/sandbox — the brain's FAST paper-trading sandbox: wallet, open positions
+    (live PnL + tailgate lock), win-rate. POST {op:'enable'|'disable'|'reset'|'tick'}. Honest: a
+    LEARNING sandbox (simple fast fills) — Freqtrade is the faithful bridge to real money."""
+    from trading.sandbox.paper_sandbox import get_sandbox
+    sb = get_sandbox()
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            op = str(data.get("op", "")).lower()
+            if op == "enable":
+                out = {"ok": True, **sb.set_enabled(True)}
+            elif op == "disable":
+                out = {"ok": True, **sb.set_enabled(False)}
+            elif op == "reset":
+                out = {"ok": True, **sb.reset()}
+            elif op == "tick":
+                out = {"ok": True, "tick": sb.tick()}
+            elif op == "set_params":
+                out = {"ok": True, **sb.set_params(
+                    starting_balance=data.get("starting_balance"),
+                    stake=data.get("stake"),
+                    leverage=data.get("leverage"),
+                )}
+            elif op == "set_mode":
+                out = {"ok": True, **sb.set_mode(data.get("mode"))}
+            else:
+                out = {"ok": False,
+                       "error": "op must be enable|disable|reset|tick|set_params|set_mode"}
+        except Exception as e:
+            out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+    body = json.dumps({"available": True, **sb.status(), "open": sb.open_view()},
+                      default=str).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_trade_columns(h):
+    """GET /api/trading/trade_columns — the self-growing trade-table columns: genuine NEW columns
+    the App Driving School discovered on the broker apps (distilled from noise, cross-checked vs
+    the journal schema), plus which are already accepted. POST {op:'accept'|'reject', column}.
+    Honest: proposals trace to the exact app label they were seen as."""
+    from trading.broker_sense import trade_columns as tc
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            op = str(data.get("op", "")).lower()
+            col = str(data.get("column", ""))
+            if op == "accept":
+                out = {"ok": True, **tc.accept(col)}
+            elif op == "reject":
+                out = {"ok": True, **tc.reject(col)}
+            else:
+                out = {"ok": False, "error": "op must be accept|reject"}
+        except Exception as e:
+            out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+    body = json.dumps({"available": True, "accepted": tc.accepted(), **tc.propose()},
+                      default=str).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_segments(h):
+    """GET /api/trading/segments — the GLOBAL segment-focus control. Per market (CRYPTO, NSE) it
+    returns every segment + whether it is ACTIVE right now (boss.active_segments). This ONE switch
+    gates the WHOLE brain — news, strategy research, feature-discovery, learning, the funnel all
+    read boss.active_segments, so turning a segment off here makes the brain stop focusing on it
+    everywhere. POST {market, segment, on:bool} toggles one; {market, all:bool} toggles all."""
+    from trading.brain import boss
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            market = str(data.get("market", "CRYPTO")).upper()
+            allv = data.get("all")
+            if allv is not None:
+                segs = list(boss.all_segments(market))
+                boss.set_segments(market, enable=segs if allv else None,
+                                  disable=None if allv else segs)
+            else:
+                seg = str(data.get("segment", "")).lower()
+                on = bool(data.get("on"))
+                boss.set_segments(market, enable=[seg] if on else None,
+                                  disable=None if on else [seg])
+            out = {"ok": True, **_segments_snapshot()}
+        except Exception as e:
+            out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+    return h._send(200, json.dumps({"available": True, **_segments_snapshot()},
+                                   default=str).encode(), "application/json")
+
+
+def _segments_snapshot() -> dict:
+    from trading.brain import boss
+    out = {"markets": {}}
+    for mk in ("CRYPTO", "NSE"):
+        active = set(boss.active_segments(mk))
+        out["markets"][mk] = {"segments": [{"name": s, "active": s in active}
+                                           for s in boss.all_segments(mk)],
+                              "active": sorted(active), "paused": boss.is_paused(mk)}
+    # which brain features honor the gate (HONEST wiring — only the ones that actually read
+    # boss.active_segments; verified by toggling + checking each reads the gate)
+    out["applies_to"] = ["crypto brain-loop (entries)", "Broker-Sense funnel (screen/execute)",
+                         "broker built-in pickers (feature-discovery)", "strategy foundry (research)"]
+    return out
+
+
+def handle_broker_features(h):
+    """GET /api/trading/broker_features — the broker apps' OWN built-in pickers: the catalog per
+    broker, each picker's LEARNED weight (how its picks performed), invented presets, and a live
+    cross-broker regime read. POST {op:'read', broker} reads every picker in parallel + fuses;
+    {op:'invent', broker} composes a new screener preset; {op:'cross'} runs the cross-broker check.
+    All read-only (never places an order)."""
+    from trading.broker_sense import broker_features as bf
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            op = str(data.get("op", "")).lower()
+            broker = str(data.get("broker", "binance")).lower()
+            if op == "read":
+                import subprocess
+                import sys as _sys
+                # subprocess: Playwright can't run in the dashboard's request thread (greenlet)
+                subprocess.Popen(
+                    [_sys.executable, "-m", "trading.broker_sense.run_broker_features", broker],
+                    cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                out = {"ok": True, "started": broker, "note": "reading all built-in pickers in "
+                       "parallel (subprocess); GET to see fused picks + learned weights"}
+            elif op == "invent":
+                out = {"ok": True, "invented": bf.invent_preset(broker, int(data.get("cycle", 0)))}
+            elif op == "cross":
+                out = {"ok": True, "cross": bf.cross_broker_signals()}
+            else:
+                out = {"ok": False, "error": "op must be read|invent|cross"}
+        except Exception as e:
+            out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+    body = json.dumps({"available": True, **bf.status()}, default=str).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_broker_sources(h):
+    """GET /api/trading/broker_sources — per-broker PUBLIC-vs-ACCOUNT data-source switch.
+    POST {op:'set', broker, public:bool} flips it. When public=OFF the funnel screens from the
+    LOGGED-IN account page instead of public screeners (owner's account-first idea)."""
+    from trading.broker_sense import data_sources as ds
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            import json as _json
+            data = _json.loads(h.rfile.read(length) or b"{}") if length else {}
+            broker = str(data.get("broker", "")).lower()
+            if data.get("op") == "set" and broker:
+                ds.set_public(broker, bool(data.get("public", True)))
+            body = _json.dumps({"ok": True, "sources": ds.status()}).encode()
+        except Exception as e:
+            body = json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}).encode()
+        return h._send(200, body, "application/json")
+    body = json.dumps({"available": True, "sources": ds.status()}, default=str).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_remote_login(h):
+    """GET /api/trading/remote_login?broker= — status of the remote-view login browser.
+    POST {op:'start'|'stop', broker} — bring up / tear down the Xvfb+chromium+x11vnc+noVNC stack
+    so the operator can solve the broker's CAPTCHA/OTP over VNC; 'stop' saves the session."""
+    import subprocess
+    from urllib.parse import parse_qs, urlparse
+    script = "/home/karan18190164/tools/remote_login.sh"
+    _PORT = {"binance": 6080, "angelone": 6081}
+
+    def _run(op, broker):
+        try:
+            r = subprocess.run(["bash", script, op, broker], capture_output=True,
+                               text=True, timeout=60)
+            return (r.stdout or "") + (r.stderr or "")
+        except Exception as e:
+            return f"error: {type(e).__name__}: {e}"
+
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            broker = str(data.get("broker", "binance")).lower()
+            op = str(data.get("op", "status"))
+            if op not in ("start", "stop", "status"):
+                op = "status"
+            out = _run(op, broker)
+            missing = "MISSING x11vnc" in out or "MISSING Xvfb" in out
+            body = json.dumps({
+                "ok": not missing, "op": op, "broker": broker, "output": out.strip()[:1200],
+                "novnc_path": f"/novnc/vnc.html?path=websockify&autoconnect=1&resize=scale",
+                "needs_install": missing,
+                "install_hint": ("sudo apt-get install -y xvfb xauth x11vnc && sudo "
+                                 "/home/karan18190164/.venv/bin/python -m playwright "
+                                 "install-deps chromium") if missing else "",
+            }).encode()
+        except Exception as e:
+            body = json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}).encode()
+        return h._send(200, body, "application/json")
+
+    qs = parse_qs(urlparse(h.path).query)
+    broker = (qs.get("broker", ["binance"])[0] or "binance").lower()
+    out = _run("status", broker)
+    body = json.dumps({"available": True, "broker": broker, "status": out.strip()[:1200],
+                       "web_port": _PORT.get(broker, 6082),
+                       "novnc_path": "/novnc/vnc.html?path=websockify&autoconnect=1&resize=scale"},
+                      default=str).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_live_browser_frame(h):
+    """GET /api/trading/live_browser/frame?broker= — the current JPEG frame of the live browser."""
+    from urllib.parse import parse_qs, urlparse
+
+    from trading.broker_sense.live_browser import get_live_browser
+    qs = parse_qs(urlparse(h.path).query)
+    broker = (qs.get("broker", ["binance"])[0] or "binance").lower()
+    jpeg = None
+    try:
+        jpeg = get_live_browser().frame(broker)
+    except Exception:
+        jpeg = None
+    if not jpeg:
+        return h._send(204, b"", "image/jpeg")
+    return h._send(200, jpeg, "image/jpeg")
+
+
+def handle_live_browser(h):
+    """GET /api/trading/live_browser?broker= — status. POST {op, broker, ...} drives it:
+    op=start|stop|click(x,y)|type(text)|key(key)|scroll(dy)|nav(url)|save. Lets the operator
+    complete a broker login (CAPTCHA/OTP) from the dashboard; 'save' persists the session."""
+    from trading.broker_sense.live_browser import get_live_browser
+    lb = get_live_browser()
+    _LOGIN_URL = {"binance": "https://accounts.binance.com/en/login",
+                  "angelone": "https://www.angelone.in/login/",
+                  "upstox": "https://login.upstox.com/",     # instant QR — scan with the app
+                  "groww": "https://groww.in/login"}
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            broker = str(data.get("broker", "binance")).lower()
+            op = str(data.get("op", "status"))
+            if op == "start":
+                out = lb.start(broker, data.get("url") or _LOGIN_URL.get(broker, ""))
+            elif op == "stop":
+                out = lb.stop(broker)
+            elif op in ("click", "type", "key", "scroll", "nav", "save", "status"):
+                out = lb.action(broker, op, x=data.get("x"), y=data.get("y"),
+                                text=data.get("text"), key=data.get("key"),
+                                dy=data.get("dy"), url=data.get("url"))
+            else:
+                out = {"error": f"unknown op {op}"}
+            body = json.dumps({"broker": broker, "op": op, **(out or {})}, default=str).encode()
+        except Exception as e:
+            body = json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}).encode()
+        return h._send(200, body, "application/json")
+
+    from urllib.parse import parse_qs, urlparse
+    qs = parse_qs(urlparse(h.path).query)
+    broker = (qs.get("broker", ["binance"])[0] or "binance").lower()
+    try:
+        st = lb.status(broker)
+    except Exception as e:
+        st = {"running": False, "error": f"{type(e).__name__}: {e}"}
+    return h._send(200, json.dumps({"available": True, **st}, default=str).encode(),
+                   "application/json")
+
+
+def handle_ocular(h):
+    """GET /api/trading/ocular — the Ocular Cortex (the brain's eyes + visual memory).
+
+    Shows REAL state: which free vision providers are online, how many frames perceived /
+    novel / vision-read this session, the consolidated per-page LayoutMemory (golden paths +
+    known data kinds), captured internal endpoints (interception registry) + live data kinds,
+    and how many decisions have a linked visual frame. No fake tiles — every number is the
+    live singleton's own count."""
+    try:
+        from trading.brain.vision.ocular_cortex import get_cortex
+        from trading.broker_sense.interception import get_recorder
+        cortex = get_cortex()
+        rec = get_recorder()
+        from core import llm
+        payload = {
+            "available": True,
+            "vision_online": llm.vision_available(),
+            "vision_providers": llm.vision_order(),
+            "cortex": cortex.status(),
+            "interception": rec.status(),
+        }
+        body = json.dumps(payload, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False, "error": f"{type(e).__name__}: {e}",
+            "hint": "Ocular Cortex via trading/brain/vision (see "
+                    "research/broker-native-trader-spec.md).",
         }).encode()
     return h._send(200, body, "application/json")

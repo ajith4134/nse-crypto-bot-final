@@ -19,6 +19,8 @@ honest/offline-safe (FLAT when data or strategies are absent) and inherits the s
 from __future__ import annotations
 
 import math
+import os
+import time
 
 import numpy as np
 
@@ -27,8 +29,13 @@ from trading.crypto.freqtrade.brain_executor import LibraryBrainDecider
 # 5-minute bars → periods per year for Sharpe annualization (12/h · 24 · 365).
 _PERIODS_PER_YEAR = 12 * 24 * 365
 _MIN_ACTIVE_BARS = 5          # a strategy must have held a position on ≥ this many bars to be scored
-_MIN_FINAL_SCORE = 0.5        # below this blended score → stay flat (no trade)
-_MIN_DEFLATED_PSR = 0.35      # Pillar-20: winner's deflated Probabilistic-Sharpe floor (multiple-testing)
+# below this blended score → stay flat (no trade). ENV-TUNABLE (owner: "I want to see 100s of
+# trades"): CRYPTO_MIN_SCORE lowers the bar so far more coins clear it → many more open trades.
+# 0.5 = selective (quality); ~0.2-0.3 = high-throughput (paper learn-lab). This is the REAL lever
+# for trade COUNT — the max_open_trades cap was never the binding constraint (brain selectivity was).
+_MIN_FINAL_SCORE = float(os.environ.get("CRYPTO_MIN_SCORE", "0.5"))
+_MIN_DEFLATED_PSR = float(os.environ.get("CRYPTO_MIN_PSR", "0.35"))   # Pillar-20 deflated-PSR floor
+# ↑ ENV-tunable too: lower it (e.g. 0.1) alongside CRYPTO_MIN_SCORE for high-throughput paper runs.
 
 
 class PerCoinBrainDecider(LibraryBrainDecider):
@@ -47,12 +54,22 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         self._dsr_min = float(dsr_min)
         self._net = None            # lazily-built TradeOutcomeNet (cached by closed-trade count)
         self._net_count = -1
+        self._net_ts = float("-inf")   # last closed-trades fetch (TTL below)
 
     # ── brain confidence (global skill learned from the closed journal) ──────────
+    _NET_TTL_S = 120.0     # closed trades change slowly; a fresher net isn't worth an HTTP storm
+
     def _brain_net(self):
-        """TradeOutcomeNet over the crypto closed journal. None when unavailable/insufficient."""
+        """TradeOutcomeNet over the crypto closed journal. None when unavailable/insufficient.
+
+        TTL-cached: `_brain_weight` runs inside the per-strategy loop of every `decide()`, so
+        without the TTL one funnel cycle refetched the FULL closed-trade history over HTTP
+        ~(strategies × symbols) times — the 2026-07-05 run_cycle wedge."""
         if not self._use_brain:
             return None
+        if time.monotonic() - self._net_ts < self._NET_TTL_S:
+            return self._net
+        self._net_ts = time.monotonic()      # stamp attempts too — a down API isn't hammered
         try:
             from trading.crypto.freqtrade_ingest import map_trade
             from trading.brain.trade_features import get_outcome_net
@@ -75,7 +92,7 @@ class PerCoinBrainDecider(LibraryBrainDecider):
                 self._net_count = len(rows)
             return self._net
         except Exception:
-            return None
+            return self._net             # transient API failure → last good net (may be None)
 
     def client_for_brain(self):
         # the brain net trains on Freqtrade's own closed trades (independent of the dark dashboard)

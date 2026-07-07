@@ -151,6 +151,10 @@ class BrainExecutor:
         self.learner = learner
         self._last_picks: dict = {}      # symbol -> chosen-strategy meta (for logs / dashboard)
         self._last_vetoes: list = []     # symbols an entry was blocked on by confirmed evidence
+        # Broker-Sense funnel (trading/broker_sense): per-symbol app-derived context
+        # (screener lane, candle-image CNN read, screen-mirror bid/ask, discovered learning
+        # columns) set before run_once; merged into decision_snapshot as "app_signals".
+        self.extra_signals: dict = {}
 
     def client(self):
         if self._client is None:
@@ -195,8 +199,12 @@ class BrainExecutor:
             return []  # dynamic universes only — no meaningful hardcoded fallback
         return ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
 
-    def run_once(self, *, allow_live: bool = False) -> dict:
-        """One brain→Freqtrade execution cycle. Returns a summary. Never raises."""
+    def run_once(self, *, allow_live: bool = False, deadline: float | None = None) -> dict:
+        """One brain→Freqtrade execution cycle. Returns a summary. Never raises.
+
+        `deadline` (time.monotonic value): symbols not yet decided when it passes are
+        deferred to the next cycle (reported as `deadline_deferred`) — a caller with a
+        wall-clock budget (the Broker-Sense funnel) is never wedged by per-symbol cost."""
         if self.segment == "options":
             return self._run_options_cycle(allow_live=allow_live)
         if self.segment == "prediction":
@@ -215,24 +223,95 @@ class BrainExecutor:
                                         open_now=len(open_pairs))
         except Exception:
             policy = {"uq_advisory": False, "psych_veto": self._PSYCH_VETO, "pressure": False}
+        # EXPLORE OPEN-ALL (owner 2026-07-06): until the brain has learned from enough CLOSED
+        # trades, open EVERY candidate the broker pickers surface — direction from the symbol's
+        # OWN Binance app data — with the veto gates ADVISORY, so the journal fills with richly-
+        # labelled trades to learn from. PAPER ONLY; auto-graduates to the selective gate at the
+        # threshold. Every bypass is still recorded honestly (decision_snapshot + app_signals).
+        explore = (not allow_live) and self._explore_open_all(open_now=len(open_pairs))
         entered, exited, skipped = [], [], 0
         picks: dict = {}
         vetoes: list = []
-        for sym in self.symbols():
+        deadline_deferred = 0
+        # PROFIT TAILGATING pass (owner feature): over EVERY open trade, ratchet the locked-profit
+        # floor up with the peak and force an exit when profit falls to the lock — so winners are
+        # ridden and gains are locked. The brain learns the trail distance from outcomes (below).
+        tailgated = self._tailgate_pass(cli, allow_live=allow_live)
+        exited.extend(tailgated)
+        syms = self.symbols()
+        for i, sym in enumerate(syms):
+            if deadline is not None and time.monotonic() > deadline:
+                deadline_deferred = len(syms) - i        # honest: deferred, not decided
+                break
             try:
+                # FAST EXPLORE PATH (owner 2026-07-06): skip the heavy per-symbol ensemble — take
+                # the direction straight from the symbol's Binance app data — so ALL candidates open
+                # within the cycle budget (the slow decide() only reached ~1/cycle). Records the FULL
+                # app_signals as columns; heavy attribution/episode resolve at close. Paper only.
+                if explore and sym not in open_pairs:
+                    _sig = (getattr(self, "extra_signals", {}) or {}).get(sym, {}) or {}
+                    _v = _sig.get("vote") or {}
+                    _pup = _v.get("p_up")
+                    if _v.get("direction") == "long":
+                        _act = "LONG"
+                    elif _v.get("direction") == "short":
+                        _act = "SHORT"
+                    elif _pup is not None:
+                        _act = "LONG" if float(_pup) >= 0.5 else "SHORT"
+                    else:
+                        _act = "LONG"
+                    try:
+                        cli.place_order(symbol=sym, action="BUY",
+                                        side=("long" if _act == "LONG" else "short"),
+                                        allow_live=allow_live, enter_tag="explore_open_all",
+                                        segment=self.segment)
+                        entered.append(sym)
+                        from trading.crypto.freqtrade import entry_meta
+                        entry_meta.record(sym, self.segment, {"decision_snapshot": {
+                            "market": "CRYPTO", "symbol": sym, "segment": self.segment or "futures",
+                            "direction": _act, "strategy": "explore_open_all", "engine": "freqtrade",
+                            "app_signals": _sig, "explore": True}})
+                    except Exception:
+                        skipped += 1
+                    continue
                 d = self.decider.decide("CRYPTO", sym, None, in_position=(sym in open_pairs))
                 # CORTEX B8 (CANON-51): OPT-IN shadow lane. Env unset → zero change.
                 d = self._cortex_shadow(sym, d, in_position=(sym in open_pairs))
                 act = d.get("action")
                 tag = d.get("tag")                       # brain's chosen strategy for this coin
                 brain = d.get("_brain") or {}
+                # ACCOUNT-PATH: when the executor's own ensemble is undecided (FLAT / net-tie) but
+                # the funnel's account-first read gave a DECISIVE direction, follow it (it still
+                # passes every safety gate below). This makes the connected-account data actually
+                # drive entries instead of the executor's split library vote silently skipping.
+                if act not in ("LONG", "SHORT") and sym not in open_pairs:
+                    _vote = (getattr(self, "extra_signals", {}) or {}).get(sym, {}).get("vote", {})
+                    _vdir = (_vote or {}).get("direction")
+                    if _vdir == "long":
+                        act, tag = "LONG", (tag or "account_path")
+                    elif _vdir == "short":
+                        act, tag = "SHORT", (tag or "account_path")
+                # EXPLORE: still FLAT after the account-path → derive a direction from ALL the
+                # symbol's app data (vote p_up lean, else the picker lane) so it opens anyway.
+                if explore and act not in ("LONG", "SHORT") and sym not in open_pairs:
+                    _sig = (getattr(self, "extra_signals", {}) or {}).get(sym, {}) or {}
+                    _vote = _sig.get("vote") or {}
+                    _pup = _vote.get("p_up")
+                    _lane = str((_sig.get("screener") or {}).get("lane") or "")
+                    if _pup is not None:
+                        act = "LONG" if float(_pup) >= 0.5 else "SHORT"
+                    elif "loser" in _lane or "short" in _lane:
+                        act = "SHORT"
+                    else:
+                        act = "LONG"                     # gainers/movers/unknown → explore long
+                    tag = tag or "explore_open_all"
                 if brain.get("chosen_strategy"):
                     picks[sym] = {"strategy": brain.get("chosen_strategy"), "action": act,
                                   "final_score": brain.get("final_score"), "sharpe": brain.get("sharpe"),
                                   "win_rate": brain.get("win_rate"), "p_win": brain.get("p_win")}
                 # Closed-loop feedback: block a new entry only when CONFIRMED hypotheses give
                 # strong contrary evidence for that direction. Advisory (never forces entries).
-                if act in ("LONG", "SHORT") and sym not in open_pairs \
+                if act in ("LONG", "SHORT") and sym not in open_pairs and not explore \
                         and self._entry_vetoed(sym, act, brain):
                     vetoes.append(sym)
                     skipped += 1
@@ -247,23 +326,25 @@ class BrainExecutor:
                 # order-book trader psychology: live entry signal (boost/dampen/veto)
                 psych = None
                 if act in ("LONG", "SHORT") and sym not in open_pairs:
-                    psych, act = self._apply_psychology(
+                    psych, _pact = self._apply_psychology(
                         sym, act, brain, veto_at=policy.get("psych_veto", self._PSYCH_VETO))
-                    if act == "FLAT":
+                    if _pact == "FLAT" and not explore:
                         vetoes.append(sym)
                         skipped += 1
                         continue
+                    act = _pact if not explore else act   # explore keeps the app-data direction
                 # Pillar 17: calibrated conformal gate — the LAST word before capital
                 # commits. Runs after every confidence adjuster so p_up reflects the
                 # final belief; an abstention is logged as a first-class decision.
                 if act in ("LONG", "SHORT") and sym not in open_pairs:
                     uq = self._assess_uq(sym, act, brain, psych)
                     if uq and uq.get("abstain"):
-                        if policy.get("uq_advisory"):
-                            # boss asked for volume (data_collect / below-target): the gate
-                            # LOGS its abstention but does not block — recorded honestly.
+                        if policy.get("uq_advisory") or explore:
+                            # boss volume pressure OR explore-open-all: the gate LOGS its
+                            # abstention but does not block — recorded honestly.
                             if isinstance(brain, dict):
-                                brain["uq_advisory_bypass"] = policy.get("reason")
+                                brain["uq_advisory_bypass"] = "explore_open_all" if explore \
+                                    else policy.get("reason")
                         else:
                             vetoes.append(sym)
                             skipped += 1
@@ -288,7 +369,82 @@ class BrainExecutor:
         self._last_picks = picks
         self._last_vetoes = vetoes
         return {"entered": entered, "exited": exited, "skipped": skipped,
-                "universe": len(self.symbols()), "picks": picks, "vetoes": vetoes}
+                "universe": len(syms), "picks": picks, "vetoes": vetoes,
+                "explore": explore, "deadline_deferred": deadline_deferred}
+
+    def _explore_open_all(self, *, open_now: int = 0) -> bool:
+        """PAPER explore-open-all (owner 2026-07-06): open EVERY candidate the pickers surface —
+        direction from the symbol's own Binance app data, vetoes ADVISORY — until the brain is
+        CONSISTENTLY PICKING PROFITABLE / CORRECT-DIRECTION trades, then AUTO-GRADUATE to the
+        selective gate. Never returns True in live (caller gates on `not allow_live`).
+
+        Graduation signal (owner 2026-07-06 refinement): NOT a raw trade COUNT — the box already
+        holds thousands of trades yet a big count proves nothing about skill. Graduate on the
+        brain's ROLLING WIN-RATE instead: over the last `BRAIN_EXPLORE_GRADUATE_WINDOW` closed
+        trades, once the profitable-fraction (a profitable directional trade == a correct entry
+        direction) holds at/above `BRAIN_EXPLORE_GRADUATE_ACC`, the brain has earned selectivity.
+
+        Env knobs:
+          BRAIN_EXPLORE_OPEN_ALL       on/off master flag (default ON)
+          BRAIN_EXPLORE_GRADUATE_ACC   win-rate to graduate at, e.g. 0.55 (default 0.0 = never)
+          BRAIN_EXPLORE_GRADUATE_WINDOW recent closed trades to score over (default 50)
+          BRAIN_EXPLORE_GRADUATE_N     legacy count gate; used only when ACC is unset (default 0)
+
+        Default keeps exploring (ACC=0) — the paper learn-lab: blowups are training data, every
+        entry is fully labelled; graduation is opt-in the moment the win-rate proves it out."""
+        import os
+        if os.environ.get("BRAIN_EXPLORE_OPEN_ALL", "1") not in ("1", "true", "TRUE", "yes", "on"):
+            return False
+        # ── profitability-based graduation (preferred) ──────────────────────────────
+        try:
+            acc = float(os.environ.get("BRAIN_EXPLORE_GRADUATE_ACC", "0") or 0)
+        except Exception:
+            acc = 0.0
+        if acc > 0:
+            try:
+                window = int(os.environ.get("BRAIN_EXPLORE_GRADUATE_WINDOW", "50"))
+            except Exception:
+                window = 50
+            window = max(1, window)
+            wr = self._recent_win_rate(window)
+            # need a full window of evidence AND the win-rate at/above target to graduate
+            if wr is None or wr[1] < window:
+                return True                          # not enough closed trades yet → keep exploring
+            return wr[0] < acc                       # below target → explore; at/above → graduate
+        # ── legacy count gate (only if a positive N is set) ─────────────────────────
+        try:
+            n = int(os.environ.get("BRAIN_EXPLORE_GRADUATE_N", "0"))
+        except Exception:
+            n = 0
+        if n <= 0:
+            return True
+        try:
+            from trading.journal.journal import TradeJournal
+            return len(TradeJournal(state_file="journal.json", persist=True).trades) < n
+        except Exception:
+            return True                              # no journal yet → explore
+
+    @staticmethod
+    def _recent_win_rate(window: int) -> tuple[float, int] | None:
+        """Return (win_rate, n_scored) over the last `window` CLOSED trades, where a "win" is a
+        profitable trade (net_pnl > 0) — a profitable directional trade means the brain called the
+        entry direction correctly. Returns None if the journal can't be read. n_scored is capped at
+        `window`; callers require it to equal `window` before trusting the rate (full evidence)."""
+        try:
+            from trading.journal.journal import TradeJournal
+            trades = TradeJournal(state_file="journal.json", persist=True).trades
+        except Exception:
+            return None
+        recent = trades[-window:]
+        if not recent:
+            return (0.0, 0)
+        def _pnl(t) -> float:
+            v = getattr(t, "net_pnl_crypto", None)
+            if v is None:
+                v = getattr(t, "net_pnl", 0.0)
+            return float(v or 0.0)
+        wins = sum(1 for t in recent if _pnl(t) > 0)
+        return (wins / len(recent), len(recent))
 
     # ── options segment (Deribit, paper) ──────────────────────────────────────
     # The brain decides the DIRECTION on the underlying perp (where it has full data +
@@ -531,6 +687,56 @@ class BrainExecutor:
         except Exception:
             return None
 
+    def _tailgate_pass(self, cli, *, allow_live: bool = False) -> list:
+        """Profit-tailgating over every OPEN trade: ratchet the locked-profit floor up with the
+        peak; force-exit when live profit falls to the lock. Env PROFIT_TAILGATE=1 (default on for
+        paper). Never raises. Returns the symbols it exited."""
+        import os
+        if os.environ.get("PROFIT_TAILGATE", "1") not in ("1", "true", "TRUE", "yes"):
+            return []
+        exited = []
+
+        def _num(v):
+            try:
+                return float(v) if v is not None else 0.0
+            except (TypeError, ValueError):
+                return 0.0
+        try:
+            from trading.execution import profit_tailgate as pt
+            st = cli.status()
+            trades = st if isinstance(st, list) else []
+            for t in trades:
+                pair = t.get("pair")
+                if not pair:
+                    continue
+                prof = t.get("profit_ratio")
+                profit_pct = float(prof) * 100.0 if prof is not None else None
+                # peak% from Freqtrade's tracked max_rate vs open_rate (direction-aware)
+                op, mx = _num(t.get("open_rate")), _num(t.get("max_rate"))
+                peak_pct = None
+                if op and mx:
+                    peak_pct = ((op - mx) / op if t.get("is_short") else (mx - op) / op) * 100.0
+                    peak_pct = max(peak_pct, profit_pct or 0.0)
+                tid = str(t.get("trade_id") or pair)
+                dec = pt.locked_profit("crypto", self.segment or "futures", trade_id=tid,
+                                       profit_pct=profit_pct, peak_profit_pct=peak_pct)
+                if dec.get("exit"):
+                    try:
+                        cli.close_pair(pair, segment=self.segment)
+                        exited.append(pair)
+                        pt.learn("crypto", self.segment or "futures",
+                                 peak_profit_pct=peak_pct, captured_pct=profit_pct)
+                        pt.clear_lock(tid)
+                        from trading.brain import mind_events
+                        mind_events.emit("trade_credit",
+                                         f"Profit tailgate locked {profit_pct:.2f}% on {pair} "
+                                         f"(peak {peak_pct:.2f}%)", salience=0.6)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return exited
+
     def _record_entry_meta(self, sym: str, act: str, tag, brain: dict, psych) -> None:
         """Persist the FULL decision context of this entry to the sidecar store so
         freqtrade_ingest can fill the psychology + decision_snapshot journal columns."""
@@ -544,6 +750,8 @@ class BrainExecutor:
                 "psychology": psych,
                 "engine": "freqtrade",
             }
+            if self.extra_signals.get(sym):
+                snapshot["app_signals"] = self.extra_signals[sym]
             # decision-memory episode + SHAP attribution (resolved at ingest time when
             # the trade closes; episode_id travels via this sidecar)
             episode_id, attribution = "", {}

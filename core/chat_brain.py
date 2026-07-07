@@ -105,10 +105,23 @@ def _boss_route(message: str, history: list[dict] | None):
         return None
 
 
+def _credential_route(message: str):
+    """Credential answers to a pending login ask go to the ENCRYPTED VAULT, never the LLM."""
+    try:
+        from trading.brain.credential_chat import try_capture
+        return try_capture(message)
+    except Exception:
+        return None
+
+
 def chat(message: str, history: list[dict] | None = None) -> dict:
     message = (message or "").strip()
     if not message:
         return {"reply": "", "sources": [], "thoughts": [], "error": "empty message"}
+
+    captured = _credential_route(message)         # BEFORE anything else — never leak a secret
+    if captured is not None:
+        return captured
 
     handled = _boss_route(message, history)
     if handled is not None:
@@ -176,6 +189,14 @@ def chat_stream(message: str, history: list[dict] | None = None):
     message = (message or "").strip()
     if not message:
         yield {"type": "error", "error": "empty message"}
+        return
+
+    captured = _credential_route(message)         # credential answer → vault, never the LLM
+    if captured is not None:
+        for t in captured.get("thoughts") or []:
+            yield {"type": "thought", "text": t}
+        yield {"type": "token", "text": captured.get("reply") or ""}
+        yield {"type": "done"}
         return
 
     handled = _boss_route(message, history)

@@ -109,6 +109,13 @@ class LearnLoop:
         except Exception as e:                           # loop must survive any cycle
             out = {"topic": topic, "n": 0, "errors": [f"{type(e).__name__}: {e}"[:120]]}
         st["cycles"] = int(st.get("cycles", 0)) + 1
+        # self-healing wiring watchdog: piggyback a cheap connectivity scan each learn cycle so a
+        # newly-disconnected module/endpoint is caught automatically (emits a mind-event on regress)
+        try:
+            from trading.brain import connectivity_monitor
+            connectivity_monitor.scan()
+        except Exception:
+            pass
         rec = {"topic": topic, "n": out.get("n", 0), "ts": time.time()}
         st["done"].append(rec)
         st["last"] = rec

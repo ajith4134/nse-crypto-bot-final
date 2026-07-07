@@ -47,3 +47,73 @@ Each new node auto-registers into the live pool via idea #1's autoloader. New TS
 nodes ship behind the existing opt-in pool flags to protect growth-pool fit time. All shipped with
 tests (test_autoload, test_vae_factor, test_regime_moe, test_intermarket_gnn, test_lob_transformer,
 test_tsfm_ensemble, test_rl_execution, test_onchain_altdata) and per-idea commits.
+
+## Run 2026-07-05 — owner-invented: Broker-Sense Funnel (universe-scan compute fix)
+
+Context: brain loop is WEDGED — run_once iterates 293 crypto (×153 strategies) single-thread, never
+completes a cycle → 0 new trades, 5 stuck, only futures runs. Owner idea: offload the universe scan
+to broker/3rd-party SCREENERS (open broker apps via computer-use, OTP via Brain Chat, use their
+filters to rank), compute only on the shortlist, APIs only for execution. No single OSS does the full
+vision → invent it. Full design: research/universe-scan-architecture.md.
+
+| # | Idea | Type | Why it beats what we have | Reuse | Effort/Risk | Pillar | Status |
+|---|---|---|---|---|---|---|---|
+| 12 | **Broker-Sense Funnel** — 3-layer coarse→fine: Layer-1 PERCEIVE offloads the whole-universe screen to external screeners (tradingview-screener API for NSE+crypto; Chartink→OpenAlgo; GUI-fallback via browser-use w/ OTP-via-chat for API-less/blocked screens) → ~20-40 shortlist/segment/bar; Layer-2 REASON runs the 153-strategy brain+UQ ONLY on the shortlist (cycles complete in seconds); Layer-3 EXECUTE via OpenAlgo/Freqtrade | new/architecture | Removes the wedge (whole universe screened every bar for ~0 local compute vs never-completing 293×153 loop); finds MORE trades across all segments; NSE+crypto | tradingview-screener ★, Chartink→OpenAlgo ★(have OpenAlgo), browser_use_src ★, gui/agent.py ★, credentials.py vault ★ | M-L / Med | 7,21,25 | proposed |
+
+Honest design note (baked in): raw candles/order-book via API (exact, fast) — GUI-reading only for
+data with NO API (some NSE); the compute problem was the backtest, not the fetch. Prior art = pieces
+only (tradingview-screener, Chartink→OpenAlgo, browser-use, TradingAgents); the autonomous
+broker-app-driven screener+perception funnel is the invention.
+
+## 2026-07-06 — Broker-app "full-feature" exploitation (proposed)
+Context: bot can now click broker UI (App Driving School), 31GB RAM / 12 cores, crawl is serial.
+1. [DONE] Screener-Feature Catalog+Use engine — discover EVERY built-in picker on Upstox
+   (momentum gainers 1m/3m/5m, trending, trending<500, top gainers/losers, Algovers, Chart360,
+   Scalper, News, OI-analysis) + Binance (Top Movers, Gainers/Losers, New Listings, Funding-rate
+   board, Long/Short leaderboard, Liquidation heatmap, Options movers) → register each as a named
+   candidate SOURCE the funnel reads directly (broker did the compute → we just read the list).
+2. [DONE] Parallel exploration pool — one Playwright context PER broker-feature, crawled
+   concurrently (12-core / 31GB), so all pickers refresh every bar instead of one-at-a-time.
+3. [DONE] Feature→signal fusion — treat each broker picker as a weak labeler; brain learns
+   per-feature hit-rate and weights them (stacking), so "appears in 3+ bullish pickers" = strong.
+4. [DONE] Live UI reflex — read the app's own real-time movers stream (no polling) → act in
+   ms; broker's ranking replaces our universe scan (saves CPU + latency).
+5. [DONE] News/OI/sentiment columns from the apps' own News + OI-analysis tabs → trade cols.
+6. [DONE] Self-expanding screener presets — brain invents new filter combos IN the app's
+   screener UI (Voyager-style) and keeps the ones that backtest well.
+
+## 2026-07-06 — Broker-feature follow-ons (all DONE)
+1. [DONE] Self-growing columns — trade_columns.propose→accept API+TradeColumnsPanel (6 real cols)
+2. [DONE] Order-preview gate — funnel VERIFY reads broker margin/liq-price (BROKER_ORDER_PREVIEW=1)
+3. [DONE] Segment-focus CPU save — fully-off market does ZERO funnel work
+4. [DONE] Momentum-ignition — new_entries→mind_events + fuse() 1.25x boost for fresh igniters
+5. [DONE] Regime-aware weights — FeaturePerf per-regime buckets, blended by current_regime()
+6. [DONE] Self-healing wiring watchdog — connectivity_monitor (baseline+regression), non-blocking
+   scan_async (fixed 14s→2.9s load), learn-loop piggyback, ConnectivityPanel
+
+## 2026-07-06 — Strategy-generation SOTA upgrades (proposed; DEAP evolution now wired+ON)
+Context: connected the DEAP NSGA-II evolution/mutation engine to the brain pipeline
+(evolved_link.py) and turned it ON in paper. Research (research/strategy-generation-sota-2026.md)
+says DEAP fixed-genome is a solid baseline but NOT the frontier; our CPCV+DSR+PBO guardrail IS
+SOTA. Posture: keep DEAP as one generator, ADD stronger generators through the same gate.
+1. [PROPOSED] Formulaic-alpha mining generator — AlphaGen/AlphaForge (RL/GFlowNet); discovers
+   decorrelated SETS of novel alphas (combined-IC), feeds genome + CPCV gate. Highest impact.
+2. [PROPOSED] LLM-as-mutation-operator — OpenEvolve/pwb-alphaevolve; replace DEAP's blind
+   mutation with hypothesis-driven LLM code edits (reuse core/llm.py). Minimal-risk hybrid.
+3. [PROPOSED] PySR symbolic-regression generator — evolves the expression tree itself
+   (more expressive than a fixed genome); CPU-first. (gplearn = lighter fallback.)
+4. [PROPOSED] Quality-Diversity archive — pyribs MAP-Elites/MOME; illuminated archive of
+   behaviorally-diverse strategies (holding-period×turnover×regime) vs Pareto collapse.
+5. [PROPOSED] RD-Agent(Q)+Qlib autonomous quant-researcher tier (heavier, LLM-budget gated).
+6. [PROPOSED] Family-wise error control — White's Reality Check + Hansen's SPA (mlfinlab OSS)
+   now that many generators produce far more candidates. Optuna (NSGA-III/CMA-ES) for tuning.
+
+## 2026-07-06 — Strategy-generator portfolio (ALL DONE, user approved "add all 6 + 5th")
+Built trading/strategy/generators/ — DEAP + 6 SOTA generators through ONE CPCV+DSR+family-wise gate.
+1. [DONE] Formulaic-alpha mining — alpha_mining.py (reuses vendor/alphagen operator vocabulary, IC-filtered)
+2. [DONE] LLM-as-mutation-operator — llm_mutation.py (LLM edits GP-DSL, reuse core.llm)
+3. [DONE] Symbolic regression — symbolic.py BOTH gplearn + PySR (Julia)
+4. [DONE] Quality-Diversity — quality_diversity.py (pyribs CMA-ME MAP-Elites)
+5. [DONE] RD-Agent(Q) researcher — rd_agent.py (research→develop→feedback loop, persisted Trace, reuse core.llm + alpha_ops; vendor/RD-Agent ref)
+6. [DONE] Family-wise error control — stats_gate.py (Hansen StepM via arch) in the gate + Optuna tuner (optuna_tune.py)
+Scaffold: base.py (Candidate/evaluate_and_admit/rebuild) + expression.py + alpha_ops.py + portfolio.py. Tests: tests/test_generators.py. Verified: 63+24 tests green, integrated breed admits across all generators.

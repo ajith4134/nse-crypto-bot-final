@@ -87,7 +87,7 @@ def _segments_block(cfg: CryptoConfig) -> dict:
                              "pair_whitelist": [], "pair_blacklist": []},
                 "stake_currency": "USDC",   # Deribit linear options quote/settle in USDC
                 "stake_amount": 200,
-                "pairlists": [{"method": "AllMarketsPairList", "number_assets": 30}],
+                "pairlists": [{"method": "AllMarketsPairList", "number_assets": 100}],
                 # Illiquid strikes can have EMPTY order books — price options off the
                 # ticker (bid/ask/last) instead of the book so entries never 500.
                 "entry_pricing": {"price_side": "other", "use_order_book": False,
@@ -140,6 +140,12 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
             # creds are blank in paper/dry-run; only used when TRADING_MODE=live
             "key": (keys._api_key or "") if cfg.is_live else "",
             "secret": (keys._secret or "") if cfg.is_live else "",
+            # WEBSOCKET pricing (ccxt.pro) — THE way to hold 100s of open trades without an IP ban:
+            # data is PUSHED over one persistent socket instead of REST-polled per trade every cycle
+            # (the 2026-07-03 -1003 ban came from REST order-book polling × many open trades). This
+            # is what pro/HFT desks use to run huge position counts on one connection. Near-zero
+            # REST weight → max_open_trades can be unlimited safely.
+            "enable_ws": True,
             # VolumePairList populates the whitelist dynamically; seed kept for the very first
             # refresh. Blacklist stablecoin↔stable pairs + leveraged tokens (noise, not "symbols").
             "pair_whitelist": _pairs(cfg),
@@ -148,11 +154,12 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
                 ".*(UP|DOWN|BULL|BEAR)/.*",
             ],
         },
-        # ALL liquid AND volatile symbols (user ask): VolumePairList ranks ~300 by 24h quote
-        # volume (liquidity) → VolatilityFilter keeps the volatile ones → ~250 liquid+volatile.
-        # Refreshed live, so FreqUI always lists the current best symbols for the active segment.
+        # ALL Binance symbols (owner ask 2026-07-06): number_assets=1000 ranks the WHOLE Binance
+        # USDT universe by 24h quote volume (Binance has ~450 USDT perps, so 1000 = effectively
+        # all) → VolatilityFilter keeps the volatile ones. Refreshed live, so FreqUI always lists
+        # the current best symbols for the active segment; trades can open on any of them.
         "pairlists": [
-            {"method": "VolumePairList", "number_assets": 300, "sort_key": "quoteVolume",
+            {"method": "VolumePairList", "number_assets": 1000, "sort_key": "quoteVolume",
              "refresh_period": 1800},
             {"method": "VolatilityFilter", "lookback_days": 10, "min_volatility": 0.02,
              "max_volatility": 1.0, "refresh_period": 86400},
@@ -164,8 +171,11 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # every 5s ≈ 1400 req/min — so the throttle below cuts cycles 3×, order_book_top
         # stays 1 (cheapest depth call), and all non-Freqtrade data reads moved to the
         # multi-venue pool (trading/crypto/exchange_pool.py).
-        "entry_pricing": {"price_side": "same", "use_order_book": True, "order_book_top": 1},
-        "exit_pricing": {"price_side": "same", "use_order_book": True, "order_book_top": 1},
+        # price_side "other" (the aggressive side) is REQUIRED for MARKET entry/exit orders
+        # (owner's default: guaranteed immediate fill, long+short) — Freqtrade rejects market
+        # orders with price_side "same".
+        "entry_pricing": {"price_side": "other", "use_order_book": True, "order_book_top": 1},
+        "exit_pricing": {"price_side": "other", "use_order_book": True, "order_book_top": 1},
         "api_server": {
             "enabled": True,
             "listen_ip_address": "127.0.0.1",

@@ -23,6 +23,13 @@ import time
 
 _KEY_FILE = ".vault_key"
 _ENC_FILE = "credentials.enc"
+# Pending login asks are the ONE piece of vault state that must cross processes: the funnel
+# LOOP process raises them, but the DASHBOARD process renders the chat. So they persist to disk
+# (site + field NAMES + note + ts only — never a secret), TTL-pruned so a dead loop or an
+# expired OTP ask doesn't linger in the chat forever.
+_PENDING_FILE = "credential_requests.json"
+_PENDING_TTL = 3600.0                           # 1h — a connect-ask shouldn't vanish mid-session
+                                                # (the funnel re-raises it each cycle anyway)
 
 
 def _fernet():
@@ -75,26 +82,66 @@ class CredentialVault:
             pass
 
     # ── chat-request flow ──────────────────────────────────────────────────────────
+    def _load_pending(self) -> dict:
+        from trading import state
+        d = state.load_json(_PENDING_FILE, {})
+        return d if isinstance(d, dict) else {}
+
+    def _save_pending(self, reqs: dict) -> None:
+        from trading import state
+        state.save_json(_PENDING_FILE, reqs)
+
     def request_login(self, site: str, fields=("username", "password"), note: str = "") -> dict:
-        """Brain raises a pending login request for `site`. Surfaced in the dashboard chat."""
+        """Brain raises a pending login request for `site`. Persisted to disk so the DASHBOARD
+        process (which renders the chat) sees an ask raised by the FUNNEL-LOOP process."""
         req = {"site": site, "fields": list(fields),
                "note": note or f"Brain needs to log into {site} (READ-ONLY data access).",
                "ts": time.time()}
         self._pending[site] = req
+        reqs = self._load_pending()
+        reqs[site] = req
+        self._save_pending(reqs)
         return req
 
     def pending(self) -> list[dict]:
-        return list(self._pending.values())
+        """All fresh pending asks — read from disk (cross-process truth), TTL-pruned, merged
+        with any raised in THIS process."""
+        reqs = self._load_pending()
+        now = time.time()
+        fresh = {s: r for s, r in reqs.items() if now - float(r.get("ts", 0)) <= _PENDING_TTL}
+        if len(fresh) != len(reqs):                 # prune expired asks (dead loop / stale OTP)
+            self._save_pending(fresh)
+        for s, r in self._pending.items():          # belt-and-braces: same-process asks too
+            fresh.setdefault(s, r)
+        return list(fresh.values())
 
     def submit(self, site: str, values: dict) -> dict:
         """Operator answers a request in chat → encrypt + persist; clear the pending request.
-        `values` = {field: secret}. Returns a SAFE receipt (field names only, no values)."""
+        `values` = {field: secret}. MERGES into any stored entry so answering an OTP-only ask
+        never clobbers the saved username/password (save-once, OTP-later flow). Returns a SAFE
+        receipt (field names only, no values)."""
         data = self._load()
-        data[site] = {"values": {k: str(v) for k, v in (values or {}).items()},
-                      "added_at": time.time()}
+        entry = data.get(site) or {"values": {}}
+        entry["values"].update({k: str(v) for k, v in (values or {}).items()})
+        entry["added_at"] = entry.get("added_at") or time.time()
+        entry["updated_at"] = time.time()
+        data[site] = entry
         self._store(data)
         self._pending.pop(site, None)
+        reqs = self._load_pending()                  # clear the disk ask too (cross-process)
+        if reqs.pop(site, None) is not None:
+            self._save_pending(reqs)
         return {"site": site, "fields": list((values or {}).keys()), "saved": True}
+
+    def clear_field(self, site: str, field: str) -> bool:
+        """Drop ONE stored field (e.g. a consumed one-time OTP) keeping the rest of the entry."""
+        data = self._load()
+        entry = data.get(site)
+        if entry and field in entry.get("values", {}):
+            del entry["values"][field]
+            self._store(data)
+            return True
+        return False
 
     # ── use-time (browser agent) ───────────────────────────────────────────────────
     def get(self, site: str) -> dict | None:

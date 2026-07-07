@@ -400,6 +400,14 @@ class StrategyFoundry:
         gate=False only for diagnostics. Returns promoted ids.
         """
         segs = [segment] if segment else sorted({sp.segment for sp in self.specs.values()})
+        # GLOBAL segment focus: skip segments the owner turned OFF on the dashboard, so strategy
+        # research/promotion focuses only where the brain is meant to look right now.
+        try:
+            from trading.brain import boss
+            active = set(boss.active_segments("CRYPTO")) | set(boss.active_segments("NSE"))
+            segs = [s for s in segs if s in active] or segs
+        except Exception:
+            pass
         promoted: list[str] = []
         self._last_gate: dict = {}
         for seg in segs:
