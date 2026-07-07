@@ -137,7 +137,9 @@ several of these in the goal message → treated as pre-approved (marked ★).
    captured page episodes to consolidate layout memory + surface recurring
    pre-move patterns (vp1/self-improving-agent "dreaming"). Reuse decision_memory +
    brain sleep. Effort MED.
-5. **Autoresearch champion loop, live** (activate) — run the strategy-generator portfolio
+5. [DONE `41086f2` — run_autoresearch daemon + Researcher section in StrategyGeneratorsPanel;
+   live: 175 tested / 6 admitted / 8 tripwire rejections on day one] **Autoresearch champion
+   loop, live** (activate) — run the strategy-generator portfolio
    in continuous auto-research mode; the leak-tripwire + champion lineage (W5) already
    exist — needs only a driver loop + Trading-Researcher panel. Effort LOW (pieces built).
 6. **Recurrent-PPO / decision-transformer exec** (replace W6 PPO) — handle partial
