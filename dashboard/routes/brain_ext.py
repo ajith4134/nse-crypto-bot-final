@@ -482,48 +482,53 @@ def handle_generators(h):
     everything here is read from the shared library the brain-loop breeds into and the brain
     trades from (via trading.strategy.evolved_link)."""
     try:
-        # imports the portfolio module directly (also keeps it wired in the import graph)
-        from trading.strategy.generators.portfolio import StrategyPortfolio  # noqa: F401
-        from trading.strategy.evolved_link import _loop, status as _evo_status
-
-        st = _evo_status()
-        # group the live library by the generator that produced each skill
-        by_gen: dict = {}
-        try:
-            skills = list(_loop().library._skills.values())
-        except Exception:
-            skills = []
-        for sk in skills:
-            src = (getattr(sk, "metrics", {}) or {}).get("source") or getattr(sk, "source", "") or "unknown"
-            g = by_gen.setdefault(src, {"count": 0, "best_metric": None, "markets": {}, "sample": []})
-            g["count"] += 1
-            m = float(getattr(sk, "metric", 0.0) or 0.0)
-            g["best_metric"] = m if g["best_metric"] is None else max(g["best_metric"], m)
-            mk = getattr(sk, "market", "") or "?"
-            g["markets"][mk] = g["markets"].get(mk, 0) + 1
-            if len(g["sample"]) < 3:
-                g["sample"].append({"id": getattr(sk, "name", "?"), "metric": round(m, 4),
-                                    "market": mk})
-        for g in by_gen.values():
-            g["best_metric"] = round(g["best_metric"], 4) if g["best_metric"] is not None else None
-
-        body = json.dumps({
-            "available": True,
-            "enabled": st.get("enabled"),
-            "generators": st.get("generators", []),
-            "n_generators": len(st.get("generators", []) or []),
-            "best_by_market": st.get("best_by_market", {}),
-            "library": st.get("library", {}),
-            "by_generator": by_gen,
-            "note": ("Strategy-Generator Portfolio (trading/strategy/generators): every generator "
-                     "feeds ONE CPCV+Deflated-Sharpe+PBO + family-wise gate → the SkillLibrary → "
-                     "the brain pipeline. `by_generator` groups the live library by which "
-                     "generator bred each admitted strategy. enabled=false → evolution gated OFF."),
-        }, default=str).encode()
+        # STATE-FILE-ONLY (2026-07-07, py-spy-proven): building the portfolio here imported
+        # DEAP/pyribs inside a request thread → threadpoolctl .so scan under the import lock
+        # → whole server wedged (524 pattern). The BREEDER process (autoresearch daemon /
+        # any evolved_link.breed caller) persists this payload via persist_dashboard_status.
+        from trading import state as _state
+        st = _state.load_json("generators_status.json", {})
+        if st:
+            body = json.dumps({
+                "available": True, **st,
+                "note": ("Strategy-Generator Portfolio (trading/strategy/generators): every "
+                         "generator feeds ONE CPCV+Deflated-Sharpe+PBO + family-wise gate → "
+                         "the SkillLibrary → the brain pipeline. Snapshot persisted by the "
+                         "breeder process each research cycle."),
+            }, default=str).encode()
+        else:
+            from trading.strategy.control import evolution_enabled
+            body = json.dumps({
+                "available": True, "enabled": bool(evolution_enabled()),
+                "generators": [], "n_generators": 0, "best_by_market": {},
+                "library": {}, "by_generator": {},
+                "note": ("No research cycle has persisted a snapshot yet — the autoresearch "
+                         "daemon (python -m trading.strategy.run_autoresearch) writes it "
+                         "each cycle."),
+            }).encode()
     except Exception as e:
         body = json.dumps({
             "available": False, "error": f"{type(e).__name__}: {e}",
             "hint": "strategy-generator portfolio via trading/strategy/generators/portfolio.py.",
+        }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_researcher(h):
+    """GET /api/trading/researcher — the LIVE Trading-Researcher view (invent-beyond #5).
+
+    Real state only: autoresearch driver cycles/totals/liveness (autoresearch.json),
+    W5 champion/challenger lineage per market (champion_lineage.json), the look-ahead
+    leak-tripwire rejection log, and the shared SkillLibrary size. driver.live=false is
+    an honest 'the daemon is not running' — never a demo number."""
+    try:
+        from trading.strategy.autoresearch import status as _rstatus
+        body = json.dumps({"available": True, **_rstatus()}, default=str).encode()
+    except Exception as e:
+        body = json.dumps({
+            "available": False, "error": f"{type(e).__name__}: {e}",
+            "hint": "live autoresearch via trading/strategy/autoresearch.py "
+                    "(daemon: python -m trading.strategy.run_autoresearch).",
         }).encode()
     return h._send(200, body, "application/json")
 

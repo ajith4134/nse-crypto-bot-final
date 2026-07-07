@@ -118,7 +118,51 @@ def breed(ohlcv_by_market: dict, *, generations: int = 3, pop_size: int = 14,
         register_self_evolve(loop)
     except Exception:
         pass
+    # dashboard-sync: persist the Strategy-Generators view HERE, in the breeder process,
+    # where the whole stack is already imported — the dashboard request thread must only
+    # read state (importing DEAP/pyribs in a request thread is the 524 GIL-wedge,
+    # py-spy-proven again 2026-07-07).
+    try:
+        persist_dashboard_status(loop)
+    except Exception:
+        pass
     return out
+
+
+def persist_dashboard_status(loop=None) -> dict:
+    """Compute the /api/trading/generators payload and save it to state
+    (generators_status.json). Runs in the BREEDER process only."""
+    loop = loop or _loop()
+    st = status()
+    by_gen: dict = {}
+    try:
+        skills = list(loop.library._skills.values())
+    except Exception:
+        skills = []
+    for sk in skills:
+        src = (getattr(sk, "metrics", {}) or {}).get("source") or \
+              getattr(sk, "source", "") or "unknown"
+        g = by_gen.setdefault(src, {"count": 0, "best_metric": None, "markets": {},
+                                    "sample": []})
+        g["count"] += 1
+        met = float(getattr(sk, "metric", 0.0) or 0.0)
+        g["best_metric"] = met if g["best_metric"] is None else max(g["best_metric"], met)
+        mk = getattr(sk, "market", "") or "?"
+        g["markets"][mk] = g["markets"].get(mk, 0) + 1
+        if len(g["sample"]) < 3:
+            g["sample"].append({"id": getattr(sk, "name", "?"),
+                                "metric": round(met, 4), "market": mk})
+    for g in by_gen.values():
+        g["best_metric"] = round(g["best_metric"], 4) if g["best_metric"] is not None \
+            else None
+    payload = {"enabled": st.get("enabled"), "generators": st.get("generators", []),
+               "n_generators": len(st.get("generators", []) or []),
+               "best_by_market": st.get("best_by_market", {}),
+               "library": st.get("library", {}), "by_generator": by_gen,
+               "generated_ts": time.time()}
+    from trading import state as _state
+    _state.save_json("generators_status.json", payload)
+    return payload
 
 
 def best_evolved_strategy(market: str):

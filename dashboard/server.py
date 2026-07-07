@@ -1284,6 +1284,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/generators":                 # Strategy-Generator Portfolio → brain_ext.py
             from dashboard.routes import brain_ext
             return brain_ext.handle_generators(self)
+        if path == "/api/trading/researcher":                 # live autoresearch (#5) → brain_ext.py
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_researcher(self)
         if path == "/api/trading/closedtrades":               # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_closedtrades(self)

@@ -53,15 +53,87 @@ function Chip({ label, on }) {
   )
 }
 
+// Trading-Researcher (invent-beyond #5): the LIVE autoresearch loop — driver cycles,
+// champion/challenger lineage per market (W5 triple gate), leak-tripwire rejections.
+function ResearcherSection({ r }) {
+  if (!r) return null
+  if (r.available === false)
+    return <Card title="🔬 Trading Researcher — live autoresearch"><div style={{ fontSize: 12, color: T.bad }}>{r.error}</div></Card>
+  const drv = r.driver || {}
+  const lineage = r.champion_lineage || {}
+  const trip = r.leak_tripwire || []
+  const last = drv.last || {}
+  return (
+    <Card title="🔬 Trading Researcher — live autoresearch loop"
+      hint="continuous generator-portfolio research on real (UI-only-honoring) candles · W5 champion triple gate + look-ahead tripwire · admitted → the same library the brain trades">
+      <div style={{ marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: drv.live ? T.good : T.warn }}>
+          {drv.live ? '● driver LIVE' : '○ driver idle (run: python -m trading.strategy.run_autoresearch)'}
+        </span>
+        <span style={{ fontSize: 12, color: T.muted, marginLeft: 10 }}>
+          {drv.cycles ?? 0} cycles · tested {(drv.totals || {}).tested ?? 0} · admitted{' '}
+          {(drv.totals || {}).admitted ?? 0} · every {Math.round((drv.interval_s ?? 900) / 60)}m
+        </span>
+      </div>
+      {last.cycle != null && (
+        <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>
+          last cycle #{last.cycle}: {last.result} · {Object.entries(last.markets || {})
+            .map(([m, v]) => `${m} ${v.symbol || '—'} (${v.rows} rows)`).join(' · ')} · {last.took_s}s
+        </div>
+      )}
+      {Object.keys(lineage).length > 0 && (
+        <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 6 }}>
+          <thead>
+            <tr style={{ color: T.muted, textAlign: 'left' }}>
+              <th style={{ padding: '4px 6px' }}>Market</th>
+              <th style={{ padding: '4px 6px' }}>Champion</th>
+              <th style={{ padding: '4px 6px' }}>DSR</th>
+              <th style={{ padding: '4px 6px' }}>OOS Sharpe</th>
+              <th style={{ padding: '4px 6px' }}>OOS return</th>
+              <th style={{ padding: '4px 6px' }}>Gen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(lineage).map(([m, v]) => {
+              const c = v.champion || {}
+              return (
+                <tr key={m} style={{ borderTop: `1px solid ${T.border}` }}>
+                  <td style={{ padding: '4px 6px', color: T.muted }}>{m}</td>
+                  <td style={{ padding: '4px 6px', color: T.text, fontWeight: 700 }}>{c.id || '— none yet'}</td>
+                  <td style={{ padding: '4px 6px', color: T.good }}>{fmt(c.dsr)}</td>
+                  <td style={{ padding: '4px 6px', color: T.text }}>{fmt(c.oos_sharpe, 2)}</td>
+                  <td style={{ padding: '4px 6px', color: T.text }}>{fmt(c.oos_total_return, 2)}</td>
+                  <td style={{ padding: '4px 6px', color: T.muted }}>{v.generation ?? 0}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+      <div style={{ fontSize: 11, color: trip.length ? T.warn : T.muted }}>
+        leak tripwire: {trip.length
+          ? `${trip.length} too-good-to-be-true rejection(s), last: ${trip[trip.length - 1].id} (Sharpe ${fmt(trip[trip.length - 1].oos_sharpe, 1)})`
+          : 'no leakage suspects rejected yet'}
+      </div>
+    </Card>
+  )
+}
+
 export default function StrategyGeneratorsPanel({ intervalMs = 8000 }) {
   const [d, setD] = useState(null)
+  const [r, setR] = useState(null)
   const [err, setErr] = useState(null)
 
   useEffect(() => {
     let alive = true
-    const tick = () => getJSON('/api/trading/generators')
-      .then(j => { if (alive) { setD(j); setErr(null) } })
-      .catch(e => { if (alive) setErr(String(e)) })
+    const tick = () => {
+      getJSON('/api/trading/generators')
+        .then(j => { if (alive) { setD(j); setErr(null) } })
+        .catch(e => { if (alive) setErr(String(e)) })
+      getJSON('/api/trading/researcher')
+        .then(j => { if (alive) setR(j) })
+        .catch(e => { if (alive) setR({ available: false, error: String(e) }) })
+    }
     tick()
     const id = setInterval(tick, intervalMs)
     return () => { alive = false; clearInterval(id) }
@@ -90,6 +162,8 @@ export default function StrategyGeneratorsPanel({ intervalMs = 8000 }) {
         </div>
         <div>{gens.map(g => <Chip key={g} label={GEN_LABEL[g] || g} on />)}</div>
       </Card>
+
+      <ResearcherSection r={r} />
 
       <Card title="Bred strategies by generator"
         hint="the live skill library grouped by which generator actually produced each admitted strategy (real, not a demo)">

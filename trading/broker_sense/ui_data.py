@@ -207,6 +207,7 @@ def _candidates(symbol: str) -> list[str]:
 
 def ui_ohlcv(symbol: str, timeframe: str = "5m", limit: int = 240) -> list | None:
     """Candles from the eyes' captures ONLY. None (honest miss) when absent/stale."""
+    _hydrate_from_snapshot()
     fresh = _FRESH_S.get(timeframe, 3600)
     for cand in _candidates(symbol):
         row = _STORE.get((cand, timeframe))
@@ -218,6 +219,7 @@ def ui_ohlcv(symbol: str, timeframe: str = "5m", limit: int = 240) -> list | Non
 
 
 def coverage() -> dict:
+    _hydrate_from_snapshot()
     now = time.time()
     syms: dict[str, dict] = {}
     for (sym, tf), row in _STORE.items():
@@ -243,5 +245,77 @@ def _maybe_snapshot() -> None:
         if not _STORE:
             return
         state.save_json("ui_data_coverage.json", coverage())
+        # ROWS snapshot (invent-beyond #5 enabler, 2026-07-07): the candle rows themselves,
+        # so OTHER processes (autoresearch daemon, dashboard, sandbox) can serve the eyes'
+        # captures in UI-only mode instead of sitting on a cold RAM store. Serialized OFF
+        # the capture hot path (daemon thread — a multi-MB json.dump inside feed_capture
+        # would stall the eyes), on a slower cadence than the small coverage file.
+        global _last_rows_snap
+        if time.time() - _last_rows_snap >= _ROWS_SNAP_EVERY_S:
+            _last_rows_snap = time.time()
+            rows = {f"{sym}|{tf}": {"ts": r.get("ts"), "url": (r.get("url") or "")[:160],
+                                    "broker": r.get("broker"),
+                                    "rows": (r.get("rows") or [])[-_SNAP_ROWS:]}
+                    for (sym, tf), r in _STORE.items()}
+            import threading
+            threading.Thread(target=_write_rows_snapshot, args=(rows,),
+                             daemon=True, name="ui-candles-snapshot").start()
+    except Exception:
+        pass
+
+
+_SNAP_ROWS = _MAX_ROWS                 # per-key rows persisted (match the RAM store)
+_SNAP_KEYS_MAX = 600                   # total (symbol, tf) keys kept in the snapshot
+_ROWS_SNAP_EVERY_S = 120.0
+_HYDRATE_EVERY_S = 60.0
+_last_rows_snap = 0.0
+_last_hydrate = 0.0
+
+
+def _write_rows_snapshot(rows: dict) -> None:
+    """MERGE-write: keys a previous run (or another broker's crawl) snapshotted stay
+    until a NEWER capture replaces them — a cold funnel restart must not clobber the
+    cross-process store down to its first re-crawled symbol. Bounded by dropping the
+    oldest keys; readers still apply freshness gates, so old keys serve honest None."""
+    try:
+        old = state.load_json("ui_candles.json", {}).get("rows") or {}
+        for k, r in old.items():
+            cur = rows.get(k)
+            if cur is None or float((r or {}).get("ts") or 0) > float(cur.get("ts") or 0):
+                rows[k] = r
+        if len(rows) > _SNAP_KEYS_MAX:
+            rows = dict(sorted(rows.items(),
+                               key=lambda kv: float((kv[1] or {}).get("ts") or 0)
+                               )[-_SNAP_KEYS_MAX:])
+        state.save_json("ui_candles.json", {"saved_ts": time.time(), "rows": rows})
+    except Exception:
+        pass
+
+
+def _hydrate_from_snapshot() -> None:
+    """Cross-process fill: a process that never fed captures (autoresearch daemon,
+    dashboard) reads the funnel's rows snapshot and RE-reads it periodically —
+    hydrate-once would freeze the store and go permanently stale after _FRESH_S.
+    Only keys strictly newer than what's in RAM are taken; a feeding process is the
+    truth for its own captures and never hydrates. Freshness gates still apply on
+    read — hydration never fabricates recency."""
+    global _last_hydrate
+    if _HITS["fed"]:
+        return                          # live feeder: its own captures win
+    now = time.time()
+    if _STORE and now - _last_hydrate < _HYDRATE_EVERY_S:
+        return
+    _last_hydrate = now
+    try:
+        snap = state.load_json("ui_candles.json", {})
+        for key, r in (snap.get("rows") or {}).items():
+            sym, _, tf = key.rpartition("|")   # rpartition: Upstox keys contain '|'
+            if not sym or not isinstance(r, dict) or not r.get("rows"):
+                continue
+            cur = _STORE.get((sym, tf))
+            if cur is not None and float(cur.get("ts") or 0) >= float(r.get("ts") or 0):
+                continue
+            _STORE[(sym, tf)] = {"rows": r["rows"], "ts": float(r.get("ts") or 0),
+                                 "url": r.get("url"), "broker": r.get("broker")}
     except Exception:
         pass

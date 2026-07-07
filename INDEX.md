@@ -651,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -1388,6 +1388,12 @@ _Tests for memory/associative.py — HippoRAG PPR recall + A-MEM evolution (offl
 _Node auto-loader (nodes/autoload.py) — pkgutil sweep recovers built-but-unpooled families._
 - **classes:** TestAutoload
 - **imports:** core.node_protocol, nodes, unittest
+
+## `tests/test_autoresearch.py`
+_Tests for trading/strategy/autoresearch.py — the live autoresearch driver (#5)._
+- **classes:** _IsolatedState, TestRunCycle, TestStatus, TestUiDataSnapshot
+- **functions:** `_rows(n, base)`
+- **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
 ## `tests/test_boss_command.py`
 _Boss command engine (trading/brain/boss.py) + mind-event bus (mind_events.py) + R&D drive_
@@ -2693,7 +2699,7 @@ _trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
 
 ## `trading/broker_sense/ui_data.py`
 _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._
-- **functions:** `enabled() -> bool`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`
+- **functions:** `enabled() -> bool`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`; `_write_rows_snapshot(rows) -> None`; `_hydrate_from_snapshot() -> None`
 - **imports:** __future__, os, re, time, trading
 
 ## `trading/broker_sense/ui_health.py`
@@ -3669,6 +3675,11 @@ _trading/state.py — tiny JSON state persistence for the trading package._
 _trading/strategy/ — Strategy creation / mutation / evolution engine (Phase T8)._
 - **imports:** __future__, trading.strategy.backtest, trading.strategy.control, trading.strategy.evolve, trading.strategy.features, trading.strategy.fitness, trading.strategy.genome, trading.strategy.guardrails, trading.strategy.operators, trading.strategy.registry
 
+## `trading/strategy/autoresearch.py`
+_trading/strategy/autoresearch.py — the LIVE autoresearch champion loop (invent-beyond #5)._
+- **functions:** `_cfg_int(name, default) -> int`; `_store() -> dict`; `_save(d) -> None`; `_crypto_symbols() -> list[str]`; `_nse_symbols() -> list[str]`; `_pick(symbols, cycle) -> str`; `_frame(symbol, market, timeframe)`; `run_cycle() -> dict`; `status() -> dict`
+- **imports:** __future__, logging, os, time, trading
+
 ## `trading/strategy/backtest.py`
 _trading/strategy/backtest.py — backtest via vectorbt + walk-forward (T8.1, reuse-first)._
 - **classes:** BacktestResult
@@ -3694,7 +3705,7 @@ _trading/strategy/evolve.py — DEAP NSGA-II evolution loop (T8.3)._
 
 ## `trading/strategy/evolved_link.py`
 _trading/strategy/evolved_link.py — the live wire between the self-evolving strategy_
-- **functions:** `_loop()`; `_portfolio()`; `breed(ohlcv_by_market) -> dict`; `best_evolved_strategy(market)`; `attach_to_pipeline(pipeline, market) -> bool`; `status() -> dict`
+- **functions:** `_loop()`; `_portfolio()`; `breed(ohlcv_by_market) -> dict`; `persist_dashboard_status(loop) -> dict`; `best_evolved_strategy(market)`; `attach_to_pipeline(pipeline, market) -> bool`; `status() -> dict`
 - **imports:** __future__, time, trading.strategy.control
 
 ## `trading/strategy/features.py`
@@ -4018,6 +4029,11 @@ _trading/strategy/registry.py — promote evolved strategies to NodeProtocol nod
 - **classes:** StrategyNode, StrategyRegistry
 - **functions:** `promote(strategy, features) -> StrategyNode`
 - **imports:** __future__, core.node_protocol, dataclasses, numpy, pandas, trading.strategy.genome
+
+## `trading/strategy/run_autoresearch.py`
+_trading/strategy/run_autoresearch.py — daemon entry for the live autoresearch loop._
+- **functions:** `_sig(_signum, _frame)`; `main() -> int`
+- **imports:** __future__, logging, os, signal, sys, time
 
 ## `trading/strategy/self_evolve.py`
 _trading/strategy/self_evolve.py — the lifelong self-evolving strategy loop._
