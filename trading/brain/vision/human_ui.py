@@ -49,6 +49,13 @@ class HumanUI:
         self._mem = memory                     # OcularPerception / LayoutMemory (optional)
         self.move_steps = move_steps           # >1 = human-like glide, not a teleport
         self.trail: list[dict] = []            # honest action log (for the dashboard)
+        # FREE 24/7 eyes (network + DOM + local OCR) — the workhorse; cloud vision is the
+        # rate-limited last resort. See trading/brain/vision/free_eyes.py.
+        try:
+            from trading.brain.vision.free_eyes import FreeEyes
+            self.eyes = FreeEyes(page, broker=name)
+        except Exception:
+            self.eyes = None
 
     # ── EYES: capture the rendered screen ────────────────────────────────────────
     def _shot(self) -> bytes:
@@ -65,32 +72,63 @@ class HumanUI:
     def perceive(self, goal: str = "", *, timeout: float = 40.0) -> Perception:
         """Look at the page and describe what's on it (optionally focused on `goal`)."""
         from core import llm
-        shot = self._shot()
-        prompt = ("You are the eyes of a trading brain looking at a broker web app. "
-                  "Describe what is on this screen: the main sections, any data tables/tickers, "
-                  "watchlist symbols with prices, dialogs/pop-ups, and the key clickable controls. "
-                  + (f"Focus on: {goal}. " if goal else "")
-                  + "Be concise and concrete.")
-        try:
-            txt = llm.vision_chat(prompt, shot, total_timeout=timeout) if shot else "(no screenshot)"
-        except Exception as e:
-            txt = f"(vision unavailable: {str(e)[:100]})"
+        screen_text, shot = "", b""
+        if self.eyes is not None:
+            try:
+                g = self.eyes.glance()
+                screen_text, shot = g.text(), g.shot
+            except Exception:
+                screen_text = ""
+        # FREE: understand from the extracted text (DOM+OCR) via the text model
+        if screen_text.strip():
+            try:
+                txt = llm.chat([{"role": "user", "content":
+                    "Visible text extracted from a broker web app screen (DOM + OCR):\n---\n"
+                    f"{screen_text[:4000]}\n---\nDescribe concisely what this screen shows"
+                    + (f", focused on: {goal}" if goal else "") + "."}],
+                    max_tokens=400, temperature=0.2)
+            except Exception:
+                txt = screen_text[:800]                     # raw text is still a real read
+        else:
+            shot = shot or self._shot()
+            try:
+                txt = llm.vision_chat("Describe this broker web app screen concisely.",
+                                      shot, total_timeout=timeout) if shot else "(no screen)"
+            except Exception as e:
+                txt = f"(perception unavailable: {str(e)[:80]})"
         p = Perception(text=txt, shot=shot, ts=time.time())
-        self.trail.append({"act": "perceive", "goal": goal, "ts": p.ts})
+        self.trail.append({"act": "perceive", "goal": goal, "via": "free" if screen_text else "vision"})
         return p
 
     def read(self, question: str, *, timeout: float = 40.0) -> str:
-        """Ask a specific question about the screen and get the answer (data extraction)."""
+        """Answer a question about the screen. FREE FIRST: extract the on-screen TEXT (DOM +
+        OCR) and captured JSON, and answer with the far-less-limited TEXT model. Falls back
+        to cloud VISION only when the free senses returned nothing."""
         from core import llm
-        shot = self._shot()
+        screen_text = ""
+        if self.eyes is not None:
+            try:
+                screen_text = self.eyes.text()
+            except Exception:
+                screen_text = ""
+        if screen_text.strip():
+            try:
+                return llm.chat([{"role": "user", "content":
+                    "This is the visible text extracted from a broker web app screen "
+                    f"(DOM + OCR):\n---\n{screen_text[:4000]}\n---\n"
+                    f"Answer precisely, using only this text: {question}"}],
+                    max_tokens=400, temperature=0.1)
+            except Exception:
+                pass
+        shot = self._shot()                                # last resort: rate-limited vision
         if not shot:
-            return ""
+            return screen_text[:600]
         try:
             return llm.vision_chat(
                 f"Look at this broker web app screen and answer precisely: {question}\n"
                 "Answer with only the requested facts.", shot, total_timeout=timeout)
-        except Exception as e:
-            return f"(vision unavailable: {str(e)[:100]})"
+        except Exception:
+            return screen_text[:600]
 
     def read_json(self, instruction: str, *, timeout: float = 40.0) -> Any:
         """Extract STRUCTURED data from the screen (e.g. the watchlist symbols as a list)."""
@@ -101,8 +139,18 @@ class HumanUI:
     def locate(self, target: str, *, timeout: float = 30.0) -> Optional[tuple[int, int]]:
         """Return the (x, y) pixel center of the control described by `target`, or None.
 
-        The vision model reports a 0-1000 normalized grid (models localize better on an
-        integer grid than on raw pixels); we scale it to the live viewport."""
+        FREE FIRST: match the target against DOM element labels + OCR text (deterministic,
+        instant, no quota). Only if the free eyes miss does it fall back to the rate-limited
+        cloud vision model (0-1000 grid → viewport pixels)."""
+        if self.eyes is not None:
+            try:
+                xy = self.eyes.locate(target)
+                if xy is not None:
+                    self.trail.append({"act": "locate", "target": target, "xy": list(xy),
+                                       "via": "free-eyes"})
+                    return xy
+            except Exception:
+                pass
         from core import llm
         shot = self._shot()
         if not shot:
@@ -241,9 +289,10 @@ class HumanUI:
                 "Choose the SINGLE next action toward the goal. Reply ONLY JSON: "
                 "{\"action\":\"click|type|read|scroll|done\", \"target\":\"<visible control "
                 "or field, for click/type>\", \"text\":\"<for type>\", \"why\":\"<short>\"}.")
-            try:
-                obj = _extract_json(llm.vision_chat(decide, p.shot, total_timeout=40, max_tokens=180)) or {}
-            except Exception as e:
+            try:                                        # FREE text-model decision (perception
+                obj = _extract_json(llm.chat([{"role": "user", "content": decide}],  # already
+                    max_tokens=200, temperature=0.2)) or {}                          # embeds
+            except Exception as e:                                                    # what-you-see
                 return {"goal": goal, "steps": step, "stopped": f"decide error: {str(e)[:80]}",
                         "history": history}
             act = str(obj.get("action") or "done").lower()

@@ -1616,6 +1616,11 @@ _Tier-1 foundation / SOTA model nodes (nodes/foundation_nodes.py, groups A–F).
 - **functions:** `_synth(n, seed)`; `_panel(T, N, seed)`; `_try_import()`
 - **imports:** __future__, numpy, unittest, warnings
 
+## `tests/test_free_eyes.py`
+_Tests for the FREE eyes' deterministic matcher + OCR-row parsing (pure, no browser/LLM)._
+- **classes:** TestMatcher, TestOcrRow, TestGlanceText
+- **imports:** trading.brain.vision.free_eyes, unittest
+
 ## `tests/test_futures_options_symbols.py`
 _Regression: NSE futures/options screeners must emit BROKER-TRADABLE symbols._
 - **classes:** _FakeClient
@@ -2420,6 +2425,12 @@ _trading/brain/vision/computer_use.py — the FREE computer-use loop (cloned, re
 - **classes:** GuardViolation, Action, ComputerUseAgent
 - **functions:** `_control_forbidden(text) -> bool`; `_parse_action(text) -> Action`; `_is_forbidden(action) -> bool`; `_find_control(page, target)`; `get_agent() -> ComputerUseAgent`
 - **imports:** __future__, dataclasses, json, os, re, time, trading.brain.vision.ocular_cortex
+
+## `trading/brain/vision/free_eyes.py`
+_trading/brain/vision/free_eyes.py — the brain's FREE, 24/7, never-rate-limited eyes._
+- **classes:** Glance, FreeEyes
+- **functions:** `_ocr_engine()`; `_ocr_read(png_bytes) -> list[dict]`; `_ocr_row(box, txt) -> Optional[dict]`; `_norm(s) -> str`; `_tok_hit(tok, pool) -> bool`; `_score_match(target, label) -> float`
+- **imports:** __future__, dataclasses, re, time, typing
 
 ## `trading/brain/vision/human_ui.py`
 _trading/brain/vision/human_ui.py — the brain's human-like eyes→brain→hand→memory loop._
