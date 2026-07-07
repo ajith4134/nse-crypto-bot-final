@@ -30,6 +30,7 @@ import FoundryPanel from './FoundryPanel.jsx'
 import BrainLearningPanel from './BrainLearningPanel.jsx'
 import BrainUltraPanel from './BrainUltraPanel.jsx'
 import BrainOpsPanel from './BrainOpsPanel.jsx'
+import GoalOpsPanel from './GoalOpsPanel.jsx'
 import DecisionMemoryPanel from './DecisionMemoryPanel.jsx'
 import ComputerUsePanel from './ComputerUsePanel.jsx'
 import BrokerSensePanel from './BrokerSensePanel.jsx'
@@ -196,6 +197,10 @@ export default function TradingDashboard() {
 
       <Card title="Brain Ops — subsystems the audit found hidden (real boss/R&D/mind-bus + honest real/demo catalog)" hint="boss directives · R&D inventions · mind event bus (live) + memory/hybrid/librarian/autonomy/stream endpoints, honestly labelled real vs offline-demo">
         <BrainOpsPanel />
+      </Card>
+
+      <Card title="Goal & Rails — the owner's 2026-07-07 evidence spine" hint="goal scoreboard · watchdogs+autonomy gates · one-variable rails · smart-money consensus · track records · UI-only data coverage — live from /api/trading/{goal,evidence,surface,scouts,track_record,ui_data,briefing}">
+        <GoalOpsPanel />
       </Card>
 
       <Card title="LLM Providers — cloud-LLM failover telemetry" hint="per-provider hit-rate · free calls used · failures/rate-limits · last latency · reload cooldown — real core.llm.chat call stats">

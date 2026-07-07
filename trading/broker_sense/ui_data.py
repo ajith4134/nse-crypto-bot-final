@@ -237,6 +237,11 @@ def _maybe_snapshot() -> None:
         return
     _last_snap = time.time()
     try:
+        # Never clobber a good cross-process snapshot with an empty RAM store (a fresh
+        # restart starts cold and would otherwise zero the dashboard's coverage view
+        # until the crawl re-warms — observed 2026-07-07).
+        if not _STORE:
+            return
         state.save_json("ui_data_coverage.json", coverage())
     except Exception:
         pass
