@@ -63,8 +63,14 @@ MANIFEST = [
     ("knowledge graph", "/api/knowledge", "knowledge_state.json",
      lambda a: _len(a, "nodes"), lambda d: _len(d, "nodes"), "knowledge_state"),
     ("closed trades", "/api/trading/closedtrades", "trading/state/journal.json",
-     lambda a: _len(a, "rows"), lambda d: _len(d, "trades") if isinstance(d, dict) else (len(d) if isinstance(d, list) else 0),
-     "trade journal (STATE_DIR)"),
+     # api = journalled rows UNION live-Freqtrade closes not yet ingested (documented
+     # design: one table across loop+Freqtrade+OpenAlgo). Compare only the JOURNALLED
+     # (non-freqtrade) api rows to journal.json — api>disk via the live merge is honest,
+     # never a dropped record. A negative (api<disk) would be the real bug.
+     lambda a: sum(1 for r in (a if isinstance(a, list) else a.get("rows") or a.get("trades") or [])
+                   if (r.get("signal_source") or "") != "freqtrade"),
+     lambda d: _len(d, "trades") if isinstance(d, dict) else (len(d) if isinstance(d, list) else 0),
+     "trade journal (STATE_DIR) — api excludes live-Freqtrade merge"),
 ]
 
 
