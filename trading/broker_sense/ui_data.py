@@ -43,7 +43,72 @@ _TF_MS = {"1m": 60_000, "3m": 180_000, "5m": 300_000, "15m": 900_000, "30m": 1_8
 
 
 def enabled() -> bool:
-    return os.environ.get("UI_ONLY_DATA", "0") in ("1", "true", "TRUE", "yes")
+    """UI-only mode is ON when the env flag says so OR the coverage governor flipped the
+    durable state flag (owner 2026-07-07: 'you flip it yourself without forgetting')."""
+    if os.environ.get("UI_ONLY_DATA", "") in ("1", "true", "TRUE", "yes"):
+        return True
+    if os.environ.get("UI_ONLY_DATA", "") in ("0", "false", "FALSE", "no") and \
+            os.environ.get("UI_ONLY_DATA_FORCE_ENV", "") == "1":
+        return False                      # explicit env override escape hatch
+    try:
+        return bool(state.load_json("ui_only_mode.json", {}).get("enabled"))
+    except Exception:
+        return False
+
+
+def maybe_auto_flip(shortlist: list[str] | None = None,
+                    min_hit_rate: float = 0.8, min_symbols: int = 8) -> dict:
+    """THE GOVERNOR (owner's order): once the eyes' capture coverage is warm enough —
+    served hit-rate ≥ min_hit_rate with ≥ min_symbols indexed, and (when given) most of
+    the active shortlist covered — flip UI-only mode ON durably (state flag), announce
+    it (mind-events) and record it in the rule ledger. Idempotent; never flips OFF
+    automatically (turning the API path back on is the owner's call)."""
+    mode = state.load_json("ui_only_mode.json", {})
+    if mode.get("enabled"):
+        return {"enabled": True, "already": True}
+    cov = coverage()
+    hr = cov.get("hit_rate")
+    n = cov.get("symbols", 0)
+    short_cov = None
+    if shortlist:
+        have = {k for (k, _tf) in _STORE}
+        def _flat(s):
+            import re as _re
+            return _re.sub(r"[/:]", "", s.upper()).replace("USDTUSDT", "USDT")
+        covered = sum(1 for s in shortlist if _flat(s) in have or
+                      _norm_symbol(s) in have)
+        short_cov = covered / max(1, len(shortlist))
+    ready = (hr is not None and hr >= min_hit_rate and n >= min_symbols
+             and (short_cov is None or short_cov >= 0.8))
+    if not ready:
+        return {"enabled": False, "hit_rate": hr, "symbols": n,
+                "shortlist_coverage": short_cov,
+                "needs": f"hit_rate>={min_hit_rate}, symbols>={min_symbols}, "
+                         f"shortlist>=80%"}
+    state.save_json("ui_only_mode.json",
+                    {"enabled": True, "flipped_ts": time.time(),
+                     "evidence": {"hit_rate": hr, "symbols": n,
+                                  "shortlist_coverage": short_cov}})
+    try:
+        from trading.brain import surface
+        surface.record_change("ui-data-governor", knob="data.ui_only.mode",
+                              old=False, new=True,
+                              evidence={"hit_rate": hr, "symbols": n,
+                                        "shortlist_coverage": short_cov},
+                              reason="coverage threshold reached — owner's standing "
+                                     "order: flip UI-only yourself, no reminders")
+    except Exception:
+        pass
+    try:
+        from trading.brain import mind_events
+        mind_events.emit("data-mode",
+                         f"UI-ONLY DATA MODE FLIPPED ON (owner's standing order): the "
+                         f"eyes' captures now feed ALL market data — free-API polling "
+                         f"paths are off. Evidence: hit-rate {hr}, {n} symbols indexed."
+                         , salience=0.95)
+    except Exception:
+        pass
+    return {"enabled": True, "flipped": True, "hit_rate": hr, "symbols": n}
 
 
 def _norm_symbol(raw: str) -> str:

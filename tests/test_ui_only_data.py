@@ -92,3 +92,44 @@ class UiOnlyDataTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AutoFlipGovernorTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        from trading import state
+        self._p = mock.patch.object(state, "STATE_DIR", Path(self._tmp.name))
+        self._p.start()
+        from trading.broker_sense import ui_data
+        ui_data._STORE.clear()
+        ui_data._HITS.update({"served": 0, "missed": 0, "fed": 0})
+        os.environ.pop("UI_ONLY_DATA", None)
+
+    def tearDown(self):
+        self._p.stop()
+        self._tmp.cleanup()
+        os.environ.pop("UI_ONLY_DATA", None)
+
+    def test_no_flip_when_cold(self):
+        from trading.broker_sense import ui_data
+        r = ui_data.maybe_auto_flip(["BTC/USDT:USDT"])
+        self.assertFalse(r["enabled"])
+        self.assertFalse(ui_data.enabled())
+
+    def test_flips_durably_when_warm(self):
+        from trading import state
+        from trading.broker_sense import ui_data
+        syms = [f"C{i}USDT" for i in range(10)]
+        for s in syms:
+            url = f"https://x/klines?symbol={s}&interval=5m"
+            self.assertTrue(ui_data.feed_capture("binance", url, _klines()))
+            ui_data.ui_ohlcv(s, timeframe="5m")          # build served hit-rate
+        r = ui_data.maybe_auto_flip(syms)
+        self.assertTrue(r["enabled"])
+        # durable: enabled() true WITHOUT the env var; idempotent on re-call
+        self.assertTrue(ui_data.enabled())
+        self.assertTrue(ui_data.maybe_auto_flip(syms)["already"])
+        self.assertTrue(state.load_json("ui_only_mode.json", {}).get("enabled"))
+        # recorded through the surface rails
+        led = state.load_json("rule_versions.json", [])
+        self.assertTrue(any(e["knob"] == "data.ui_only.mode" for e in led))

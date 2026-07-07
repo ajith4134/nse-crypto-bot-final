@@ -1998,7 +1998,7 @@ _AI-scientist idea #5 — TSFM ensemble + conformal calibration._
 
 ## `tests/test_ui_only_data.py`
 _UI-only data mode tests (owner 2026-07-07) — capture parsing + honest misses._
-- **classes:** UiOnlyDataTest
+- **classes:** UiOnlyDataTest, AutoFlipGovernorTest
 - **functions:** `_klines(n, t0, tf_ms, price)`
 - **imports:** os, pathlib, tempfile, time, unittest
 
@@ -2672,7 +2672,7 @@ _trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
 
 ## `trading/broker_sense/ui_data.py`
 _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._
-- **functions:** `enabled() -> bool`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`
+- **functions:** `enabled() -> bool`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`
 - **imports:** __future__, os, re, time, trading
 
 ## `trading/broker_sense/watchlist.py`

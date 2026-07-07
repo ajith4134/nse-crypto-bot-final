@@ -60,12 +60,15 @@ OWNERSHIP: dict[str, list[str]] = {
     "uq-calibrator":      ["uq.threshold.*"],
     # the human owner via dashboard/boss — owns capital, live flags, goal numbers
     "boss":               ["goal.*", "capital.*", "live.*", "segments.*"],
+    # coverage-gated UI-only-data governor (owner's standing order 2026-07-07)
+    "ui-data-governor":   ["data.ui_only.*"],
 }
 
 # optimizers that already ran in production BEFORE the rails existed keep working
 # (grandfathered to live); anything not listed starts read_only.
 _GRANDFATHERED_LIVE = {"tailgate-learner", "self-evolve", "foundry", "percoin-decider",
-                       "picker-weights", "funnel-budget", "uq-calibrator", "boss"}
+                       "picker-weights", "funnel-budget", "uq-calibrator", "boss",
+                       "ui-data-governor"}
 
 
 # ── ownership / mode ──────────────────────────────────────────────────────────────────

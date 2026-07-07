@@ -362,10 +362,13 @@ class BrokerSenseFunnel:
         if self.market == "crypto" and os.environ.get("UI_CRAWL", "1") in \
                 ("1", "true", "TRUE", "yes"):
             try:
-                from trading.broker_sense import ui_crawl
+                from trading.broker_sense import ui_crawl, ui_data
                 _syms = sorted(set(tradeable) | open_syms)
                 rep["stages"]["ui_crawl"] = ui_crawl.crawl_once(
                     self.sessions, _syms, deadline=t0 + budget * 1.15)
+                # the GOVERNOR (owner's standing order): flip UI-only-data ON by itself
+                # the moment capture coverage is provably warm — no human reminder.
+                rep["stages"]["ui_only_governor"] = ui_data.maybe_auto_flip(_syms)
             except Exception as e:
                 rep["stages"]["ui_crawl"] = {"error": f"{type(e).__name__}: {e}"[:100]}
 
