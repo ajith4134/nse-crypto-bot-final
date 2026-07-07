@@ -1861,6 +1861,12 @@ _tests/test_reset_closed.py — closed-trade reset is brain-safe + isolated._
 - **functions:** `isolated_state(tmp_path, monkeypatch)`; `test_bad_confirm_deletes_nothing(isolated_state)`; `test_reset_clears_journal_and_freqtrade_and_backs_up(isolated_state)`; `test_case_insensitive_confirm(isolated_state)`; `test_empty_journal_no_backup_no_crash(isolated_state)`
 - **imports:** __future__, json, pytest, trading, trading.journal.reset
 
+## `tests/test_rl_exec_policy.py`
+_W6 RL execution-policy tests — tiny synthetic data, isolated STATE_DIR._
+- **classes:** RlExecPolicyTest
+- **functions:** `_ohlcv(n, seed, drift)`
+- **imports:** numpy, os, pathlib, tempfile, unittest
+
 ## `tests/test_rl_execution.py`
 _AI-scientist idea #8 — RL execution agent (SB3-PPO order slicing beats TWAP)._
 - **classes:** TestExecutionEnv, TestRLExecutionAgent
@@ -3523,6 +3529,15 @@ _Risk-map overlay — CANON-49 (JKA-07..10 spec, made honest)._
 - **classes:** RiskOverlay
 - **functions:** `forecast_sigma(returns, horizon) -> float`; `_ewma_sigma(r, lam) -> float`
 - **imports:** __future__, numpy
+
+## `trading/rl/__init__.py`
+_(no summary)_
+
+## `trading/rl/exec_policy.py`
+_trading/rl/exec_policy.py — W6 RL execution-policy (PPO over a trade-spec action space)._
+- **classes:** TradingExecEnv, RLExecPolicyNode
+- **functions:** `_feat(ohlcv) -> np.ndarray`; `_atr(ohlcv, n) -> np.ndarray`; `train_policy(ohlcv) -> dict`; `latest_signal(ohlcv) -> dict`; `register_rl_exec(tag)`
+- **imports:** __future__, gymnasium, json, math, numpy, os, pathlib, time, trading
 
 ## `trading/rollout.py`
 _Rollout engine — CANON-47/48 (KRF-18/21/22)._
