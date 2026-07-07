@@ -2665,6 +2665,11 @@ _trading/broker_sense/trade_columns.py — turn the App Driving School's discove
 - **functions:** `_norm(label) -> str`; `journal_fields() -> set`; `discovered_labels() -> list`; `propose() -> dict`; `accepted() -> list`; `accept(column) -> dict`; `reject(column) -> dict`
 - **imports:** __future__, re, trading
 
+## `trading/broker_sense/ui_crawl.py`
+_trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
+- **functions:** `_binance_url(symbol) -> str`; `_due_symbols(symbols, k) -> list[str]`; `_mark_visited(symbol, ok) -> None`; `crawl_once(sessions, symbols) -> dict`; `status() -> dict`
+- **imports:** __future__, os, time, trading
+
 ## `trading/broker_sense/ui_data.py`
 _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._
 - **functions:** `enabled() -> bool`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`
