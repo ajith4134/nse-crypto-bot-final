@@ -651,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -1547,6 +1547,11 @@ _Tests for the credential-request → Brain Chat flow (cross-process) + proactiv
 _Trading Phase T2 (Crypto Foundation) acceptance tests — fully offline._
 - **classes:** TestConfig, TestLiquidation, TestOrderBookFill, TestPaperEngine, TestFundingSpread, TestCryptoWatchlist
 - **imports:** __future__, pathlib, tempfile, trading.crypto.config, trading.crypto.funding, trading.crypto.liquidation, trading.crypto.paper_engine, trading.crypto.watchlist, trading.state, unittest
+
+## `tests/test_curiosity.py`
+_Curiosity-driven feature discovery tests (invent-beyond #1) — isolated STATE_DIR._
+- **classes:** CuriosityTest
+- **imports:** pathlib, tempfile, time, unittest
 
 ## `tests/test_data_sources.py`
 _Tests for the per-broker public↔account data-source switch (data_sources + screen_all gating)._
@@ -2569,6 +2574,11 @@ _trading/broker_sense/cnn_direction.py — candle-IMAGE → direction (savers B,
 - **functions:** `_build_net()`; `get_model() -> CandleDirectionModel`; `llm_escalate(symbol, tf, candles) -> dict | None`; `register_candle_vision_node() -> CandleVisionNode`
 - **imports:** __future__, core.node_protocol, numpy, os
 
+## `trading/broker_sense/curiosity.py`
+_trading/broker_sense/curiosity.py — curiosity-driven feature discovery on app screens_
+- **functions:** `_registry()`; `_field_stats() -> dict`; `curiosity(name, stats) -> dict`; `rank() -> list[dict]`; `harvest(max_accept) -> dict`; `status() -> dict`
+- **imports:** __future__, math, time, trading
+
 ## `trading/broker_sense/data_failsafe.py`
 _trading/broker_sense/data_failsafe.py — the owner's rule 4: NEVER skip a trade for data._
 - **functions:** `_rss_bytes() -> int`; `_guard_ram()`; `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `_ui_only() -> bool`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
@@ -2678,8 +2688,8 @@ _trading/broker_sense/trade_columns.py — turn the App Driving School's discove
 
 ## `trading/broker_sense/ui_crawl.py`
 _trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
-- **functions:** `_binance_url(symbol) -> str`; `_due_symbols(symbols, k) -> list[str]`; `_mark_visited(symbol, ok) -> None`; `crawl_once(sessions, symbols) -> dict`; `status() -> dict`
-- **imports:** __future__, os, time, trading
+- **functions:** `_binance_url(symbol) -> str`; `_expected_info_gain(sym, now, visits, ui_cov) -> float`; `_due_symbols(symbols, k) -> list[str]`; `_mark_visited(symbol, ok) -> None`; `crawl_once(sessions, symbols) -> dict`; `status() -> dict`
+- **imports:** __future__, os, re, time, trading
 
 ## `trading/broker_sense/ui_data.py`
 _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._

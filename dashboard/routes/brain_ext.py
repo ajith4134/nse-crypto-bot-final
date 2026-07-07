@@ -673,3 +673,18 @@ def handle_connectivity(h):
         body = _json.dumps({"available": False,
                             "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_curiosity(h):
+    """GET /api/trading/curiosity — invent-beyond #1: data fields the eyes discovered on
+    broker pages, ranked by curiosity (novelty × cross-symbol informativeness), and the
+    last auto-harvest into trade columns."""
+    import json as _json
+
+    from trading.broker_sense import curiosity
+    try:
+        body = _json.dumps(curiosity.status()).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")

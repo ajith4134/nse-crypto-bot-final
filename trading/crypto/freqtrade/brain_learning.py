@@ -109,6 +109,16 @@ class BrainLearningCycle:
         except Exception:
             pass
 
+        # 0c) CURIOSITY (invent-beyond #1): harvest the top novel+informative data fields
+        #     the eyes discovered on the broker pages into real trade columns.
+        try:
+            from trading.broker_sense import curiosity
+            h = curiosity.harvest()
+            if h.get("accepted"):
+                summary["curiosity_harvested"] = h["accepted"]
+        except Exception:
+            pass
+
         # 1) LEARN — hypothesis ledger over real outcomes
         try:
             summary["learned"] = self.ledger().run_cycle(trades)

@@ -19,6 +19,7 @@ State: ui_crawl_cursor.json (round-robin position + per-symbol last-visit).
 from __future__ import annotations
 
 import os
+import re
 import time
 
 from trading import state
@@ -37,14 +38,40 @@ def _binance_url(symbol: str) -> str:
     return f"https://www.binance.com/en/trade/{flat}?type=spot"
 
 
+def _expected_info_gain(sym: str, now: float, visits: dict, ui_cov: set) -> float:
+    """Active-inference page selection (invent-beyond #2): visit the page that most
+    reduces our uncertainty about coverage, not round-robin. Higher = more worth a look.
+      + staleness   : longer since last visit → more likely the app data has moved
+      + uncovered   : symbol the UI-data store has NO fresh candles for → biggest gap
+      + never-seen  : first-ever visit is maximally informative
+    Bounded, cheap, deterministic (no fabricated numbers)."""
+    last = visits.get(sym, 0)
+    if last == 0:
+        staleness = 1.0                      # never visited → max
+    else:
+        staleness = min(1.0, (now - last) / max(1.0, _REVISIT_S))
+    flat = re.sub(r"[/:]", "", sym.upper()).replace("USDTUSDT", "USDT")
+    covered = flat in ui_cov or re.sub(r"[^A-Z0-9]", "", sym.upper()) in ui_cov
+    gap = 0.0 if covered else 1.0
+    return round(0.55 * gap + 0.45 * staleness, 4)
+
+
 def _due_symbols(symbols: list[str], k: int) -> list[str]:
+    """Pick the k pages with the highest expected information gain (active inference),
+    falling back to staleness for cold starts. Replaces the old round-robin cursor."""
     cur = state.load_json(_FILE, {})
     visits = cur.get("visits", {})
     now = time.time()
-    due = [s for s in symbols if now - visits.get(s, 0) >= _REVISIT_S]
-    start = int(cur.get("pos", 0)) % max(1, len(due) or 1)
-    picked = (due[start:] + due[:start])[:k] if due else []
-    cur["pos"] = start + len(picked)
+    try:
+        from trading.broker_sense import ui_data
+        ui_cov = {k2 for (k2, _tf) in ui_data._STORE}
+    except Exception:
+        ui_cov = set()
+    scored = sorted(((s, _expected_info_gain(s, now, visits, ui_cov)) for s in symbols),
+                    key=lambda sv: -sv[1])
+    # only bother with pages that still have something to learn (score > small floor)
+    picked = [s for s, sc in scored if sc > 0.05][:k]
+    cur["last_scores"] = {s: sc for s, sc in scored[:k]}
     state.save_json(_FILE, cur)
     return picked
 

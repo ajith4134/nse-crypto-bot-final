@@ -117,3 +117,33 @@ Built trading/strategy/generators/ — DEAP + 6 SOTA generators through ONE CPCV
 5. [DONE] RD-Agent(Q) researcher — rd_agent.py (research→develop→feedback loop, persisted Trace, reuse core.llm + alpha_ops; vendor/RD-Agent ref)
 6. [DONE] Family-wise error control — stats_gate.py (Hansen StepM via arch) in the gate + Optuna tuner (optuna_tune.py)
 Scaffold: base.py (Candidate/evaluate_and_admit/rebuild) + expression.py + alpha_ops.py + portfolio.py. Tests: tests/test_generators.py. Verified: 63+24 tests green, integrated breed admits across all generators.
+
+## 2026-07-07 — Invent-beyond (eyes-brain-UI + next-gen self-evolve) [proposed]
+Grounded in state-20260707-140924.md + audit-20260707 + the 8 videos. Owner NAMED
+several of these in the goal message → treated as pre-approved (marked ★).
+
+1. ★ **Curiosity-driven feature discovery on app screens** (new) — a scout that scores
+   NEW numeric fields appearing on the broker pages by novelty and auto-proposes them as
+   trade columns. Extends trade_columns.py discovery with a curiosity signal. Serves the
+   owner's "each and every data on the trading account web page." Effort LOW, risk LOW.
+2. ★ **Active-inference page exploration** (replace ui_crawl round-robin) — the crawl
+   visits the page that maximizes expected information gain about coverage gaps (min
+   expected free energy) instead of round-robin. Upgrades ui_crawl.py. Effort MED.
+3. ★ **Self-supervised UI world-model** (new) — the eyes predict the next screen's key
+   features before acting; prediction surprise = where to look + a learned "this layout
+   changed" signal. Reuse trading/brain/worldmodel.py retargeted to UI feature vectors.
+   Effort MED-HIGH, impact HIGH for the eyes.
+4. ★ **Sleep-replay / dreaming of episodic UI memory** (new) — during idle, replay
+   captured page episodes to consolidate layout memory + surface recurring
+   pre-move patterns (vp1/self-improving-agent "dreaming"). Reuse decision_memory +
+   brain sleep. Effort MED.
+5. **Autoresearch champion loop, live** (activate) — run the strategy-generator portfolio
+   in continuous auto-research mode; the leak-tripwire + champion lineage (W5) already
+   exist — needs only a driver loop + Trading-Researcher panel. Effort LOW (pieces built).
+6. **Recurrent-PPO / decision-transformer exec** (replace W6 PPO) — handle partial
+   observability in the exec policy (audit upgrade candidate). Effort MED.
+7. **Cross-app information arbitrage** (new) — when Binance vs Upstox/TradingView disagree
+   on a cross-listed or correlated signal, that gap is an edge; a scout comparing the two
+   eyes. Effort MED, needs both crawls warm.
+8. **advintel activation** (activate) — the parked insider-style intel subsystem feeds the
+   NSE-side scouts once the UI crawl reaches those broker pages. Effort MED.
