@@ -3213,7 +3213,7 @@ _trading/crypto/watchlist.py — persisted crypto watchlist (T2)._
 
 ## `trading/evidence.py`
 _trading/evidence.py — W3 evidence lane: baselines, counterfactuals, autonomy gates,_
-- **functions:** `_store() -> dict`; `_save(d) -> None`; `_price_of(sig) -> float | None`; `observe_cycle() -> dict`; `_feed_snapshots(d, signals, now) -> int`; `_nearest_snap(snaps, target_ts) -> float | None`; `record_data_failure(source, detail) -> None`; `baseline_stats(market, segment, window_days) -> dict`; `skip_stats(market, segment, window_days) -> dict`; `autonomy_gates(market, segment) -> dict`; `watchdogs() -> dict`; `status() -> dict`
+- **functions:** `_store() -> dict`; `_save(d) -> None`; `_norm(sig) -> dict`; `_price_of(sig) -> float | None`; `observe_cycle() -> dict`; `_feed_snapshots(d, signals, now) -> int`; `_nearest_snap(snaps, target_ts) -> float | None`; `record_data_failure(source, detail) -> None`; `baseline_stats(market, segment, window_days) -> dict`; `skip_stats(market, segment, window_days) -> dict`; `autonomy_gates(market, segment) -> dict`; `watchdogs() -> dict`; `status() -> dict`
 - **imports:** __future__, time, trading
 
 ## `trading/execution/__init__.py`

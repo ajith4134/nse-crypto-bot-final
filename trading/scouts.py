@@ -166,11 +166,16 @@ def run_crowd_psych_scout() -> int:
 
 def run_fusion_conviction_scout(app_signals: dict | None = None) -> int:
     """'Eddie': the funnel's own multi-TF fusion at HIGH conviction (|confluence|≥0.6)
-    counts as one independent voice (it already blends numeric+vision lenses)."""
+    counts as one independent voice (it already blends numeric+vision lenses).
+    Accepts both raw fuse() dicts and the funnel wrapper {indicator_fusion, vote, …}."""
     n = 0
-    for sym, sig in (app_signals or {}).items():
+    for sym, raw in (app_signals or {}).items():
         try:
-            if not isinstance(sig, dict) or not sig.get("available"):
+            if not isinstance(raw, dict):
+                continue
+            sig = raw.get("indicator_fusion") if isinstance(
+                raw.get("indicator_fusion"), dict) else raw
+            if not sig.get("available"):
                 continue
             conf = float(sig.get("confluence") or 0)
             if abs(conf) >= 0.6 and sig.get("direction") in ("long", "short"):

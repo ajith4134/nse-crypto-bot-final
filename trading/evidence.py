@@ -46,9 +46,26 @@ def _save(d: dict) -> None:
     state.save_json(_FILE, d)
 
 
+def _norm(sig: dict) -> dict:
+    """Accept BOTH shapes: the raw fuse() dict (tests/direct calls) and the funnel's
+    wrapper {vote, indicator_fusion, ocular, ...} (live app_signals)."""
+    if not isinstance(sig, dict):
+        return {}
+    fused = sig.get("indicator_fusion")
+    if isinstance(fused, dict) and fused.get("available"):
+        return fused
+    if sig.get("available") is not None or sig.get("barriers"):
+        return sig
+    v = sig.get("vote") or {}
+    if v.get("direction") in ("long", "short"):
+        return {"available": True, "direction": v["direction"],
+                "p_up": v.get("p_up"), "barriers": {}}
+    return {}
+
+
 def _price_of(sig: dict) -> float | None:
     try:
-        p = ((sig.get("barriers") or {}).get("entry"))
+        p = ((_norm(sig).get("barriers") or {}).get("entry"))
         return float(p) if p else None
     except Exception:
         return None
@@ -77,10 +94,11 @@ def observe_cycle(*, market: str, segment: str, signals: dict,
     d = _store()
     open_baseline = {b["symbol"] for b in d["baseline"] if not b.get("resolved")}
     n_base = n_skip = 0
-    for sym, sig in (signals or {}).items():
-        if not isinstance(sig, dict) or not sig.get("available"):
+    for sym, raw in (signals or {}).items():
+        sig = _norm(raw)
+        if not sig.get("available"):
             continue
-        price = _price_of(sig)
+        price = _price_of(raw)
         direction = sig.get("direction")
         if price and direction in ("long", "short"):
             if sym not in open_baseline:
