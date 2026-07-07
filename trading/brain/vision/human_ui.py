@@ -184,9 +184,10 @@ class HumanUI:
             return False
 
     # ── reflex: clear the pop-ups a human clicks past ────────────────────────────
-    def dismiss_modals(self, *, max_dialogs: int = 3) -> int:
-        """Close acknowledge-and-continue dialogs (SEBI risk notice, cookie banners, …) so the
-        real app is reachable. Returns how many it dismissed. Never touches order dialogs."""
+    def dismiss_modals(self, *, max_dialogs: int = 4) -> int:
+        """Close acknowledge-and-continue dialogs (SEBI risk notice, cookie banners) AND
+        onboarding tour tooltips (the recurring 'Quick Navigation … Next/×' coach-marks that
+        block the real controls). Returns how many it dismissed. Never touches order dialogs."""
         cleared = 0
         for _ in range(max_dialogs):
             done = False
@@ -197,6 +198,11 @@ class HumanUI:
                     cleared += 1
                     done = True
                     break
+            if not done:                               # try the tour's close (×) icon by sight
+                if self.click("the small × (close) icon on the onboarding tooltip / coach-mark "
+                              "popup, if any is visible", settle_ms=400):
+                    cleared += 1
+                    done = True
             if not done:
                 break
         return cleared

@@ -209,6 +209,7 @@ def apply_sync(*, sessions=None, broker: str = "upstox") -> dict:
             _save_state(already, report)
             return report
         report["login_ok"] = True
+        report["watchlist_selected"] = _ensure_watchlist(ui)   # land on the Brain-Open tab
         synced = set(already)
         for sym in plan["add"]:
             if _add_symbol(ui, sym):
@@ -233,20 +234,37 @@ def apply_sync(*, sessions=None, broker: str = "upstox") -> dict:
 
 
 def _add_symbol(ui, sym: str) -> bool:
-    """Add `sym` to the watchlist the human way: open the add-symbol search, type the symbol,
-    pin the top result. Confirmed by re-reading the screen (honest — no blind success)."""
-    # open the add-symbol affordance ('+' next to the watchlist tabs, or 'Pin new symbols')
-    if not (ui.click("the + (plus) button next to the watchlist tabs to add/pin a new symbol")
-            or ui.click("the 'Pin new symbols' option")):
-        return False
-    ui.page.wait_for_timeout(600)
-    if not ui.click_and_type("the search box for adding a symbol to the watchlist", sym):
-        return False
-    ui.page.wait_for_timeout(1200)             # let search suggestions render
-    # pin/add the matching top result (the '+'/pin affordance on that row)
-    added = ui.click(f"the add or pin (+) button on the search result row for {sym}")
-    ui.press("Escape")                          # close the add panel
-    return bool(added)
+    """Add `sym` to the watchlist the human way. The Upstox add flow is multi-step and its
+    exact controls (the 'Pin new symbols' menu → search → pin) shift with onboarding coach-
+    marks, so we hand the GOAL to the autonomous vision loop (explore) which perceives and
+    picks each next step itself — far more robust than a hard-coded selector chain. Then we
+    CONFIRM by re-reading the watchlist (honest: only True when `sym` is actually visible)."""
+    ui.dismiss_modals()
+    ui.explore(
+        f"Add the stock symbol {sym} to the current watchlist. To do this: open 'Pin new "
+        f"symbols' (or the + add-symbol control), type {sym} into the search box, then click "
+        f"the pin/+ button on the {sym} result row. Do NOT click any Buy/Sell/Trade button.",
+        max_steps=6)
+    ui.press("Escape")
+    ans = ui.read(f"Is the symbol {sym} now listed in the left watchlist? Answer yes or no.")
+    return "yes" in (ans or "").lower()
+
+
+def _ensure_watchlist(ui) -> bool:
+    """Select (or create) the dedicated WATCHLIST_NAME tab so adds/removes land there and
+    never touch the owner's other watchlists. Best-effort via the vision loop."""
+    ui.dismiss_modals()
+    ans = ui.read(f"Is a watchlist tab named '{WATCHLIST_NAME}' currently selected at the top "
+                  f"of the left watchlist panel? Answer yes or no.")
+    if "yes" in (ans or "").lower():
+        return True
+    ui.explore(
+        f"Select the watchlist tab named '{WATCHLIST_NAME}' at the top-left. If no tab named "
+        f"'{WATCHLIST_NAME}' exists, create a new watchlist by clicking the + tab and name it "
+        f"'{WATCHLIST_NAME}'. Do NOT click any Buy/Sell/Trade button.",
+        max_steps=5)
+    ans = ui.read(f"Is the '{WATCHLIST_NAME}' watchlist tab now selected? Answer yes or no.")
+    return "yes" in (ans or "").lower()
 
 
 def _remove_symbol(ui, sym: str) -> bool:

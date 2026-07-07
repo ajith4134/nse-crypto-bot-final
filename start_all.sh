@@ -122,6 +122,20 @@ pgrep -f "trading.online.run_live_loop" >/dev/null || \
   BRAIN_EXPLORE_OPEN_ALL="$BRAIN_EXPLORE_OPEN_ALL" BRAIN_EXPLORE_GRADUATE_N="$BRAIN_EXPLORE_GRADUATE_N" \
   setsid .venv/bin/python -m trading.online.run_live_loop >>logs/live_loop.log 2>&1 </dev/null &
 
+# Account-watchlist mirror (owner 2026-07-07): keep a dedicated 'Brain-Open' watchlist in the
+# REAL Upstox account == current open trades, so the owner SEES the brain's picks in the Upstox
+# app. Driven by the human-UI vision engine on a HEADED browser (auto-Xvfb).
+#   OPT-IN (ACCOUNT_WATCHLIST=1) — OFF by default, on purpose: a chromium persistent PROFILE can
+#   be held by only ONE process, and the NSE funnel already owns the Upstox profile for screening.
+#   Running this as a SECOND process fights that lock (and a headed chromium costs ~1.5 GB). The
+#   durable home is INSIDE the funnel process (shares the session) — a follow-up. Until then,
+#   enable this only when the funnel is NOT using Upstox. Needs the Upstox login live (daily QR).
+if [ "${ACCOUNT_WATCHLIST:-0}" = "1" ]; then
+  pgrep -f "trading.broker_sense.run_account_watchlist" >/dev/null || \
+    BROKER_SENSE_HEADED=1 BROKER_WATCHLIST_WRITE="${BROKER_WATCHLIST_WRITE:-1}" \
+    setsid .venv/bin/python -m trading.broker_sense.run_account_watchlist >>logs/account_watchlist.log 2>&1 </dev/null &
+fi
+
 echo "[6/7] Gateway (Caddy, single entry point)  :8100"
 pgrep -x caddy >/dev/null || \
   setsid "$HOME/.local/bin/caddy" run --config gateway/Caddyfile >logs/caddy.log 2>&1 </dev/null &

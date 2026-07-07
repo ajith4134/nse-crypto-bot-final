@@ -1209,9 +1209,51 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/gui/status":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_gui_status(self)
+        if path.startswith("/api/trading/broker_sense"):      # body → dashboard/routes/trading_ext.py
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_broker_sense(self)
+        if path == "/api/trading/ocular":                     # Ocular Cortex eyes+memory status
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_ocular(self)
+        if path == "/api/trading/broker_sources":             # public-vs-account data switch
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_broker_sources(self)
+        if path == "/api/trading/app_school":                 # learned app-driving routes
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_app_school(self)
+        if path == "/api/trading/memory_search":              # cross-session full-text memory search
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_memory_search(self)
+        if path == "/api/trading/broker_features":            # built-in broker pickers + fusion
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_broker_features(self)
+        if path == "/api/trading/segments":                   # GLOBAL segment-focus (whole brain)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_segments(self)
+        if path == "/api/trading/trade_columns":              # self-growing discovered columns
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_trade_columns(self)
+        if path == "/api/trading/sandbox":                    # brain's fast paper sandbox
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_sandbox(self)
+        if path == "/api/trading/connectivity":               # self-healing wiring watchdog
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_connectivity(self)
+        if path == "/api/trading/remote_login":               # remote-view login (VNC) status
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_remote_login(self)
+        if path == "/api/trading/live_browser/frame":         # live browser JPEG frame
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_live_browser_frame(self)
+        if path == "/api/trading/live_browser":               # live browser status
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_live_browser(self)
         if path == "/api/brain/evolve":                       # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
             from dashboard.routes import brain_ext
             return brain_ext.handle_evolve(self)
+        if path == "/api/trading/generators":                 # Strategy-Generator Portfolio → brain_ext.py
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_generators(self)
         if path == "/api/trading/closedtrades":               # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_closedtrades(self)
@@ -1237,6 +1279,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/online/status":              # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_online_status(self)
+        if path == "/api/trading/account_watchlist":          # Brain-Open Upstox watchlist mirror
+            try:
+                from trading.broker_sense.account_watchlist import status as _aw_status
+                return self._send(200, json.dumps(_aw_status()).encode(), "application/json")
+            except Exception as e:
+                return self._send(200, json.dumps({"error": str(e)[:200]}).encode(),
+                                  "application/json")
         if path in ("/architecture", "/architecture.html"):
             with open(os.path.join(STATIC, "architecture.html"), "rb") as f:
                 return self._send(200, f.read(), "text/html; charset=utf-8")
@@ -1331,6 +1380,36 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/gui/action":                 # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
             from dashboard.routes import post_ext
             return post_ext.handle_gui_action(self)
+        if path == "/api/trading/broker_sense":               # body → dashboard/routes/post_ext.py
+            from dashboard.routes import post_ext
+            return post_ext.handle_broker_sense_post(self)
+        if path == "/api/trading/broker_sources":             # POST flip public/account source
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_broker_sources(self)
+        if path == "/api/trading/app_school":                 # POST start a learning run
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_app_school(self)
+        if path == "/api/trading/broker_features":            # POST read/invent/cross pickers
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_broker_features(self)
+        if path == "/api/trading/segments":                   # POST toggle segment focus (whole brain)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_segments(self)
+        if path == "/api/trading/sandbox":                    # POST enable/disable/reset sandbox
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_sandbox(self)
+        if path == "/api/trading/trade_columns":              # POST accept/reject discovered column
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_trade_columns(self)
+        if path == "/api/trading/connectivity":               # POST rebaseline wiring watchdog
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_connectivity(self)
+        if path == "/api/trading/remote_login":               # POST start/stop remote-view login
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_remote_login(self)
+        if path == "/api/trading/live_browser":               # POST drive the live browser
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_live_browser(self)
         self._send(404, b"not found", "text/plain")
 
     def log_message(self, *a):  # quiet

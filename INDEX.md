@@ -2444,7 +2444,7 @@ _trading/broker_sense — the Broker-Sense Funnel (owner-approved 2026-07-05)._
 
 ## `trading/broker_sense/account_watchlist.py`
 _trading/broker_sense/account_watchlist.py — mirror OPEN trades into a dedicated_
-- **functions:** `open_nse_symbols() -> list[str]`; `plan_sync(desired, already) -> dict`; `_load_state() -> dict`; `_save_state(synced, report) -> None`; `status() -> dict`; `_open_ui(sessions, broker)`; `_logged_in(ui) -> bool`; `apply_sync() -> dict`; `_add_symbol(ui, sym) -> bool`; `_remove_symbol(ui, sym) -> bool`
+- **functions:** `open_nse_symbols() -> list[str]`; `plan_sync(desired, already) -> dict`; `_load_state() -> dict`; `_save_state(synced, report) -> None`; `status() -> dict`; `_open_ui(sessions, broker)`; `_logged_in(ui) -> bool`; `apply_sync() -> dict`; `_add_symbol(ui, sym) -> bool`; `_ensure_watchlist(ui) -> bool`; `_remove_symbol(ui, sym) -> bool`
 - **imports:** __future__, os, time, trading, typing
 
 ## `trading/broker_sense/app_explorer.py`
@@ -2548,6 +2548,11 @@ _trading/broker_sense/ocular_perception.py — the funnel's NEW eyes (Phase-2 de
 - **classes:** OcularPerception
 - **functions:** `_vision_quota() -> int`; `_flag(name, default) -> bool`; `_flatten_numbers(obj, prefix) -> str`; `_summarize_book(ob) -> dict`
 - **imports:** __future__, os, time, trading.broker_sense.learning_columns
+
+## `trading/broker_sense/run_account_watchlist.py`
+_trading/broker_sense/run_account_watchlist.py — keep the Upstox 'Brain-Open' watchlist_
+- **functions:** `_nse_open() -> bool`; `main() -> int`
+- **imports:** __future__, datetime, os, sys, time
 
 ## `trading/broker_sense/run_app_school.py`
 _trading/broker_sense/run_app_school.py — run ONE App Driving School crawl in its own process._
