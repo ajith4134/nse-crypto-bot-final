@@ -193,11 +193,20 @@ class HumanUI:
             self.page.wait_for_timeout(80)
             self.page.mouse.click(x, y)
             self.page.wait_for_timeout(settle_ms)
+            self._fresh_eyes()                    # the screen changed — drop the glance cache
             self.trail.append({"act": "click", "target": target, "xy": [x, y], "ok": True})
             return True
         except Exception as e:
             self.trail.append({"act": "click", "target": target, "error": str(e)[:80]})
             return False
+
+    def _fresh_eyes(self) -> None:
+        """Invalidate the free-eyes glance cache after an action mutates the screen (#5)."""
+        try:
+            if getattr(self, "eyes", None) is not None:
+                self.eyes.invalidate_glance()
+        except Exception:
+            pass
 
     def type_text(self, text: str, *, guard: bool = True, per_char_ms: int = 45) -> bool:
         """Type into the currently-focused field with human cadence (per-char delay)."""
@@ -206,6 +215,7 @@ class HumanUI:
             return False
         try:
             self.page.keyboard.type(str(text), delay=per_char_ms)
+            self._fresh_eyes()
             self.trail.append({"act": "type", "text": text[:40], "ok": True})
             return True
         except Exception as e:
@@ -227,6 +237,7 @@ class HumanUI:
     def press(self, key: str) -> bool:
         try:
             self.page.keyboard.press(key)
+            self._fresh_eyes()
             return True
         except Exception:
             return False
@@ -273,12 +284,24 @@ class HumanUI:
             pass
 
     # ── autonomous exploration: see → decide → act → repeat (the full loop) ───────
-    def explore(self, goal: str, *, max_steps: int = 8) -> dict:
+    def explore(self, goal: str, *, max_steps: int = 8, skill_key: str | None = None,
+                params: dict | None = None) -> dict:
         """Pursue `goal` on the page like a human exploring: perceive, decide the next single
         action from what's visible, act, and repeat until done or budget spent. Read-only
-        exploration by default (order-guarded), so it can roam and learn safely."""
+        exploration by default (order-guarded), so it can roam and learn safely.
+
+        SKILL-CACHE (invent-beyond #2, Voyager-for-UI, 2026-07-07): pass `skill_key` (a
+        stable name like 'upstox:add-watchlist-symbol') + `params` ({'SYM': 'RELIANCE'})
+        and a previously-successful action trajectory REPLAYS directly — no per-step
+        vision-LLM thinking on repeat tasks. A replay that stumbles (a click misses)
+        falls back to a fresh explore, whose winning trajectory is re-recorded
+        (self-healing). Callers confirm the outcome with skill_feedback()."""
         from core import llm
+        params = params or {}
+        if skill_key and self._replay_skill(skill_key, params):
+            return {"goal": goal, "done": True, "replayed": True, "skill": skill_key}
         history: list[str] = []
+        steps_rec: list[dict] = []                 # structured trajectory for the skill cache
         self.dismiss_modals()
         for step in range(max_steps):
             p = self.perceive(goal)
@@ -299,20 +322,112 @@ class HumanUI:
             tgt = str(obj.get("target") or "")
             history.append(f"{act}:{tgt or obj.get('text','')}")
             if act == "done":
+                if skill_key and steps_rec:
+                    self._save_skill(skill_key, steps_rec, params)
                 return {"goal": goal, "steps": step, "done": True, "history": history,
                         "final": p.text[:400]}
             if act == "click":
-                self.click(tgt)
+                if self.click(tgt):
+                    steps_rec.append({"action": "click", "target": tgt})
             elif act == "type":
-                self.click_and_type(tgt, str(obj.get("text") or ""))
+                txt = str(obj.get("text") or "")
+                if self.click_and_type(tgt, txt):
+                    steps_rec.append({"action": "type", "target": tgt, "text": txt})
             elif act == "scroll":
                 try:
                     self.page.mouse.wheel(0, 700)
+                    steps_rec.append({"action": "scroll"})
                 except Exception:
                     pass
             elif act == "read":
                 self.remember(f"{goal}:{step}", self.read(tgt or goal))
         return {"goal": goal, "steps": max_steps, "done": False, "history": history}
+
+    # ── the UI skill cache (Voyager pattern: record → replay → self-heal) ─────────
+    _SKILLS_FILE = "ui_skills.json"
+
+    @staticmethod
+    def _tmpl(s: str, params: dict, reverse: bool = False) -> str:
+        """'pin BELUSDT row' ⇄ 'pin {SYM} row' — parameterize/instantiate a step string."""
+        out = s or ""
+        for name, val in (params or {}).items():
+            v = str(val)
+            if not v:
+                continue
+            if reverse:
+                out = out.replace("{%s}" % name, v)
+            else:
+                out = out.replace(v, "{%s}" % name)
+        return out
+
+    def _replay_skill(self, key: str, params: dict) -> bool:
+        """Execute a cached trajectory. True only if EVERY step lands; any miss drops the
+        cache entry (self-heal) so the next call explores fresh."""
+        from trading import state
+        skills = state.load_json(self._SKILLS_FILE, {})
+        ent = skills.get(f"{self.name}:{key}") if isinstance(skills, dict) else None
+        if not ent or not ent.get("steps") or ent.get("fails", 0) >= 2:
+            return False
+        for st in ent["steps"]:
+            act = st.get("action")
+            tgt = self._tmpl(st.get("target", ""), params, reverse=True)
+            ok = True
+            if act == "click":
+                ok = self.click(tgt)
+            elif act == "type":
+                ok = self.click_and_type(tgt, self._tmpl(st.get("text", ""), params,
+                                                         reverse=True))
+            elif act == "scroll":
+                try:
+                    self.page.mouse.wheel(0, 700)
+                except Exception:
+                    ok = False
+            if not ok:
+                self.skill_feedback(key, False)       # stumbled → count the fail honestly
+                return False
+        self.trail.append({"act": "replay-skill", "skill": key, "ok": True})
+        return True
+
+    def _save_skill(self, key: str, steps: list[dict], params: dict) -> None:
+        """Record a WINNING trajectory (parameterized) — the hand's learned muscle memory."""
+        from trading import state
+        skills = state.load_json(self._SKILLS_FILE, {})
+        if not isinstance(skills, dict):
+            skills = {}
+        skills[f"{self.name}:{key}"] = {
+            "steps": [{**st,
+                       **({"target": self._tmpl(st.get("target", ""), params)}
+                          if "target" in st else {}),
+                       **({"text": self._tmpl(st.get("text", ""), params)}
+                          if "text" in st else {})} for st in steps],
+            "wins": (skills.get(f"{self.name}:{key}") or {}).get("wins", 0),
+            "fails": 0, "ts": time.time(), "broker": self.name}
+        state.save_json(self._SKILLS_FILE, skills)
+
+    def skill_feedback(self, key: str, ok: bool) -> None:
+        """Caller-confirmed outcome (the eyes re-read the screen): wins build trust (W7
+        track record + rule-of-three), 2 fails evict the trajectory for re-learning."""
+        from trading import state
+        skills = state.load_json(self._SKILLS_FILE, {})
+        k = f"{self.name}:{key}"
+        ent = skills.get(k) if isinstance(skills, dict) else None
+        if not ent:
+            return
+        if ok:
+            ent["wins"] = ent.get("wins", 0) + 1
+            ent["fails"] = 0
+        else:
+            ent["fails"] = ent.get("fails", 0) + 1
+            if ent["fails"] >= 2:
+                skills.pop(k, None)                   # evict → next call re-learns fresh
+        if k in skills:
+            skills[k] = ent
+        state.save_json(self._SKILLS_FILE, skills)
+        try:
+            from trading.brain import track_record
+            track_record.bump(f"ui-skill:{k}", kind="ui-skill", win=ok)
+        except Exception:
+            pass
 
 
 # ── JSON tolerant extractor (models wrap JSON in prose/fences) ────────────────

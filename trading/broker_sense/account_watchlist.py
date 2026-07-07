@@ -256,16 +256,22 @@ def _add_symbol(ui, sym: str) -> bool:
     exact controls (the 'Pin new symbols' menu → search → pin) shift with onboarding coach-
     marks, so we hand the GOAL to the autonomous vision loop (explore) which perceives and
     picks each next step itself — far more robust than a hard-coded selector chain. Then we
-    CONFIRM by re-reading the watchlist (honest: only True when `sym` is actually visible)."""
+    CONFIRM by re-reading the watchlist (honest: only True when `sym` is actually visible).
+    Skill-cached (#2): after the first success the recorded trajectory replays directly."""
     ui.dismiss_modals()
     ui.explore(
         f"Add the stock symbol {sym} to the current watchlist. To do this: open 'Pin new "
         f"symbols' (or the + add-symbol control), type {sym} into the search box, then click "
         f"the pin/+ button on the {sym} result row. Do NOT click any Buy/Sell/Trade button.",
-        max_steps=6)
+        max_steps=6, skill_key="watchlist-add-symbol", params={"SYM": sym})
     ui.press("Escape")
     ans = ui.read(f"Is the symbol {sym} now listed in the left watchlist? Answer yes or no.")
-    return "yes" in (ans or "").lower()
+    ok = "yes" in (ans or "").lower()
+    try:
+        ui.skill_feedback("watchlist-add-symbol", ok)   # eyes-confirmed outcome trains the hand
+    except Exception:
+        pass
+    return ok
 
 
 def _ensure_watchlist(ui) -> bool:
@@ -280,7 +286,7 @@ def _ensure_watchlist(ui) -> bool:
         f"Select the watchlist tab named '{WATCHLIST_NAME}' at the top-left. If no tab named "
         f"'{WATCHLIST_NAME}' exists, create a new watchlist by clicking the + tab and name it "
         f"'{WATCHLIST_NAME}'. Do NOT click any Buy/Sell/Trade button.",
-        max_steps=5)
+        max_steps=5, skill_key="watchlist-select-tab", params={"NAME": WATCHLIST_NAME})
     ans = ui.read(f"Is the '{WATCHLIST_NAME}' watchlist tab now selected? Answer yes or no.")
     return "yes" in (ans or "").lower()
 

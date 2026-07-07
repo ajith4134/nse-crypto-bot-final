@@ -500,12 +500,25 @@ def handle_crypto_predictions(h):
             except Exception:
                 closed_light = []
             srv._enrich_predictions(openrows, closed_light)
+            # TAILGATE overlay (owner 2026-07-07): per-trade LEARNED trail state — the
+            # ratcheting locked floor + the trail distance the brain has learned (W2-railed
+            # EMA from closed outcomes, trading/execution/profit_tailgate.learn) + peak.
+            # Read from the live lock state the executor's tailgate pass maintains.
+            try:
+                from trading import state as _tstate
+                _locks = _tstate.load_json("profit_tailgate_locks.json", {}) or {}
+            except Exception:
+                _locks = {}
             pmap = {}
             for r in [*openrows, *closed_light]:
                 tid = str(r.get("trade_id", "")).replace("FT-", "")
                 if tid:
+                    _lk = _locks.get(tid) or {}
                     pmap[tid] = {"strategy_label": r.get("strategy_label"),
-                                 "brain_pred": r.get("brain_pred"), "nn_pred": r.get("nn_pred")}
+                                 "brain_pred": r.get("brain_pred"), "nn_pred": r.get("nn_pred"),
+                                 "tg_locked_pct": _lk.get("locked"),
+                                 "tg_trail_dist": _lk.get("dist"),
+                                 "tg_peak_pct": _lk.get("peak")}
             body = json.dumps({"map": pmap, "n": len(pmap)}, default=str).encode()
         except Exception as e:
             body = json.dumps({"map": {}, "error": f"{type(e).__name__}: {e}"}).encode()

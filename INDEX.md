@@ -2024,6 +2024,12 @@ _UI-only data mode tests (owner 2026-07-07) — capture parsing + honest misses.
 - **functions:** `_klines(n, t0, tf_ms, price)`
 - **imports:** os, pathlib, tempfile, time, unittest
 
+## `tests/test_ui_skill_cache.py`
+_Tests for the hand skill-cache (invent-beyond #2) + free-eyes glance cache (#5)._
+- **classes:** _IsolatedState, TestSkillCache, TestGlanceCache
+- **functions:** `_ui(name)`
+- **imports:** __future__, pathlib, tempfile, time, trading.state, unittest
+
 ## `tests/test_uq_conformal.py`
 _Pillar 17 — conformal calibrated uncertainty (trading/uq) + sizing gate tests._
 - **classes:** TestSelfUncertainty, TestTradeUQ, TestSizerConsumesUQ, TestJournalColumns
@@ -2509,7 +2515,7 @@ _trading/brain/vision/computer_use.py — the FREE computer-use loop (cloned, re
 ## `trading/brain/vision/free_eyes.py`
 _trading/brain/vision/free_eyes.py — the brain's FREE, 24/7, never-rate-limited eyes._
 - **classes:** Glance, FreeEyes
-- **functions:** `_ocr_engine()`; `_ocr_read(png_bytes) -> list[dict]`; `_ocr_row(box, txt) -> Optional[dict]`; `_norm(s) -> str`; `_tok_hit(tok, pool) -> bool`; `_score_match(target, label) -> float`
+- **functions:** `_ocr_pool()`; `_ocr_engine()`; `_ocr_read(png_bytes) -> list[dict]`; `_ocr_row(box, txt) -> Optional[dict]`; `_norm(s) -> str`; `_tok_hit(tok, pool) -> bool`; `_score_match(target, label) -> float`
 - **imports:** __future__, dataclasses, re, time, typing
 
 ## `trading/brain/vision/human_ui.py`

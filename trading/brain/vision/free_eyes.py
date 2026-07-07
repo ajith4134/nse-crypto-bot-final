@@ -31,6 +31,19 @@ _OCR = None
 _OCR_KIND = None
 
 
+_OCR_POOL = None
+
+
+def _ocr_pool():
+    """Shared OCR worker pool (#5): many pages' OCR overlaps on the cores instead of
+    queueing behind one another. Sized modestly — OCR engines hold their own threads."""
+    global _OCR_POOL
+    if _OCR_POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _OCR_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="free-eyes-ocr")
+    return _OCR_POOL
+
+
 def _ocr_engine():
     """Lazily build a local OCR engine. RapidOCR (ONNX, fast) → PaddleOCR fallback → None."""
     global _OCR, _OCR_KIND
@@ -174,10 +187,28 @@ class FreeEyes:
             pass
 
     # ── the free glance ──────────────────────────────────────────────────────
-    def glance(self, *, want_ocr: bool = True) -> Glance:
+    # Perception cost model (invent-beyond #5, 2026-07-07): a glance = DOM walk +
+    # screenshot (Playwright, page-thread-bound) + OCR (pure CPU). Action chains
+    # (dismiss_modals → locate → click → confirm) used to re-glance EVERY step and
+    # always paid OCR — a 16-symbol watchlist pass cost ~40 min. Now: a short-TTL
+    # glance cache lets one perception serve the whole chain, OCR is LAZY (only when
+    # the DOM misses), and OCR runs on a shared pool so many pages' OCR overlaps on
+    # the 12 cores instead of queueing.
+    _GLANCE_TTL_S = 1.2
+
+    def glance(self, *, want_ocr: bool = True, fresh: bool = False) -> Glance:
+        cached = getattr(self, "_glance_cache", None)
+        if not fresh and cached is not None and time.time() - cached.ts < self._GLANCE_TTL_S:
+            if cached.ocr or not want_ocr:
+                return cached
+            if cached.shot:                       # OCR-upgrade the cached shot: no re-walk
+                cached.ocr.extend(_ocr_pool().submit(_ocr_read, cached.shot).result())
+                return cached
         from trading.brain.vision.ocular_cortex import _extract_from_page
         controls, shot = _extract_from_page(self.page, want_shot=True)
-        ocr = _ocr_read(shot) if want_ocr else []
+        ocr = []
+        if want_ocr and shot:
+            ocr = _ocr_pool().submit(_ocr_read, shot).result()   # overlaps across pages
         net = {}
         try:
             if self._recorder is not None:
@@ -186,11 +217,18 @@ class FreeEyes:
                     net = {k: v for k, v in snap.items()}
         except Exception:
             net = {}
-        return Glance(controls=controls, ocr=ocr, net=net, shot=shot or b"", ts=time.time())
+        g = Glance(controls=controls, ocr=ocr, net=net, shot=shot or b"", ts=time.time())
+        self._glance_cache = g
+        return g
+
+    def invalidate_glance(self) -> None:
+        """The hand calls this after any action that changes the screen (click/type/nav)."""
+        self._glance_cache = None
 
     # ── LOCALIZE: target text → pixel centre (deterministic, no LLM) ──────────
     def locate(self, target: str, *, min_score: float = 0.45) -> Optional[tuple[int, int]]:
-        g = self.glance()
+        # LAZY OCR: the DOM answers most locates exactly — pay for OCR only on a miss.
+        g = self.glance(want_ocr=False)
         best, best_s = None, min_score
         for c in g.controls:                                 # DOM first (most exact)
             if c.get("x") is None:
@@ -201,6 +239,7 @@ class FreeEyes:
                                    int(c["y"] + (c.get("h") or 0) / 2))
         if best is not None:
             return best
+        g = self.glance(want_ocr=True)                       # miss → the OCR lens
         for o in g.ocr:                                      # OCR text fallback
             s = _score_match(target, o.get("text", ""))
             if s > best_s:
