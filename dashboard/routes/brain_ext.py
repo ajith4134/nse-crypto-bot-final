@@ -630,3 +630,24 @@ def handle_track_record(h):
         body = _json.dumps({"available": False,
                             "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_briefing(h):
+    """GET /api/trading/briefing — W8 daily morning brief (regime gate → watchdogs →
+    open positions → smart-money setups → stance + sizing math from goal.yaml), every
+    number with provenance. ?generate=1 rebuilds now; default serves today's."""
+    import json as _json
+    from urllib.parse import parse_qs, urlparse
+
+    from trading.brain import briefing
+    try:
+        q = parse_qs(urlparse(h.path).query)
+        if q.get("generate", ["0"])[0] in ("1", "true"):
+            body = _json.dumps(briefing.generate(deliver=False)).encode()
+        else:
+            body = _json.dumps(briefing.latest() or
+                               {"note": "no brief yet today — ?generate=1"}).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")

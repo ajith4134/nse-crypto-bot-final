@@ -112,6 +112,14 @@ def main() -> int:
                           f"next_n={rep['next_shortlist_n']})", flush=True)
                 except Exception as e:               # a cycle error never kills the loop
                     print(f"[funnel:{market}:{seg}] cycle error: {e!r}", flush=True)
+        try:                                          # W8: one morning briefing per IST day
+            from trading.brain import briefing
+            if briefing.due():
+                b = briefing.generate()
+                print(f"[briefing] morning brief {b.get('date')} delivered "
+                      f"({len(b.get('sections') or {})} sections)", flush=True)
+        except Exception as e:
+            print(f"[briefing] error: {e!r}", flush=True)
         try:                                          # the closed learning loop, unchanged
             _lead = funnels.get("crypto") or funnels.get("nse")
             ls = learn.maybe_run(symbols=list(((_lead.last if _lead else {}).get("stages", {})
