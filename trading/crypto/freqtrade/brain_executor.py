@@ -266,11 +266,12 @@ class BrainExecutor:
                                         allow_live=allow_live, enter_tag="explore_open_all",
                                         segment=self.segment)
                         entered.append(sym)
-                        from trading.crypto.freqtrade import entry_meta
-                        entry_meta.record(sym, self.segment, {"decision_snapshot": {
-                            "market": "CRYPTO", "symbol": sym, "segment": self.segment or "futures",
-                            "direction": _act, "strategy": "explore_open_all", "engine": "freqtrade",
-                            "app_signals": _sig, "explore": True}})
+                        # #13: use the FULL recorder (psych read + FinMem episode +
+                        # attribution + ui_view) so explore trades carry the same
+                        # learning columns as selective ones — explore exists to
+                        # produce richly-labelled training data, not blank rows.
+                        self._record_entry_meta(sym, _act, "explore_open_all",
+                                                {"explore": True}, None, explore=True)
                     except Exception:
                         skipped += 1
                     continue
@@ -737,11 +738,24 @@ class BrainExecutor:
             pass
         return exited
 
-    def _record_entry_meta(self, sym: str, act: str, tag, brain: dict, psych) -> None:
+    def _record_entry_meta(self, sym: str, act: str, tag, brain: dict, psych,
+                           explore: bool = False) -> None:
         """Persist the FULL decision context of this entry to the sidecar store so
         freqtrade_ingest can fill the psychology + decision_snapshot journal columns."""
         try:
             from trading.crypto.freqtrade import entry_meta
+            if psych is None:
+                # #13 connectivity fix: even fast-path (explore) entries RECORD the
+                # order-book psychology read (advisory context, never a gate here) —
+                # previously explore entries carried psychology=None, so the journal's
+                # psych_* learning columns stayed empty for the very trades meant to
+                # teach the brain. Best-effort, ~cached-book cost.
+                try:
+                    from trading.brain.psychology import get_engine
+                    psych = get_engine().evaluate("CRYPTO", sym,
+                                                  segment=self.segment or "futures")
+                except Exception:
+                    psych = None
             snapshot = {
                 "market": "CRYPTO", "symbol": sym,
                 "segment": self.segment or "futures",
@@ -750,6 +764,8 @@ class BrainExecutor:
                 "psychology": psych,
                 "engine": "freqtrade",
             }
+            if explore:
+                snapshot["explore"] = True
             if self.extra_signals.get(sym):
                 snapshot["app_signals"] = self.extra_signals[sym]
             # decision-memory episode + SHAP attribution (resolved at ingest time when
