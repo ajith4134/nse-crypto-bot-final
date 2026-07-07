@@ -1059,6 +1059,33 @@ class LiveTradeLoop:
                 cap = ot.get("capital") or (ot["entry_price"] * ot["quantity"])
                 if tp > 0 and cap and (upnl / cap) >= tp:
                     trail_exit = trail_exit or "take-profit"
+                # PROFIT TAILGATE on EVERY trade (owner goal 2026-07-07: "profit tailgating
+                # for every crypto and nse trades") — the shared brain-learned ratchet:
+                # lock a rising floor under the peak profit%, exit when profit falls to it.
+                # Columns (tailgate_*) are stamped on the open trade here and carried to
+                # the journal row at close by _close_trade.
+                try:
+                    from trading.execution import profit_tailgate as _pt
+                    if cap:
+                        _ppct = upnl / cap * 100.0
+                        _peak = max(ot.get("tailgate_peak_profit_pct") or 0.0, _ppct)
+                        ot["tailgate_peak_profit_pct"] = round(_peak, 4)
+                        _dec = _pt.locked_profit(market.lower(), (seg or "equity"),
+                                                 trade_id=str(ot.get("trade_id") or key),
+                                                 profit_pct=_ppct, peak_profit_pct=_peak)
+                        ot["tailgate_locked_profit_pct"] = _dec.get("locked_profit_pct")
+                        ot["tailgate_distance_pct"] = round(
+                            _dec.get("distance_pct", 0) * 100, 2)
+                        _tg_exit, _tg_dist, _tg_why = _pt.should_exit(
+                            market.lower(), (seg or "equity"),
+                            _ppct, _peak)
+                        ot["tailgate_distance_pct"] = round(_tg_dist * 100, 2)
+                        if _tg_exit:
+                            trail_exit = trail_exit or "profit-tailgate"
+                            ot["tailgate_triggered"] = True
+                            ot["tailgate_captured_pct"] = round(_ppct, 4)
+                except Exception:
+                    pass
             decision = self._decide(market, symbol, price, in_position=in_pos)
             action = decision.get("action", "FLAT")
             size = float(decision.get("size", 1.0))
@@ -1566,6 +1593,26 @@ class LiveTradeLoop:
                     "safety_blocked": brain.get("safety_blocked"),
                     "safety_reason": brain.get("safety_reason"),
                 }]
+            # ── profit-tailgate columns on EVERY trade (owner goal 2026-07-07) + learn ──
+            for _tk in ("tailgate_locked_profit_pct", "tailgate_distance_pct",
+                        "tailgate_peak_profit_pct", "tailgate_triggered",
+                        "tailgate_captured_pct"):
+                if ot.get(_tk) is not None:
+                    setattr(t, _tk, ot[_tk])
+            try:
+                from trading.execution import profit_tailgate as _pt
+                cap0 = float(ot.get("capital") or (ot["entry_price"] * ot["quantity"]) or 0)
+                peak = ot.get("tailgate_peak_profit_pct")
+                if cap0 and peak and realized is not None:
+                    _pt.learn(ot["market"].lower(), (ot.get("segment") or "equity"),
+                              peak_profit_pct=float(peak),
+                              captured_pct=float(realized) / cap0 * 100.0)
+                _pt.clear_lock(str(ot.get("trade_id")
+                                   or f"{ot['market'].upper()}:{ot['symbol']}"))
+            except Exception:
+                pass
+            # (W1 goal_score/toward_goal columns are stamped centrally in journal.record()
+            #  once net_pnl is final — one scorer for every engine.)
             # ── order-book trader psychology at entry → its journal columns ──
             psych = ot.get("psych")
             if isinstance(psych, dict):

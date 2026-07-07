@@ -121,6 +121,18 @@ class TradeJournal:
         screen_behavior(self._trades + [trade], daily_limit=self.daily_limit,
                         revenge_window_min=self.revenge_window_min)
 
+        # W1 goal scoreboard (owner goal 2026-07-07): every closed trade carries its own
+        # toward-goal score — net PnL as a fraction of its segment's DAILY goal pace.
+        # Central here so EVERY engine (live loop, Freqtrade ingest, sandbox) gets it.
+        try:
+            from trading import goal as _goal
+            _gs = _goal.score_trade(trade.to_dict())
+            if _gs.get("goal_score") is not None:
+                trade.goal_score = _gs["goal_score"]
+                trade.toward_goal = _gs["toward_goal"]
+        except Exception:
+            pass
+
         # per-symbol confidence recalibration
         self.confidence.update_from_trade(trade)
 

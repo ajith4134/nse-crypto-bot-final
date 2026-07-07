@@ -133,6 +133,11 @@ class ClosedTrade:
     tailgate_triggered: bool | None = None       # did the tailgate lock the exit? (vs stop/target)
     tailgate_captured_pct: float | None = None   # profit% actually locked vs the peak (efficiency)
 
+    # ── W1 Goal Scoreboard (owner goal 2026-07-07: every trade scored vs goal.yaml) ──
+    goal_score: float | None = None              # net PnL / segment's DAILY goal pace (+1 ≈ one whole
+    #                                              day of the goal earned by this single trade)
+    toward_goal: bool | None = None              # plain sign: did this trade move us toward the goal?
+
     # ── Options Greeks at Entry/Exit ────────────────────────────────────────────
     iv_entry: float | None = None
     iv_exit: float | None = None
