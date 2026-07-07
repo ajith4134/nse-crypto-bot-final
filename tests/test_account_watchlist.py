@@ -54,5 +54,86 @@ class TestVisionJsonParse(unittest.TestCase):
         self.assertIsNone(_extract_json(""))
 
 
+class TestBinanceFavoritesMirror(unittest.TestCase):
+    """The crypto twin (binance_watchlist): pair mapping, segment gating, star idempotency,
+    write gate. STATE_DIR-isolated; engine/boss/eyes stubbed."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+
+        import trading.state as tstate
+        self._tmp = tempfile.TemporaryDirectory()
+        self._old = tstate.STATE_DIR
+        tstate.STATE_DIR = Path(self._tmp.name)
+
+    def tearDown(self):
+        import trading.state as tstate
+        tstate.STATE_DIR = self._old
+        self._tmp.cleanup()
+
+    def test_pair_to_binance_symbol(self):
+        from trading.broker_sense.binance_watchlist import _flat
+        self.assertEqual(_flat("BEL/USDT:USDT"), "BELUSDT")
+        self.assertEqual(_flat("BTC/USDT"), "BTCUSDT")
+        self.assertEqual(_flat(""), "")
+
+    def test_open_symbols_obey_segment_focus(self):
+        from unittest import mock
+
+        from trading.broker_sense import binance_watchlist as bw
+        cli = mock.Mock()
+        cli.open_pairs.side_effect = lambda segment: {
+            "futures": ["BEL/USDT:USDT"], "spot": ["SCRT/USDT"]}.get(segment, [])
+        with mock.patch("trading.brain.boss.active_segments",
+                        return_value=["futures"]), \
+             mock.patch("trading.crypto.engine_client.CryptoEngineClient",
+                        return_value=cli):
+            out = bw.open_crypto_symbols()
+        self.assertEqual(list(out), ["BELUSDT"])          # spot gated OFF by boss
+        self.assertEqual(out["BELUSDT"]["segment"], "futures")
+
+    def test_apply_sync_gated_without_write_flag(self):
+        import os
+        from unittest import mock
+
+        from trading.broker_sense import binance_watchlist as bw
+        os.environ.pop("BROKER_WATCHLIST_WRITE", None)
+        with mock.patch.object(bw, "open_crypto_symbols",
+                               return_value={"BELUSDT": {"pair": "BEL/USDT:USDT",
+                                                         "segment": "futures"}}):
+            rep = bw.apply_sync(sessions=object())
+        self.assertIn("gated", rep["error"])
+        self.assertEqual(rep["added"], [])
+
+    def test_set_star_is_idempotent(self):
+        from unittest import mock
+
+        from trading.broker_sense.binance_watchlist import _set_star
+        ui = mock.Mock()
+        ui.read.return_value = "filled"                   # already a favorite
+        self.assertTrue(_set_star(ui, "BELUSDT", True))
+        ui.click.assert_not_called()                      # no needless click
+
+    def test_set_star_confirms_after_click(self):
+        from unittest import mock
+
+        from trading.broker_sense.binance_watchlist import _set_star
+        ui = mock.Mock()
+        ui.read.side_effect = ["empty", "filled"]         # before → after the click
+        ui.click.return_value = True
+        self.assertTrue(_set_star(ui, "BELUSDT", True))
+        ui.click.assert_called_once()
+
+    def test_set_star_never_fakes_success(self):
+        from unittest import mock
+
+        from trading.broker_sense.binance_watchlist import _set_star
+        ui = mock.Mock()
+        ui.read.side_effect = ["empty", "empty"]          # click didn't take
+        ui.click.return_value = True
+        self.assertFalse(_set_star(ui, "BELUSDT", True))
+
+
 if __name__ == "__main__":
     unittest.main()

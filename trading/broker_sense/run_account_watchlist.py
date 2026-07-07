@@ -29,23 +29,30 @@ def _nse_open() -> bool:
 def main() -> int:
     os.environ.setdefault("BROKER_SENSE_HEADED", "1")     # this loop MUST render Upstox
     from trading.broker_sense import account_watchlist as aw
+    from trading.broker_sense import binance_watchlist as bw
     from trading.broker_sense.sessions import get_sessions
 
     period = float(os.environ.get("ACCOUNT_WATCHLIST_PERIOD_S", "120"))
     write = os.environ.get("BROKER_WATCHLIST_WRITE") in ("1", "true", "TRUE", "yes")
-    print(f"[acct-watchlist] start: watchlist={aw.WATCHLIST_NAME} write_enabled={write} "
-          f"period={period}s (headed Upstox via Xvfb; syncs to open trades)", flush=True)
+    print(f"[acct-watchlist] start: upstox={aw.WATCHLIST_NAME} + binance=Favorites "
+          f"write_enabled={write} period={period}s (headed via Xvfb; syncs to open trades)",
+          flush=True)
     sessions = get_sessions()
     while True:
         try:
             if _nse_open():
                 rep = aw.apply_sync(sessions=sessions)
-                print(f"[acct-watchlist] {time.strftime('%H:%M:%S')} "
+                print(f"[acct-watchlist] {time.strftime('%H:%M:%S')} upstox "
                       f"added={rep.get('added')} removed={rep.get('removed')} "
                       f"login_ok={rep.get('login_ok')} err={rep.get('error')}", flush=True)
             else:
                 # market closed → don't spin the browser; just refresh the desired-state view
                 aw.status()
+            # Binance Favorites mirror (owner 2026-07-07): crypto never closes → every cycle
+            brep = bw.apply_sync(sessions=sessions)
+            print(f"[acct-watchlist] {time.strftime('%H:%M:%S')} binance "
+                  f"added={brep.get('added')} removed={brep.get('removed')} "
+                  f"login_ok={brep.get('login_ok')} err={brep.get('error')}", flush=True)
         except Exception as e:
             print(f"[acct-watchlist] cycle error: {e!r}", flush=True)
         time.sleep(period)

@@ -112,6 +112,24 @@ def main() -> int:
                           f"next_n={rep['next_shortlist_n']})", flush=True)
                 except Exception as e:               # a cycle error never kills the loop
                     print(f"[funnel:{market}:{seg}] cycle error: {e!r}", flush=True)
+            try:
+                # BRAIN-OPEN mirror, IN-PROCESS (owner 2026-07-07 — the durable home the
+                # start_all.sh note promised): this funnel OWNS its broker's chromium
+                # profile, so IT mirrors open trades — crypto → Binance ⭐ Favorites,
+                # NSE → the Upstox 'Brain-Open' watchlist. Fast no-op when in sync;
+                # the account write stays gated behind BROKER_WATCHLIST_WRITE.
+                if market == "crypto":
+                    from trading.broker_sense import binance_watchlist as _bw
+                    _wrep = _bw.apply_sync(sessions=funnel.sessions)
+                else:
+                    from trading.broker_sense import account_watchlist as _aw
+                    _wrep = _aw.apply_sync(sessions=funnel.sessions)
+                if _wrep.get("added") or _wrep.get("removed") or _wrep.get("error"):
+                    print(f"[watchlist:{market}] added={_wrep.get('added')} "
+                          f"removed={_wrep.get('removed')} err={_wrep.get('error')}",
+                          flush=True)
+            except Exception as e:
+                print(f"[watchlist:{market}] error: {e!r}", flush=True)
         try:                                          # W8: one morning briefing per IST day
             from trading.brain import briefing
             if briefing.due():

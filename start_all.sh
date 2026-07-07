@@ -72,6 +72,12 @@ export BRAIN_EXPLORE_OPEN_ALL="${BRAIN_EXPLORE_OPEN_ALL:-1}"
 # ~34% last-50 win rate this keeps exploring; it graduates only once the brain sustains 55%+.
 export BRAIN_EXPLORE_GRADUATE_ACC="${BRAIN_EXPLORE_GRADUATE_ACC:-0.55}"
 export BRAIN_EXPLORE_GRADUATE_WINDOW="${BRAIN_EXPLORE_GRADUATE_WINDOW:-50}"
+# EXPLORE-WIDE breadth (owner 2026-07-07: "32 GB RAM — open more trades"): screened picker
+# candidates beyond the deep shortlist enter light per cycle (paper explore only).
+export BROKER_SENSE_EXPLORE_WIDE_N="${BROKER_SENSE_EXPLORE_WIDE_N:-40}"
+# BRAIN-OPEN mirrors run IN the funnel processes (crypto → Binance ⭐ Favorites, NSE →
+# Upstox 'Brain-Open'); the account write is ON per the owner's 2026-07-07 order.
+export BROKER_WATCHLIST_WRITE="${BROKER_WATCHLIST_WRITE:-1}"
 # Legacy count gate — used only when ACC is unset/0. 0 = never graduate on count.
 export BRAIN_EXPLORE_GRADUATE_N="${BRAIN_EXPLORE_GRADUATE_N:-0}"
 # TRADE DRIVER: the broker-sense funnel (below) is the SOLE driver — it selects trades from
@@ -103,7 +109,8 @@ _bs_env() { echo "CORTEX_SIGNAL=$CORTEX_SIGNAL UQ_GATE=$UQ_GATE BRAIN_RAM_BUDGET
 UI_ONLY_DATA=$UI_ONLY_DATA \
 BROKER_SENSE_BUDGET=$BROKER_SENSE_BUDGET BRAIN_WARM_ALL_PAIRS=$BRAIN_WARM_ALL_PAIRS \
 BRAIN_EXPLORE_OPEN_ALL=$BRAIN_EXPLORE_OPEN_ALL BRAIN_EXPLORE_GRADUATE_N=$BRAIN_EXPLORE_GRADUATE_N \
-BRAIN_EXPLORE_GRADUATE_ACC=$BRAIN_EXPLORE_GRADUATE_ACC BRAIN_EXPLORE_GRADUATE_WINDOW=$BRAIN_EXPLORE_GRADUATE_WINDOW"; }
+BRAIN_EXPLORE_GRADUATE_ACC=$BRAIN_EXPLORE_GRADUATE_ACC BRAIN_EXPLORE_GRADUATE_WINDOW=$BRAIN_EXPLORE_GRADUATE_WINDOW \
+BROKER_SENSE_EXPLORE_WIDE_N=$BROKER_SENSE_EXPLORE_WIDE_N BROKER_WATCHLIST_WRITE=$BROKER_WATCHLIST_WRITE"; }
 pgrep -f "run_funnel_loop crypto" >/dev/null || \
   env $(_bs_env) \
   setsid .venv/bin/python -m trading.broker_sense.run_funnel_loop crypto >>logs/funnel_crypto.log 2>&1 </dev/null &

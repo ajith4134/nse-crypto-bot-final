@@ -1354,7 +1354,7 @@ _Test package init._
 
 ## `tests/test_account_watchlist.py`
 _Tests for the Brain-Open account-watchlist sync + human-UI JSON parsing (pure logic)._
-- **classes:** TestPlanSync, TestVisionJsonParse
+- **classes:** TestPlanSync, TestVisionJsonParse, TestBinanceFavoritesMirror
 - **imports:** trading.brain.vision.human_ui, trading.broker_sense.account_watchlist, unittest
 
 ## `tests/test_advintel.py`
@@ -2549,6 +2549,11 @@ _trading/broker_sense/app_school.py — the brain LEARNS to drive a broker app (
 - **classes:** AppMap, AppSchool
 - **functions:** `market_status(broker) -> dict`; `_min_quote_volume() -> float`; `_ccxt_exchange(segment)`; `get_school() -> AppSchool`
 - **imports:** __future__, datetime, os, time, trading, trading.broker_sense.brokers, zoneinfo
+
+## `trading/broker_sense/binance_watchlist.py`
+_trading/broker_sense/binance_watchlist.py — mirror OPEN crypto trades into the REAL_
+- **functions:** `_flat(pair) -> str`; `open_crypto_symbols() -> dict`; `_load_state() -> dict`; `_save_state(synced, report) -> None`; `status() -> dict`; `_symbol_url(sym, segment) -> str`; `_open_symbol_ui(sessions, sym, segment)`; `_star_state(ui, sym) -> bool | None`; `_set_star(ui, sym, want) -> bool`; `apply_sync() -> dict`; `_close(pg) -> None`
+- **imports:** __future__, os, re, time, trading, trading.broker_sense.account_watchlist
 
 ## `trading/broker_sense/book_monitor.py`
 _trading/broker_sense/book_monitor.py — non-invasive screen-mirror order-book reader._

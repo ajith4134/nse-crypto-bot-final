@@ -249,16 +249,53 @@ class TestFunnelCycle(_IsolatedState):
              mock.patch("trading.broker_sense.fast_candles.read", return_value=charts), \
              mock.patch("trading.broker_sense.data_failsafe.top_of_book", return_value=book), \
              mock.patch.object(f.vision, "read", return_value=charts), \
-             mock.patch.object(f.book, "top_of_book", return_value=book):
+             mock.patch.object(f.book, "top_of_book", return_value=book), \
+             mock.patch.dict(os.environ, {"BROKER_SENSE_EXPLORE_WIDE_N": "0"}):
             rep = f.run_cycle(segment="futures")
         self.assertTrue(rep["completed_within_budget"])
         self.assertEqual(rep["stages"]["execute"]["entered"], ["AAA/USDT:USDT"])
         # the shortlist-only universe + app_signals actually reached the executor
+        # (wide lane disabled above so the DEEP lane is asserted in isolation)
         self.assertEqual(ex._symbols, ["AAA/USDT:USDT"])
         sig = ex.extra_signals["AAA/USDT:USDT"]
         self.assertEqual(sig["vote"]["direction"], "long")
         self.assertEqual(sig["book"]["source"], "api:test")
         self.assertEqual(sig["screener"]["lane"], "binance")
+
+    def test_explore_wide_lane_adds_light_candidates(self):
+        """2026-07-07 throughput fix: in paper explore, screened rows beyond the deep
+        shortlist become tradeable with an honest light signature (direction from the
+        broker's own change%), and open positions don't consume shortlist slots."""
+        from trading.broker_sense.funnel import BrokerSenseFunnel
+        ex = mock.Mock()
+        ex.client.return_value.open_pairs.return_value = ["OPEN/USDT:USDT"]
+        ex.run_once.return_value = {"entered": [], "exited": [], "skipped": 0, "vetoes": []}
+        f = BrokerSenseFunnel("crypto", sessions=mock.Mock(), executor=ex)
+        rows = [{"symbol": "AAA/USDT:USDT", "change": 4.2, "lane": "binance"},
+                {"symbol": "BBB/USDT:USDT", "change": -3.1, "lane": "binance-losers"},
+                {"symbol": "CCC/USDT:USDT", "change": 1.0, "lane": "binance"}]
+        charts = {"AAA/USDT:USDT": {
+            "5m": {"p_up": 0.8, "direction": "long", "source": "cnn"}}}
+        book = {"bid": 10.0, "ask": 10.01, "spread_pct": 0.1, "source": "api:test",
+                "consistent": True}
+        with mock.patch("trading.broker_sense.funnel.screen_all", return_value=rows), \
+             mock.patch("trading.broker_sense.fast_candles.read", return_value=charts), \
+             mock.patch("trading.broker_sense.data_failsafe.top_of_book", return_value=book), \
+             mock.patch.object(f.vision, "read", return_value=charts), \
+             mock.patch.object(f.book, "top_of_book", return_value=book), \
+             mock.patch.dict(os.environ, {"BROKER_SENSE_EXPLORE_WIDE_N": "16",
+                                          "BRAIN_EXPLORE_OPEN_ALL": "1"}):
+            rep = f.run_cycle(segment="futures")
+        wide = rep["stages"].get("explore_wide", {})
+        self.assertGreaterEqual(wide.get("added", 0), 2)       # BBB + CCC joined light
+        self.assertIn("BBB/USDT:USDT", ex._symbols)
+        self.assertIn("CCC/USDT:USDT", ex._symbols)
+        sig_b = ex.extra_signals["BBB/USDT:USDT"]
+        self.assertTrue(sig_b["light"])
+        self.assertEqual(sig_b["vote"]["direction"], "short")  # negative change% → short
+        # open position rides free: present in universe, not a consumed shortlist slot
+        self.assertIn("OPEN/USDT:USDT", ex._symbols)
+        self.assertEqual(rep["stages"]["heat"]["pinned_open"], 1)
 
     def test_wide_spread_is_culled_by_code_not_llm(self):
         from trading.broker_sense.funnel import BrokerSenseFunnel

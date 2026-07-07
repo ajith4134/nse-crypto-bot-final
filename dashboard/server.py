@@ -1328,10 +1328,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps(data).encode(), "application/json")
             except Exception as e:
                 return self._send(200, json.dumps({"error": str(e)[:200]}).encode(), "application/json")
-        if path == "/api/trading/account_watchlist":          # Brain-Open Upstox watchlist mirror
+        if path == "/api/trading/account_watchlist":          # Brain-Open mirrors (Upstox + Binance ⭐)
             try:
                 from trading.broker_sense.account_watchlist import status as _aw_status
-                return self._send(200, json.dumps(_aw_status()).encode(), "application/json")
+                out = _aw_status()                             # upstox fields stay top-level (compat)
+                try:
+                    from trading.broker_sense.binance_watchlist import status as _bw_status
+                    out["binance"] = _bw_status()
+                except Exception as e:
+                    out["binance"] = {"error": str(e)[:160]}
+                return self._send(200, json.dumps(out).encode(), "application/json")
             except Exception as e:
                 return self._send(200, json.dumps({"error": str(e)[:200]}).encode(),
                                   "application/json")

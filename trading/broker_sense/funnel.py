@@ -37,7 +37,8 @@ from trading.broker_sense.watchlist import HotWatchlist
 
 _STATUS_FILE = "broker_sense_status.json"
 _NSE_LOG = "broker_sense_nse_trades.json"
-_MIN_N, _MAX_N = 4, 30
+_MIN_N, _MAX_N = 4, 60      # ceiling raised 30→60 (owner 2026-07-07: 32 GB box, use it);
+                            # the budget-adaptive loop still governs actual growth
 # brokers the brain should proactively ask to CONNECT (log into the real account) per market —
 # owner's first slice is AngelOne (NSE) + Binance (crypto). Override with BROKER_SENSE_LOGINS.
 # the market → primary account broker resolves at call time from data_sources (owner-switchable,
@@ -212,10 +213,18 @@ class BrokerSenseFunnel:
                 pass
         hot = self.watch.hot()
         by_sym = {r["symbol"]: r for r in rows}
+        # Open positions ride FREE (2026-07-07 throughput fix): pinning them INTO the
+        # shortlist made 3-5 open trades consume nearly all of the floor-4 slots,
+        # leaving ~0-1 NEW candidates per cycle — the real reason "max trades
+        # unlimited" still opened almost nothing. shortlist_n now budgets NEW symbols
+        # only; opens are appended on top (they still need the eyes for exits).
+        new_hot = [s for s in hot if s not in open_syms][: self.shortlist_n]
         picks = [by_sym.get(s, {"symbol": s, "lane": "tradingview"})
-                 for s in hot][: self.shortlist_n]
+                 for s in new_hot]
+        picks += [by_sym.get(s, {"symbol": s, "lane": "open-position"})
+                  for s in open_syms]
         rep["stages"]["heat"] = {"hot": len(hot), "shortlist": len(picks),
-                                 "pinned_open": len(open_syms)}
+                                 "new": len(new_hot), "pinned_open": len(open_syms)}
 
         # 3 ── LOOK: candle images → CNN/LLM (budget-aware timeframe set + HARD deadline:
         # past 70% of the budget, capture switches to the fast local API render so this
@@ -299,6 +308,44 @@ class BrokerSenseFunnel:
                 tradeable.append(s)
         rep["stages"]["verify"] = {"checked": len(app_signals), "tradeable": len(tradeable),
                                    **self.book.stats}
+
+        # 4a ── EXPLORE-WIDE lane (owner 2026-07-07: "max trades is unlimited — why so few
+        # opening?"): in paper explore, every OTHER screened candidate the broker pickers
+        # surfaced also becomes tradeable with an honest LIGHT signature (lane + the
+        # broker's own change% → direction; light:true marks that the deep lenses didn't
+        # run). Explore entries take the fast path in the executor — they only need a
+        # direction — so breadth costs ~one /forceenter each, while the budget-adaptive
+        # deep shortlist above keeps the expensive lenses bounded. Crypto only (the NSE
+        # branch needs the deep `directions`); cap via BROKER_SENSE_EXPLORE_WIDE_N
+        # (default 16, 0 disables). Fully journaled like every explore entry (#13).
+        if _explore and self.market == "crypto":
+            try:
+                wide_n = int(os.environ.get("BROKER_SENSE_EXPLORE_WIDE_N", "16") or 0)
+            except ValueError:
+                wide_n = 16
+            have = set(app_signals) | open_syms
+            wide = []
+            for r in rows:
+                if len(wide) >= wide_n:
+                    break
+                s = r.get("symbol")
+                if not s or s in have:
+                    continue
+                lane = str(r.get("lane") or "")
+                direction = "short" if ("loser" in lane or "short" in lane) else "long"
+                try:
+                    if r.get("change") is not None:
+                        direction = "long" if float(r["change"]) >= 0 else "short"
+                except Exception:
+                    pass
+                app_signals[s] = {"light": True,
+                                  "vote": {"direction": direction, "p_up": None},
+                                  "screener": {k: r.get(k) for k in
+                                               ("lane", "preset", "change", "volume")}}
+                tradeable.append(s)
+                wide.append(s)
+                have.add(s)
+            rep["stages"]["explore_wide"] = {"added": len(wide), "cap": wide_n}
 
         # 4b ── SMART-MONEY SCOUTS + CONSENSUS (W4, owner goal 2026-07-07): named scouts
         # sweep the eyes' captures + this cycle's fusion; Sophie fires only on multi-scout

@@ -149,3 +149,29 @@ several of these in the goal message → treated as pre-approved (marked ★).
    eyes. Effort MED, needs both crawls warm.
 8. **advintel activation** (activate) — the parked insider-style intel subsystem feeds the
    NSE-side scouts once the UI crawl reaches those broker pages. Effort MED.
+
+## 2026-07-07 — Ultra-brain + eyes/hand round 2 (proposed; post-autoresearch/wide-funnel state)
+Grounded in state-20260707-165922 (673 modules) + today's shipped work (live autoresearch,
+explore-wide funnel, Binance/Upstox Brain-Open mirrors, ui_candles cross-process store).
+
+1. **Local grounded eyes (REPLACE cloud-vision clicks)** — drive human_ui clicks/reads with
+   the VENDORED OmniParser (v2 icon+box detector) + a local caption head: coordinates come
+   from local parsing, the cloud LLM is consulted only on ambiguity. Rate-limit-proof,
+   ~10x faster per action, $0. Modules: trading/brain/vision/human_ui.py + vendor/omniparser.
+2. **Hand skill-cache (Voyager-for-UI)** — record every SUCCESSFUL explore() action trajectory
+   (goal + layout-hash → steps) into ocular layout memory and REPLAY it next time; fall back
+   to explore + re-record on failure; per-skill trust via W7 track_record rule-of-three.
+   Cuts vision calls ~90% on repeat tasks (watchlist add/remove, tab nav). vendor/voyager.
+3. **Champion bandit allocator** — allocate paper capital across the autoresearch library's
+   champions with a contextual bandit (regime features → Thompson sampling) instead of
+   single-best-per-market; learning allocation IS the edge compounding. reuse: mabwiser.
+4. **Distilled entry micro-policy (REPLACE per-cycle backtests)** — nightly distill the
+   153-strategy + fusion decision surface into a per-coin GBDT policy; decide() drops from
+   seconds to ~ms, releasing the funnel budget that throttled breadth (today's root cause).
+   Modules: percoin_decider + TradeOutcomeNet + lightgbm (installed).
+5. **Concurrent free-eyes fusion** — run the DOM / local-OCR / network-interception
+   perception lanes CONCURRENTLY per page and fuse (they run serially today); 32 GB
+   headroom standing order. Module: broker_sense free-eyes ladder.
+6. **Off-policy funnel-weight evaluation** — upgrade picker/lane hit-rate learning to
+   doubly-robust off-policy evaluation over the journal's decision_snapshot columns, so
+   lane weights learn from EVERY logged decision, not just taken ones. Module: funnel-learn.
