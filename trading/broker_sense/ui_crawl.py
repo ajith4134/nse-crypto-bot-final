@@ -38,6 +38,16 @@ def _binance_url(symbol: str) -> str:
     return f"https://www.binance.com/en/trade/{flat}?type=spot"
 
 
+def _upstox_url(symbol: str) -> str:
+    """Upstox Pro chart deep-link for an NSE symbol (owner: Binance AND Upstox parity)."""
+    tok = re.sub(r"[^A-Za-z0-9|_-]", "", (symbol or "").upper())
+    return f"https://pro.upstox.com/trade?symbol={tok}"
+
+
+def _page_url(broker: str, symbol: str) -> str:
+    return _upstox_url(symbol) if broker == "upstox" else _binance_url(symbol)
+
+
 def _expected_info_gain(sym: str, now: float, visits: dict, ui_cov: set) -> float:
     """Active-inference page selection (invent-beyond #2): visit the page that most
     reduces our uncertainty about coverage, not round-robin. Higher = more worth a look.
@@ -85,9 +95,10 @@ def _mark_visited(symbol: str, ok: bool) -> None:
 
 
 def crawl_once(sessions, symbols: list[str], *, deadline: float | None = None,
-               k: int = _PER_CYCLE) -> dict:
-    """Visit up to k due symbol pages on Binance. Returns an honest report."""
-    report = {"visited": [], "skipped": 0, "errors": []}
+               k: int = _PER_CYCLE, broker: str = "binance") -> dict:
+    """Visit up to k due symbol pages on `broker` (binance for crypto, upstox for NSE —
+    owner: both apps get equal UI-only coverage). Returns an honest report."""
+    report = {"visited": [], "skipped": 0, "errors": [], "broker": broker}
     todo = _due_symbols([s for s in symbols if s], k)
     if not todo:
         report["skipped"] = len(symbols)
@@ -97,9 +108,9 @@ def crawl_once(sessions, symbols: list[str], *, deadline: float | None = None,
             report["errors"].append("deadline before finishing crawl")
             break
         try:
-            pg = sessions.page("binance", _binance_url(sym))
+            pg = sessions.page(broker, _page_url(broker, sym))
             if pg is None:
-                report["errors"].append(f"{sym}: no binance page/session")
+                report["errors"].append(f"{sym}: no {broker} page/session")
                 _mark_visited(sym, False)
                 continue
             t0 = time.time()

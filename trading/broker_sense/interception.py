@@ -273,6 +273,8 @@ class NetworkRecorder:
         self.captured += 1
         if body is not None and kind != "unknown":
             self._cache[(broker, kind)] = {"body": body, "ts": time.time(), "url": url}
+            if self.captured % 25 == 0:            # cheap periodic cross-process snapshot
+                self._persist_freshness()
             if kind == "candles":
                 # UI-ONLY DATA (owner 2026-07-07): index the app's own kline payloads by
                 # (symbol, tf) so the funnel can trade on what the EYES see — no polling.
@@ -297,8 +299,31 @@ class NetworkRecorder:
     def status(self) -> dict:
         fresh = {f"{b}:{k}": round(time.time() - v["ts"], 1)
                  for (b, k), v in self._cache.items()}
-        return {"captured": self.captured, "live_kinds": fresh,
-                "registry": self.registry.status()}
+        out = {"captured": self.captured, "live_kinds": fresh,
+               "registry": self.registry.status()}
+        # cross-process freshness snapshot (owner #10 health check runs in another
+        # process and can't see this RAM cache) — persist per (broker, kind) ts.
+        try:
+            from trading import state
+            snap = {f"{b}|{k}": v["ts"] for (b, k), v in self._cache.items()}
+            if snap:
+                state.save_json("interception_freshness.json",
+                                {"ts": time.time(), "kinds": snap})
+        except Exception:
+            pass
+        return out
+
+    def _persist_freshness(self) -> None:
+        """Called from the capture path so a cross-process reader (ui_health) sees fresh
+        eyes even when status() isn't polled."""
+        try:
+            from trading import state
+            snap = {f"{b}|{k}": v["ts"] for (b, k), v in self._cache.items()}
+            if snap:
+                state.save_json("interception_freshness.json",
+                                {"ts": time.time(), "kinds": snap})
+        except Exception:
+            pass
 
 
 _RECORDER: NetworkRecorder | None = None

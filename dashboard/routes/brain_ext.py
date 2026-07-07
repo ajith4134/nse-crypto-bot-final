@@ -688,3 +688,18 @@ def handle_curiosity(h):
         body = _json.dumps({"available": False,
                             "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_ui_health(h):
+    """GET /api/trading/ui_health — #10: proves the eyes→brain→hand→memory chain is
+    functional on BOTH accounts (Binance for crypto, Upstox for NSE) from real state:
+    session, eyes-live (interception freshness), UI-data symbols, crawl recency, hand."""
+    import json as _json
+
+    from trading.broker_sense.ui_health import check
+    try:
+        body = _json.dumps(check()).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")

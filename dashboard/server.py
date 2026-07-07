@@ -1083,6 +1083,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/curiosity":                  # body → dashboard/routes/brain_ext.py (invent-beyond #1)
             from dashboard.routes import brain_ext
             return brain_ext.handle_curiosity(self)
+        if path == "/api/trading/ui_health":                  # body → dashboard/routes/brain_ext.py (#10 eyes-hand chain health)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_ui_health(self)
         if path == "/api/brain/agent/status":                 # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
             from dashboard.routes import brain_ext
             return brain_ext.handle_agent_status(self)

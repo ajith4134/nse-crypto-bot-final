@@ -651,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -2688,13 +2688,18 @@ _trading/broker_sense/trade_columns.py — turn the App Driving School's discove
 
 ## `trading/broker_sense/ui_crawl.py`
 _trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
-- **functions:** `_binance_url(symbol) -> str`; `_expected_info_gain(sym, now, visits, ui_cov) -> float`; `_due_symbols(symbols, k) -> list[str]`; `_mark_visited(symbol, ok) -> None`; `crawl_once(sessions, symbols) -> dict`; `status() -> dict`
+- **functions:** `_binance_url(symbol) -> str`; `_upstox_url(symbol) -> str`; `_page_url(broker, symbol) -> str`; `_expected_info_gain(sym, now, visits, ui_cov) -> float`; `_due_symbols(symbols, k) -> list[str]`; `_mark_visited(symbol, ok) -> None`; `crawl_once(sessions, symbols) -> dict`; `status() -> dict`
 - **imports:** __future__, os, re, time, trading
 
 ## `trading/broker_sense/ui_data.py`
 _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._
 - **functions:** `enabled() -> bool`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`
 - **imports:** __future__, os, re, time, trading
+
+## `trading/broker_sense/ui_health.py`
+_trading/broker_sense/ui_health.py — Human-UI self-check (owner goal 2026-07-07, #10)._
+- **functions:** `_has_session(broker) -> bool`; `_eyes_fresh(broker, max_age_s) -> dict`; `_crawl_recent(max_age_s) -> dict`; `_hand_available() -> dict`; `check() -> dict`
+- **imports:** __future__, time, trading
 
 ## `trading/broker_sense/watchlist.py`
 _trading/broker_sense/watchlist.py — hot watchlist with TTL (saver E)._

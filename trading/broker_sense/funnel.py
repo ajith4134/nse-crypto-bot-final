@@ -358,14 +358,15 @@ class BrokerSenseFunnel:
 
         # 5a ── UI CRAWL (owner goal 2026-07-07, #10/#11): walk the eyes across a few due
         # symbol pages so the app's OWN kline/depth XHRs land in interception → ui_data.
-        # This is what warms UI-only-data coverage; budget-tail slot, never blocks entry.
-        if self.market == "crypto" and os.environ.get("UI_CRAWL", "1") in \
-                ("1", "true", "TRUE", "yes"):
+        # BOTH apps get equal coverage (owner: Binance AND Upstox) — crypto→binance,
+        # NSE→upstox. Budget-tail slot, never blocks entry.
+        if os.environ.get("UI_CRAWL", "1") in ("1", "true", "TRUE", "yes"):
             try:
                 from trading.broker_sense import ui_crawl, ui_data
                 _syms = sorted(set(tradeable) | open_syms)
+                _broker = "binance" if self.market == "crypto" else "upstox"
                 rep["stages"]["ui_crawl"] = ui_crawl.crawl_once(
-                    self.sessions, _syms, deadline=t0 + budget * 1.15)
+                    self.sessions, _syms, deadline=t0 + budget * 1.15, broker=_broker)
                 # the GOVERNOR (owner's standing order): flip UI-only-data ON by itself
                 # the moment capture coverage is provably warm — no human reminder.
                 rep["stages"]["ui_only_governor"] = ui_data.maybe_auto_flip(_syms)
