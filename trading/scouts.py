@@ -169,6 +169,44 @@ def run_crowd_psych_scout() -> int:
     return n
 
 
+_ONCHAIN_TS = 0.0
+_ONCHAIN_CACHE: dict = {}
+
+
+def run_onchain_scout() -> int:
+    """'Maya-onchain': the EXISTING free-keyless on-chain composite (trading/altdata/
+    onchain.py — fear&greed + BTC tx-count whale proxy + mempool) as a MACRO smart-money
+    vote on BTC. One cached call every 30 min (macro, not per-symbol), so it is NOT the
+    per-symbol free-API polling the owner disabled — but it's still guarded by
+    ONCHAIN_SCOUT (default on; set 0 to silence under strict UI-only). Audit 2026-07-07
+    found this subsystem built but never wired into any decision."""
+    global _ONCHAIN_TS, _ONCHAIN_CACHE
+    if os.environ.get("ONCHAIN_SCOUT", "1") not in ("1", "true", "TRUE", "yes"):
+        return 0
+    if time.time() - _ONCHAIN_TS < 1800 and _ONCHAIN_CACHE:
+        snap = _ONCHAIN_CACHE
+    else:
+        try:
+            from trading.altdata.onchain import OnchainLane
+            snap = OnchainLane().snapshot()
+            _ONCHAIN_CACHE, _ONCHAIN_TS = snap, time.time()
+        except Exception:
+            return 0
+    comp = snap.get("composite")
+    if comp is None or abs(float(comp)) < 0.4 or not snap.get("available"):
+        return 0
+    # macro BTC flow → a vote on BTC perp + spot (the anchor the crowd follows)
+    n = 0
+    for sym in ("BTC/USDT:USDT", "BTC/USDT"):
+        record_signal("maya-onchain", symbol=sym, market="crypto",
+                      direction="long" if comp > 0 else "short",
+                      strength=min(1.0, abs(float(comp))),
+                      detail=f"on-chain composite {float(comp):+.2f} "
+                             f"(fear&greed+whale+mempool, free keyless)")
+        n += 1
+    return n
+
+
 def run_fusion_conviction_scout(app_signals: dict | None = None) -> int:
     """'Eddie': the funnel's own multi-TF fusion at HIGH conviction (|confluence|≥0.6)
     counts as one independent voice (it already blends numeric+vision lenses).
@@ -257,7 +295,8 @@ def run_all(app_signals: dict | None = None) -> dict:
     """One scout sweep + consensus pass (called from the funnel cycle; never raises)."""
     out = {"eddie": run_fusion_conviction_scout(app_signals),
            "maya": run_whale_prints_scout(),
-           "frank": run_crowd_psych_scout()}
+           "frank": run_crowd_psych_scout(),
+           "maya_onchain": run_onchain_scout()}
     out["consensus_events"] = len(sophie_consensus())
     return out
 

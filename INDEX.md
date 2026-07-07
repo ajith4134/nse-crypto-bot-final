@@ -3570,7 +3570,7 @@ _trading/sandbox/run_sandbox_loop.py — drive the fast paper sandbox on a short
 
 ## `trading/scouts.py`
 _trading/scouts.py — W4 smart-money scout swarm + consensus oracle + dispatcher._
-- **functions:** `_cfg_min_agree() -> int`; `_cfg_window_s() -> float`; `_store() -> dict`; `_save(d) -> None`; `record_signal(scout) -> dict`; `run_whale_prints_scout() -> int`; `run_crowd_psych_scout() -> int`; `run_fusion_conviction_scout(app_signals) -> int`; `sophie_consensus() -> list[dict]`; `consensus_for(symbol) -> dict | None`; `_ross_dispatch(events) -> None`; `run_all(app_signals) -> dict`; `status() -> dict`
+- **functions:** `_cfg_min_agree() -> int`; `_cfg_window_s() -> float`; `_store() -> dict`; `_save(d) -> None`; `record_signal(scout) -> dict`; `run_whale_prints_scout() -> int`; `run_crowd_psych_scout() -> int`; `run_onchain_scout() -> int`; `run_fusion_conviction_scout(app_signals) -> int`; `sophie_consensus() -> list[dict]`; `consensus_for(symbol) -> dict | None`; `_ross_dispatch(events) -> None`; `run_all(app_signals) -> dict`; `status() -> dict`
 - **imports:** __future__, os, time, trading
 
 ## `trading/screener/__init__.py`
