@@ -1279,6 +1279,22 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/online/status":              # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_online_status(self)
+        if path == "/api/trading/xray":                       # Upstox Stock X-Ray (fused snapshot)
+            try:
+                from urllib.parse import urlparse, parse_qs
+                from trading.broker_sense import stock_xray as _sx
+                qs = parse_qs(urlparse(self.path).query)
+                sym = (qs.get("symbol") or [""])[0].strip().upper()
+                if sym:
+                    exch = (qs.get("exchange") or ["NSE"])[0]
+                    seg = (qs.get("segment") or ["intraday"])[0]
+                    fresh = (qs.get("refresh") or ["0"])[0] in ("1", "true")
+                    data = _sx.capture(sym, exch, seg) if fresh else (_sx.get_xray(sym) or _sx.capture(sym, exch, seg))
+                else:
+                    data = {"recent": _sx.latest(20)}
+                return self._send(200, json.dumps(data).encode(), "application/json")
+            except Exception as e:
+                return self._send(200, json.dumps({"error": str(e)[:200]}).encode(), "application/json")
         if path == "/api/trading/account_watchlist":          # Brain-Open Upstox watchlist mirror
             try:
                 from trading.broker_sense.account_watchlist import status as _aw_status

@@ -237,6 +237,15 @@ class BrainDecider:
             return None     # any failure → loop falls back to momentum for this tick
 
 
+def _xray_on_open(symbol: str, exchange: str, segment: str) -> None:
+    """Background Stock X-Ray capture when a trade opens (never raises into the trade path)."""
+    try:
+        from trading.broker_sense.stock_xray import capture_on_open
+        capture_on_open(symbol, exchange or "NSE", segment or "intraday")
+    except Exception:
+        pass
+
+
 def _cortex_shadow_nse(market: str, symbol: str, window, d: dict,
                        in_position: bool) -> dict:
     """NSE twin of brain_executor._cortex_shadow: the SAME CortexSignalSource
@@ -1351,6 +1360,16 @@ class LiveTradeLoop:
             "ctx": self._entry_context(market, symbol, brain),
             # snapshot the brain decision that produced THIS entry (if any) for the journal
             "brain_entry": dict(brain) if isinstance(brain, dict) else None}
+        # X-RAY: on trade-open, capture the stock's full fused snapshot (multi-TF candles +
+        # indicators + depth + circuit + demand/supply zones) in the background so it never
+        # slows the entry. NSE only (OpenAlgo-backed). See trading/broker_sense/stock_xray.py.
+        if not is_crypto:
+            try:
+                import threading as _xth
+                _xth.Thread(target=lambda: _xray_on_open(symbol, _EXCHANGE.get("NSE", "NSE"), seg),
+                            daemon=True, name=f"xray:{symbol}").start()
+            except Exception:
+                pass
         ot = self._open[f"{market.upper()}:{symbol}"]
         # order-book trader psychology at entry (computed at decide time; refetch if absent)
         ot["psych"] = self._psych_at_entry(market, symbol, seg)

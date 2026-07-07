@@ -1902,6 +1902,11 @@ _Trading Phase T8.8 (skill library + observability + self-improvement) tests —
 - **functions:** `_skill(name, market, metric)`
 - **imports:** __future__, itertools, numpy, os, trading, trading.brain.observability, trading.brain.selfimprove, trading.brain.skills, trading.strategy.control, unittest, warnings
 
+## `tests/test_stock_xray.py`
+_Tests for the Stock X-Ray pure analytics (no network): exchange routing, zones, depth, candles._
+- **classes:** TestExchangeRouting, TestCandleConversion, TestZones, TestDepthAndCircuit
+- **imports:** trading.broker_sense.stock_xray, unittest
+
 ## `tests/test_strategy_t8.py`
 _Trading Phase T8.1 (Strategy-Evolution Engine) acceptance tests — fully offline._
 - **classes:** TestFeatures, TestGenome, TestOperators, TestBacktest, TestWalkForward
@@ -2596,6 +2601,11 @@ _trading/broker_sense/sessions.py — persistent logged-in broker browser sessio
 - **classes:** SessionManager
 - **functions:** `_sess_path(broker)`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `_challenge_present(pg) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
 - **imports:** __future__, os, re, stat, time, trading, trading.broker_sense.brokers
+
+## `trading/broker_sense/stock_xray.py`
+_trading/broker_sense/stock_xray.py — the Upstox Stock X-Ray: one FUSED per-stock snapshot._
+- **functions:** `_oa()`; `_is_option(symbol, segment) -> bool`; `_opt_exchange(symbol, exchange, segment) -> str`; `demand_supply_zones(candles) -> dict`; `_cluster(levels, price) -> list[dict]`; `circuit_bands(quote) -> dict`; `depth_imbalance(depth) -> dict`; `capture(symbol, exchange, segment) -> dict`; `_summary(snap) -> dict`; `_visual_capture(symbol, sessions) -> dict`; `_persist(symbol, snap) -> None`; `get_xray(symbol) -> Optional[dict]`; `latest(limit) -> list[dict]`; `capture_on_open(symbol, exchange, segment) -> None`; `_to_list_candles(rows) -> list`; `_slim_candle(r) -> Optional[dict]`; `_f(d, key) -> Optional[float]`
+- **imports:** __future__, time, trading, typing
 
 ## `trading/broker_sense/trade_columns.py`
 _trading/broker_sense/trade_columns.py — turn the App Driving School's discovered app labels_
@@ -3341,7 +3351,7 @@ _trading/online/controls.py — shared, persisted control surface (O5)._
 ## `trading/online/live_loop.py`
 _trading/online/live_loop.py — the always-on LIVE trade loop (the missing daemon)._
 - **classes:** BrainDecider, LiveTradeLoop
-- **functions:** `trade_type(market, instrument, product, exchange) -> str`; `momentum_decider(window, band)`; `_cortex_shadow_nse(market, symbol, window, d, in_position) -> dict`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
+- **functions:** `trade_type(market, instrument, product, exchange) -> str`; `momentum_decider(window, band)`; `_xray_on_open(symbol, exchange, segment) -> None`; `_cortex_shadow_nse(market, symbol, window, d, in_position) -> dict`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
 - **imports:** __future__, collections, threading, time, trading.online, trading.online.session, trading.online.state
 
 ## `trading/online/replay.py`
