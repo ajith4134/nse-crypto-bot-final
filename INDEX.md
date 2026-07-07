@@ -1432,6 +1432,11 @@ _candle_updater throttle — batched, de-prioritised OHLCV refresh._
 - **classes:** TestCandleUpdaterThrottle
 - **imports:** __future__, trading.crypto.freqtrade.candle_updater, unittest, warnings
 
+## `tests/test_champion_lineage.py`
+_W5 champion lineage + leak tripwire tests — isolated STATE_DIR._
+- **classes:** ChampionLineageTest
+- **imports:** pathlib, tempfile, unittest
+
 ## `tests/test_chat.py`
 _P4.1 acceptance tests: the brain-chat plumbing is well-formed and degrades gracefully._
 - **classes:** TestChat
@@ -3702,7 +3707,7 @@ _trading/strategy/generators/alpha_ops.py — formulaic-alpha operator library._
 ## `trading/strategy/generators/base.py`
 _trading/strategy/generators/base.py — the Strategy-Generator Portfolio backbone._
 - **classes:** Candidate, StrategyGenerator
-- **functions:** `register_candidate_type(tag)`; `rebuild(payload)`; `evaluate_and_admit(candidates, ohlcv) -> dict`
+- **functions:** `register_candidate_type(tag)`; `rebuild(payload)`; `evaluate_and_admit(candidates, ohlcv) -> dict`; `_update_champion(market, cid, metrics) -> None`
 - **imports:** __future__, pandas, typing
 
 ## `trading/strategy/generators/expression.py`

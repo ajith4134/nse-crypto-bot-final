@@ -121,6 +121,25 @@ def evaluate_and_admit(candidates: list, ohlcv: pd.DataFrame, *, library, market
                    "oos_sharpe": rep.oos.get("oos_sharpe"),
                    "oos_total_return": rep.oos.get("oos_total_return"),
                    "n_trades": rep.oos.get("n_trades"), "source": source}
+        # W5 LOOK-AHEAD TRIPWIRE (owner goal 2026-07-07; video vp1): results that look
+        # TOO good are leakage suspects, not genius — auto-reject + log. Thresholds are
+        # generous on purpose (real edges never test like this on OOS folds).
+        try:
+            _sh = float(metrics.get("oos_sharpe") or 0.0)
+            _rt = float(metrics.get("oos_total_return") or 0.0)
+            if _sh > 8.0 or _rt > 10.0:                  # >8 OOS Sharpe or >1000% return
+                import time as _time
+
+                from trading import state as _st
+                _log = _st.load_json("leak_tripwire.json", [])
+                _log.append({"ts": _time.time(), "id": getattr(c, "id", "?"),
+                             "market": market, "source": source, "oos_sharpe": _sh,
+                             "oos_total_return": _rt,
+                             "verdict": "rejected: too-good-to-be-true (leak suspect)"})
+                _st.save_json("leak_tripwire.json", _log[-200:])
+                continue
+        except Exception:
+            pass
         passed.append((c, metric, metrics, rep.oos.get("fold_returns")))
 
     # pass 2 (⑥): family-wise error control — StepM keeps only candidates that beat a zero
@@ -150,7 +169,42 @@ def evaluate_and_admit(candidates: list, ohlcv: pd.DataFrame, *, library, market
             admitted.append({"id": cid, "metric": round(metric, 4),
                              "improved": res.get("improved", False)})
             survivors.append(c)
+            # W5 CHAMPION LINEAGE (videos vp1/vp5): a new champion per market only when
+            # it beats the incumbent on ALL THREE metrics (DSR, OOS Sharpe, OOS return)
+            # — the vp5 triple gate. Every generation (accepted or not) is recorded so
+            # the Trading-Researcher view can show the score progression honestly.
+            try:
+                _update_champion(market, cid, metrics)
+            except Exception:
+                pass
     return {"generator": source, "market": market, "tested": tested,
             "n_trials": n_trials, "guardrail_passed": len(passed),
             "fwer_applied": keep_ids is not None,
             "admitted": len(admitted), "admitted_ids": admitted, "survivors": survivors}
+
+
+def _update_champion(market: str, cid: str, metrics: dict) -> None:
+    """Champion/challenger ledger per market (state: champion_lineage.json)."""
+    import time as _time
+
+    from trading import state as _st
+    d = _st.load_json("champion_lineage.json", {})
+    m = d.setdefault(market, {"generation": 0, "champion": None, "history": []})
+    m["generation"] += 1
+    cand = {"id": cid, "dsr": metrics.get("dsr"), "oos_sharpe": metrics.get("oos_sharpe"),
+            "oos_total_return": metrics.get("oos_total_return"),
+            "generation": m["generation"], "ts": _time.time()}
+    champ = m.get("champion")
+
+    def _f(x):
+        return float(x) if x is not None else float("-inf")
+    beats = champ is None or (
+        _f(cand["dsr"]) > _f(champ.get("dsr"))
+        and _f(cand["oos_sharpe"]) > _f(champ.get("oos_sharpe"))
+        and _f(cand["oos_total_return"]) > _f(champ.get("oos_total_return")))
+    entry = {**cand, "became_champion": bool(beats),
+             "prior_champion": (champ or {}).get("id")}
+    if beats:
+        m["champion"] = cand
+    m["history"] = (m.get("history") or [])[-199:] + [entry]
+    _st.save_json("champion_lineage.json", d)
