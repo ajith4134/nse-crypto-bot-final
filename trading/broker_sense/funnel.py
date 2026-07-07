@@ -342,6 +342,19 @@ class BrokerSenseFunnel:
                                                     if "error" not in p]}
         self.presets.record(self.market, preset, traded=traded, wins=0, pnl=0.0)
 
+        # 5b ── EVIDENCE LANE (W3, owner goal 2026-07-07): blind-baseline virtual entries +
+        # skip counterfactuals + horizon resolution — rides THIS cycle's fused prices,
+        # zero extra I/O (UI-only-data safe). Judgment must never break trading.
+        try:
+            from trading import evidence
+            _ent = (rep["stages"].get("execute", {}) or {}).get("entered") or []
+            evidence.observe_cycle(market=self.market, segment=segment,
+                                   signals=app_signals, entered=list(_ent),
+                                   vetoed=(rep["stages"].get("execute", {}) or {})
+                                   .get("vetoed"))
+        except Exception as e:
+            rep["stages"]["evidence_error"] = f"{type(e).__name__}: {e}"[:100]
+
         # 6 ── CLEAN (owner's step 7) + adaptive budget (saver I)
         rep["screenshots_deleted"] = cv.wipe() + self.vision.stats.get("deleted", 0)
         took = time.monotonic() - t0

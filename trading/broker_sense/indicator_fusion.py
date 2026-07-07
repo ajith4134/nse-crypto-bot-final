@@ -248,7 +248,21 @@ def indicators_from_ohlcv(rows: list) -> dict:
 
 # ── multi-timeframe confluence + vision fuse + meta-label + barriers ──────────────────
 def _fetch(sym: str, market: str, tf: str, bars: int = _BARS) -> list | None:
-    """Candles for indicators — ccxt direct (fast) with data_failsafe fallback. Honest None."""
+    """Candles for indicators. UI_ONLY_DATA=1 (owner 2026-07-07): the eyes' captured
+    app payloads are the ONLY source — an honest None + evidence-lane data-failure
+    record when the eyes haven't seen this symbol/tf (never a silent API fallback).
+    Flag off: ccxt direct (fast) with data_failsafe fallback, as before."""
+    from trading.broker_sense import ui_data
+    if ui_data.enabled():
+        rows = ui_data.ui_ohlcv(sym, timeframe=tf, limit=bars)
+        if rows is None:
+            try:
+                from trading import evidence
+                evidence.record_data_failure("ui_data",
+                                             f"no fresh UI candles for {sym} {tf}")
+            except Exception:
+                pass
+        return rows
     if market == "crypto":
         try:
             from trading.broker_sense.app_school import _ccxt_exchange

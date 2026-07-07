@@ -88,6 +88,17 @@ class BrainLearningCycle:
                          "foundry": None, "evolved": None}
         trades = self._trades()
 
+        # 0) GOAL SCOREBOARD (W1, owner goal 2026-07-07) — refresh the trailing-30d
+        #    per-segment verdicts BEFORE learning so every downstream step (hypotheses,
+        #    foundry, evolution) sees where we stand vs goal.yaml. "No vibes, just numbers."
+        try:
+            from trading import goal
+            sb = goal.scoreboard()
+            summary["goal"] = {k: v.get("verdict")
+                               for k, v in (sb.get("segments") or {}).items()}
+        except Exception as e:
+            summary["goal"] = {"error": f"{type(e).__name__}: {e}"[:120]}
+
         # 1) LEARN — hypothesis ledger over real outcomes
         try:
             summary["learned"] = self.ledger().run_cycle(trades)

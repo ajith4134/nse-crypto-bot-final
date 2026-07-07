@@ -34,6 +34,11 @@ export UQ_GATE="${UQ_GATE:-0}"
 export CRYPTO_MIN_SCORE="${CRYPTO_MIN_SCORE:-0.25}"
 export CRYPTO_MIN_PSR="${CRYPTO_MIN_PSR:-0.10}"
 export PROFIT_TAILGATE="${PROFIT_TAILGATE:-1}"
+# UI-ONLY DATA (owner goal 2026-07-07): 1 = the eyes' captured trading-app payloads are
+# the ONLY market-data source (every free-API poll/fallback disabled; misses are honest
+# data-failures in the evidence lane). Flip to 1 once /api/trading/ui_data shows the
+# eyes' per-symbol candle coverage is warm (the funnel goes dark on uncovered symbols).
+export UI_ONLY_DATA="${UI_ONLY_DATA:-0}"
 # Strategy CREATION/MUTATION/EVOLUTION engine (DEAP NSGA-II). PAPER learn-lab: armed so the
 # brain breeds new strategies each learning cycle and trades the best guardrail-passed survivor
 # (trading/strategy/evolved_link.py). REVERT to =0 before going live until the paper→live
@@ -95,6 +100,7 @@ fi
 # crypto cycle (blew 120s→2455s) can never starve NSE and stop NSE trades opening during market
 # hours. Select the market with BROKER_SENSE_MARKETS. Shared env below.
 _bs_env() { echo "CORTEX_SIGNAL=$CORTEX_SIGNAL UQ_GATE=$UQ_GATE BRAIN_RAM_BUDGET_GB=$BRAIN_RAM_BUDGET_GB \
+UI_ONLY_DATA=$UI_ONLY_DATA \
 BROKER_SENSE_BUDGET=$BROKER_SENSE_BUDGET BRAIN_WARM_ALL_PAIRS=$BRAIN_WARM_ALL_PAIRS \
 BRAIN_EXPLORE_OPEN_ALL=$BRAIN_EXPLORE_OPEN_ALL BRAIN_EXPLORE_GRADUATE_N=$BRAIN_EXPLORE_GRADUATE_N \
 BRAIN_EXPLORE_GRADUATE_ACC=$BRAIN_EXPLORE_GRADUATE_ACC BRAIN_EXPLORE_GRADUATE_WINDOW=$BRAIN_EXPLORE_GRADUATE_WINDOW"; }

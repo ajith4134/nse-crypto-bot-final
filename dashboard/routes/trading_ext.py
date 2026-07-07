@@ -496,7 +496,7 @@ def handle_crypto_predictions(h):
                 # pages; enriching all 500 makes net.predict ~26s. Newest-first by trade_id.
                 raw = [ft for ft in cli.closed_trades() if isinstance(ft, dict)]
                 raw.sort(key=lambda ft: ft.get("trade_id") or 0, reverse=True)
-                closed_light = [map_trade(ft).to_dict() for ft in raw[:120]]
+                closed_light = [map_trade(ft, broker_ctx=False).to_dict() for ft in raw[:120]]
             except Exception:
                 closed_light = []
             srv._enrich_predictions(openrows, closed_light)

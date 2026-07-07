@@ -273,6 +273,14 @@ class NetworkRecorder:
         self.captured += 1
         if body is not None and kind != "unknown":
             self._cache[(broker, kind)] = {"body": body, "ts": time.time(), "url": url}
+            if kind == "candles":
+                # UI-ONLY DATA (owner 2026-07-07): index the app's own kline payloads by
+                # (symbol, tf) so the funnel can trade on what the EYES see — no polling.
+                try:
+                    from trading.broker_sense import ui_data
+                    ui_data.feed_capture(broker, url, body)
+                except Exception:
+                    pass
 
     def latest(self, broker: str, kind: str, *, max_age_s: float = _CACHE_TTL_S):
         """Freshest captured body for (broker, kind), or None if absent/stale."""

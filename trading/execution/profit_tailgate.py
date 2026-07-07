@@ -101,22 +101,45 @@ def learn(market: str, segment: str, *, peak_profit_pct: float, captured_pct: fl
     realized_frac = max(0.0, min(1.0, (captured_pct or 0) / peak_profit_pct))
     d = _store()
     dist = d.setdefault("dist", {})
+    # W2 rails: the trail distance is a LEARNED KNOB. The regime-refined and the general
+    # key move together as ONE logical change, gated ONCE through the surface (ownership
+    # + one-variable-only + versioned rule ledger). A refusal skips the write honestly
+    # (n still counts the observation); the refusal itself is logged for the dashboard.
+    gen = dist.setdefault(_key(market, segment),
+                          {"value": _DEFAULT_DIST.get(segment.lower(), 0.30), "n": 0})
+    if realized_frac < 0.6:
+        delta = -0.06                              # tighten: gave too much of the peak back
+    elif realized_frac > 0.85:
+        delta = +0.03                              # loosen: let winners run further
+    else:
+        delta = 0.0
+    n_new = gen["n"] + 1
+    alpha = min(0.3, 3.0 / (n_new + 2))
+    tgt = max(0.1, min(0.6, gen["value"] + delta))
+    new_gen = round((1 - alpha) * gen["value"] + alpha * tgt, 4)
+    allowed = True
+    if abs(new_gen - gen["value"]) >= 1e-6:
+        try:
+            from trading.brain import surface
+            allowed = surface.record_change(
+                "tailgate-learner",
+                knob=f"tailgate.distance_pct.{market.lower()}.{segment.lower()}",
+                old=gen["value"], new=new_gen,
+                evidence={"n_trades": n_new, "realized_frac": round(realized_frac, 3),
+                          "peak_profit_pct": round(peak_profit_pct, 3),
+                          "regime": regime or None},
+                reason=("tighten: gave back too much of peak" if delta < 0 else
+                        "loosen: captured nearly all — let winners run" if delta > 0
+                        else "hold")).get("allowed", True)
+        except Exception:
+            allowed = True
     for k in (_key(market, segment, regime), _key(market, segment)):
         cur = dist.setdefault(k, {"value": _DEFAULT_DIST.get(segment.lower(), 0.30), "n": 0})
-        # DIRECTION: captured a POOR fraction of the peak (trail too loose, gave too much back) →
-        # TIGHTEN (smaller distance, lock sooner). Captured almost all (could've ridden further) →
-        # LOOSEN slightly (let winners run). EMA toward the nudged target, bounded [0.1, 0.6].
-        if realized_frac < 0.6:
-            target = cur["value"] - 0.06          # tighten
-        elif realized_frac > 0.85:
-            target = cur["value"] + 0.03          # loosen
-        else:
-            target = cur["value"]
-        target = max(0.1, min(0.6, target))
-        n = cur["n"] + 1
-        alpha = min(0.3, 3.0 / (n + 2))
-        cur["value"] = round((1 - alpha) * cur["value"] + alpha * target, 4)
-        cur["n"] = n
+        if allowed and abs(new_gen - gen["value"]) >= 1e-6:
+            t2 = max(0.1, min(0.6, cur["value"] + delta))
+            a2 = min(0.3, 3.0 / (cur["n"] + 3))
+            cur["value"] = round((1 - a2) * cur["value"] + a2 * t2, 4)
+        cur["n"] = cur["n"] + 1
     state.save_json(_FILE, d)
 
 

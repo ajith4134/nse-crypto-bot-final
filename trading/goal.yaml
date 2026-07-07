@@ -1,0 +1,63 @@
+# trading/goal.yaml — THE machine-readable scoreboard (W1, owner goal 2026-07-07).
+# "The agent uses this file to score every trade. No vibes, just numbers."
+# Every closed trade and every segment's trailing window is scored against these numbers;
+# the brain treats movement toward `target_return_30d` as good and anything past
+# `failure_below` as failing. Edit freely — the brain re-reads on every scoring call.
+#
+# Semantics per segment:
+#   capital_base       — the capital (quote currency) the % targets are measured against
+#   target_return_30d  — SUCCESS: net return over a trailing 30 days (0.10 = +10%)
+#   max_drawdown       — bail-out: max tolerated peak-to-trough drawdown of cumulative PnL
+#   min_sharpe         — quality bar on daily returns over the window
+#   failure_below      — FAILURE line: trailing-30d return at/below this is "failing"
+#   reflection_every_days / one_variable_only — the scientific-method loop cadence (W2)
+
+defaults:
+  reflection_every_days: 7
+  one_variable_only: true
+
+crypto:
+  futures:
+    capital_base: 10000        # USDT (paper)
+    target_return_30d: 0.10
+    max_drawdown: 0.20
+    min_sharpe: 1.0
+    failure_below: -0.05
+  spot:
+    capital_base: 5000
+    target_return_30d: 0.06
+    max_drawdown: 0.15
+    min_sharpe: 1.0
+    failure_below: -0.04
+  prediction:
+    capital_base: 2000
+    target_return_30d: 0.15
+    max_drawdown: 0.30
+    min_sharpe: 0.8
+    failure_below: -0.10
+
+nse:
+  equity:
+    capital_base: 500000       # INR (sandbox)
+    target_return_30d: 0.06
+    max_drawdown: 0.10
+    min_sharpe: 1.0
+    failure_below: -0.04
+  futures:
+    capital_base: 500000
+    target_return_30d: 0.08
+    max_drawdown: 0.15
+    min_sharpe: 1.0
+    failure_below: -0.06
+  options:
+    capital_base: 300000
+    target_return_30d: 0.12
+    max_drawdown: 0.25
+    min_sharpe: 0.8
+    failure_below: -0.08
+  commodity:
+    capital_base: 200000
+    target_return_30d: 0.08
+    max_drawdown: 0.15
+    min_sharpe: 1.0
+    failure_below: -0.06

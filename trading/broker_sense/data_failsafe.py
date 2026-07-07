@@ -73,8 +73,25 @@ def _base(symbol: str) -> str:
     return symbol.split(":")[0] if ":" in symbol else symbol
 
 
+def _ui_only() -> bool:
+    """Owner 2026-07-07: UI_ONLY_DATA=1 disables EVERY API fallback in this module —
+    the eyes' captured app data (ui_data) is the sole market-data source; misses are
+    honest Nones (recorded upstream), never silent API polls."""
+    from trading.broker_sense import ui_data
+    return ui_data.enabled()
+
+
 def quote(symbol: str, market: str) -> dict | None:
-    """Last price + bid/ask via API. crypto → ccxt Binance; NSE → OpenAlgo."""
+    """Last price + bid/ask via API. crypto → ccxt Binance; NSE → OpenAlgo.
+    UI-only mode: last close from the eyes' candles, else honest None."""
+    if _ui_only():
+        from trading.broker_sense import ui_data
+        rows = ui_data.ui_ohlcv(symbol, timeframe="1m", limit=2) or \
+            ui_data.ui_ohlcv(symbol, timeframe="5m", limit=2)
+        if rows:
+            return {"last": rows[-1][4], "bid": None, "ask": None,
+                    "source": "ui:capture"}
+        return None
     def _get():
         try:
             if market == "crypto":
@@ -93,7 +110,10 @@ def quote(symbol: str, market: str) -> dict | None:
 
 
 def top_of_book(symbol: str, market: str) -> dict | None:
-    """Best bid/ask via API (order-book fail-safe for the screen monitor)."""
+    """Best bid/ask via API (order-book fail-safe for the screen monitor).
+    UI-only mode: no API — honest None (books come from the eyes or not at all)."""
+    if _ui_only():
+        return None
     def _get():
         try:
             if market == "crypto":
@@ -117,7 +137,11 @@ def top_of_book(symbol: str, market: str) -> dict | None:
 def ohlcv(symbol: str, market: str, timeframe: str = "5m", limit: int = 24) -> list | None:
     """[[ts, o, h, l, c, v], …] via API — feeds the local chart render when no app chart
     could be captured. crypto → Freqtrade's own candles, then ccxt. NSE has no public
-    candle API here → None (the chart chain then uses the TradingView public chart)."""
+    candle API here → None (the chart chain then uses the TradingView public chart).
+    UI-only mode: the eyes' captured candles or an honest None — no API path at all."""
+    if _ui_only():
+        from trading.broker_sense import ui_data
+        return ui_data.ui_ohlcv(symbol, timeframe=timeframe, limit=limit)
     def _get():
         if market != "crypto":
             return _nse_ohlcv(symbol, timeframe, limit)      # NSE → OpenAlgo broker history

@@ -165,8 +165,14 @@ def _peak_fields(ft: dict, allow_net: bool = True) -> dict:
     return out
 
 
-def map_trade(ft: dict) -> ClosedTrade:
-    """Map ONE Freqtrade trade dict (from /trades) onto a canonical ClosedTrade."""
+def map_trade(ft: dict, *, broker_ctx: bool = True) -> ClosedTrade:
+    """Map ONE Freqtrade trade dict (from /trades) onto a canonical ClosedTrade.
+
+    broker_ctx=False skips the live ticker/funding HTTP context (`_broker_context`).
+    Bulk training-data mapping MUST pass False: a live ticker cannot reconstruct
+    entry-time context for a trade closed days ago (it would stamp TODAY's 24h
+    high/low/mark into `*_entry` columns — wrong training labels), and 2 HTTP calls
+    × N closed trades was the 2026-07-07 three-hour funnel-cycle wedge."""
     is_short = bool(ft.get("is_short"))
     direction = "SHORT" if is_short else "LONG"
     open_rate = _f(ft.get("open_rate"))
@@ -237,12 +243,15 @@ def map_trade(ft: dict) -> ClosedTrade:
         from trading.brain.psychology import psych_columns
         from trading.crypto.freqtrade import entry_meta
         seg = "spot" if (ft.get("trading_mode") or "spot") == "spot" else "futures"
-        # broker-app market context (App-School-discovered columns) at ingest — best-effort
-        try:
-            for _k, _v in _broker_context(ft.get("pair", ""), seg).items():
-                setattr(t, _k, _v)
-        except Exception:
-            pass
+        # broker-app market context (App-School-discovered columns) at ingest — best-effort.
+        # Only meaningful for FRESH rows (dashboard/live view); bulk historical mapping
+        # passes broker_ctx=False (see docstring).
+        if broker_ctx:
+            try:
+                for _k, _v in _broker_context(ft.get("pair", ""), seg).items():
+                    setattr(t, _k, _v)
+            except Exception:
+                pass
         meta = entry_meta.lookup(ft.get("pair", ""), seg, ft.get("open_date", ""))
         if meta:
             t.signal_source = "brain"
@@ -393,7 +402,9 @@ def closed_view(client=None, net_budget: int = 8) -> list[dict]:
         peaks = _peak_fields(ft, allow_net=(spent < net_budget))
         if len(_PEAK_CACHE) > before:              # a network fetch happened (new cache entry)
             spent += 1
-        row = map_trade(ft).to_dict()
+        # broker_ctx=False: historical rows — live ticker context is wrong for them and
+        # cost 2 HTTP calls per trade (the closed view alone hit Binance ~2,200 times).
+        row = map_trade(ft, broker_ctx=False).to_dict()
         row.update(peaks)                          # peak_profit_usdt/_time, peak_loss_usdt/_time
         rows[i] = row
     return rows

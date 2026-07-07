@@ -651,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -1576,6 +1576,12 @@ _Phase P4.8 (Multimodal + identity + society + affect) acceptance tests._
 - **classes:** TestAffect, TestIdentity, TestSociety, TestSensesDegrade, TestEmbodiment, TestDemo
 - **imports:** __future__, cognition.affect, cognition.embodiment, cognition.identity, cognition.society, os, tempfile, unittest, warnings
 
+## `tests/test_evidence_lane.py`
+_W3 evidence lane tests — isolated STATE_DIR, synthetic cycles._
+- **classes:** EvidenceLaneTest
+- **functions:** `_sig(direction, price)`
+- **imports:** pathlib, tempfile, time, unittest
+
 ## `tests/test_evolve_t8.py`
 _Trading Phase T8.3 (DEAP NSGA-II evolution loop + promotion) acceptance tests — offline._
 - **classes:** TestEvolveRuns, TestEvolveDeterminism, TestPromotionNodeProtocol, TestRegistry
@@ -1632,6 +1638,12 @@ _tests/test_generators.py — the Strategy-Generator Portfolio (offline/CPU part
 - **classes:** TestScaffold, TestGenerators, TestFamilyWise
 - **functions:** `_synth(n, seed)`
 - **imports:** numpy, pandas, pathlib, tempfile, trading.state, unittest
+
+## `tests/test_goal_scoreboard.py`
+_W1 goal scoreboard tests — synthetic journal rows in an isolated STATE_DIR._
+- **classes:** GoalScoreboardTest
+- **functions:** `_row(pnl, days_ago, exchange, seg, it, sym)`
+- **imports:** os, tempfile, time, unittest
 
 ## `tests/test_guardrails_t8.py`
 _Trading Phase T8.2 acceptance tests — journal-fitness + overfitting guardrails._
@@ -1919,6 +1931,11 @@ _Phase P4.6 (Stream-of-Mind + observability) acceptance tests — fully offline.
 - **functions:** `_abstainer()`; `_som(brain)`
 - **imports:** __future__, cognition, cognition.stream_of_mind, itertools, numpy, unittest, warnings
 
+## `tests/test_surface_rails.py`
+_W2 scientific-method rails tests — isolated STATE_DIR._
+- **classes:** SurfaceRailsTest
+- **imports:** pathlib, tempfile, unittest
+
 ## `tests/test_thinking_p45.py`
 _Phase P4.5 (Thinking + knowing-what-it-knows) acceptance tests — fully offline._
 - **classes:** _Graph, _Brain, TestActiveInference, TestReasoning, TestSymbolic, TestCausal, TestCalibration, TestConstitution, TestThinker, TestBrainAgentIntegration, TestDemo
@@ -1963,6 +1980,12 @@ _AI-scientist idea #5 — TSFM ensemble + conformal calibration._
 - **classes:** TestTSFMEnsemble, TestTimeMoENode
 - **functions:** `_dataset(n, d, seed)`
 - **imports:** core.node_protocol, nodes.tsfm_ensemble, numpy, os, unittest
+
+## `tests/test_ui_only_data.py`
+_UI-only data mode tests (owner 2026-07-07) — capture parsing + honest misses._
+- **classes:** UiOnlyDataTest
+- **functions:** `_klines(n, t0, tf_ms, price)`
+- **imports:** os, pathlib, tempfile, time, unittest
 
 ## `tests/test_uq_conformal.py`
 _Pillar 17 — conformal calibrated uncertainty (trading/uq) + sizing gate tests._
@@ -2411,6 +2434,11 @@ _trading/brain/skills.py — growing skill library (T8.8, Voyager pattern)._
 - **classes:** Skill, SkillLibrary
 - **imports:** __future__, dataclasses, trading
 
+## `trading/brain/surface.py`
+_trading/brain/surface.py — W2 scientific-method rails for EVERY self-tuning optimizer._
+- **functions:** `owner_of(knob) -> str | None`; `can_write(optimizer, knob) -> tuple[bool, str]`; `mode(optimizer) -> str`; `set_mode(optimizer, new_mode) -> dict`; `_window_days() -> float`; `_one_variable_enabled() -> bool`; `_scope_of(knob) -> str`; `_recent_changes(optimizer, since_s) -> list[dict]`; `_append_ledger(entry) -> None`; `record_change(optimizer) -> dict`; `status() -> dict`
+- **imports:** __future__, fnmatch, time, trading
+
 ## `trading/brain/trade_features.py`
 _trading/brain/trade_features.py — trade rows → ML network inputs → outcome output._
 - **classes:** _NumpyLogReg, TradeOutcomeNet
@@ -2507,7 +2535,7 @@ _trading/broker_sense/cnn_direction.py — candle-IMAGE → direction (savers B,
 
 ## `trading/broker_sense/data_failsafe.py`
 _trading/broker_sense/data_failsafe.py — the owner's rule 4: NEVER skip a trade for data._
-- **functions:** `_rss_bytes() -> int`; `_guard_ram()`; `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
+- **functions:** `_rss_bytes() -> int`; `_guard_ram()`; `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `_ui_only() -> bool`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
 - **imports:** __future__, os, time
 
 ## `trading/broker_sense/data_sources.py`
@@ -2611,6 +2639,11 @@ _trading/broker_sense/stock_xray.py — the Upstox Stock X-Ray: one FUSED per-st
 _trading/broker_sense/trade_columns.py — turn the App Driving School's discovered app labels_
 - **functions:** `_norm(label) -> str`; `journal_fields() -> set`; `discovered_labels() -> list`; `propose() -> dict`; `accepted() -> list`; `accept(column) -> dict`; `reject(column) -> dict`
 - **imports:** __future__, re, trading
+
+## `trading/broker_sense/ui_data.py`
+_trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._
+- **functions:** `enabled() -> bool`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`
+- **imports:** __future__, os, re, time, trading
 
 ## `trading/broker_sense/watchlist.py`
 _trading/broker_sense/watchlist.py — hot watchlist with TTL (saver E)._
@@ -3173,6 +3206,11 @@ _trading/crypto/watchlist.py — persisted crypto watchlist (T2)._
 - **classes:** CryptoWatchItem, CryptoWatchlist
 - **imports:** __future__, dataclasses, trading, trading.crypto.config
 
+## `trading/evidence.py`
+_trading/evidence.py — W3 evidence lane: baselines, counterfactuals, autonomy gates,_
+- **functions:** `_store() -> dict`; `_save(d) -> None`; `_price_of(sig) -> float | None`; `observe_cycle() -> dict`; `_feed_snapshots(d, signals, now) -> int`; `_nearest_snap(snaps, target_ts) -> float | None`; `record_data_failure(source, detail) -> None`; `baseline_stats(market, segment, window_days) -> dict`; `skip_stats(market, segment, window_days) -> dict`; `autonomy_gates(market, segment) -> dict`; `watchdogs() -> dict`; `status() -> dict`
+- **imports:** __future__, time, trading
+
 ## `trading/execution/__init__.py`
 _trading/execution/ — Trade Execution Engine (Phase T3)._
 - **imports:** __future__, trading.execution.bracket, trading.execution.circuit_breaker, trading.execution.engine, trading.execution.kill_switch, trading.execution.mae_mfe, trading.execution.margin, trading.execution.order_state, trading.execution.profit_booking, trading.execution.trailing
@@ -3262,6 +3300,11 @@ _Technical-feature layer — thin pandas-ta-classic wrapper (CANON-24/25)._
 _CORTEX fitness engine — mark-to-market scoring + honesty gates (B1, stitch-map rows 1-3)._
 - **functions:** `_to_series(arr, index, name) -> pd.Series`; `_f(x, default) -> float`; `run_signals(close, entries, exits, fee, freq) -> 'vbt.Portfolio'`; `scorecard(pf) -> dict`; `underwater_fitness(pf) -> float`; `persistence_gate(y_true, y_pred, p_max) -> tuple[bool, dict]`; `majority_gate(y_true, y_pred_cls) -> tuple[bool, dict]`; `benchmark_gate(pf, close, fee) -> tuple[bool, dict]`; `arbitrate_timeframe(segment, short_tf, daily, metric, margin) -> dict`; `honest_report(pf, close, y_true, y_pred, y_true_cls, y_pred_cls) -> dict`
 - **imports:** __future__, dieboldmariano, math, numpy, pandas, vectorbt
+
+## `trading/goal.py`
+_trading/goal.py — W1 goal scoreboard: score EVERY trade + segment against goal.yaml._
+- **functions:** `load_goals() -> dict`; `segment_goal(market, segment) -> dict`; `_seg_of(row) -> tuple[str, str]`; `score_trade(row) -> dict`; `_parse_ts(s) -> float | None`; `_daily_series(rows) -> dict[str, float]`; `_max_drawdown(daily, base) -> float`; `_sharpe(daily, base) -> float | None`; `scoreboard(trades, window_days) -> dict`; `last_scoreboard() -> dict`
+- **imports:** __future__, datetime, math, os, time, trading
 
 ## `trading/heads.py`
 _CORTEX B6 — forecast heads: direct + autoregressive rollout on foundation nodes._

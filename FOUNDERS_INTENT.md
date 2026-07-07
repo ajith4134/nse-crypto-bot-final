@@ -143,6 +143,38 @@ into directing it._
 
 ---
 
+## ⭐ Current standing goal — THE HUMAN TRADING SYSTEM (set 2026-07-07)
+
+The owner's directive of 2026-07-07 (saved word-faithfully in
+`research/founder-intent/goal-2026-07-07-human-trading-system.md`) is the active goal:
+
+**"Make it all one connected human trading system — brain, eyes, hands, memory,
+learning, exploring strategies — next level."** Concretely:
+
+1. **Eyes → brain → hand → memory**: the brain watches the REAL Binance and Upstox web
+   apps (headed-Xvfb, like screen-mirroring), reads **each and every datum** on the
+   pages, and a mouse-driving hand navigates and uses **all the features** of the
+   trading apps — picking stocks/coins like an experienced trader, learning smart
+   trading continuously.
+2. **Execution is API-only** (owner's clarification): the brain *decides* from the web
+   pages, but orders are placed through the **Zerodha API (NSE)** and a **separate
+   Binance API (crypto)** — the same pipeline for paper and live.
+3. **Free-API market-data polling is DISABLED for now** — the trading web pages are the
+   only data source (cut the CPU strain); a thin API safety net may return later after
+   the owner sees UI-only performance.
+4. **Every capability must be connected and USED on open trades** (crypto + NSE):
+   self-evolve, learning, research, memory, knowledge, strategy exploration.
+5. Extend open/closed-trade **columns** with UI-derived data for brain + neural-network
+   learning; **profit-tailgate columns on every crypto and NSE trade**.
+6. Implement the eight-video workstreams **W1–W8** (`research/video/eight-videos-2026-07-07/PLAN.md`)
+   and **invent beyond them**.
+7. Fix Freqtrade not opening trades; screenshot-QA every dashboard.
+8. **Judge the project as an unbiased outside specialist** — the owner grants **full
+   authority to redesign or replace any existing code or feature when something better
+   exists**; never argue for existing code out of bias.
+
+---
+
 ## Current phase — UNCONSTRAINED EXPLORATION (set 2026-07-04)
 
 The owner has directed that the three analysis/idea skills — **`/independent-audit`,

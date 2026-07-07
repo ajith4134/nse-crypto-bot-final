@@ -526,3 +526,77 @@ def handle_generators(h):
             "hint": "strategy-generator portfolio via trading/strategy/generators/portfolio.py.",
         }).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_goal_score(h):
+    """GET /api/trading/goal — W1 goal scoreboard (owner goal 2026-07-07): every configured
+    market/segment scored over the trailing 30 days against trading/goal.yaml (return vs
+    target, drawdown vs limit, Sharpe vs bar, failure line) with an honest verdict.
+    ?refresh=1 recomputes from the journal; default serves the persisted snapshot."""
+    import json as _json
+    from urllib.parse import parse_qs, urlparse
+
+    from trading import goal
+    try:
+        q = parse_qs(urlparse(h.path).query)
+        if q.get("refresh", ["0"])[0] in ("1", "true"):
+            snap = goal.scoreboard()
+        else:
+            snap = goal.last_scoreboard() or goal.scoreboard()
+        body = _json.dumps(snap).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_surface(h):
+    """GET /api/trading/surface — W2 scientific-method rails: parameter-ownership map,
+    optimizer modes (read_only|live), one-variable-only window, versioned rule changes
+    (old→new + evidence + reason) and refused writes. POST via ops to flip modes."""
+    import json as _json
+
+    from trading.brain import surface
+    try:
+        body = _json.dumps(surface.status()).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_evidence(h):
+    """GET /api/trading/evidence — W3 evidence lane: blind-baseline vs brain, skip
+    counterfactuals (good-skip / missed-winner), per-segment autonomy gates (earn-live
+    checklist) and blow-up watchdogs (fee bleed, frozen activity)."""
+    import json as _json
+
+    from trading import evidence
+    try:
+        body = _json.dumps(evidence.status()).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_ui_data(h):
+    """GET /api/trading/ui_data — UI-only data mode: the eyes' per-symbol candle
+    coverage (symbols, timeframes, freshness, hit-rate) + whether the mode is enabled.
+    The owner flips UI_ONLY_DATA=1 once this shows warm coverage."""
+    import json as _json
+
+    from trading import state
+    from trading.broker_sense import ui_data
+    try:
+        cov = ui_data.coverage()
+        if cov.get("keys", 0) == 0:                    # this process may not host the eyes
+            snap = state.load_json("ui_data_coverage.json", {})
+            if snap:
+                snap["note"] = "cross-process snapshot (eyes live in the funnel process)"
+                cov = snap
+        body = _json.dumps(cov).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")

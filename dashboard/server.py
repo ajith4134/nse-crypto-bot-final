@@ -1056,6 +1056,18 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/brain/discovery":            # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_brain_discovery(self)
+        if path == "/api/trading/goal":                       # body → dashboard/routes/brain_ext.py (W1 goal scoreboard)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_goal_score(self)
+        if path == "/api/trading/surface":                    # body → dashboard/routes/brain_ext.py (W2 rails)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_surface(self)
+        if path == "/api/trading/evidence":                   # body → dashboard/routes/brain_ext.py (W3 evidence lane)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_evidence(self)
+        if path == "/api/trading/ui_data":                    # body → dashboard/routes/brain_ext.py (UI-only data coverage)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_ui_data(self)
         if path == "/api/brain/agent/status":                 # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
             from dashboard.routes import brain_ext
             return brain_ext.handle_agent_status(self)

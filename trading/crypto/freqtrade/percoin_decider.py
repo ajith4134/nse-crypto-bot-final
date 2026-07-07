@@ -67,29 +67,38 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         ~(strategies × symbols) times — the 2026-07-05 run_cycle wedge."""
         if not self._use_brain:
             return None
-        if time.monotonic() - self._net_ts < self._NET_TTL_S:
+        # cost-aware TTL: never re-attempt more often than 5× what the last refresh cost —
+        # a refresh slower than the TTL previously meant decide() spent the WHOLE funnel
+        # cycle refreshing (2026-07-07 10,820s cycle, entries all deadline-deferred).
+        ttl = max(self._NET_TTL_S, 5.0 * getattr(self, "_net_cost_s", 0.0))
+        if time.monotonic() - self._net_ts < ttl:
             return self._net
         self._net_ts = time.monotonic()      # stamp attempts too — a down API isn't hammered
         try:
             from trading.crypto.freqtrade_ingest import map_trade
             from trading.brain.trade_features import get_outcome_net
+            t0 = time.monotonic()
             # Build LABELLED rows: map each native Freqtrade closed trade onto the journal schema and
             # stamp net_pnl from its realized profit_abs — without this the outcome label is uniform
             # (all None) and the net can never train (needs BOTH win & loss classes).
-            native = self.client_for_brain().closed_trades()
+            native = [ft for ft in self.client_for_brain().closed_trades()
+                      if isinstance(ft, dict)]
+            if len(native) == self._net_count and self._net is not None:
+                self._net_cost_s = time.monotonic() - t0     # count unchanged → skip the mapping
+                return self._net
             rows = []
             for ft in native:
-                if not isinstance(ft, dict):
-                    continue
-                r = map_trade(ft).to_dict()
+                # broker_ctx=False: live ticker context is wrong-by-construction for
+                # historical trades AND cost 2 HTTP calls × ~1,100 trades per refresh.
+                r = map_trade(ft, broker_ctx=False).to_dict()
                 pnl = ft.get("profit_abs")
                 if pnl is not None:
                     r["net_pnl"] = float(pnl)
                     r["net_pnl_crypto"] = float(pnl)
                 rows.append(r)
-            if len(rows) != self._net_count:
-                self._net = get_outcome_net(rows)
-                self._net_count = len(rows)
+            self._net = get_outcome_net(rows)
+            self._net_count = len(rows)
+            self._net_cost_s = time.monotonic() - t0
             return self._net
         except Exception:
             return self._net             # transient API failure → last good net (may be None)
