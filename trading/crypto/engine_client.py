@@ -168,6 +168,17 @@ class CryptoEngineClient:
         act = (action or "").upper()
         cli = self._client(segment)
         if act in ("BUY", "LONG", "ENTER", "SHORT"):
+            # TRADEABILITY GUARD (2026-07-07 root-cause fix): a forceenter for a pair the
+            # engine's exchange does NOT list creates a phantom trade whose rates can never
+            # resolve — one such trade (a prediction-market symbol in the futures bot,
+            # 2026-07-05) sat FIRST in exit_positions and its BadSymbol killed the bot's
+            # ENTIRE trade-management loop for two days (no max/min_rate, no strategy
+            # exits, dashboards showing —/—). Validate against the engine's own market
+            # list before any entry; unknown pair → honest refusal, never an order.
+            if not self._pair_tradeable(symbol, segment):
+                return {"ok": False, "error": f"pair {symbol!r} is not tradeable on the "
+                                              f"engine's exchange (guard: no phantom trades)",
+                        "guard": "tradeability"}
             entry_side = "short" if act == "SHORT" else (side or "long")
             otype = _order_type()                        # owner prefers MARKET (guaranteed fill)
             # a market order ignores price and fills at the book — pass price only for a limit
@@ -188,6 +199,34 @@ class CryptoEngineClient:
             tid = trade_id if trade_id is not None else "all"
             return self._check(cli.forceexit(tid), "forceexit")
         raise FreqtradeError(f"unknown action {action!r} (expected BUY/LONG or SELL/EXIT)")
+
+    # ── tradeability guard ─────────────────────────────────────────────────────
+    _MARKETS_CACHE: dict = {}          # market-type -> (mono_ts, {active symbols})
+
+    def _pair_tradeable(self, symbol: str, segment: str | None) -> bool:
+        """Is `symbol` an ACTIVE market on the engine's exchange (binance)? Cached ~1h.
+
+        FAIL-OPEN on lookup failure — a metadata hiccup must never block trading; the
+        guard exists to refuse symbols that are KNOWN-absent (delisted/foreign-venue/
+        prediction-market strings). Note: options/prediction symbols (Deribit/Polymarket)
+        correctly FAIL here while those segments still execute on the one binance-backed
+        engine — that is the guard working (see the 2026-07-05 phantom); when dedicated
+        venue engines land, route this check per venue."""
+        try:
+            import time as _t
+            typ = "spot" if (segment or "futures") == "spot" else "swap"
+            hit = self._MARKETS_CACHE.get(typ)
+            if hit is None or _t.monotonic() - hit[0] > 3600:
+                import ccxt
+                ex = ccxt.binance({"options": {"defaultType": typ}})
+                mkts = ex.load_markets()
+                self._MARKETS_CACHE[typ] = (
+                    _t.monotonic(),
+                    {s for s, m in mkts.items() if m.get("active") is not False})
+                hit = self._MARKETS_CACHE[typ]
+            return symbol in hit[1]
+        except Exception:
+            return True
 
     # ── read-only data ────────────────────────────────────────────────────────
     def status(self) -> Any:

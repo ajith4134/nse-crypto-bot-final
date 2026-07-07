@@ -169,7 +169,22 @@ def apply_sync(*, sessions=None) -> dict:
     """Make Binance ⭐ Favorites == current open crypto trades (active segments).
 
     GATED behind BROKER_WATCHLIST_WRITE=1. Add newly-opened, un-star newly-closed;
-    each toggle is confirmed by the eyes before the synced set records it. Never raises."""
+    each toggle is confirmed by the eyes before the synced set records it. Never raises.
+
+    BUDGETED (2026-07-07 fix, py-spy-proven): this runs INSIDE the funnel loop, and an
+    unbounded pass (16 stars × headed page + vision ≈ 30+ min) blocked all trading
+    cycles. At most BRAIN_MIRROR_MAX_ACTIONS star-toggles per pass within
+    BRAIN_MIRROR_BUDGET_S seconds — the diff converges over a few cycles; the remainder
+    is reported honestly as pending."""
+    try:
+        max_actions = int(os.environ.get("BRAIN_MIRROR_MAX_ACTIONS", "4") or 4)
+    except ValueError:
+        max_actions = 4
+    try:
+        budget_s = float(os.environ.get("BRAIN_MIRROR_BUDGET_S", "120") or 120)
+    except ValueError:
+        budget_s = 120.0
+    t0 = time.monotonic()
     desired_map = open_crypto_symbols()
     desired = list(desired_map)
     st = _load_state()
@@ -196,7 +211,13 @@ def apply_sync(*, sessions=None) -> dict:
             sessions = get_sessions()
         synced = set(already)
         seg_of = {s: (desired_map.get(s) or {}).get("segment", "futures") for s in desired}
+        actions = 0
+        deferred = 0
         for sym in plan["add"]:
+            if actions >= max_actions or time.monotonic() - t0 > budget_s:
+                deferred += 1
+                continue                    # honest: next pass picks it up
+            actions += 1
             ui, pg = _open_symbol_ui(sessions, sym, seg_of.get(sym, "futures"))
             if ui is None:
                 report["error"] = "no Binance browser session (login expired or page failed)"
@@ -207,6 +228,10 @@ def apply_sync(*, sessions=None) -> dict:
                 synced.add(sym)
             _close(pg)
         for sym in plan["remove"]:
+            if actions >= max_actions or time.monotonic() - t0 > budget_s:
+                deferred += 1
+                continue
+            actions += 1
             # a closed trade's segment came from the last sync; default futures page
             seg = ((st.get("last_report") or {}).get("segments") or {}).get(sym, "futures")
             ui, pg = _open_symbol_ui(sessions, sym, seg)
@@ -219,6 +244,8 @@ def apply_sync(*, sessions=None) -> dict:
                 synced.discard(sym)
             _close(pg)
         report["segments"] = seg_of
+        report["deferred"] = deferred
+        report["took_s"] = round(time.monotonic() - t0, 1)
         _save_state([s for s in desired if s in synced] +
                     [s for s in synced if s not in set(desired)], report)
         return report

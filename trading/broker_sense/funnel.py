@@ -324,12 +324,29 @@ class BrokerSenseFunnel:
             except ValueError:
                 wide_n = 16
             have = set(app_signals) | open_syms
+            # Cross-segment blindness fix (2026-07-07): a pair open in the OTHER segment
+            # (same one-engine Freqtrade) must not be re-picked here — re-entering it is
+            # a no-op forceenter that wastes the slot and inflates `entered`. Compare in
+            # FLAT form (BEL/USDT vs BEL/USDT:USDT are the same book).
+            import re as _re
+
+            def _flt(p):
+                return _re.sub(r"[^A-Z0-9]", "", (p or "").split(":", 1)[0].upper())
+            open_flat = {_flt(p) for p in open_syms}
+            try:
+                _cli = self.executor(segment).client()
+                for _sg in ("futures", "spot"):
+                    if _sg != segment:
+                        open_flat |= {_flt(p) for p in
+                                      (_cli.open_pairs(segment=_sg) or [])}
+            except Exception:
+                pass
             wide = []
             for r in rows:
                 if len(wide) >= wide_n:
                     break
                 s = r.get("symbol")
-                if not s or s in have:
+                if not s or s in have or _flt(s) in open_flat:
                     continue
                 lane = str(r.get("lane") or "")
                 direction = "short" if ("loser" in lane or "short" in lane) else "long"

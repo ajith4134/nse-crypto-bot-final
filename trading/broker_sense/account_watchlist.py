@@ -211,14 +211,32 @@ def apply_sync(*, sessions=None, broker: str = "upstox") -> dict:
         report["login_ok"] = True
         report["watchlist_selected"] = _ensure_watchlist(ui)   # land on the Brain-Open tab
         synced = set(already)
+        # BUDGETED (2026-07-07, same fix as the Binance mirror): this runs inside the
+        # funnel loop — bound the vision work per pass so a big diff can never stall
+        # trading cycles; the remainder converges over the next passes.
+        try:
+            max_actions = int(os.environ.get("BRAIN_MIRROR_MAX_ACTIONS", "4") or 4)
+        except ValueError:
+            max_actions = 4
+        actions = 0
+        deferred = 0
         for sym in plan["add"]:
+            if actions >= max_actions:
+                deferred += 1
+                continue
+            actions += 1
             if _add_symbol(ui, sym):
                 report["added"].append(sym)
                 synced.add(sym)
         for sym in plan["remove"]:
+            if actions >= max_actions:
+                deferred += 1
+                continue
+            actions += 1
             if _remove_symbol(ui, sym):
                 report["removed"].append(sym)
                 synced.discard(sym)
+        report["deferred"] = deferred
         try:
             pg.close()
         except Exception:
