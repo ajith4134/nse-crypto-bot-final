@@ -615,3 +615,18 @@ def handle_scouts(h):
         body = _json.dumps({"available": False,
                             "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
+
+
+def handle_track_record(h):
+    """GET /api/trading/track_record — W7 report card: per-actor (strategy/scout/
+    optimizer/node) runs, win-rate, supervised successes, rule-of-three status, trust
+    weight and cost — trust follows the accumulated record, not the code."""
+    import json as _json
+
+    from trading.brain import track_record
+    try:
+        body = _json.dumps(track_record.report_card()).encode()
+    except Exception as e:
+        body = _json.dumps({"available": False,
+                            "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")

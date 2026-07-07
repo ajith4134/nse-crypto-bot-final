@@ -176,6 +176,15 @@ def record_change(optimizer: str, *, knob: str, old, new, evidence: dict | None 
         _append_ledger({"ts": time.time(), "optimizer": optimizer, "knob": knob,
                         "old": old, "new": new, "evidence": evidence or {},
                         "reason": reason, "version": version})
+        try:                        # W7 meta-article: rule changes compound into memory
+            from trading.brain import track_record as _tr
+            _tr.bump(f"optimizer:{optimizer}", kind="optimizer",
+                     note=f"{knob} v{version}: {old}→{new}")
+            _tr.meta_note(f"optimizer:{optimizer}",
+                          what=f"changed {knob} from {old} to {new} (v{version})",
+                          why=reason, cost=str(evidence or ""))
+        except Exception:
+            pass
         return {"allowed": True, "reason": "ok", "version": version}
     except Exception as e:                        # a broken rail must never stop trading
         return {"allowed": True, "reason": "ok", "version": None,

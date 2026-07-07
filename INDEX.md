@@ -651,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -1965,6 +1965,11 @@ _Tier-3 infra nodes (nodes/tier3_nodes.py) + drift utility (core/drift.py)._
 - **functions:** `_synth(n, seed)`; `_imp()`
 - **imports:** __future__, numpy, unittest, warnings
 
+## `tests/test_track_record.py`
+_W7 track record + rule-of-three tests — isolated STATE_DIR._
+- **classes:** TrackRecordTest
+- **imports:** pathlib, tempfile, unittest
+
 ## `tests/test_trade_features.py`
 _tests/test_trade_features.py — the trade-row → node-network bridge (TradeOutcomeNet)._
 - **functions:** `_closed(win, i) -> dict`; `test_feature_row_length_matches_schema()`; `test_network_trains_and_predicts()`; `test_degrades_honestly_when_undersampled()`
@@ -2443,6 +2448,11 @@ _trading/brain/skills.py — growing skill library (T8.8, Voyager pattern)._
 _trading/brain/surface.py — W2 scientific-method rails for EVERY self-tuning optimizer._
 - **functions:** `owner_of(knob) -> str | None`; `can_write(optimizer, knob) -> tuple[bool, str]`; `mode(optimizer) -> str`; `set_mode(optimizer, new_mode) -> dict`; `_window_days() -> float`; `_one_variable_enabled() -> bool`; `_scope_of(knob) -> str`; `_recent_changes(optimizer, since_s) -> list[dict]`; `_append_ledger(entry) -> None`; `record_change(optimizer) -> dict`; `status() -> dict`
 - **imports:** __future__, fnmatch, time, trading
+
+## `trading/brain/track_record.py`
+_trading/brain/track_record.py — W7 track records + rule-of-three + meta-articles._
+- **functions:** `_store() -> dict`; `bump(actor) -> dict`; `mark_supervised_success(actor) -> dict`; `rule_of_three(actor) -> dict`; `trust(actor) -> dict`; `meta_note(actor) -> bool`; `drain_meta_queue(max_items) -> int`; `report_card() -> dict`
+- **imports:** __future__, time, trading
 
 ## `trading/brain/trade_features.py`
 _trading/brain/trade_features.py — trade rows → ML network inputs → outcome output._

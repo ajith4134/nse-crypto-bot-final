@@ -136,6 +136,16 @@ class TradeJournal:
         # per-symbol confidence recalibration
         self.confidence.update_from_trade(trade)
 
+        # W7 track record: every closed trade is one RUN for its strategy — trust
+        # follows the accumulated record (vp4's thousand-task library), not the code.
+        try:
+            from trading.brain import track_record as _tr
+            _win = (trade.net_pnl > 0) if trade.net_pnl is not None else None
+            _tr.bump(f"strategy:{trade.strategy_name or 'unknown'}",
+                     kind="strategy", win=_win)
+        except Exception:
+            pass
+
         self._trades.append(trade)
         self._save()
         return trade

@@ -99,6 +99,16 @@ class BrainLearningCycle:
         except Exception as e:
             summary["goal"] = {"error": f"{type(e).__name__}: {e}"[:120]}
 
+        # 0b) META-ARTICLES (W7): drain queued self-notes into brain_memory — here in the
+        #     learning cycle, where booting the memory stack is expected (hot paths only queue).
+        try:
+            from trading.brain import track_record as _tr
+            drained = _tr.drain_meta_queue()
+            if drained:
+                summary["meta_articles"] = drained
+        except Exception:
+            pass
+
         # 1) LEARN — hypothesis ledger over real outcomes
         try:
             summary["learned"] = self.ledger().run_cycle(trades)

@@ -58,6 +58,11 @@ def record_signal(scout: str, *, symbol: str, market: str, direction: str,
     d = _store()
     d["signals"].append(sig)
     _save(d)
+    try:                                            # W7: every signal = one run on record
+        from trading.brain import track_record as _tr
+        _tr.bump(f"scout:{scout}", kind="scout")
+    except Exception:
+        pass
     return sig
 
 
