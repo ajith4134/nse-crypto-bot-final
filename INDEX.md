@@ -1347,6 +1347,11 @@ _(2) Fold regime-routing into the main learned_router._
 _Test package init._
 - **imports:** os
 
+## `tests/test_account_watchlist.py`
+_Tests for the Brain-Open account-watchlist sync + human-UI JSON parsing (pure logic)._
+- **classes:** TestPlanSync, TestVisionJsonParse
+- **imports:** trading.brain.vision.human_ui, trading.broker_sense.account_watchlist, unittest
+
 ## `tests/test_advintel.py`
 _Trading Phase T8 (Advanced Intelligence) acceptance tests — fully offline._
 - **classes:** TestPortfolioRisk, TestStress, TestFiiDii, TestNseAnnouncements, TestOnChain, TestLiquidations, TestArbitrage
@@ -2416,6 +2421,12 @@ _trading/brain/vision/computer_use.py — the FREE computer-use loop (cloned, re
 - **functions:** `_control_forbidden(text) -> bool`; `_parse_action(text) -> Action`; `_is_forbidden(action) -> bool`; `_find_control(page, target)`; `get_agent() -> ComputerUseAgent`
 - **imports:** __future__, dataclasses, json, os, re, time, trading.brain.vision.ocular_cortex
 
+## `trading/brain/vision/human_ui.py`
+_trading/brain/vision/human_ui.py — the brain's human-like eyes→brain→hand→memory loop._
+- **classes:** Perception, HumanUI
+- **functions:** `_extract_json(raw) -> Any`
+- **imports:** __future__, dataclasses, json, re, time, trading.brain.vision.computer_use, typing
+
 ## `trading/brain/vision/ocular_cortex.py`
 _trading/brain/vision/ocular_cortex.py — the Ocular Cortex: ultra-advanced eyes + memory._
 - **classes:** PerceptualFrame, LayoutMemory, OcularCortex
@@ -2430,6 +2441,11 @@ _trading/brain/worldmodel.py — learned market world-model + imagination planne
 
 ## `trading/broker_sense/__init__.py`
 _trading/broker_sense — the Broker-Sense Funnel (owner-approved 2026-07-05)._
+
+## `trading/broker_sense/account_watchlist.py`
+_trading/broker_sense/account_watchlist.py — mirror OPEN trades into a dedicated_
+- **functions:** `open_nse_symbols() -> list[str]`; `plan_sync(desired, already) -> dict`; `_load_state() -> dict`; `_save_state(synced, report) -> None`; `status() -> dict`; `_open_ui(sessions, broker)`; `_logged_in(ui) -> bool`; `apply_sync() -> dict`; `_add_symbol(ui, sym) -> bool`; `_remove_symbol(ui, sym) -> bool`
+- **imports:** __future__, os, time, trading, typing
 
 ## `trading/broker_sense/app_explorer.py`
 _trading/broker_sense/app_explorer.py — use EVERY feature a trading app offers (decision #6)._
