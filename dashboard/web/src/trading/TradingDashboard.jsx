@@ -32,6 +32,17 @@ import BrainUltraPanel from './BrainUltraPanel.jsx'
 import BrainOpsPanel from './BrainOpsPanel.jsx'
 import DecisionMemoryPanel from './DecisionMemoryPanel.jsx'
 import ComputerUsePanel from './ComputerUsePanel.jsx'
+import BrokerSensePanel from './BrokerSensePanel.jsx'
+import OcularCortexPanel from './OcularCortexPanel.jsx'
+import XRayPanel from './XRayPanel.jsx'
+import LiveBrowserPanel from './LiveBrowserPanel.jsx'
+import AppSchoolPanel from './AppSchoolPanel.jsx'
+import BrokerFeaturesPanel from './BrokerFeaturesPanel.jsx'
+import SegmentFocusPanel from './SegmentFocusPanel.jsx'
+import TradeColumnsPanel from './TradeColumnsPanel.jsx'
+import ConnectivityPanel from './ConnectivityPanel.jsx'
+import SandboxPanel from './SandboxPanel.jsx'
+import StrategyGeneratorsPanel from './StrategyGeneratorsPanel.jsx'
 import LLMProvidersPanel from './LLMProvidersPanel.jsx'
 import ConceptSpacePanel from './ConceptSpacePanel.jsx'
 import ExchangeVenuesPanel from './ExchangeVenuesPanel.jsx'
@@ -96,6 +107,19 @@ export default function TradingDashboard() {
       {/* Online Control panel removed — NSE paper start/stop/segments/wallet now live
           in OpenAlgo (/paper page); crypto controls live in the Freqtrade panel below.
           This kills the duplicated start/stop clusters the operator flagged. */}
+      {/* Brain Sandbox retired from the UI 2026-07-06 — the owner graduated to Freqtrade
+          (CRYPTO_ENGINE=freqtrade). SandboxPanel.jsx is kept in the tree and can be re-shown
+          by restoring this Card + setting CRYPTO_ENGINE=sandbox. Crypto trading now runs on the
+          Freqtrade engine; the Strategy Generators + Freqtrade panels below are the live view. */}
+
+      <Card title="Strategy Generators — the brain's strategy creator" hint="DEAP genetic evolver + 6 SOTA generators (LLM-mutation · gplearn+PySR symbolic regression · pyribs quality-diversity · formulaic-alpha mining · Optuna · RD-Agent) → one overfit + family-wise gate → skill library → the brain trades the best survivor">
+        <StrategyGeneratorsPanel />
+      </Card>
+
+      <Card title="Segment focus — one switch for the whole brain" hint="turn any crypto/NSE segment on or off · gates entries, screening, broker pickers, and strategy research everywhere the brain focuses">
+        <SegmentFocusPanel />
+      </Card>
+
       <Card title="Crypto Markets — live screener (brain pick universe)" hint="Binance-style: icon · segment · live price · 24h% · volatility · funding — sort by volume / movers / volatility / funding">
         <CryptoMarketsPanel />
       </Card>
@@ -225,6 +249,46 @@ export default function TradingDashboard() {
 
       <Card title="Computer-Use Agent — sees & operates the dashboards" hint="reads panels/charts/buttons (own + Freqtrade/FreqUI), presses them paper-first, experiments, reflects (Reflexion) & grows a skill library (Voyager)">
         <ComputerUsePanel />
+      </Card>
+
+      <Card title="Broker-Sense Funnel — trades through the broker web apps" hint="their screeners narrow the universe · candle screenshots → CNN direction · screen-mirror bid/ask (API fail-safe) · APIs execute only · paper-first">
+        <BrokerSensePanel />
+      </Card>
+
+      <Card title="Ocular Cortex — the brain's eyes & visual memory" hint="FREE vision (no GPU/paid API) reads each broker screen · fuses pixels+DOM+OCR+the app's own JSON · learns golden paths (iconic→working→habit) · links the frame that drove each trade">
+        <OcularCortexPanel />
+      </Card>
+
+      <Card title="Stock X-Ray — full per-stock picture on trade-open" hint="fused snapshot: OpenAlgo multi-TF candles+indicators, 20-level depth+imbalance, circuit bands, computed demand/supply zones + free-eyes Upstox visual · auto-captured when a trade opens · type a symbol to X-ray any stock">
+        <XRayPanel />
+      </Card>
+
+      <Card title="Live browser — connect your broker account" hint="a real browser streamed here so YOU solve the login captcha/OTP that automation can't · your clicks+typing drive the page · Save session → the brain reads your account headless after">
+        <LiveBrowserPanel broker="binance" />
+      </Card>
+
+      <Card title="App Driving School — Binance (crypto)" hint="explores the logged-in BINANCE app read-only · clicks every feature · learns the golden route to each market-data kind (spot/futures/options/screeners) from the app's own traffic · no hardcoded pages">
+        <AppSchoolPanel broker="binance" />
+      </Card>
+
+      <Card title="App Driving School — Upstox (NSE)" hint="a SEPARATE school for the logged-in UPSTOX app (kept distinct from Binance so the brain never confuses them) · learns NSE movers/watchlist/F&O/option-chain/depth routes from Upstox's own traffic · read-only">
+        <AppSchoolPanel broker="upstox" />
+      </Card>
+
+      <Card title="Broker built-in pickers — Binance" hint="USE the app's OWN screeners (top movers/gainers/funding/liquidation) as ready-made candidate sources · read in parallel · brain learns which picker predicts winners (stacking) · read-only, no re-computing the universe">
+        <BrokerFeaturesPanel broker="binance" />
+      </Card>
+
+      <Card title="Broker built-in pickers — Upstox" hint="Upstox's OWN pickers (momentum gainers 1m/3m/5m, trending, trending<500, top gainers/losers, Algovers, Chart360, Scalper, OI analysis, News) as candidate sources · brain learns each one's hit-rate · read-only">
+        <BrokerFeaturesPanel broker="upstox" />
+      </Card>
+
+      <Card title="Self-growing trade columns — discovered on the apps" hint="new data fields the App Driving School found on the broker apps (noise-filtered, cross-checked vs the journal) · Accept → it joins the open/closed trade tables">
+        <TradeColumnsPanel />
+      </Card>
+
+      <Card title="Wiring watchdog — self-healing connectivity" hint="flags any module/endpoint that WAS wired coming unwired (a regression) so nothing silently disconnects · backlog baselined · heuristic early-warning">
+        <ConnectivityPanel />
       </Card>
 
       <TradeDrilldown trade={drill} onClose={() => setDrill(null)} />
