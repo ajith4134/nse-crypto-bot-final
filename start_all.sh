@@ -135,6 +135,13 @@ pgrep -f "trading.online.run_live_loop" >/dev/null || \
   BRAIN_EXPLORE_OPEN_ALL="$BRAIN_EXPLORE_OPEN_ALL" BRAIN_EXPLORE_GRADUATE_N="$BRAIN_EXPLORE_GRADUATE_N" \
   setsid .venv/bin/python -m trading.online.run_live_loop >>logs/live_loop.log 2>&1 </dev/null &
 
+# Micro-policy distillation (invent-beyond #4): nightly full-tournament teacher run → per-coin
+# winner table + LightGBM student, so the funnel's selective decide() answers in ~ms. nice-10,
+# its own process — never inside a funnel cycle. Kill-switch: MICRO_POLICY=0 (the executor
+# then simply never consults the student; this daemon may still refresh the table).
+pgrep -f "trading.crypto.freqtrade.run_micro_distill" >/dev/null || \
+  setsid .venv/bin/python -m trading.crypto.freqtrade.run_micro_distill >>logs/micro_distill.log 2>&1 </dev/null &
+
 # Account-watchlist mirror (owner 2026-07-07): keep a dedicated 'Brain-Open' watchlist in the
 # REAL Upstox account == current open trades, so the owner SEES the brain's picks in the Upstox
 # app. Driven by the human-UI vision engine on a HEADED browser (auto-Xvfb).

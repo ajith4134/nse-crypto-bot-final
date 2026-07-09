@@ -17,6 +17,58 @@ from datetime import datetime, timezone
 from trading.journal.schema import ClosedTrade
 
 
+_LEARN_SEEN_FILE = "close_learn_seen.json"   # trade ids whose close-time learning already ran
+_LEARN_SEEN: list | None = None              # per-process cache (insertion order, for trimming)
+_LEARN_SEEN_SET: set = set()                 # O(1) membership twin (closed_view maps 100s/poll)
+
+
+def _learn_from_close(ft: dict, t) -> None:
+    """ONE-SHOT close-time learning, idempotent by Freqtrade trade id.
+
+    map_trade() runs on EVERY dashboard poll via closed_view() (SWR refresh), not only on
+    journal ingest — so learning side-effects placed inline there re-credited the same
+    closed trade on every poll. That silently inflated the picker-fusion sample counts
+    (FeaturePerf.record has no dedupe) and would corrupt the champion bandit's Beta
+    posteriors the same way. This guard makes close-time learning fire exactly once per
+    trade regardless of which caller maps it first. (Each process keeps its own cache of
+    the shared seen-file, so a cross-process race can at worst double-credit one trade
+    once — bounded, and vastly better than once per poll.)
+
+    Learns two things per closed trade:
+      • picker stacking credit (#3 broker-features): every built-in picker whose latest
+        snapshot listed the symbol gets the win/loss.
+      • champion-bandit posterior (invent-beyond #3): the library strategy the entry was
+        attributed to (enter_tag) gets a win/loss in the CURRENT regime bucket — the
+        allocation itself learns which champion works in which regime.
+    """
+    global _LEARN_SEEN, _LEARN_SEEN_SET
+    tid = ft.get("trade_id")
+    if tid is None:
+        return
+    key = f"FT-{tid}"
+    from trading import state
+    if _LEARN_SEEN is None:
+        _LEARN_SEEN = list(state.load_json(_LEARN_SEEN_FILE, {}).get("ids", []))
+        _LEARN_SEEN_SET = set(_LEARN_SEEN)
+    if key in _LEARN_SEEN_SET:
+        return
+    win = _f(t.net_pnl) > 0
+    try:
+        from trading.broker_sense import broker_features as _bf
+        _bf.credit_symbol("binance", ft.get("pair", ""), win=win, pnl=_f(t.net_pnl))
+    except Exception:
+        pass
+    try:
+        from trading.strategy import champion_bandit as _cb
+        _cb.update("crypto", str(t.strategy_name or ""), win=win)
+    except Exception:
+        pass
+    _LEARN_SEEN.append(key)                       # insertion order → trim drops OLDEST first
+    _LEARN_SEEN = _LEARN_SEEN[-8000:]
+    _LEARN_SEEN_SET = set(_LEARN_SEEN)
+    state.save_json(_LEARN_SEEN_FILE, {"ids": _LEARN_SEEN})
+
+
 def _f(v, default=0.0) -> float:
     try:
         return float(v) if v is not None else float(default)
@@ -165,14 +217,18 @@ def _peak_fields(ft: dict, allow_net: bool = True) -> dict:
     return out
 
 
-def map_trade(ft: dict, *, broker_ctx: bool = True) -> ClosedTrade:
+def map_trade(ft: dict, *, broker_ctx: bool = True, bulk: bool = False) -> ClosedTrade:
     """Map ONE Freqtrade trade dict (from /trades) onto a canonical ClosedTrade.
 
     broker_ctx=False skips the live ticker/funding HTTP context (`_broker_context`).
     Bulk training-data mapping MUST pass False: a live ticker cannot reconstruct
     entry-time context for a trade closed days ago (it would stamp TODAY's 24h
     high/low/mark into `*_entry` columns — wrong training labels), and 2 HTTP calls
-    × N closed trades was the 2026-07-07 three-hour funnel-cycle wedge."""
+    × N closed trades was the 2026-07-07 three-hour funnel-cycle wedge.
+
+    bulk=True additionally resolves the decision-memory episode WITHOUT the per-trade
+    LLM reflection (template lesson instead) — an LLM call per row turns a large
+    backfill into hours; the outcome/posterior learning itself still runs."""
     is_short = bool(ft.get("is_short"))
     direction = "SHORT" if is_short else "LONG"
     open_rate = _f(ft.get("open_rate"))
@@ -293,14 +349,9 @@ def map_trade(ft: dict, *, broker_ctx: bool = True) -> ClosedTrade:
     if t.brain_prediction in ("UP", "DOWN") and close_rate and open_rate:
         actual = "UP" if close_rate > open_rate else "DOWN"
         t.brain_correct = (t.brain_prediction == actual)
-    # STACKING feedback: credit the broker built-in pickers that flagged this symbol with the
-    # win/loss, so each picker's learned weight tracks how its picks really performed (#3).
-    try:
-        from trading.broker_sense import broker_features as _bf
-        _bf.credit_symbol("binance", ft.get("pair", ""),
-                          win=(_f(t.net_pnl) > 0), pnl=_f(t.net_pnl))
-    except Exception:
-        pass
+    # Close-time learning (picker stacking credit + champion-bandit posterior) — one-shot
+    # per trade id; see _learn_from_close for why the guard is load-bearing.
+    _learn_from_close(ft, t)
     # decision-memory closure (idempotent: resolve() no-ops on already-resolved episodes,
     # safe under the 30s polling that rebuilds this view)
     if t.episode_id:
@@ -309,7 +360,8 @@ def map_trade(ft: dict, *, broker_ctx: bool = True) -> ClosedTrade:
             ep = get_memory().resolve(
                 episode_id=t.episode_id, net_pnl=float(t.net_pnl or 0.0),
                 r_multiple=t.r_multiple, exit_price=close_rate,
-                exit_reason=ft.get("exit_reason", "") or "", brain_correct=t.brain_correct)
+                exit_reason=ft.get("exit_reason", "") or "", brain_correct=t.brain_correct,
+                use_llm=not bulk)
             if ep and ep.get("reflection"):
                 t.exit_reflection = ep["reflection"]
         except Exception:
@@ -404,7 +456,11 @@ def closed_view(client=None, net_budget: int = 8) -> list[dict]:
             spent += 1
         # broker_ctx=False: historical rows — live ticker context is wrong for them and
         # cost 2 HTTP calls per trade (the closed view alone hit Binance ~2,200 times).
-        row = map_trade(ft, broker_ctx=False).to_dict()
+        # bulk=True: NEVER run LLM episode reflections in a dashboard request thread —
+        # after a restart the cold cache rebuild hit hundreds of unresolved episodes and
+        # pinned all 32 handler slots behind _CT_LOCK (503 storm, 2026-07-09). Fresh-trade
+        # reflections belong to the live_loop ingest tick, not the poll path.
+        row = map_trade(ft, broker_ctx=False, bulk=True).to_dict()
         row.update(peaks)                          # peak_profit_usdt/_time, peak_loss_usdt/_time
         rows[i] = row
     return rows
@@ -452,14 +508,34 @@ def ingest_closed(journal, client=None) -> dict:
 
     existing = {t.trade_id for t in journal.trades}
     ingested = skipped = 0
-    for ft in ft_trades:
-        tid = f"FT-{ft.get('trade_id')}"
-        if tid in existing:
-            skipped += 1
-            continue
-        try:
-            journal.record(map_trade(ft))     # derives charges/quality → feeds TradeOutcomeNet
-            ingested += 1
-        except Exception:
-            skipped += 1
+    now_ms = _time.time() * 1000
+    # Batch persistence: journal.record() rewrites the whole journal file every call —
+    # fine for the steady one-trade-at-a-time drip, pathological for a backfill (11 MB
+    # × N rows). Suspend persist during the loop, write ONCE at the end.
+    was_persist = getattr(journal, "persist", False)
+    try:
+        journal.persist = False
+        for ft in ft_trades:
+            tid = f"FT-{ft.get('trade_id')}"
+            if tid in existing:
+                skipped += 1
+                continue
+            try:
+                # Live broker-context reads + LLM reflection ONLY for trades closed in
+                # the last 10 minutes: stamping the CURRENT ticker into *_entry columns
+                # of a trade that closed hours ago is label-dishonest, and per-row HTTP/
+                # LLM is the wedge class from 2026-07-07 — bulk backfill stays pure-CPU.
+                fresh = bool(ft.get("close_timestamp")) and \
+                    (now_ms - float(ft["close_timestamp"])) < 600_000
+                journal.record(map_trade(ft, broker_ctx=fresh, bulk=not fresh))
+                ingested += 1
+            except Exception:
+                skipped += 1
+    finally:
+        journal.persist = was_persist
+        if ingested and was_persist:
+            try:
+                journal._save()
+            except Exception:
+                pass
     return {"ingested": ingested, "skipped": skipped, "seen": len(ft_trades)}

@@ -156,22 +156,25 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         return {"sharpe": round(sharpe, 4), "win_rate": win_rate,
                 "n_active": n_active, "cum_return": round(float(np.sum(series)), 6)}
 
-    # ── the instruction: best strategy per coin, or flat ─────────────────────────
-    def decide(self, market: str, symbol: str, price, *, in_position: bool) -> dict:
-        if str(market).upper() != "CRYPTO":
-            return {"action": "FLAT"}
+    # ── the full 153-strategy tournament for one coin (the EXPENSIVE part) ────────
+    def tournament(self, symbol: str) -> dict:
+        """Rank every executable strategy on `symbol`'s live bars — backtest × brain — and
+        apply the deflated-Sharpe anti-overfit gate. This is the expensive teacher the
+        distilled micro-policy (invent-beyond #4) compresses; decide() consumes it live.
+        Returns {"error": reason} on any honest miss."""
         df = self._ohlcv(symbol)
         if df is None or len(df) < 40:
-            return {"action": "FLAT", "_brain": {"reason": "no live bars"}}
+            return {"error": "no live bars"}
         from trading.strategy.library.features_ext import compute_features_ext
         try:
             feats = compute_features_ext(df[["open", "high", "low", "close", "volume"]])
         except Exception:
-            return {"action": "FLAT", "_brain": {"reason": "feature build failed"}}
+            return {"error": "feature build failed"}
 
         close = df["close"].to_numpy(dtype=float)
         last_price = float(close[-1])
         ranked = []
+        sig_by_name: dict = {}
         for s in self.strategies():
             try:
                 sig = np.asarray(s.make_signal(feats), dtype=float)
@@ -181,14 +184,14 @@ class PerCoinBrainDecider(LibraryBrainDecider):
             if bt is None:
                 continue
             last = int(np.sign(sig[-1])) if len(sig) else 0
-            direction = "LONG" if (last > 0 or bt["sharpe"] >= 0) else "SHORT"
             bw, binfo = self._brain_weight(symbol, ("LONG" if last >= 0 else "SHORT"), last_price)
             final = bt["sharpe"] * bw
+            sig_by_name[s.name] = sig
             ranked.append({"name": s.name, "last": last, "final": round(final, 4),
                            "brain_weight": round(bw, 3), "p_win": binfo.get("p_win"), **bt})
 
         if not ranked:
-            return {"action": "FLAT", "_brain": {"reason": "no scorable strategy", "n_candidates": 0}}
+            return {"error": "no scorable strategy", "n_candidates": 0}
         ranked.sort(key=lambda r: r["final"], reverse=True)
         best = ranked[0]
 
@@ -202,7 +205,24 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         sr_bench = expected_max_sharpe(var_sr, max(2, len(ranked)))
         deflated_psr = probabilistic_sharpe_ratio(
             best["sharpe"], max(best["n_active"], 2), sr_benchmark=sr_bench)
-        deflated_ok = deflated_psr >= self._dsr_min
+        return {"ranked": ranked, "best": best, "deflated_psr": deflated_psr,
+                "deflated_ok": deflated_psr >= self._dsr_min, "sr_bench": sr_bench,
+                "close": close, "last_price": last_price, "df": df,
+                "winner_signal": sig_by_name.get(best["name"])}
+
+    # ── the instruction: best strategy per coin, or flat ─────────────────────────
+    def decide(self, market: str, symbol: str, price, *, in_position: bool) -> dict:
+        if str(market).upper() != "CRYPTO":
+            return {"action": "FLAT"}
+        t = self.tournament(symbol)
+        if t.get("error"):
+            meta = {"reason": t["error"]}
+            if "n_candidates" in t:
+                meta["n_candidates"] = t["n_candidates"]
+            return {"action": "FLAT", "_brain": meta}
+        ranked, best = t["ranked"], t["best"]
+        deflated_psr, deflated_ok, sr_bench = (t["deflated_psr"], t["deflated_ok"],
+                                               t["sr_bench"])
 
         # gate: the winner must clear the score floor; if in a position, exit when the best
         # strategy no longer says long (net signal turned non-positive).

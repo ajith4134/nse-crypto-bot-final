@@ -233,6 +233,19 @@ def status() -> dict:
         out["evolution_enabled"] = bool(evolution_enabled())
     except Exception:
         pass
+    # Champion-bandit allocator (invent-beyond #3) — status() is dashboard-thread-safe by
+    # design (persisted arms only, no SkillLibrary import).
+    try:
+        from trading.strategy import champion_bandit
+        out["bandit"] = champion_bandit.status()
+    except Exception:
+        pass
+    # Distilled micro-policy (invent-beyond #4) — status() reads persisted state only.
+    try:
+        from trading.crypto.freqtrade import micro_policy
+        out["micro_policy"] = micro_policy.status()
+    except Exception:
+        pass
     # honest liveness: the last cycle is younger than 2 intervals, judged against the
     # interval the DAEMON recorded at cycle time (env can differ across processes)
     last_ts = (d.get("last") or {}).get("ts")

@@ -100,6 +100,9 @@ def observe_cycle(*, market: str, segment: str, signals: dict,
             continue
         price = _price_of(raw)
         direction = sig.get("direction")
+        lane = ""
+        if isinstance(raw, dict):                 # which broker picker surfaced it (#6)
+            lane = str(((raw.get("screener") or {}).get("lane")) or "")
         if price and direction in ("long", "short"):
             if sym not in open_baseline:
                 d["baseline"].append({"symbol": sym, "market": market, "segment": segment,
@@ -110,6 +113,7 @@ def observe_cycle(*, market: str, segment: str, signals: dict,
                 d["skips"].append({"symbol": sym, "market": market, "segment": segment,
                                    "direction": direction, "price_at_skip": price,
                                    "reason": veto_by_sym.get(sym, "not selected"),
+                                   "lane": lane,
                                    "ts": now, "snaps": [], "outcomes": {},
                                    "verdict": "pending"})
                 n_skip += 1
@@ -156,6 +160,21 @@ def _feed_snapshots(d: dict, signals: dict, now: float) -> int:
                         it["verdict"] = ("bad-skip (missed winner)" if best > 1.0 else
                                          "good-skip (avoided loser)" if best < -0.2 else
                                          "neutral-skip")
+                        # OFF-POLICY lane credit (invent-beyond #6): the counterfactual
+                        # outcome of a SKIPPED candidate is evidence about the picker
+                        # lane that surfaced it — a missed winner says the lane was
+                        # right, an avoided loser says it was noise. Feeds the fusion
+                        # weights so lanes learn from EVERY logged decision, not only
+                        # the taken trades.
+                        if it.get("lane") and it["verdict"] != "neutral-skip":
+                            try:
+                                from trading.broker_sense.broker_features import get_perf
+                                broker = "binance" if it.get("market") == "crypto" \
+                                    else "upstox"
+                                get_perf().record_counterfactual(
+                                    broker, it["lane"], would_win=(best > 1.0))
+                            except Exception:
+                                pass
     return n
 
 

@@ -391,17 +391,36 @@ class FeaturePerf:
         rb["wins"] += 1 if win else 0
         state.save_json(_PERF_FILE, {"perf": self.perf})
 
+    def record_counterfactual(self, broker: str, feature: str, *, would_win: bool) -> None:
+        """OFF-POLICY credit (invent-beyond #6): the resolved shadow outcome of a candidate
+        this picker surfaced but the funnel SKIPPED. A missed winner = the lane was right;
+        an avoided loser = it was noise. Kept in its own bucket so on-policy evidence
+        (real trades) and counterfactual evidence never mix silently."""
+        k = f"{broker}|{feature}"
+        p = self.perf.setdefault(k, {"n": 0, "wins": 0, "pnl": 0.0})
+        cf = p.setdefault("cf", {"n": 0, "wins": 0})
+        cf["n"] += 1
+        cf["wins"] += 1 if would_win else 0
+        state.save_json(_PERF_FILE, {"perf": self.perf})
+
     def weight(self, broker: str, feature: str, *, regime: str | None = None) -> float:
         import math
         p = self.perf.get(f"{broker}|{feature}")
-        if not p or p["n"] < 3:
+        if not p or (p["n"] < 3 and (p.get("cf") or {}).get("n", 0) < 3):
             return 1.0                                # neutral prior until it has evidence
-        wr = p["wins"] / max(1, p["n"])               # global hit-rate
+        wr = p["wins"] / max(1, p["n"]) if p["n"] else 0.5
         reg = regime or current_regime()
         rb = (p.get("by_regime") or {}).get(reg)
         if rb and rb["n"] >= 3:                        # blend toward THIS regime's hit-rate
             wr = 0.4 * wr + 0.6 * (rb["wins"] / max(1, rb["n"]))
-        return round(max(0.1, wr * 2) * (1 + math.log10(max(1, p["n"]))), 3)
+        # DR-flavored blend (#6): counterfactual (skipped-candidate) evidence refines the
+        # on-policy estimate at a lower coefficient — every logged decision teaches.
+        cf = p.get("cf") or {}
+        if cf.get("n", 0) >= 3:
+            cf_wr = cf["wins"] / max(1, cf["n"])
+            wr = (0.7 * wr + 0.3 * cf_wr) if p["n"] >= 3 else cf_wr
+        n_eff = p["n"] + 0.5 * cf.get("n", 0)
+        return round(max(0.1, wr * 2) * (1 + math.log10(max(1, n_eff))), 3)
 
     def table(self) -> list[dict]:
         out = []

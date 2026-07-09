@@ -115,7 +115,60 @@ function ResearcherSection({ r }) {
           ? `${trip.length} too-good-to-be-true rejection(s), last: ${trip[trip.length - 1].id} (Sharpe ${fmt(trip[trip.length - 1].oos_sharpe, 1)})`
           : 'no leakage suspects rejected yet'}
       </div>
+      <BanditRow b={r.bandit} />
+      <MicroPolicyRow m={r.micro_policy} />
     </Card>
+  )
+}
+
+// Distilled micro-policy (invent-beyond #4): nightly tournament → per-coin winner table +
+// LightGBM student → ~ms selective decide(). Real state only (micro_policy.json).
+function MicroPolicyRow({ m }) {
+  if (!m) return null
+  const tr = m.trained || {}
+  const hasAny = (m.coins || 0) > 0 || tr.ok
+  return (
+    <div style={{ marginTop: 8, borderTop: `1px solid ${T.border}`, paddingTop: 6, fontSize: 12 }}>
+      <span style={{ fontWeight: 800, color: m.enabled ? (tr.ok ? T.good : T.warn) : T.muted }}>
+        ⚡ micro-policy {m.enabled ? (tr.ok ? 'LIVE' : 'awaiting first distill') : 'OFF'}
+      </span>
+      <span style={{ color: T.muted, marginLeft: 8 }}>
+        {hasAny
+          ? `${m.coins_fresh}/${m.coins} coins fresh · ${m.gates_ok} gate-passing · ` +
+            (tr.ok ? `student agreement ${(tr.teacher_agreement * 100).toFixed(1)}% on ${tr.rows} rows` : (tr.reason || ''))
+          : 'nightly distill daemon compresses the 153-strategy decision into a ~ms student (run_micro_distill)'}
+      </span>
+    </div>
+  )
+}
+
+// Champion bandit allocator (invent-beyond #3): Thompson-sampled paper-capital split across
+// the library champions, per regime. Real state only (champion_bandit.json via the researcher
+// endpoint); hidden until the executor has persisted an arm set.
+function BanditRow({ b }) {
+  if (!b) return null
+  const alloc = Object.entries(b.allocation_crypto || {}).sort((x, y) => y[1] - x[1])
+  const nObs = Object.values(b.arms || {}).reduce((s, p) => s + (p.w || 0) + (p.l || 0), 0)
+  if (!alloc.length && !nObs) return null
+  return (
+    <div style={{ marginTop: 8, borderTop: `1px solid ${T.border}`, paddingTop: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: b.enabled ? T.good : T.warn }}>
+        🎰 champion bandit {b.enabled ? 'ON' : 'OFF'}
+        <span style={{ color: T.muted, fontWeight: 400, marginLeft: 8 }}>
+          regime {b.regime || 'neutral'} · {nObs} closed-trade observation(s) · stake ×[0.5–2.0] on selective entries
+        </span>
+      </div>
+      {alloc.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+          {alloc.map(([id, w]) => (
+            <span key={id} style={{ fontSize: 11, color: T.text, background: T.bg2 || 'transparent',
+              border: `1px solid ${T.border}`, borderRadius: 4, padding: '2px 6px' }}>
+              {id} <b style={{ color: T.good }}>{(w * 100).toFixed(1)}%</b>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
