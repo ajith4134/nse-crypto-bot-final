@@ -50,6 +50,34 @@ class TestRatchet(_Iso):
         self.assertAlmostEqual(c["peak_profit_pct"], 10.0)      # peak held, not overwritten down
         self.assertGreaterEqual(c["peak_profit_pct"], c["locked_profit_pct"])
 
+    def test_exit_fires_at_exact_lock_equality(self):
+        """2026-07-10 regression (owner report): trade sat with profit EQUAL to the shown
+        locked profit and never exited. Module-level: equality must exit. The live_loop
+        caller bug (deciding via should_exit's fresh peak×(1−dist) line instead of the
+        ratcheted _dec['exit'] it displays) is fixed by using _dec['exit'] directly."""
+        from trading.execution import profit_tailgate as pt
+        a = pt.locked_profit("crypto", "futures", trade_id="EQ", profit_pct=8, peak_profit_pct=10)
+        lock = a["locked_profit_pct"]
+        b = pt.locked_profit("crypto", "futures", trade_id="EQ", profit_pct=lock,
+                             peak_profit_pct=10)
+        self.assertTrue(b["exit"])                              # profit == lock → exit, not <
+
+    def test_ratcheted_lock_beats_fresh_line_after_dist_loosens(self):
+        """The displayed lock is the RATCHET (never down). If the learned distance loosens,
+        should_exit's fresh line drops BELOW the ratchet — the exact divergence that left
+        live_loop trades touching their displayed lock without exiting. locked_profit must
+        still exit at the ratcheted value."""
+        from trading import state as st
+        from trading.execution import profit_tailgate as pt
+        pt.locked_profit("crypto", "futures", trade_id="RD", profit_pct=9, peak_profit_pct=10)
+        st.save_json("profit_tailgate.json",                    # loosen dist 0.30 → 0.55
+                     {"dist": {"crypto|futures|any": {"value": 0.55, "n": 9}}})
+        fresh_exit, _, _ = pt.should_exit("crypto", "futures", 7.0, 10.0)
+        self.assertFalse(fresh_exit)                            # fresh line 4.5 says "ride"
+        d = pt.locked_profit("crypto", "futures", trade_id="RD", profit_pct=7.0,
+                             peak_profit_pct=10)
+        self.assertTrue(d["exit"])                              # ratchet 7.0 says EXIT
+
     def test_learn_tightens_after_poor_capture(self):
         from trading.execution import profit_tailgate as pt
         base = pt.learned_distance("crypto", "futures")

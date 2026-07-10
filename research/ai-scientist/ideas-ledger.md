@@ -214,3 +214,8 @@ Details: research/brain-native-frequi-engine-redesign-2026-07-10.md
 Also: gate_tuner reads live UQ_P_UP_MIN / CRYPTO_MIN_SCORE envs instead of a hardcoded copy.
 Deferred (ledgered, not done): consolidate 4 legacy mlnb_status.json fetch sites onto the useMlnbDash composable; extract shared chart composable for BrainControlView/ProTerminal; GateTuning dashboard panel; screen_mirror O(1) action append + cheap n_actions.
 Fork-tracking gap (found at commit time): only 3 vendor files were ever git-tracked while FORK.md names ~20 diverged ones — this commit adds the brain-native layer (mlnb_* + E2 api_server files + BN-U sources); the OLDER segment-fork divergences (persistence/segment_context, deps.py, rpc.py, exchange/deribit.py, worker plumbing…) remain untracked [proposed: vendor-update-style sweep to land them].
+2026-07-10 update: BN-E1..E5 + BN-U1 (Brain Cockpit) APPROVED by owner and BUILT same day.
+E1 verified live (engine tailgate_lock exits incl. gap-through-lock at -2.9%); E2 verified
+(native tg_*/strategy_label on /status+/trades, header-scoped /status, /mlnb/* endpoints);
+E4 verified (mlnb_fills.jsonl filling with real entry/exit fills); E3 built+tested, OFF by
+default pending soak; E5 FORK.md landed. BN-U2/U3 remain proposed (owner picked A).

@@ -1076,11 +1076,11 @@ class LiveTradeLoop:
                         ot["tailgate_locked_profit_pct"] = _dec.get("locked_profit_pct")
                         ot["tailgate_distance_pct"] = round(
                             _dec.get("distance_pct", 0) * 100, 2)
-                        _tg_exit, _tg_dist, _tg_why = _pt.should_exit(
-                            market.lower(), (seg or "equity"),
-                            _ppct, _peak)
-                        ot["tailgate_distance_pct"] = round(_tg_dist * 100, 2)
-                        if _tg_exit:
+                        # exit on the RATCHET's own decision — the same locked value the
+                        # table shows. A separate should_exit() recomputes peak×(1−dist)
+                        # fresh, which sits BELOW a ratcheted lock once the learned dist
+                        # loosens — trades touched their displayed lock without exiting.
+                        if _dec.get("exit"):
                             trail_exit = trail_exit or "profit-tailgate"
                             ot["tailgate_triggered"] = True
                             ot["tailgate_captured_pct"] = round(_ppct, 4)

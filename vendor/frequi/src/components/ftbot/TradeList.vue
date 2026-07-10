@@ -79,7 +79,14 @@ function tailgate(trade: Trade): {
   peak: number | null;
   trail: number | null;
 } {
-  const ov = predMap.value[String(trade.trade_id)] as Record<string, number | null> | undefined;
+  // mlnb E2 (2026-07-10): the engine now serves the live ratchet NATIVELY on every trade
+  // row (tg_locked_pct/tg_peak_pct/tg_trail_dist from the same lock file the in-engine
+  // custom_exit enforces) — the cross-origin overlay is only a secondary source now.
+  const nat = trade as unknown as Record<string, number | null>;
+  const ov =
+    nat.tg_locked_pct != null
+      ? nat
+      : (predMap.value[String(trade.trade_id)] as Record<string, number | null> | undefined);
   if (ov && ov.tg_locked_pct != null) {
     return {
       armed: true,
@@ -109,7 +116,15 @@ async function loadPredictions() {
   } catch { /* dashboard unreachable — columns show "—" honestly */ }
 }
 function pred(row: { trade_id?: number | null }) {
-  return predMap.value[String(row?.trade_id ?? '')] || {};
+  // native engine fields first (strategy_label/brain_pred ride every trade row since E2);
+  // the dashboard overlay adds what only IT can compute live (nn_pred re-scoring).
+  const nat = (row ?? {}) as Record<string, string | undefined>;
+  const ov = predMap.value[String(row?.trade_id ?? '')] || {};
+  return {
+    strategy_label: nat.strategy_label ?? ov.strategy_label,
+    brain_pred: nat.brain_pred ?? ov.brain_pred,
+    nn_pred: ov.nn_pred,
+  };
 }
 onMounted(() => { loadPredictions(); predTimer = window.setInterval(loadPredictions, 15000); });
 onUnmounted(() => { if (predTimer) clearInterval(predTimer); });
