@@ -21,9 +21,14 @@ from typing import Callable
 def _as_prob(value) -> float | None:
     """Coerce a brain confidence to a 0–1 probability.
 
-    Accepts values already in [0, 1]; if it looks like a 0–100 percentage
+    Accepts values already in (0, 1]; if it looks like a 0–100 percentage
     (> 1.0), divides by 100. Returns None for missing/invalid, and clamps to
-    [0, 1] for safety.
+    (0, 1] for safety.
+
+    ``<= 0`` is treated as MISSING, not as a forecast: the brain never enters a
+    trade at 0% confidence, so a stored 0.0 is a default-value artifact (and a
+    negative is a sentinel). Scoring 0.0 against losses produced fake-perfect
+    Brier scores (ETH/USDT brier 0.0 with a 12% win rate, 2026-07-10 audit).
     """
     if value is None:
         return None
@@ -33,8 +38,8 @@ def _as_prob(value) -> float | None:
         return None
     if p > 1.0:
         p = p / 100.0
-    if p < 0.0:
-        return 0.0
+    if p <= 0.0:
+        return None
     if p > 1.0:
         return 1.0
     return p
@@ -129,8 +134,13 @@ class ConfidenceBook:
     gets notified without this module importing it.
     """
 
+    # book-level (prob, outcome) pairs kept for ECE / reliability bins — aggregates alone
+    # can't measure calibration shape. Rebuilt naturally on load (journal replays trades).
+    CALIB_CAP = 1000
+
     def __init__(self, on_recalibrate: Callable[[str, "SymbolConfidence"], None] | None = None):
         self._symbols: dict[str, SymbolConfidence] = {}
+        self._calib: list[tuple[float, float]] = []     # (predicted p, outcome 0/1), capped
         self.on_recalibrate = on_recalibrate
 
     # ── updates ──────────────────────────────────────────────────────────────
@@ -150,6 +160,10 @@ class ConfidenceBook:
         won = (getattr(trade, "net_pnl", 0.0) or 0.0) > 0
         predicted = _as_prob(getattr(trade, "brain_confidence_entry", None))
         sc.update(won, predicted)
+        if predicted is not None:
+            self._calib.append((predicted, 1.0 if won else 0.0))
+            if len(self._calib) > self.CALIB_CAP:
+                del self._calib[: len(self._calib) - self.CALIB_CAP]
 
         # brain_correct: only when a directional prediction was made.
         pred = (getattr(trade, "brain_prediction", "") or "").upper()
@@ -173,6 +187,35 @@ class ConfidenceBook:
         sc = self._symbols.get(symbol)
         return sc.confidence if sc is not None else None
 
+    def reliability(self, n_bins: int = 10) -> list[dict]:
+        """Reliability-diagram bins over the recorded (p, outcome) pairs.
+
+        Each bin: how often the brain SAID p ∈ [lo, hi) vs how often it actually
+        won there. A calibrated brain has avg_p ≈ win_rate in every bin."""
+        bins = [{"lo": i / n_bins, "hi": (i + 1) / n_bins, "n": 0,
+                 "p_sum": 0.0, "won_sum": 0.0} for i in range(n_bins)]
+        for p, won in self._calib:
+            b = bins[min(int(p * n_bins), n_bins - 1)]
+            b["n"] += 1
+            b["p_sum"] += p
+            b["won_sum"] += won
+        return [{"lo": round(b["lo"], 2), "hi": round(b["hi"], 2), "n": b["n"],
+                 "avg_p": round(b["p_sum"] / b["n"], 4) if b["n"] else None,
+                 "win_rate": round(b["won_sum"] / b["n"], 4) if b["n"] else None}
+                for b in bins]
+
+    def ece(self, n_bins: int = 10) -> float | None:
+        """Expected Calibration Error = Σ (n_bin/N) · |avg_p − win_rate|; None until
+        any forecast-carrying trades exist. 0 = perfectly calibrated."""
+        total = len(self._calib)
+        if total == 0:
+            return None
+        err = 0.0
+        for b in self.reliability(n_bins):
+            if b["n"]:
+                err += (b["n"] / total) * abs(b["avg_p"] - b["win_rate"])
+        return round(err, 4)
+
     def as_dict(self) -> dict:
         per_symbol = {s: sc.as_dict() for s, sc in self._symbols.items()}
         brier_sum = sum(sc.brier_sum for sc in self._symbols.values())
@@ -185,4 +228,7 @@ class ConfidenceBook:
             "total_trades": total_n,
             "overall_win_rate": (total_wins / total_n) if total_n else None,
             "overall_brier": (brier_sum / brier_count) if brier_count else None,
+            "ece": self.ece(),
+            "reliability": self.reliability(),
+            "calib_n": len(self._calib),
         }

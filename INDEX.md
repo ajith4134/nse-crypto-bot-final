@@ -666,7 +666,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -1602,6 +1602,11 @@ _Acceptance test: the PhD-domain node modules import and conform to NodeProtocol
 - **classes:** TestDomainNodes
 - **imports:** __future__, core.node_protocol, data.benchmarks, data.dataset, unittest
 
+## `tests/test_dreamer.py`
+_tests/test_dreamer.py — Counterfactual Dream-Trainer (2026-07-10)._
+- **functions:** `_rows()`; `test_regret_decomposition(monkeypatch, tmp_path)`; `test_study_topics_follow_dominant_regret(monkeypatch, tmp_path)`; `test_rows_without_excursions_are_skipped_not_faked(monkeypatch, tmp_path)`
+- **imports:** __future__, json
+
 ## `tests/test_embodiment_p48.py`
 _Phase P4.8 (Multimodal + identity + society + affect) acceptance tests._
 - **classes:** TestAffect, TestIdentity, TestSociety, TestSensesDegrade, TestEmbodiment, TestDemo
@@ -1646,6 +1651,11 @@ _Tests for fast candle direction (trading/broker_sense/fast_candles) + crypto or
 - **classes:** TestDirection, TestRead, TestOrderType
 - **functions:** `_uptrend(n, start, step)`; `_downtrend(n, start, step)`
 - **imports:** __future__, trading.broker_sense, unittest
+
+## `tests/test_fast_nav.py`
+_tests/test_fast_nav.py — fast-nav planner over learned app-school state (2026-07-10)._
+- **functions:** `_seed(tmp_path, skills)`; `test_plan_prefers_learned_url_then_explore(monkeypatch, tmp_path)`; `test_skill_outranks_goto(monkeypatch, tmp_path)`; `test_two_strikes_demotes_below_explore_ranking(monkeypatch, tmp_path)`; `test_unknown_target_only_explores(monkeypatch, tmp_path)`
+- **imports:** __future__, json
 
 ## `tests/test_file_memory.py`
 _Tests for memory/file_memory.py — Claude-style durable file memory (Phase B)._
@@ -2585,6 +2595,11 @@ _trading/brain/vision/computer_use.py — the FREE computer-use loop (cloned, re
 - **classes:** GuardViolation, Action, ComputerUseAgent
 - **functions:** `_control_forbidden(text) -> bool`; `_parse_action(text) -> Action`; `_is_forbidden(action) -> bool`; `_find_control(page, target)`; `get_agent() -> ComputerUseAgent`
 - **imports:** __future__, dataclasses, json, os, re, time, trading.brain.vision.ocular_cortex
+
+## `trading/brain/vision/fast_nav.py`
+_trading/brain/vision/fast_nav.py — FAST + ACCURATE navigation planner (2026-07-10)._
+- **functions:** `_tokens(s) -> set[str]`; `_state(name, default)`; `_score(target_toks, text, url, seen) -> float`; `_method_fails(stats, app, target, method, key) -> int`; `plan(app, target, max_candidates) -> list[dict]`; `record(app, target, method, key, ok, latency_ms) -> None`; `status() -> dict`
+- **imports:** __future__, math, re, time
 
 ## `trading/brain/vision/free_eyes.py`
 _trading/brain/vision/free_eyes.py — the brain's FREE, 24/7, never-rate-limited eyes._

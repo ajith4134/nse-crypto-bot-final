@@ -410,6 +410,11 @@ _HEAVY_TTL = {
     "/api/trading/crypto/markets": 60.0,
     "/api/trading/orderbook": 8.0,
     "/api/trading/foundry": 30.0,
+    # 2026-07-10: evidence.status() re-loads + strptime-parses the WHOLE journal per hit;
+    # uncached it stampeded (13 concurrent) after a cold restart and ate the request slots
+    # (20s waits + 503s on every panel). Same SWR treatment as the other heavy reads.
+    "/api/trading/evidence": 30.0,
+    "/api/trading/learning_curve": 30.0,       # full-journal parse — same SWR treatment
 }
 
 
@@ -1300,6 +1305,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/closedtrades":               # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_closedtrades(self)
+        if path == "/api/trading/learning_curve":             # body → dashboard/routes/trading_ext.py (2026-07-10)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_learning_curve(self)
+        if path == "/api/trading/dreams":                     # body → dashboard/routes/trading_ext.py (2026-07-10)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_dreams(self)
         if path == "/api/trading/confidence":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_confidence(self)

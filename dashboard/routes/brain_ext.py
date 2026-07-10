@@ -80,17 +80,42 @@ def handle_agent_status(h):
     return h._send(200, _srv(h)._bg_snapshot("agent", _p_agent), "application/json")
 
 
-def handle_memory_status(h):
-    """GET /api/brain/memory/status — P4.2 human-like memory (importance + Ebbinghaus decay,
-    Letta tiers, auto_dream). OFFLINE deterministic demo snapshot, labelled demo.
-    """
+def _state_json(name, default):
+    """Cheap live-state read for the P4.x status routes (state-file-only rule: request
+    threads never heavy-import or call LLMs — see memory dashboard-524-wedge)."""
     try:
+        from trading import state as tstate
+        return tstate.load_json(name, default)
+    except Exception:
+        return default
+
+
+def handle_memory_status(h):
+    """GET /api/brain/memory/status — P4.2 memory. LIVE-FIRST (2026-07-10): the brain's real
+    persisted memory (associative notes + FinMem decision episodes + meta-articles); the old
+    deterministic demo snapshot only when those stores are empty (labelled demo)."""
+    try:
+        notes = _state_json("associative_notes.json", {}) or {}
+        eps = _state_json("decision_episodes.json", {}) or {}
+        arts = _state_json("meta_articles.json", []) or []
+        n_notes = len(notes.get("notes", notes) if isinstance(notes, dict) else notes)
+        n_eps = len(eps.get("episodes", eps) if isinstance(eps, dict) else eps)
+        n_arts = len(arts if isinstance(arts, list) else arts.get("articles", []))
+        if n_notes or n_eps:
+            body = json.dumps({
+                "demo": False, "live": True,
+                "tiers": {"associative_notes": n_notes,
+                          "decision_episodes": n_eps,
+                          "meta_articles": n_arts},
+                "note": ("LIVE brain memory stores (trading/state): A-MEM associative "
+                         "notes + FinMem decision episodes + learned meta-articles"),
+            }, default=str).encode()
+            return h._send(200, body, "application/json")
         from run_human_memory import build_demo_human_memory
         snap = build_demo_human_memory()
         snap["demo"] = True
-        snap["note"] = ("offline deterministic demo (run_human_memory.py over a stub "
-                        "brain, injected clock); shows real HumanMemory dynamics — "
-                        "decay/tiers/dream — not live brain memory")
+        snap["note"] = ("live memory stores empty — offline deterministic demo "
+                        "(run_human_memory.py); shows HumanMemory dynamics, not live memory")
         body = json.dumps(snap, default=str).encode()
     except Exception as e:
         body = json.dumps({
@@ -107,13 +132,28 @@ def handle_hybrid_status(h):
     Ebbinghaus decay/auto_dream. OFFLINE deterministic demo snapshot, labelled demo.
     """
     try:
+        # LIVE-FIRST (2026-07-10): the fused view of the real stores + mind-event stream.
+        me = _state_json("mind_events.json", []) or []
+        events = me.get("events", me) if isinstance(me, dict) else me
+        notes = _state_json("associative_notes.json", {}) or {}
+        n_notes = len(notes.get("notes", notes) if isinstance(notes, dict) else notes)
+        log = _state_json("learning_log.json", {}) or {}
+        learned = log.get("learned") or []
+        if n_notes or events:
+            body = json.dumps({
+                "demo": False, "live": True,
+                "fusion": {"associative_notes": n_notes,
+                           "mind_events": len(events),
+                           "learned_topics": len(learned)},
+                "latest_event": (events[-1] if events else None),
+                "note": "LIVE hybrid view: A-MEM notes + mind-event stream + learn log",
+            }, default=str).encode()
+            return h._send(200, body, "application/json")
         from run_hybrid_memory import build_demo_hybrid_memory
         snap = build_demo_hybrid_memory()
         snap["demo"] = True
-        snap["note"] = ("offline deterministic demo (run_hybrid_memory.py over a stub "
-                        "brain + stub LLM, injected clock); shows real HybridMemory "
-                        "fusion — GA stream + Letta tiers + Ebbinghaus decay/dream — "
-                        "not live brain memory")
+        snap["note"] = ("live stores empty — offline deterministic demo "
+                        "(run_hybrid_memory.py); not live brain memory")
         body = json.dumps(snap, default=str).encode()
     except Exception as e:
         body = json.dumps({
@@ -130,12 +170,27 @@ def handle_librarian_status(h):
     dedup/ingest). OFFLINE deterministic demo snapshot, labelled demo.
     """
     try:
+        # LIVE-FIRST (2026-07-10): the learn-loop IS the working librarian — real arXiv
+        # papers + web articles ingested into the persistent KnowledgeBrain every cycle.
+        ll = _state_json("learn_loop.json", {}) or {}
+        arts = _state_json("meta_articles.json", []) or []
+        done = ll.get("done") or []
+        if done:
+            body = json.dumps({
+                "demo": False, "live": True,
+                "cycles": ll.get("cycles"), "topics_ingested": len(done),
+                "articles": len(arts if isinstance(arts, list) else []),
+                "last_topic": ll.get("last"),
+                "queue": ll.get("queue") or [],
+                "note": ("LIVE librarian = continuous learn-loop (papers+articles → "
+                         "KnowledgeBrain each cycle; trading/brain/learn_loop.py)"),
+            }, default=str).encode()
+            return h._send(200, body, "application/json")
         from run_librarian import build_demo_librarian
         snap = build_demo_librarian()
         snap["demo"] = True
-        snap["note"] = ("offline deterministic demo (run_librarian.py over a stub "
-                        "brain, injected stub web/arxiv sources + extractor); shows "
-                        "real Librarian discover/feed/dedup — not live ingestion")
+        snap["note"] = ("learn-loop has no cycles yet — offline deterministic demo "
+                        "(run_librarian.py); not live ingestion")
         body = json.dumps(snap, default=str).encode()
     except Exception as e:
         body = json.dumps({
@@ -152,13 +207,23 @@ def handle_quiz_status(h):
     retention curve). OFFLINE deterministic demo snapshot, labelled demo.
     """
     def _p_quiz():
+        # LIVE-FIRST (2026-07-10): the learn-loop self-evaluates with FSRS every
+        # eval_every cycles — that IS the live mastery signal.
+        ll = _state_json("learn_loop.json", {}) or {}
+        ev = ll.get("last_eval") or {}
+        if ev.get("final_retention") is not None:
+            return {"demo": False, "live": True,
+                    "retention": ev.get("final_retention"),
+                    "rising": ev.get("rising"), "eval_ts": ev.get("ts"),
+                    "cycles": ll.get("cycles"),
+                    "topics_done": len(ll.get("done") or []),
+                    "note": ("LIVE FSRS self-evaluation from the continuous learn-loop "
+                             "(retention over recently-learned topics)")}
         from run_self_quiz import build_demo_self_quiz
         snap = build_demo_self_quiz()
         snap["demo"] = True
-        snap["note"] = ("offline deterministic demo (run_self_quiz.py over a stub "
-                        "brain, injected clock); shows the real FSRS-driven mastery "
-                        "curve rising for a learning brain vs a flat never-learning "
-                        "control — not live brain self-testing")
+        snap["note"] = ("no live FSRS eval yet — offline deterministic demo "
+                        "(run_self_quiz.py); not live brain self-testing")
         return snap
     return h._send(200, _srv(h)._bg_snapshot("quiz", _p_quiz), "application/json")
 
@@ -168,14 +233,24 @@ def handle_thinking_status(h):
     active inference + pyDatalog/DoWhy + conformal abstention + NeMo constitution). Demo snapshot.
     """
     def _p_thinking():
+        # LIVE-FIRST (2026-07-10): real deliberation artifacts — hypothesis ledger +
+        # UQ abstentions (the brain literally "answering when confident, abstaining when not").
+        hyp = _state_json("hypotheses.json", {}) or {}
+        n_hyp = len(hyp.get("hypotheses", hyp) if isinstance(hyp, dict) else hyp)
+        ab = _state_json("uq_abstentions.json", {}) or {}
+        n_ab = len(ab.get("abstentions", ab) if isinstance(ab, dict) else ab)
+        uq = _state_json("uq_calibration.json", {}) or {}
+        if n_hyp or n_ab:
+            return {"demo": False, "live": True,
+                    "hypotheses": n_hyp, "abstentions": n_ab,
+                    "uq_calibration": uq,
+                    "note": ("LIVE deliberation: hypothesis ledger + conformal-UQ "
+                             "abstention log (answers when confident, abstains when not)")}
         from run_thinking_p45 import build_demo_thinking
         snap = build_demo_thinking()
         snap["demo"] = True
-        snap["note"] = ("offline deterministic demo (run_thinking_p45.py over a stub "
-                        "brain): real ReAct/ToT reasoning + pymdp surprise/curiosity + "
-                        "pyDatalog/DoWhy reasoning + conformal abstention + NeMo "
-                        "constitution — answers when confident, abstains + escalates "
-                        "when not; not live brain reasoning")
+        snap["note"] = ("no live deliberation artifacts yet — offline deterministic demo "
+                        "(run_thinking_p45.py); not live brain reasoning")
         return snap
     return h._send(200, _srv(h)._bg_snapshot("thinking", _p_thinking), "application/json")
 
@@ -185,13 +260,23 @@ def handle_stream_status(h):
     Workspace consolidation to long-term memory; Langfuse trace). Demo snapshot, labelled demo.
     """
     def _p_stream():
+        # LIVE-FIRST (2026-07-10): the mind-event bus IS the live stream of mind.
+        me = _state_json("mind_events.json", []) or []
+        events = me.get("events", me) if isinstance(me, dict) else me
+        if events:
+            kinds: dict = {}
+            for e in events:
+                k = (e.get("kind") or e.get("type") or "event") if isinstance(e, dict) else "event"
+                kinds[k] = kinds.get(k, 0) + 1
+            return {"demo": False, "live": True,
+                    "n_events": len(events), "kinds": kinds,
+                    "tail": events[-25:],
+                    "note": "LIVE stream of mind — the brain's mind-event bus (mind_events.json)"}
         from run_stream_of_mind import build_demo_thinking
         snap = build_demo_thinking()
         snap["demo"] = True
-        snap["note"] = ("offline deterministic demo (run_stream_of_mind.py over a stub "
-                        "brain): real Thinker think-cycle → thought stream → Global "
-                        "Workspace consolidation to long-term memory; live panel streams "
-                        "via AG-UI (POST /api/agui). Langfuse offline no-op unless keys set")
+        snap["note"] = ("mind-event bus empty — offline deterministic demo "
+                        "(run_stream_of_mind.py); not live thoughts")
         return snap
     return h._send(200, _srv(h)._bg_snapshot("stream", _p_stream), "application/json")
 
@@ -216,13 +301,24 @@ def handle_autonomy_status(h):
     →admit; safety gate rejects malicious specs). OFFLINE deterministic demo snapshot.
     """
     def _p_autonomy():
+        # LIVE-FIRST (2026-07-10): real self-modification evidence — the self-evolve
+        # generation state + W2 versioned rule changes the brain actually made.
+        se = _state_json("self_evolve.json", {}) or {}
+        rv = _state_json("rule_versions.json", []) or []
+        n_rules = len(rv if isinstance(rv, list) else rv.get("versions", []))
+        if se or n_rules:
+            return {"demo": False, "live": True,
+                    "self_evolve": {k: se.get(k) for k in
+                                    ("generations", "evaluated", "best", "ts")
+                                    if isinstance(se, dict) and k in se} or se,
+                    "rule_versions": n_rules,
+                    "note": ("LIVE autonomy: self-evolve generation state + versioned "
+                             "rule changes (trading/state/rule_versions.json)")}
         from run_self_coding_p47 import build_demo_self_coding
         snap = build_demo_self_coding()
         snap["demo"] = True
-        snap["note"] = ("offline deterministic demo (run_self_coding_p47.py): real "
-                        "propose→sandbox→benchmark-gate→admit loop over golden data; "
-                        "shows the rising best-score curve + the safety gate rejecting a "
-                        "malicious spec without running it. No network, no LLM")
+        snap["note"] = ("no live self-modification state yet — offline deterministic "
+                        "demo (run_self_coding_p47.py)")
         return snap
     return h._send(200, _srv(h)._bg_snapshot("autonomy", _p_autonomy), "application/json")
 

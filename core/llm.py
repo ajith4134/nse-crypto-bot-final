@@ -12,7 +12,10 @@ None and callers degrade gracefully (the chat reports "no LLM key configured").
 from __future__ import annotations
 
 import base64
+import hashlib
+import json
 import os
+import threading
 import time
 
 from config import settings
@@ -100,33 +103,125 @@ def provider_name(model: str) -> str:
     return model.split("/", 1)[0]
 
 
+# ── LLM budget governor (2026-07-10) ──────────────────────────────────────────────
+# The 2026-07-10 audit found ~95% of the day's 4.5k calls dying on self-inflicted 429s:
+# every caller walked the FULL chain on every call, re-hitting providers that had just
+# rate-limited us. Three layers fix it (kill-switch: LLM_GOVERNOR=0):
+#   1. cooldown-skip — providers inside a recorded cooldown (llm_telemetry.reload_at,
+#      shared cross-process) are skipped instead of re-hammered;
+#   2. pacing — a per-provider minimum interval within this process, so a burst of brain
+#      calls spreads across the chain instead of draining one free tier;
+#   3. response cache — identical (messages, max_tokens, temperature) within
+#      LLM_CACHE_TTL (default 900s, 0 disables) returns the cached reply, free.
+_MIN_INTERVAL = {         # seconds between calls PER PROVIDER, per process (free-tier RPM)
+    "groq": 2.5, "cerebras": 2.5, "sambanova": 6.0, "gemini": 8.0, "openrouter": 4.0,
+    "deepseek": 3.0, "deepinfra": 3.0, "fireworks_ai": 3.0, "mistral": 2.5,
+    "nvidia_nim": 3.0, "openai": 1.0,
+}
+_last_call: dict[str, float] = {}
+_CACHE_MAX = 512
+_cache: dict[str, tuple[float, str]] = {}
+_cache_lock = threading.Lock()
+
+
+def _governor_on() -> bool:
+    return os.getenv("LLM_GOVERNOR", "1").strip().lower() not in ("0", "false", "off")
+
+
+def _cache_ttl() -> float:
+    try:
+        return float(os.getenv("LLM_CACHE_TTL", "900"))
+    except ValueError:
+        return 900.0
+
+
+def _cache_key(messages, max_tokens, temperature) -> str:
+    raw = json.dumps([messages, max_tokens, temperature], sort_keys=True, default=str)
+    return hashlib.sha1(raw.encode()).hexdigest()
+
+
+def _cache_get(key: str) -> str | None:
+    ttl = _cache_ttl()
+    if ttl <= 0:
+        return None
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit and time.time() - hit[0] <= ttl:
+            return hit[1]
+        if hit:
+            _cache.pop(key, None)
+    return None
+
+
+def _cache_put(key: str, text: str) -> None:
+    if _cache_ttl() <= 0:
+        return
+    with _cache_lock:
+        if len(_cache) >= _CACHE_MAX:          # drop the oldest entries
+            for k in sorted(_cache, key=lambda k: _cache[k][0])[:_CACHE_MAX // 8]:
+                _cache.pop(k, None)
+        _cache[key] = (time.time(), text)
+
+
+def _skippable(prov: str) -> bool:
+    """True when the governor says don't hit `prov` right now (cooling or paced-out)."""
+    if not _governor_on():
+        return False
+    try:
+        from core import llm_telemetry
+        if llm_telemetry.cooling(prov):
+            return True
+    except Exception:
+        pass
+    gap = _MIN_INTERVAL.get(prov)
+    return bool(gap) and (time.time() - _last_call.get(prov, 0.0)) < gap
+
+
 def chat(messages: list[dict], max_tokens: int = 600, temperature: float = 0.4,
          timeout: int = 45, total_timeout: float | None = None) -> str:
     """Complete a chat over the first working provider; falls back across the rest.
 
     `timeout` bounds each provider ATTEMPT; `total_timeout` bounds the WHOLE failover
     chain — without it a caller with a wall-clock budget can wedge for n_providers×timeout
-    (the Broker-Sense LOOK-stage hang, 2026-07-05)."""
+    (the Broker-Sense LOOK-stage hang, 2026-07-05). Governed: cooldown-skip + pacing +
+    response cache (see the governor block above; LLM_GOVERNOR=0 disables)."""
     import litellm
     litellm.drop_params = True                # ignore params a given provider doesn't support
     cands = _candidates()
     if not cands:
         raise NoLLMConfigured("no LLM provider configured")
+    ck = _cache_key(messages, max_tokens, temperature)
+    cached = _cache_get(ck)
+    if cached is not None:
+        return cached
     last: Exception | None = None
     chain_t0 = time.time()
-    for model, extra in cands:
-        if total_timeout is not None and time.time() - chain_t0 > total_timeout:
-            break                             # budget exhausted → surface the last error
-        prov = provider_name(model)
-        t0 = time.time()
-        try:
-            r = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,
-                                   temperature=temperature, timeout=timeout, **extra)
-            _telemetry("record", prov, True, (time.time() - t0) * 1000.0, None)
-            return r["choices"][0]["message"]["content"]
-        except Exception as e:                # try the next provider in the chain
-            _telemetry("record", prov, False, (time.time() - t0) * 1000.0, str(e))
-            last = e
+    # pass 1 honors the governor; pass 2 (blackout guard) runs ONLY if pass 1 skipped the
+    # entire chain without a single attempt — a fully-cooling chain still gets one honest
+    # attempt rather than a guaranteed raise. Real pass-1 failures are never re-attempted.
+    for honor_governor in (True, False):
+        attempted = 0
+        for model, extra in cands:
+            if total_timeout is not None and time.time() - chain_t0 > total_timeout:
+                break                         # budget exhausted → surface the last error
+            prov = provider_name(model)
+            if honor_governor and _skippable(prov):
+                continue
+            attempted += 1
+            t0 = time.time()
+            _last_call[prov] = t0
+            try:
+                r = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,
+                                       temperature=temperature, timeout=timeout, **extra)
+                _telemetry("record", prov, True, (time.time() - t0) * 1000.0, None)
+                text = r["choices"][0]["message"]["content"]
+                _cache_put(ck, text)
+                return text
+            except Exception as e:            # try the next provider in the chain
+                _telemetry("record", prov, False, (time.time() - t0) * 1000.0, str(e))
+                last = e
+        if attempted:
+            break                             # real attempts happened → don't double-hit
     raise last if last else NoLLMConfigured("all providers failed")
 
 
@@ -185,19 +280,29 @@ def vision_chat(prompt: str, images, *, system: str | None = None, max_tokens: i
 
     last: Exception | None = None
     chain_t0 = time.time()
-    for model, extra in cands:
-        if total_timeout is not None and time.time() - chain_t0 > total_timeout:
+    # governed like chat(): skip cooling/paced providers, one blackout-guard pass if the
+    # whole chain was skipped without a single attempt (vision cooldowns key on ":vision").
+    for honor_governor in (True, False):
+        attempted = 0
+        for model, extra in cands:
+            if total_timeout is not None and time.time() - chain_t0 > total_timeout:
+                break
+            prov = provider_name(model)
+            if honor_governor and _skippable(prov + ":vision"):
+                continue
+            attempted += 1
+            t0 = time.time()
+            _last_call[prov + ":vision"] = t0
+            try:
+                r = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,
+                                       temperature=temperature, timeout=timeout, **extra)
+                _telemetry("record", prov + ":vision", True, (time.time() - t0) * 1000.0, None)
+                return r["choices"][0]["message"]["content"]
+            except Exception as e:
+                _telemetry("record", prov + ":vision", False, (time.time() - t0) * 1000.0, str(e))
+                last = e
+        if attempted:
             break
-        prov = provider_name(model)
-        t0 = time.time()
-        try:
-            r = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,
-                                   temperature=temperature, timeout=timeout, **extra)
-            _telemetry("record", prov + ":vision", True, (time.time() - t0) * 1000.0, None)
-            return r["choices"][0]["message"]["content"]
-        except Exception as e:
-            _telemetry("record", prov + ":vision", False, (time.time() - t0) * 1000.0, str(e))
-            last = e
     raise last if last else NoLLMConfigured("all vision providers failed")
 
 

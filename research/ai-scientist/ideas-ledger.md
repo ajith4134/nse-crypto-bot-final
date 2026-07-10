@@ -175,3 +175,13 @@ explore-wide funnel, Binance/Upstox Brain-Open mirrors, ui_candles cross-process
 6. **Off-policy funnel-weight evaluation** — upgrade picker/lane hit-rate learning to
    doubly-robust off-policy evaluation over the journal's decision_snapshot columns, so
    lane weights learn from EVERY logged decision, not just taken ones. Module: funnel-learn.
+
+## 2026-07-10 — Brain de-stagnation round (proposed; grounded in research/brain-audit-2026-07-10.md)
+1. [proposed] Loop Keeper — runtime self-heal for the 3 loop processes + learn daemon: systemd user units (Restart=on-failure) or a 5-min keeper cron running pgrep-guarded start_all.sh; dead-loop banner on the dashboard. Ends "silent mid-day death" (today's #1 root cause).
+2. [proposed] LLM Budget Governor + local floor — per-provider token-bucket RPM caps honoring free tiers, prompt dedupe/cache, circuit breaker on reload_at, and a LOCAL fallback model (ollama qwen/llama or distilled micro_llm) so brain features degrade to local instead of 429-dying (95% of 4.5k calls/day are failures).
+3. [proposed] Calibration truth loop — per-symbol Brier/ECE computed at close-learn (root-cause ETH brier 0.0), reliability panel, auto re-fit of conformal UQ + confidence recalibration from realized outcomes.
+4. [proposed] Learning that visibly improves — FSRS param re-fit from quiz outcomes; error-driven topic picker (learn what the brain got WRONG last week, not a fixed topic list); learning-curve panel (retention, OOF-acc, rolling win-rate deltas) so improvement is visible.
+5. [proposed] Demo→LIVE panel wiring (8 panels) — memory/hybrid/librarian/quiz/thinking/stream/self-coding → real get_brain() HippoRAG/A-MEM, knowledge_main, FSRS log, mind_events.json, self_evolve state; options chain → real OpenAlgo NFO chain already fetched by the options segment.
+6. [proposed] TradeOutcomeNet SOTA replacement scan — TabPFN-v2 (CPU tabular foundation model) vs current gated_moe as champion/challenger on the same OOF protocol; abstention-aware objective.
+7. [proposed] Off-policy gate tuning — doubly-robust OPE over the journal's off-policy lanes to auto-tune UQ_GATE θ, CRYPTO_MIN_SCORE, explore-graduation ACC instead of hand-set env values.
+8. [proposed] Knowledge gathering upgrade — scheduled news/announcement crawl (Binance + NSE/broker) into HippoRAG with symbol-entity links; retrieval surfaces in decision_snapshot.

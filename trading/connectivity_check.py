@@ -35,6 +35,8 @@ _FEATURES = [
     ("decision_memory", "journal.node_contributions|episodes", "FinMem episodes"),
     ("track_record", "state.track_records.json", "actor records"),
     ("rule_versions", "state.rule_versions.json", "W2 versioned changes"),
+    ("loop_processes", "pgrep + state.loop_keeper.json",
+     "the 3 loop processes are actually RUNNING (2026-07-10: they died silently for 2h)"),
 ]
 
 
@@ -129,6 +131,24 @@ def check(n_recent: int = 10) -> dict:
           "actor records exist")
     _mark("rule_versions", bool(state.load_json("rule_versions.json", [])),
           "versioned rule changes exist")
+    # the loops themselves: no process → every "connected" feature above is a museum piece
+    try:
+        import subprocess
+        loops = {"funnel_crypto": r"broker_sense\.run_funnel_loop crypto",
+                 "funnel_nse": r"broker_sense\.run_funnel_loop nse",
+                 "live_loop": r"trading\.online\.run_live_loop"}
+        dead = [n for n, pat in loops.items()
+                if subprocess.run(["pgrep", "-f", pat], capture_output=True,
+                                  timeout=10).returncode != 0]
+        keeper = state.load_json("loop_keeper.json", {}) or {}
+        kage = (time.time() - keeper["ts"]) / 60 if keeper.get("ts") else None
+        ktxt = (f"keeper checked {kage:.0f}m ago" if kage is not None
+                else "loop-keeper never ran")
+        _mark("loop_processes", not dead,
+              (f"all 3 loops alive · {ktxt}") if not dead else
+              f"DEAD: {','.join(dead)} · {ktxt}")
+    except Exception as e:
+        _mark("loop_processes", False, f"check failed: {type(e).__name__}")
     present = sum(1 for f in out["features"].values() if f["status"] == "PRESENT")
     out["summary"] = {"present": present, "total": len(out["features"]),
                       "snaps_inspected": len(snaps), "journal_rows": len(jrows)}

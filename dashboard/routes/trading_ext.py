@@ -1449,7 +1449,13 @@ def handle_confidence(h):
             body = json.dumps({
                 "symbols": symbols,
                 "demo": False, "live": True,
-                "note": "live journal.json confidence book — Bayesian win-rate + Brier",
+                # calibration truth (2026-07-10): overall Brier + ECE + reliability bins
+                # over trades that carried a real (>0) brain forecast
+                "overall_brier": book.get("overall_brier"),
+                "ece": book.get("ece"),
+                "reliability": book.get("reliability"),
+                "calib_n": book.get("calib_n"),
+                "note": "live journal.json confidence book — Bayesian win-rate + Brier + ECE",
             }, default=str).encode()
         else:
             from run_journal_t5 import build_demo_journal
@@ -1467,6 +1473,74 @@ def handle_confidence(h):
             "hint": "Trading T6 confidence not importable "
                     "(see trading/journal/confidence.py and blueprint §T5).",
         }).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_dreams(h):
+    """GET /api/trading/dreams — Counterfactual Dream-Trainer lessons (2026-07-10):
+    per-(strategy, market) regret decomposition (exit-timing / direction / tailgate-capture)
+    dreamed off real journal excursions each learn cycle. State-file-only read."""
+    try:
+        from trading.brain import dreamer
+        body = json.dumps({**dreamer.status(), "live": True, "demo": False},
+                          default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_learning_curve(h):
+    """GET /api/trading/learning_curve — is the brain IMPROVING? (owner ask 2026-07-10).
+
+    Real series straight off journal.json + learn_loop state, no synthesis:
+      daily    — per-close-date trades / win-rate / Brier (forecast-carrying rows only);
+      rolling  — last-100-trades win rate sampled every 25 closes (the graduation signal);
+      knowledge— learn-loop cycles + latest FSRS retention eval + UQ calibration snapshot.
+    Cached via the server-level SWR table (_HEAVY_TTL) — the journal parse is the cost."""
+    try:
+        from trading import state as tstate
+        rows = [r for r in (tstate.load_json("journal.json", []) or [])
+                if isinstance(r, dict)]
+        daily: dict = {}
+        for r in rows:
+            d = str(r.get("exit_datetime") or "")[:10]
+            if not d:
+                continue
+            b = daily.setdefault(d, {"n": 0, "wins": 0, "br_s": 0.0, "br_n": 0})
+            won = 1 if (r.get("net_pnl") or 0) > 0 else 0
+            b["n"] += 1
+            b["wins"] += won
+            p = r.get("brain_confidence_entry")
+            try:
+                p = float(p) if p is not None else None
+            except (TypeError, ValueError):
+                p = None
+            if p is not None and p > 1.0:
+                p /= 100.0
+            if p is not None and 0.0 < p <= 1.0:      # <=0 = missing-value artifact
+                b["br_s"] += (p - won) ** 2
+                b["br_n"] += 1
+        daily_series = [{"date": d, "trades": b["n"],
+                         "win_rate": round(b["wins"] / b["n"], 4),
+                         "brier": round(b["br_s"] / b["br_n"], 4) if b["br_n"] else None}
+                        for d, b in sorted(daily.items())]
+        closes = [1 if (r.get("net_pnl") or 0) > 0 else 0 for r in rows]
+        rolling = [{"trade_i": i,
+                    "win_rate_100": round(sum(closes[max(0, i - 100):i]) /
+                                          len(closes[max(0, i - 100):i]), 4)}
+                   for i in range(100, len(closes) + 1, 25)]
+        ll = tstate.load_json("learn_loop.json", {}) or {}
+        body = json.dumps({
+            "daily": daily_series[-60:],
+            "rolling": rolling[-80:],
+            "knowledge": {"cycles": ll.get("cycles"), "topics_done": len(ll.get("done") or []),
+                          "last_eval": ll.get("last_eval"), "last_uq": ll.get("last_uq")},
+            "n_trades": len(rows), "live": True, "demo": False,
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
 
 

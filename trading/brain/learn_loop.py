@@ -82,10 +82,59 @@ class LearnLoop:
             self._save(st)
         return self.status()
 
-    # ── topic selection: queue → erroring retries → curriculum rotation ──────
+    # ── error-driven topics: learn what the brain is GETTING WRONG ───────────
+    def mistake_topics(self, max_topics: int = 2, lookback: int = 250) -> list[str]:
+        """Study topics derived from the journal's own recent LOSS CLUSTERS.
+
+        Groups the last `lookback` closed trades by (strategy, regime); a group with
+        ≥8 trades and a win rate under 35% becomes a research topic, worst first.
+        This turns the fixed curriculum into a feedback loop: the brain studies its
+        actual failure modes, not a static reading list (owner ask 2026-07-10 —
+        'learning that visibly improves')."""
+        try:
+            from trading import state as tstate
+            rows = tstate.load_json("journal.json", []) or []
+            rows = rows[-lookback:] if isinstance(rows, list) else []
+        except Exception:
+            return []
+        groups: dict[tuple, list[int]] = {}
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            strat = (r.get("strategy_name") or r.get("enter_tag") or "").strip()
+            regime = (r.get("market_regime") or r.get("regime_entry") or "any").strip()
+            if not strat:
+                continue
+            won = 1 if (r.get("net_pnl") or 0) > 0 else 0
+            groups.setdefault((strat, regime), []).append(won)
+        scored = []
+        for (strat, regime), outcomes in groups.items():
+            n = len(outcomes)
+            wr = sum(outcomes) / n if n else 0.0
+            if n >= 8 and wr < 0.35:
+                scored.append((n * (0.35 - wr), strat, regime, n, wr))
+        scored.sort(reverse=True)
+        return [f"why {strat} trading strategy loses in {regime} market conditions "
+                f"— entry timing and filters"
+                for _, strat, regime, _, _ in scored[:max_topics]]
+
+    # ── topic selection: queue → own mistakes → erroring retries → curriculum ─
     def pick_topic(self, st: dict) -> str:
         if st.get("queue"):
             return st["queue"][0]
+        recent_done = {d.get("topic") for d in st.get("done", [])[-12:]}
+        # every other cycle, study a live failure mode before the general curriculum:
+        # loss clusters first, then the dream-trainer's dominant-regret lesson
+        if int(st.get("cycles", 0)) % 2 == 0:
+            dream = []
+            try:
+                from trading.brain import dreamer
+                dream = dreamer.study_topics()
+            except Exception:
+                pass
+            for t in self.mistake_topics() + dream:
+                if t not in recent_done:
+                    return t
         for e in reversed(st.get("errors", [])):        # retry the most recent failure once
             t = e.get("topic")
             if t and t not in [d.get("topic") for d in st.get("done", [])[-10:]]:
@@ -114,6 +163,13 @@ class LearnLoop:
         try:
             from trading.brain import connectivity_monitor
             connectivity_monitor.scan()
+        except Exception:
+            pass
+        # Dream-Trainer tick (2026-07-10): refresh the counterfactual-regret lessons off
+        # the newest closed trades each cycle — pure journal math, milliseconds.
+        try:
+            from trading.brain import dreamer
+            dreamer.dream_once()
         except Exception:
             pass
         rec = {"topic": topic, "n": out.get("n", 0), "ts": time.time()}

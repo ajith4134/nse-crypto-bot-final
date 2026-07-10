@@ -28,6 +28,13 @@ except Exception:
 COOLDOWN_SEC = 60.0
 _RATE_HINTS = ("rate limit", "ratelimit", "429", "quota", "resource exhausted",
                "too many requests", "overloaded", "capacity")
+# persistent misconfigurations (retired model id, dead key, empty balance) — cooling for
+# 60s is pointless, these fail identically for hours/days; retry hourly instead.
+# (2026-07-10 audit: cerebras' retired llama-3.3-70b burned 3.8k NotFoundError calls.)
+PERM_COOLDOWN_SEC = 3600.0
+_PERM_HINTS = ("does not exist", "notfound", "model_not_found", "insufficient balance",
+               "invalid api key", "incorrect api key", "authentication", "unauthorized",
+               "no access", "decommissioned", "deprecated")
 
 
 def _blank() -> dict:
@@ -59,6 +66,33 @@ def _is_rate_limit(err: str) -> bool:
     return any(h in e for h in _RATE_HINTS)
 
 
+def _is_permanent(err: str) -> bool:
+    e = (err or "").lower()
+    return any(h in e for h in _PERM_HINTS)
+
+
+# `cooling()` is consulted on EVERY chat() attempt across processes, so the state file is
+# re-read at most every _COOL_REFRESH seconds per process (it's a small JSON, atomic-written).
+_COOL_REFRESH = 3.0
+_cool_cache: tuple[float, dict] = (0.0, {})
+
+
+def cooling(provider: str) -> bool:
+    """True while `provider` is inside a recorded cooldown window (rate-limit ≈60s,
+    permanent misconfig ≈1h). Cross-process via the shared telemetry file."""
+    global _cool_cache
+    try:
+        now = time.time()
+        ts, d = _cool_cache
+        if now - ts > _COOL_REFRESH:
+            d = _load()
+            _cool_cache = (now, d)
+        reload_at = (d.get(provider) or {}).get("reload_at")
+        return bool(reload_at) and float(reload_at) > now
+    except Exception:
+        return False
+
+
 def record(provider: str, ok: bool, latency_ms: float | None = None,
            error: str | None = None) -> None:
     """Record one provider attempt. Never raises (telemetry must not break calls)."""
@@ -81,6 +115,8 @@ def record(provider: str, ok: bool, latency_ms: float | None = None,
                 if _is_rate_limit(error):
                     p["rate_limited"] += 1
                     p["reload_at"] = now + COOLDOWN_SEC
+                elif _is_permanent(error):
+                    p["reload_at"] = now + PERM_COOLDOWN_SEC
             d[provider] = p
             _save(d)
     except Exception:
