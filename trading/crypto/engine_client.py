@@ -48,6 +48,30 @@ def _order_type() -> str:
     return "limit" if v == "limit" else "market"
 
 
+def _inbox_enabled() -> bool:
+    """mlnb E3: CRYPTO_DECISION_INBOX=1 routes orders through the engine's decision inbox
+    (push) instead of REST forceenter/forceexit. Requires "mlnb_decision_inbox": true in the
+    engine config.json so the bots actually consume it. Default OFF."""
+    return os.environ.get("CRYPTO_DECISION_INBOX", "") in ("1", "true", "TRUE", "yes")
+
+
+def _inbox_append(rec: dict) -> dict:
+    """Append one decision to <state>/decisions_inbox.jsonl (single-writer, append-only).
+    Returns an honest 'queued' result — a queued decision is NOT a fill; the engine's own
+    guards still decide, and open-state truth stays with /status."""
+    import time as _t
+
+    from trading import state as _state
+
+    rec = dict(rec)
+    rec["ts"] = _t.time()
+    rec["id"] = f"{rec.get('segment')}:{rec.get('pair')}:{int(rec['ts'] * 1000)}"
+    path = _state._path("decisions_inbox.jsonl")
+    with open(path, "a") as fh:
+        fh.write(json.dumps(rec) + "\n")
+    return {"ok": True, "queued": True, "decision_id": rec["id"]}
+
+
 class FreqtradeError(RuntimeError):
     """Raised for Freqtrade API / transport failures with a clear message."""
 
@@ -167,6 +191,27 @@ class CryptoEngineClient:
         """
         self._guard_live(allow_live)
         act = (action or "").upper()
+        # mlnb E3 (2026-07-10): DECISION INBOX mode — env CRYPTO_DECISION_INBOX=1 queues the
+        # decision to <state>/decisions_inbox.jsonl instead of a REST round-trip; each segment
+        # bot consumes and executes it in-process (freqtrade/mlnb_inbox.py) with the same
+        # guards as /forceenter. Default OFF: REST stays the driver until this path soaks.
+        # Tradeability still guards BEFORE queueing so refusals stay honest and immediate.
+        if _inbox_enabled():
+            if act in ("BUY", "LONG", "ENTER", "SHORT"):
+                if not self._pair_tradeable(symbol, segment):
+                    return {"ok": False, "error": f"pair {symbol!r} is not tradeable on the "
+                                                  f"engine's exchange (guard: no phantom trades)",
+                            "guard": "tradeability"}
+                return _inbox_append({"action": "enter", "pair": symbol,
+                                      "side": "short" if act == "SHORT" else (side or "long"),
+                                      "segment": (segment or "futures").lower(),
+                                      "enter_tag": enter_tag, "stake": stake_amount})
+            if act in ("SELL", "EXIT", "CLOSE"):
+                # carry trade_id — "all" must close EVERY open trade on the pair, and a
+                # specific id must close exactly that trade (REST-path parity)
+                return _inbox_append({"action": "exit", "pair": symbol,
+                                      "trade_id": str(trade_id) if trade_id is not None else "all",
+                                      "segment": (segment or "futures").lower()})
         cli = self._client(segment)
         if act in ("BUY", "LONG", "ENTER", "SHORT"):
             # TRADEABILITY GUARD (2026-07-07 root-cause fix): a forceenter for a pair the

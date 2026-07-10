@@ -93,7 +93,8 @@ def run_once() -> int:
             state["restarted"] = True
         except Exception as e:
             print(f"[loop-keeper] start_all failed: {type(e).__name__}: {e}", flush=True)
-        time.sleep(5)
+        time.sleep(20)          # freqtrade takes >5s to fork its workers (false
+                                # "still missing" at the 5s recheck, 2026-07-10)
         state["alive_after"] = _check()
         still = sorted(n for n, ok in state["alive_after"].items() if not ok)
         state["still_missing"] = still

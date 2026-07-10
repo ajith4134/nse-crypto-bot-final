@@ -289,11 +289,18 @@ def _ensure_watchlist(ui) -> bool:
         return True
     ui.explore(
         f"Select the watchlist tab named '{WATCHLIST_NAME}' at the top-left. If no tab named "
-        f"'{WATCHLIST_NAME}' exists, create a new watchlist by clicking the + tab and name it "
-        f"'{WATCHLIST_NAME}'. Do NOT click any Buy/Sell/Trade button.",
+        f"'{WATCHLIST_NAME}' exists, create a new watchlist by clicking the + tab, type "
+        f"'{WATCHLIST_NAME}' into the new-watchlist name input, then press Enter or click the "
+        "Save/Create/✓ confirm control so the watchlist is actually created. Do NOT click any "
+        "Buy/Sell/Trade button.",
         max_steps=5, skill_key="watchlist-select-tab", params={"NAME": WATCHLIST_NAME})
     ans = ui.read(f"Is the '{WATCHLIST_NAME}' watchlist tab now selected? Answer yes or no.")
-    return "yes" in (ans or "").lower()
+    ok = "yes" in (ans or "").lower()
+    try:                     # 2026-07-10: without this, a bogus recorded trajectory would
+        ui.skill_feedback("watchlist-select-tab", ok)   # replay forever (no fail ever counted)
+    except Exception:
+        pass
+    return ok
 
 
 def _remove_symbol(ui, sym: str) -> bool:

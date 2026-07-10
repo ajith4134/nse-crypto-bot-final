@@ -37,7 +37,11 @@ def test_feature_row_length_matches_schema():
     assert all(isinstance(v, float) for v in row_closed + row_open)
 
 
-def test_network_trains_and_predicts():
+def test_network_trains_and_predicts(monkeypatch):
+    # hermetic: the box may legitimately run a PROMOTED engine (TRADE_NET_ENGINE=tabpfn
+    # after the challenger duel, 2026-07-10) — this test pins the DEFAULT engine path;
+    # the promoted path is covered by tests/test_challenger.py
+    monkeypatch.delenv("TRADE_NET_ENGINE", raising=False)
     random.seed(7)
     closed = [_closed(i % 5 != 0, i) for i in range(45)]   # ~80% wins, both classes present
     net = TradeOutcomeNet().fit_from_journal(closed)

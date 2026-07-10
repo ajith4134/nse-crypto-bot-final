@@ -42,3 +42,26 @@ def save_json(name: str, data: Any) -> None:
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)
+
+
+def update_json(name: str, updates: dict) -> dict:
+    """Merge `updates` into dict state file `name` under a cross-process lock.
+
+    load→modify→save from several processes loses keys (last-writer-wins clobbered
+    another market's freshly written funnel tile, 2026-07-10) — this serializes the
+    read-modify-write via flock on a sidecar .lock so each writer only replaces its
+    OWN top-level keys. Returns the merged dict."""
+    import fcntl
+
+    lock = _path(f"{name}.lock")
+    with open(lock, "w") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        try:
+            data = load_json(name, {})
+            if not isinstance(data, dict):
+                data = {}
+            data.update(updates)
+            save_json(name, data)
+            return data
+        finally:
+            fcntl.flock(lf, fcntl.LOCK_UN)

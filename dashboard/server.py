@@ -369,6 +369,11 @@ _SWR_REFRESHING: set = set()        # paths with an in-flight background refresh
 _SWR_PORT: int | None = None        # set in main() — loopback target for refreshes
 
 
+# cached endpoints whose body depends on the query string — cache/lock/SWR key on the
+# FULL path?query for these (all others keep the bare-path key)
+_QUERY_KEYED_CACHE = {"/api/trading/options/status"}
+
+
 def _swr_refresh_async(path: str) -> None:
     """Stale-while-revalidate: refresh `path` in ONE background daemon thread via a
     loopback request (X-SWR-Refresh header bypasses the cache read and re-stores).
@@ -415,6 +420,7 @@ _HEAVY_TTL = {
     # (20s waits + 503s on every panel). Same SWR treatment as the other heavy reads.
     "/api/trading/evidence": 30.0,
     "/api/trading/learning_curve": 30.0,       # full-journal parse — same SWR treatment
+    "/api/trading/options/status": 60.0,       # real broker chain fetch (~2s) behind SWR
 }
 
 
@@ -582,7 +588,22 @@ def _pool_ohlcv(symbol: str, tf: str, limit: int) -> list:
     try:
         from trading.crypto.exchange_pool import get_pool, pool_enabled
         if pool_enabled():
-            return get_pool("spot").ohlcv(symbol, timeframe=tf, limit=limit)
+            # futures notation (BASE/QUOTE:SETTLE) → the swap pool directly; plain spot
+            # symbols try spot first, then the perp — futures-only listings (NATGAS,
+            # 1000-x memes…) have no spot market anywhere, and the Pro Terminal charts
+            # whatever pair the engine actually holds (2026-07-10).
+            if ":" in symbol:
+                return get_pool("swap").ohlcv(symbol, timeframe=tf, limit=limit)
+            try:
+                return get_pool("spot").ohlcv(symbol, timeframe=tf, limit=limit)
+            except Exception as e:
+                # ONLY a missing-symbol miss may chart the perp instead, and only for
+                # USDT-quoted pairs — a transient spot error (rate limit, timeout) must
+                # NOT silently serve perp prices for a real spot pair (review fix)
+                if symbol.endswith("/USDT") and ("BadSymbol" in type(e).__name__
+                                                 or "does not have market symbol" in str(e)):
+                    return get_pool("swap").ohlcv(f"{symbol}:USDT", timeframe=tf, limit=limit)
+                raise
     except Exception:
         pass
     return _ccxt_spot().fetch_ohlcv(symbol, timeframe=tf, limit=limit)
@@ -999,20 +1020,24 @@ class Handler(BaseHTTPRequestHandler):
         ttl = _get_cache_ttl(path)
         if ttl is None:
             return self._do_GET_impl(path)
+        # query-sensitive endpoints cache PER full path+query — keying on the bare path
+        # served one ?underlying='s payload for every underlying and the SWR loopback
+        # re-pinned the default forever (2026-07-10 review fix)
+        key = self.path if path in _QUERY_KEYED_CACHE else path
         is_refresh = bool(self.headers.get("X-SWR-Refresh"))
-        hit = _ENDPOINT_CACHE.get(path)
+        hit = _ENDPOINT_CACHE.get(key)
         if hit and not is_refresh:
             # STALE-WHILE-REVALIDATE (2026-07-03): once a body exists it is ALWAYS served
             # instantly; if past TTL, one background thread recomputes it via loopback.
             # Panels went from 3–19s blocking waits to constant-millisecond responses.
             if (time.time() - hit[0]) >= ttl:
-                _swr_refresh_async(path)
+                _swr_refresh_async(key)
             c = hit[1]
             return self._send(c[0], c[1], c[2])
         with _ENDPOINT_CACHE_LOCK:
-            lock = _ENDPOINT_LOCKS.setdefault(path, threading.Lock())
+            lock = _ENDPOINT_LOCKS.setdefault(key, threading.Lock())
         with lock:
-            hit = _ENDPOINT_CACHE.get(path)                 # re-check after acquiring
+            hit = _ENDPOINT_CACHE.get(key)                  # re-check after acquiring
             if hit and not is_refresh and (time.time() - hit[0]) < ttl:
                 c = hit[1]
                 return self._send(c[0], c[1], c[2])
@@ -1023,7 +1048,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._capture_want = False
             cap = getattr(self, "_captured", None)
             if cap is not None:
-                _ENDPOINT_CACHE[path] = (time.time(), cap)
+                _ENDPOINT_CACHE[key] = (time.time(), cap)
 
     def _do_GET_impl(self, path: str) -> None:
         if path in ("/", "/index.html"):
@@ -1311,6 +1336,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/dreams":                     # body → dashboard/routes/trading_ext.py (2026-07-10)
             from dashboard.routes import trading_ext
             return trading_ext.handle_dreams(self)
+        if path == "/api/trading/gate_tuning":                # body → dashboard/routes/trading_ext.py (2026-07-10)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_gate_tuning(self)
         if path == "/api/trading/confidence":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_confidence(self)

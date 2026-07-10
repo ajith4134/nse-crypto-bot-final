@@ -172,6 +172,20 @@ class LearnLoop:
             dreamer.dream_once()
         except Exception:
             pass
+        # Free-news ingest tick (2026-07-10, zero-cost-first): public RSS → symbol-linked
+        # news_memory.json; internally rate-limited to one real fetch per 15 min.
+        try:
+            from trading.brain import news_ingest
+            news_ingest.ingest_once()
+        except Exception:
+            pass
+        # Gate-tuning tick (2026-07-10): refresh the counterfactual θ sweeps off the
+        # journal — pure column math over the explore-open-all log.
+        try:
+            from trading.brain import gate_tuner
+            gate_tuner.tune_once()
+        except Exception:
+            pass
         rec = {"topic": topic, "n": out.get("n", 0), "ts": time.time()}
         st["done"].append(rec)
         st["last"] = rec

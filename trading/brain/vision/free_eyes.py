@@ -231,7 +231,9 @@ class FreeEyes:
         g = self.glance(want_ocr=False)
         best, best_s = None, min_score
         for c in g.controls:                                 # DOM first (most exact)
-            if c.get("x") is None:
+            if c.get("x") is None or c.get("covered"):
+                # covered = an overlay/modal is on top at the control's center — clicking
+                # its coords would hit the overlay, not it (2026-07-10 phantom-click fix)
                 continue
             s = _score_match(target, c.get("label", ""))
             if s > best_s:

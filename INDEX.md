@@ -666,7 +666,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -1448,6 +1448,11 @@ _candle_updater throttle — batched, de-prioritised OHLCV refresh._
 - **classes:** TestCandleUpdaterThrottle
 - **imports:** __future__, trading.crypto.freqtrade.candle_updater, unittest, warnings
 
+## `tests/test_challenger.py`
+_tests/test_challenger.py — TradeOutcomeNet champion/challenger duel (2026-07-10)._
+- **functions:** `_xy(n, seed)`; `test_oof_eval_protocol_scores_learnable_signal()`; `test_duel_honest_when_too_few_rows(monkeypatch, tmp_path)`; `test_tabpfn_fit_predict_shapes()`; `test_engine_flag_promotes_tabpfn(monkeypatch)`
+- **imports:** __future__, numpy, os, pytest, trading.brain.challenger
+
 ## `tests/test_champion_bandit.py`
 _Tests for invent-beyond #3 — regime-contextual champion bandit allocator + its wiring._
 - **classes:** _StateSandbox, TestChampionBandit, TestCloseLearnOnce
@@ -1602,6 +1607,11 @@ _Acceptance test: the PhD-domain node modules import and conform to NodeProtocol
 - **classes:** TestDomainNodes
 - **imports:** __future__, core.node_protocol, data.benchmarks, data.dataset, unittest
 
+## `tests/test_dream_replay.py`
+_tests/test_dream_replay.py — Dream-Trainer phase-2 worldmodel replay (2026-07-10)._
+- **functions:** `_df(n, drift, seed)`; `test_imagine_replay_pre_entry_only(monkeypatch, tmp_path)`; `test_old_trades_skipped_never_replayed_on_future_data(monkeypatch, tmp_path)`
+- **imports:** __future__, datetime, json, numpy, pandas
+
 ## `tests/test_dreamer.py`
 _tests/test_dreamer.py — Counterfactual Dream-Trainer (2026-07-10)._
 - **functions:** `_rows()`; `test_regret_decomposition(monkeypatch, tmp_path)`; `test_study_topics_follow_dominant_regret(monkeypatch, tmp_path)`; `test_rows_without_excursions_are_skipped_not_faked(monkeypatch, tmp_path)`
@@ -1657,6 +1667,12 @@ _tests/test_fast_nav.py — fast-nav planner over learned app-school state (2026
 - **functions:** `_seed(tmp_path, skills)`; `test_plan_prefers_learned_url_then_explore(monkeypatch, tmp_path)`; `test_skill_outranks_goto(monkeypatch, tmp_path)`; `test_two_strikes_demotes_below_explore_ranking(monkeypatch, tmp_path)`; `test_unknown_target_only_explores(monkeypatch, tmp_path)`
 - **imports:** __future__, json
 
+## `tests/test_fast_nav_wiring.py`
+_HumanUI.navigate() — the fast_nav wiring (ledger #10): plan → try → record._
+- **classes:** _FakeLocator, _FakePage, FastNavWiringTest
+- **functions:** `_ui(page)`
+- **imports:** pathlib, unittest
+
 ## `tests/test_file_memory.py`
 _Tests for memory/file_memory.py — Claude-style durable file memory (Phase B)._
 - **functions:** `test_write_creates_note_and_index(tmp_path)`; `test_persists_across_processes_and_recalls(tmp_path)`; `test_keyword_fallback_without_associative(tmp_path)`
@@ -1678,6 +1694,11 @@ _Regression: NSE futures/options screeners must emit BROKER-TRADABLE symbols._
 - **classes:** _FakeClient
 - **functions:** `test_ltp_uses_rest_quotes_not_websocket_get_ltp()`; `test_nse_futures_resolve_to_near_month_contract(monkeypatch)`; `test_min_open_legacy_fno_key_lands_on_futures()`; `test_lot_size_prefers_real_master_contract_over_segment_default()`; `test_lot_size_falls_back_when_openalgo_unreachable()`
 - **imports:** pathlib, tempfile, trading.state
+
+## `tests/test_gate_tuner.py`
+_tests/test_gate_tuner.py — counterfactual gate-threshold sweeps (2026-07-10)._
+- **functions:** `_rows(n_low, n_high)`; `test_sweep_finds_profitable_threshold(monkeypatch, tmp_path)`; `test_min_support_rail(monkeypatch, tmp_path)`; `test_too_few_scored_rows_is_honest(monkeypatch, tmp_path)`
+- **imports:** __future__, json
 
 ## `tests/test_generators.py`
 _tests/test_generators.py — the Strategy-Generator Portfolio (offline/CPU parts)._
@@ -1776,6 +1797,11 @@ _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & determ
 - **functions:** `make_web(items, recorder)`; `make_arxiv(items, recorder)`; `make_rss(items, recorder)`; `make_extractor(text, recorder)`; `_lib(brain)`
 - **imports:** __future__, json, memory.librarian, os, tempfile, unittest, warnings
 
+## `tests/test_live_chain.py`
+_tests/test_live_chain.py — real-broker option chain → T4 analytics (2026-07-10)._
+- **functions:** `_raw(expiry_days, spot, atm)`; `test_to_chain_builds_real_analytics()`; `test_expiry_day_still_has_time_value()`; `test_empty_chain_raises_not_fakes()`
+- **imports:** __future__, datetime, pytest, trading.options.live_chain
+
 ## `tests/test_llm_governor.py`
 _tests/test_llm_governor.py — LLM budget governor (2026-07-10)._
 - **functions:** `gov(monkeypatch, tmp_path)`; `test_rate_limited_provider_skipped_while_cooling(gov)`; `test_permanent_error_gets_hour_cooldown(gov)`; `test_response_cache_hits_within_ttl(gov)`; `test_blackout_guard_single_attempt_when_all_cooling(gov)`; `test_governor_kill_switch(gov, monkeypatch)`
@@ -1818,6 +1844,11 @@ _Tests for nodes/micro_transformer_node.py — cloned-LLM node (Phase C)._
 - **functions:** `_toy(n, seed)`; `test_tokenizer_handles_any_data()`; `test_satisfies_node_protocol_and_learns()`; `test_c_kernel_generates_with_own_weights(tmp_path)`
 - **imports:** core.node_protocol, nodes.micro_transformer_node, pytest, random
 
+## `tests/test_mlnb_engine_native.py`
+_Tests for the fork's brain-native layer (E-workstreams 2026-07-10):_
+- **classes:** _TmpState, TestSidecarEnrich, TestDecisionInbox, TestInEngineTailgate
+- **imports:** json, pathlib, tempfile, time, unittest
+
 ## `tests/test_multihead.py`
 _Acceptance test (multi-output): every output head must beat its task baseline._
 - **classes:** TestMultiHead
@@ -1827,6 +1858,11 @@ _Acceptance test (multi-output): every output head must beat its task baseline._
 _Tests for the multi-segment Freqtrade fork (vendor/freqtrade) + its glue._
 - **classes:** TestSegmentIsolation, TestOptionRank, TestSegmentConfigFanout
 - **imports:** datetime, os, unittest
+
+## `tests/test_news_ingest.py`
+_tests/test_news_ingest.py — free-RSS → symbol-linked brain news memory (2026-07-10)._
+- **functions:** `_fetcher(url, limit)`; `_seed_journal(tmp_path)`; `test_ingest_links_symbols_and_dedupes(monkeypatch, tmp_path)`; `test_items_for_symbol_lookup(monkeypatch, tmp_path)`; `test_min_gap_rate_limit(monkeypatch, tmp_path)`; `test_dead_feed_never_kills_cycle(monkeypatch, tmp_path)`
+- **imports:** __future__, json, trading.brain.news
 
 ## `tests/test_news_t8.py`
 _Trading Phase T8.7 (Autonomous news research + sentiment) acceptance tests — fully offline._
@@ -2009,6 +2045,12 @@ _Trading Phase T8.8 (skill library + observability + self-improvement) tests —
 - **functions:** `_skill(name, market, metric)`
 - **imports:** __future__, itertools, numpy, os, trading, trading.brain.observability, trading.brain.selfimprove, trading.brain.skills, trading.strategy.control, unittest, warnings
 
+## `tests/test_state_update_json.py`
+_state.update_json — locked cross-process merge (2026-07-10 review fix)._
+- **classes:** UpdateJsonTest
+- **functions:** `_writer(state_dir, key, n) -> None`
+- **imports:** multiprocessing, pathlib, tempfile, unittest
+
 ## `tests/test_stock_xray.py`
 _Tests for the Stock X-Ray pure analytics (no network): exchange routing, zones, depth, candles._
 - **classes:** TestExchangeRouting, TestCandleConversion, TestZones, TestDepthAndCircuit
@@ -2062,7 +2104,7 @@ _W7 track record + rule-of-three tests — isolated STATE_DIR._
 
 ## `tests/test_trade_features.py`
 _tests/test_trade_features.py — the trade-row → node-network bridge (TradeOutcomeNet)._
-- **functions:** `_closed(win, i) -> dict`; `test_feature_row_length_matches_schema()`; `test_network_trains_and_predicts()`; `test_degrades_honestly_when_undersampled()`
+- **functions:** `_closed(win, i) -> dict`; `test_feature_row_length_matches_schema()`; `test_network_trains_and_predicts(monkeypatch)`; `test_degrades_honestly_when_undersampled()`
 - **imports:** random, trading.brain.trade_features
 
 ## `tests/test_trading_t1.py`
@@ -2294,13 +2336,18 @@ _Per-trade feature attribution — WHICH data led to this decision and HOW MUCH.
 ## `trading/brain/boss.py`
 _trading/brain/boss.py — the BOSS COMMAND ENGINE: talk to the brain like a boss._
 - **classes:** BossRegistry
-- **functions:** `directives() -> dict`; `_save(d) -> None`; `segment_enabled(market, segment) -> bool | None`; `all_segments(market) -> tuple`; `active_segments(market) -> list`; `segment_focus_active(market, segment) -> bool`; `target_for(market, segment) -> int`; `is_paused(market) -> bool`; `focus_of(market) -> str | None`; `mode() -> str`; `intensity() -> float`; `entry_policy(market, segment) -> dict`; `report_progress(market, segment, open_now) -> None`; `_norm_market(market) -> str`; `_bg(fn) -> None`; `set_segments(market, enable, disable) -> dict`; `_engine_segments() -> list`; `set_target_open_trades(market, segment, target) -> dict`; `focus_segment(market, segment) -> dict`; `set_mode(mode) -> dict`; `set_intensity(level) -> dict`; `pause_trading(market) -> dict`; `resume_trading(market) -> dict`; `_set_paused(market, val) -> dict`; `research_online(topic) -> dict`; `add_goal(text) -> dict`; `get_status() -> dict`; `_looks_like_command(msg) -> bool`; `_market_in(msg) -> str`; `parse_deterministic(msg) -> list[dict]`; `parse_llm(msg) -> list[dict] | None`; `handle(message, history) -> dict | None`
+- **functions:** `directives() -> dict`; `_save(d) -> None`; `segment_enabled(market, segment) -> bool | None`; `all_segments(market) -> tuple`; `active_segments(market) -> list`; `segment_focus_active(market, segment) -> bool`; `target_for(market, segment) -> int`; `is_paused(market) -> bool`; `focus_of(market) -> str | None`; `mode() -> str`; `intensity() -> float`; `entry_policy(market, segment) -> dict`; `report_progress(market, segment, open_now) -> None`; `_norm_market(market) -> str`; `_bg(fn) -> None`; `set_segments(market, enable, disable) -> dict`; `_engine_segments() -> list`; `navigate_app(app, target) -> dict`; `set_target_open_trades(market, segment, target) -> dict`; `focus_segment(market, segment) -> dict`; `set_mode(mode) -> dict`; `set_intensity(level) -> dict`; `pause_trading(market) -> dict`; `resume_trading(market) -> dict`; `_set_paused(market, val) -> dict`; `research_online(topic) -> dict`; `add_goal(text) -> dict`; `get_status() -> dict`; `_looks_like_command(msg) -> bool`; `_market_in(msg) -> str`; `parse_deterministic(msg) -> list[dict]`; `parse_llm(msg) -> list[dict] | None`; `handle(message, history) -> dict | None`
 - **imports:** __future__, json, re, threading, time, trading.brain
 
 ## `trading/brain/briefing.py`
 _trading/brain/briefing.py — W8 daily morning briefing (owner goal 2026-07-07;_
 - **functions:** `_ist_now() -> dt.datetime`; `due(hour_ist, minute_ist) -> bool`; `generate(deliver) -> dict`; `latest() -> dict`
 - **imports:** __future__, datetime, time, trading
+
+## `trading/brain/challenger.py`
+_trading/brain/challenger.py — TabPFN-v2 challenger for the TradeOutcomeNet (2026-07-10)._
+- **functions:** `_fold_indices(n, k)`; `_oof_eval(fit_predict, X, y) -> dict`; `_champion_fit_predict(Xtr, ytr, Xte, engine_used)`; `_tabpfn_fit_predict(Xtr, ytr, Xte)`; `duel(max_rows) -> dict`; `status() -> dict`
+- **imports:** __future__, time
 
 ## `trading/brain/connectivity_monitor.py`
 _trading/brain/connectivity_monitor.py — a light, always-on wiring watchdog._
@@ -2373,7 +2420,7 @@ _Live discovery signal registry — feeds self-invented features into trade deci
 
 ## `trading/brain/dreamer.py`
 _trading/brain/dreamer.py — Counterfactual Dream-Trainer (invented 2026-07-10)._
-- **functions:** `_pct(x) -> float | None`; `_dream_trade(r) -> dict | None`; `dream_once(lookback) -> dict`; `study_topics(max_topics) -> list[str]`; `status() -> dict`
+- **functions:** `_pct(x) -> float | None`; `_dream_trade(r) -> dict | None`; `dream_once(lookback) -> dict`; `study_topics(max_topics) -> list[str]`; `status() -> dict`; `_candles_before(symbol, entry_ts, timeframe, limit)`; `imagine_replay(n_trades, timeframe) -> dict`
 - **imports:** __future__, time
 
 ## `trading/brain/entryexit.py`
@@ -2386,6 +2433,11 @@ _trading/brain/experience.py — episodic experience bank + CBR recall (T8.4)._
 - **classes:** Recall, ExperienceBank
 - **functions:** `_num(v) -> float`; `_as_dict(trade) -> dict`; `trade_vector(trade) -> list[float]`; `_outcome(trade) -> dict`
 - **imports:** __future__, dataclasses, datetime, math, numpy
+
+## `trading/brain/gate_tuner.py`
+_trading/brain/gate_tuner.py — off-policy gate threshold tuning (2026-07-10)._
+- **functions:** `_current_levers() -> dict`; `_dig(r)`; `_score_of(row, signal)`; `sweep(rows, signal) -> dict | None`; `tune_once(lookback) -> dict`; `status() -> dict`
+- **imports:** __future__, time
 
 ## `trading/brain/gui/__init__.py`
 _trading/brain/gui — the brain's computer-use / GUI-agent capability._
@@ -2471,6 +2523,11 @@ _trading/brain/news.py — autonomous news research + sentiment nodes (T8.7)._
 - **classes:** NewsItem, NewsResearcher, NewsSentimentNode
 - **functions:** `fetch_rss(url) -> list[NewsItem]`
 - **imports:** __future__, core.node_protocol, dataclasses, os, re, trading.brain.sentiment
+
+## `trading/brain/news_ingest.py`
+_trading/brain/news_ingest.py — scheduled FREE-news ingestion into the brain (2026-07-10)._
+- **functions:** `_feeds() -> list[str]`; `_universe() -> set[str]`; `_link_symbols(text, universe) -> list[str]`; `_hash(item) -> str`; `ingest_once(fetcher, force) -> dict`; `items_for(symbol, limit) -> list[dict]`; `status() -> dict`
+- **imports:** __future__, hashlib, os, re, time
 
 ## `trading/brain/observability.py`
 _trading/brain/observability.py — brain reasoning tracing (T8.8)._
@@ -2578,7 +2635,7 @@ _trading/brain/track_record.py — W7 track records + rule-of-three + meta-artic
 
 ## `trading/brain/trade_features.py`
 _trading/brain/trade_features.py — trade rows → ML network inputs → outcome output._
-- **classes:** _NumpyLogReg, TradeOutcomeNet
+- **classes:** _NumpyLogReg, _TabPFNWrap, TradeOutcomeNet
 - **functions:** `_f(v, default)`; `_is_crypto(trade) -> bool`; `_brain_telemetry(trade) -> dict`; `_entry_hour(trade) -> int | None`; `_regime(trade) -> str`; `trade_feature_row(trade) -> list[float]`; `_won(trade) -> int`; `get_outcome_net(closed_rows) -> TradeOutcomeNet`
 - **imports:** __future__, datetime, math
 
@@ -2863,7 +2920,7 @@ _trading/crypto/config.py — crypto trading configuration (T2)._
 ## `trading/crypto/engine_client.py`
 _trading/crypto/engine_client.py — thin, honest wrapper over Freqtrade's REST API (T-split B)._
 - **classes:** FreqtradeError, CryptoEngineClient
-- **functions:** `_order_type() -> str`
+- **functions:** `_order_type() -> str`; `_inbox_enabled() -> bool`; `_inbox_append(rec) -> dict`
 - **imports:** __future__, json, os, trading.crypto.config, trading.openalgo_client, typing
 
 ## `trading/crypto/exchange_client.py`
@@ -3660,6 +3717,11 @@ _trading/options/iv.py — IV Rank + IV Percentile (T4 §4 of features list)._
 - **functions:** `iv_rank(current, history) -> float | None`; `iv_percentile(current, history) -> float | None`
 - **imports:** __future__, collections, dataclasses
 
+## `trading/options/live_chain.py`
+_trading/options/live_chain.py — REAL NFO/BFO option chain → T4 analytics (2026-07-10)._
+- **functions:** `_nearest_expiry(cli, underlying, opt_exchange) -> tuple[str, _dt.date] | None`; `fetch_raw_chain(underlying, strike_count) -> dict | None`; `cached_raw_chain(underlying) -> dict | None`; `to_chain(raw) -> OptionsChain`; `live_status(underlying, max_age_sec) -> dict | None`
+- **imports:** __future__, datetime, math, time, trading.options.chain
+
 ## `trading/options/max_pain.py`
 _trading/options/max_pain.py — Max Pain strike per expiry (T4 §6 of features)._
 - **functions:** `_pain_at(settle, call_oi, put_oi) -> float`; `max_pain(call_oi, put_oi) -> dict`
@@ -3800,7 +3862,7 @@ _trading/squareoff.py — exchange auto-squareoff rule engine (T1 §8)._
 
 ## `trading/state.py`
 _trading/state.py — tiny JSON state persistence for the trading package._
-- **functions:** `_path(name) -> Path`; `load_json(name, default) -> Any`; `save_json(name, data) -> None`
+- **functions:** `_path(name) -> Path`; `load_json(name, default) -> Any`; `save_json(name, data) -> None`; `update_json(name, updates) -> dict`
 - **imports:** __future__, json, os, pathlib, tempfile, typing
 
 ## `trading/strategy/__init__.py`

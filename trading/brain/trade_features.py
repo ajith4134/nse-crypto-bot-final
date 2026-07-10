@@ -209,6 +209,24 @@ class _NumpyLogReg:
         return float(1.0 / (1.0 + math.exp(-z)))
 
 
+class _TabPFNWrap:
+    """Adapts TabPFNClassifier to the engine interface (predict_proba_row → p(win))."""
+
+    def __init__(self, clf):
+        self._clf = clf
+        self._win_col = list(clf.classes_).index(1)
+
+    def predict_proba_row(self, row) -> float:
+        return float(self._clf.predict_proba([list(row)])[0][self._win_col])
+
+    def predict_proba_batch(self, rows: list) -> list[float]:
+        """ONE transformer pass for all rows (predict() batches through this)."""
+        if not rows:
+            return []
+        proba = self._clf.predict_proba([list(r) for r in rows])
+        return [float(p[self._win_col]) for p in proba]
+
+
 class TradeOutcomeNet:
     """Trains the project node network on CLOSED trades, predicts OPEN-trade outcome.
 
@@ -262,7 +280,27 @@ class TradeOutcomeNet:
         return self
 
     def _train_engine(self, X, y):
-        """Try the real GatedMoENode over sklearn experts; fall back to numpy logreg."""
+        """Try the real GatedMoENode over sklearn experts; fall back to numpy logreg.
+
+        TRADE_NET_ENGINE=tabpfn promotes the TabPFN-v2 challenger (only after it wins
+        the OOF duel — trading/brain/challenger.py; never switched silently)."""
+        import os as _os
+        if _os.getenv("TRADE_NET_ENGINE", "").strip().lower() == "tabpfn":
+            try:
+                from tabpfn import TabPFNClassifier
+                _os.environ.setdefault("TABPFN_ALLOW_CPU_LARGE_DATASET", "1")
+                # CPU inference cost scales with the in-context train set: cap at the
+                # newest 1200 rows — the same per-fold size the promotion duel measured
+                # accuracy on (challenger.py), and ~3× faster than the full journal.
+                cap = int(_os.getenv("TABPFN_CONTEXT_ROWS", "1200"))
+                Xc, yc = X[-cap:], y[-cap:]
+                clf = TabPFNClassifier(device="cpu", n_estimators=2,
+                                       ignore_pretraining_limits=True)
+                clf.fit(Xc, yc)
+                self.engine = "tabpfn_v2"
+                return _TabPFNWrap(clf)
+            except Exception as e:
+                self.fallback_reason = f"tabpfn: {type(e).__name__}: {str(e)[:100]}"
         try:
             from nodes.gated_node import GatedMoENode
             from nodes.oss_nodes import gbdt_node, logreg_node, rf_node
@@ -315,6 +353,9 @@ class TradeOutcomeNet:
                     "confidence": (round(_f(conf), 4) if conf is not None else None),
                     "expected_R": None, "engine": self.engine}
         p = max(0.0, min(1.0, self._proba(trade_feature_row(trade))))
+        return self._outcome_from_p(p)
+
+    def _outcome_from_p(self, p: float) -> dict:
         verdict = "WIN likely" if p >= 0.58 else ("LOSS likely" if p <= 0.42 else "uncertain")
         exp_r = None
         if self.avg_win_r is not None and self.avg_loss_r is not None:
@@ -323,6 +364,15 @@ class TradeOutcomeNet:
                 "confidence": round(p, 4), "expected_R": exp_r, "engine": self.engine}
 
     def predict(self, open_rows: list[dict]) -> list[dict]:
+        # TabPFN pays a transformer pass PER CALL — batch all open rows into one pass
+        # (75 open trades were ~75 sequential passes otherwise; the gated_moe/logreg
+        # engines are cheap either way and keep the per-row path).
+        if self.trained and self.engine == "tabpfn_v2" and open_rows:
+            feats = [trade_feature_row(t) for t in open_rows]
+            probs = self.model.predict_proba_batch(feats)
+            return [{"symbol": t.get("symbol"),
+                     **self._outcome_from_p(max(0.0, min(1.0, float(p))))}
+                    for t, p in zip(open_rows, probs)]
         return [{"symbol": t.get("symbol"), **self.predict_one(t)} for t in (open_rows or [])]
 
     def info(self) -> dict:

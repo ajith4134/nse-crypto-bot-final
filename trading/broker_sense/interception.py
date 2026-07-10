@@ -31,6 +31,11 @@ _CACHE_TTL_S = 90.0                # a cached body older than this is stale for 
 # URL/keyword → data kind. Ordered: first hit wins. Kept honest — anything unmatched is
 # "unknown" (recorded, but never claimed to be something it isn't).
 _KIND_RULES = [
+    # ACCOUNT paths first (2026-07-10): Upstox's portfolio/v4/orderbook = the user's ORDER
+    # HISTORY, not market depth — the "orderbook" needle stole it and recorded a FALSE
+    # market-depth route. Anything under an account-ish path prefix is positions/balance.
+    ("positions", ("portfolio/", "/holdings", "portfolio-insights", "portfolio-streamer")),
+    ("balance", ("funds/", "jfunds/", "payin/", "payout/")),
     ("orderbook", ("depth", "orderbook", "order-book", "marketdepth", "book?")),
     # index/mark price + basis MUST precede "candles" (their *Klines* variants contain "klines")
     # and precede "funding"/"ticker" so they classify distinctly. Binance web fires
@@ -68,7 +73,10 @@ _KIND_RULES = [
     ("movers", ("gainers", "losers", "topmovers", "top-movers", "movers", "mostactive",
                 "most-active", "spurts")),
     ("screener", ("screener", "scanner", "screen", "filter?")),
-    ("ticker", ("ticker", "quote", "snapquote", "ltp", "24hr", "marketdata")),
+    # "market-data-feeder" = Upstox Pro's live quote websocket (wss://market-data.upstox.com/
+    # market-data-feeder/v2/feeds — protobuf frames, classified by URL; verified live 2026-07-10)
+    ("ticker", ("ticker", "quote", "snapquote", "ltp", "24hr", "marketdata",
+                "market-data-feeder")),
     ("positions", ("positions", "holdings", "portfolio", "position?")),
     ("balance", ("balance", "funds", "margin", "wallet", "account")),
     ("news", ("news", "announcement", "feed")),
@@ -114,13 +122,46 @@ def classify(url: str, body=None) -> str:
             return "symbol_info"
         if {"lastprice", "last_price", "ltp"} & keys:
             return "ticker"
-    if isinstance(body, list) and body and isinstance(body[0], (list, dict)):
-        if isinstance(body[0], list):
+        flat = " ".join(keys)
+        # option-chain shape: strikes + call/put (CE/PE) legs — Indian brokers (Upstox Pro:
+        # service.upstox.com/…, URL opaque) nest it as {strikePrice, callOption, putOption}
+        # or {strikes: [...]}; the STRIKE+CE/PE pairing is distinctive (2026-07-10 fix —
+        # Upstox routes never classified, App School stuck at 10%).
+        if "strike" in flat and ({"ce", "pe"} & keys or "call" in flat or "put" in flat):
+            return "option_chain"
+    # many Indian-broker payloads wrap the rows: {"data": [...]} / {"data": {...}}
+    rows = body
+    if isinstance(body, dict):
+        inner = body.get("data")
+        if isinstance(inner, (list, dict)):
+            rows = inner
+            if isinstance(inner, dict):
+                ik = {k.lower() for k in inner.keys()}
+                iflat = " ".join(ik)
+                if {"bids", "asks"} & ik:
+                    return "orderbook"
+                if "strike" in iflat and ({"ce", "pe"} & ik or "call" in iflat
+                                          or "put" in iflat):
+                    return "option_chain"
+                if {"lastprice", "last_price", "ltp"} & ik:
+                    return "ticker"
+    if isinstance(rows, list) and rows and isinstance(rows[0], (list, dict)):
+        if isinstance(rows[0], list):
             return "candles"
+        k0 = {k.lower() for k in rows[0].keys()}
         # list of trade dicts: {price, qty, time} / Binance aggTrade {p, q, T, m}
-        k0 = {k.lower() for k in body[0].keys()}
         if ({"price", "qty"} <= k0) or ({"p", "q"} <= k0 and ("t" in k0 or "m" in k0)):
             return "recent_trades"
+        f0 = " ".join(k0)
+        if "strike" in f0 and ({"ce", "pe"} & k0 or "call" in f0 or "put" in f0):
+            return "option_chain"
+        # quote rows: an instrument name + a last price / %change — the generic "ticker"
+        # kind, which grounds movers/spot_symbols/futures/currency/commodities goals too
+        if ({"symbol", "tradingsymbol", "trading_symbol", "scripname", "instrumentkey",
+             "instrument_key", "isin"} & k0) and (
+                {"ltp", "lastprice", "last_price", "close"} & k0
+                or "change" in f0 or "chg" in f0):
+            return "ticker"
         return "unknown"
     return "unknown"
 
@@ -136,8 +177,13 @@ def _sample_keys(body) -> list[str]:
 class EndpointRegistry:
     """Persisted per-broker endpoint knowledge. broker → pattern → metadata."""
 
+    _AUTOSAVE_EVERY = 25          # records between saves (throttle; file is small)
+    _AUTOSAVE_MAX_S = 60.0        # …or at most this long between saves
+
     def __init__(self):
         self._data: dict = state.load_json(_REGISTRY_FILE, {})
+        self._unsaved = 0
+        self._last_save = 0.0
 
     def record(self, broker: str, url: str, *, method: str = "GET",
                content_type: str = "", body=None) -> str:
@@ -157,6 +203,17 @@ class EndpointRegistry:
             row["kind"] = kind
         if body is not None and not row.get("sample_keys"):
             row["sample_keys"] = _sample_keys(body)
+        # THROTTLED AUTOSAVE (2026-07-10): nothing ever called flush(), so the registry —
+        # the ground truth of every URL an app really emits (incl. 'unknown' ones with
+        # sample keys, the source for future classifier needles) — evaporated with every
+        # restart and broker_endpoints.json never existed on disk.
+        self._unsaved += 1
+        if self._unsaved >= self._AUTOSAVE_EVERY or now - self._last_save > self._AUTOSAVE_MAX_S:
+            try:
+                self.save()
+                self._unsaved, self._last_save = 0, now
+            except Exception:
+                pass
         return kind
 
     def known(self, broker: str) -> dict:
@@ -230,6 +287,16 @@ class NetworkRecorder:
         if kind == "unknown":
             kind = classify(url)
         if kind == "unknown":
+            # STILL record the ws URL (2026-07-10): binary/protobuf streams (Upstox Pro
+            # market data) never classify from payload text, and skipping them here left
+            # the registry blind to the very URLs we need to write needles for. Throttled
+            # by the same per-(broker,kind) window via a dedicated marker key.
+            prev = self._cache.get((broker, "_ws_unknown"))
+            if not prev or time.time() - prev["ts"] >= self._WS_THROTTLE_S:
+                self.registry.record(broker, url, method="WS", content_type="ws",
+                                     body=None)
+                self._cache[(broker, "_ws_unknown")] = {"body": None, "ts": time.time(),
+                                                        "url": url}
             return
         prev = self._cache.get((broker, kind))
         if prev and time.time() - prev["ts"] < self._WS_THROTTLE_S:

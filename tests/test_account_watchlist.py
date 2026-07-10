@@ -134,6 +134,22 @@ class TestBinanceFavoritesMirror(unittest.TestCase):
         ui.click.return_value = True
         self.assertFalse(_set_star(ui, "BELUSDT", True))
 
+    def test_star_click_target_passes_the_order_guard(self):
+        """2026-07-10 regression: the target's own '(NOT any Buy/Sell/Trade button)'
+        clause tripped the order-guard regex — every favorites ADD was silently
+        BLOCKED. The wording sent to ui.click must never contain order verbs."""
+        from unittest import mock
+
+        from trading.brain.vision.computer_use import _control_forbidden
+        from trading.broker_sense.binance_watchlist import _set_star
+        ui = mock.Mock()
+        ui.read.side_effect = ["empty", "filled"]
+        ui.click.return_value = True
+        self.assertTrue(_set_star(ui, "ARPAUSDT", True))
+        target = ui.click.call_args[0][0]
+        self.assertFalse(_control_forbidden(target),
+                         f"star click target trips the order-guard: {target!r}")
+
 
 if __name__ == "__main__":
     unittest.main()

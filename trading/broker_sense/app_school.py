@@ -123,20 +123,28 @@ DATA_GOALS = {
                                                           "my list", "markets"]},
         "futures": {"kinds": ["ticker", "open_interest"],
                     "labels": ["f&o", "futures", "derivatives", "option chain", "fno"]},
-        "options": {"kinds": ["option_chain"], "labels": ["option chain", "options", "oc"]},
-        "screener": {"kinds": ["screener", "movers"],
-                     "labels": ["screener", "scanner", "filter", "discover", "ideas"]},
-        "orderbook": {"kinds": ["orderbook"], "labels": ["market depth", "depth", "order book",
-                                                         "buy/sell"]},
+        # Upstox streams option-chain/greeks/PCR/market-depth over the SAME protobuf
+        # market-data-feeder ws as quotes (verified live 2026-07-10 — no distinct REST
+        # kind ever fires). Honest route = the feature's PAGE with the feed streaming,
+        # so these accept "ticker" but ONLY when the page URL matches url_hint.
+        "options": {"kinds": ["option_chain", "ticker"], "url_hint": "option",
+                    "labels": ["option chain", "options", "oc"]},
+        # "screener" REMOVED 2026-07-10 (same audit standard as Binance): Upstox Pro WEB has
+        # no Discover/screener product — every /discover/* deep-link (top-gainers, momentum,
+        # plain /discover) redirects to /holdings on the real logged-in session at market
+        # hours, retried. Discover is mobile-app-only; the funnel's screening comes from the
+        # broker_features pickers + the brain's own screener instead.
+        "orderbook": {"kinds": ["orderbook", "ticker"], "url_hint": "chart",
+                      "labels": ["market depth", "depth", "order book", "buy/sell"]},
         # additional capabilities (feature audit 2026-07-06) — whole segments + F&O analytics.
         # Validated at NSE market hours (09:15–15:30 IST); after-hours there's no live feed.
         "commodities": {"kinds": ["ticker", "open_interest"],
                         "labels": ["commodit", "mcx", "ncdex", "gold", "crude", "silver", "gas"]},
         "currency": {"kinds": ["ticker"],
                      "labels": ["currency", "usdinr", "forex", "cds", "eurinr", "gbpinr"]},
-        "greeks": {"kinds": ["option_chain"],
+        "greeks": {"kinds": ["option_chain", "ticker"], "url_hint": "option",
                    "labels": ["greek", "delta", "gamma", "theta", "vega", "iv", "implied"]},
-        "pcr": {"kinds": ["option_chain"],
+        "pcr": {"kinds": ["option_chain", "ticker"], "url_hint": "option",
                 "labels": ["pcr", "put call", "max pain", "india vix", "oi"]},
     },
 }
@@ -171,13 +179,14 @@ SEED_ROUTES = {
         "symbol_info": "https://www.binance.com/en/futures/BTCUSDT",
     },
     "upstox": {                          # logged-in Upstox Pro (QR-login session); learned routes override
-        "movers": "https://pro.upstox.com/discover",
+        # 2026-07-10: unified on URLs that actually exist in the crawled page census
+        # (app_school_map pages) — "/options-chain" and "/discover" deep-links redirect
+        # to /holdings and burned the seed budget every pass.
+        "movers": "https://pro.upstox.com/",
         "spot_symbols": "https://pro.upstox.com/",
-        "futures": "https://pro.upstox.com/options-chain",
-        "options": "https://pro.upstox.com/options-chain",
-        "screener": "https://pro.upstox.com/discover",
-        "orderbook": "https://pro.upstox.com/",
-        # new capabilities (reached via the click-nav adapter at market open — deep-links redirect)
+        "futures": "https://pro.upstox.com/option-chain",
+        "options": "https://pro.upstox.com/option-chain",
+        "orderbook": "https://pro.upstox.com/trading-charts",
         "commodities": "https://pro.upstox.com/trading-charts",
         "currency": "https://pro.upstox.com/trading-charts",
         "greeks": "https://pro.upstox.com/option-chain",
@@ -701,6 +710,15 @@ class AppSchool:
             except Exception:
                 continue
             pg.wait_for_timeout(2500)                       # let websockets / XHR start streaming
+            # SPA deep-links bounce to /holdings until the app's auth refresh settles
+            # (Upstox Pro, verified 2026-07-10) — settle and retry ONCE before giving up.
+            if url.rstrip("/") not in (pg.url or "").rstrip("/"):
+                pg.wait_for_timeout(5000)
+                try:
+                    pg.goto(url, timeout=25000, wait_until="domcontentloaded")
+                    pg.wait_for_timeout(2500)
+                except Exception:
+                    pass
             rep["popups_closed"] += self._dismiss_popups(pg)
             # NUDGE lazy data: many hub panels (long/short ratio, liquidation feed, option chain)
             # only fetch when scrolled into view or after a beat — scroll down to trigger them, and
@@ -759,6 +777,13 @@ class AppSchool:
             # gate: attribute this goal only if we arrived via home OR a control whose label
             # belongs to this goal's segment (kills the generic-ticker cross-pollution)
             if via != "home" and not any(w in via_l for w in spec.get("labels", [])):
+                continue
+            # PAGE-SCOPED goals (2026-07-10, Upstox): option-chain/greeks/PCR/depth ride the
+            # SAME protobuf feeder ws as quotes — no distinct REST kind exists. Their honest
+            # route is "the right PAGE with the live feed streaming", so attribution is
+            # gated on the current page URL containing the goal's url_hint.
+            hint = spec.get("url_hint")
+            if hint and hint not in (getattr(pg, "url", "") or "").lower():
                 continue
             for kind in spec["kinds"]:
                 if rec.latest(broker, kind, max_age_s=max_age_s) is not None:    # captured recently

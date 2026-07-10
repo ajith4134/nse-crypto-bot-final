@@ -27,6 +27,34 @@ def main() -> None:
             print(f"[micro-distill] {time.strftime('%F %T')} {rep}", flush=True)
         except Exception as e:                   # noqa: BLE001 — daemon must survive anything
             print(f"[micro-distill] ERROR {type(e).__name__}: {e}", flush=True)
+        # Dream-Trainer phase-2 (2026-07-10): nightly world-model imagination replay of
+        # the newest closed trades — MCTS per trade, so it lives HERE (nice-10, its own
+        # process), never in the dashboard/learn thread. Kill-switch: DREAM_REPLAY=0.
+        if os.environ.get("DREAM_REPLAY", "1") != "0":
+            try:
+                from trading.brain import dreamer
+                sec = dreamer.imagine_replay()
+                print(f"[dream-replay] {time.strftime('%F %T')} replayed="
+                      f"{sec.get('n_replayed')} skipped={sec.get('n_skipped')} "
+                      f"agreeR={sec.get('mean_R_when_agree')} "
+                      f"disagreeR={sec.get('mean_R_when_disagree')}", flush=True)
+            except Exception as e:               # noqa: BLE001
+                print(f"[dream-replay] ERROR {type(e).__name__}: {e}", flush=True)
+        # TradeOutcomeNet champion/challenger duel (de-stagnation #6, 2026-07-10): TabPFN-v2
+        # vs the incumbent on the same OOF protocol — CPU-minutes, so it lives in this
+        # nice-10 daemon (the module docstring's contract). Kill-switch: CHALLENGER_DUEL=0.
+        if os.environ.get("CHALLENGER_DUEL", "1") != "0":
+            try:
+                from trading.brain import challenger
+                rep = challenger.duel()
+                print(f"[challenger] {time.strftime('%F %T')} "
+                      f"verdict={rep.get('verdict')} "
+                      f"champion={(rep.get('champion') or {}).get('engine')} "
+                      f"champ_acc={(rep.get('champion') or {}).get('oof_accuracy')} "
+                      f"chal_acc={(rep.get('challenger') or {}).get('oof_accuracy')}",
+                      flush=True)
+            except Exception as e:               # noqa: BLE001
+                print(f"[challenger] ERROR {type(e).__name__}: {e}", flush=True)
         time.sleep(interval)
 
 

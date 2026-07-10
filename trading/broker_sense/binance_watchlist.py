@@ -155,8 +155,11 @@ def _set_star(ui, sym: str, want: bool) -> bool:
     cur = _star_state(ui, sym)
     if cur is want:
         return True
+    # The order-guard scans the CLICK TARGET text, and the old "(NOT any Buy/Sell/Trade
+    # button)" clause tripped its buy|sell|trade regex — every star ADD was silently
+    # BLOCKED (order-guard) since 6b63b64. Keep order verbs out of target wording.
     if not ui.click(f"the star / add-to-favorites icon next to the symbol name {sym} at "
-                    f"the top of the page (NOT any Buy/Sell/Trade button)"):
+                    f"the top of the page (only the small star icon itself, nothing else)"):
         return False
     try:
         ui.page.wait_for_timeout(1200)

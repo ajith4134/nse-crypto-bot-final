@@ -375,25 +375,47 @@ def _known_kinds():
     return _KIND_RULES
 
 
+# 2026-07-10 rewrite: the old per-element loop cost ~3 protocol round-trips × 200
+# elements (~600 RPCs) per glance — a real page-lag source with glances every cycle —
+# and it collected INVISIBLE/occluded elements, so locate() clicked phantom controls
+# forever (the 'Okay, I Understand' @1254,27 loop: a permanently-present but covered
+# header notice outranked the real popup). ONE in-page evaluate now returns only
+# on-screen, visible controls, each hit-tested at its center (`covered`=an overlay is
+# on top) so the hand never aims at something it cannot actually press.
+_EXTRACT_CONTROLS_JS = """
+() => {
+  const out = [];
+  const els = document.querySelectorAll("button, a, input, [role=button], [role=tab]");
+  const vw = window.innerWidth, vh = window.innerHeight;
+  for (let i = 0; i < els.length && out.length < 200; i++) {
+    const el = els[i];
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) continue;                                   // collapsed
+    if (r.bottom < 0 || r.right < 0 || r.top > vh || r.left > vw) continue; // off-screen
+    const st = window.getComputedStyle(el);
+    if (st.visibility === "hidden" || st.display === "none" || +st.opacity === 0) continue;
+    let label = (el.innerText || el.getAttribute("aria-label") ||
+                 el.getAttribute("placeholder") || el.getAttribute("name") || "").trim();
+    label = label.replace(/\\s+/g, " ").slice(0, 48);
+    if (!label) continue;
+    const cx = Math.max(0, Math.min(vw - 1, r.left + r.width / 2));
+    const cy = Math.max(0, Math.min(vh - 1, r.top + r.height / 2));
+    const top = document.elementFromPoint(cx, cy);
+    const covered = !(top && (el === top || el.contains(top) || top.contains(el)));
+    out.push({label, tag: el.tagName.toLowerCase(), x: r.left, y: r.top,
+              w: r.width, h: r.height, covered});
+  }
+  return out;
+}
+"""
+
+
 def _extract_from_page(page, *, want_shot: bool = True):
-    """Pull DOM controls (+ coordinates) and a screenshot from a live Playwright page.
-    Best-effort; returns ([], None) on any failure so capture never breaks a cycle."""
-    controls = []
+    """Pull VISIBLE DOM controls (+ coordinates + occlusion flag) and a screenshot from a
+    live Playwright page in one protocol round-trip. Best-effort; returns ([], None) on
+    any failure so capture never breaks a cycle."""
     try:
-        els = page.query_selector_all("button, a, input, [role=button], [role=tab]")
-        for el in els[:200]:
-            try:
-                label = (el.inner_text() or el.get_attribute("aria-label")
-                         or el.get_attribute("placeholder") or el.get_attribute("name") or "")
-                label = " ".join(label.split())[:48]
-                if not label:
-                    continue
-                box = el.bounding_box() or {}
-                controls.append({"label": label, "tag": (el.evaluate("e=>e.tagName") or "").lower(),
-                                 "x": box.get("x"), "y": box.get("y"),
-                                 "w": box.get("width"), "h": box.get("height")})
-            except Exception:
-                continue
+        controls = page.evaluate(_EXTRACT_CONTROLS_JS) or []
     except Exception:
         controls = []
     shot = None

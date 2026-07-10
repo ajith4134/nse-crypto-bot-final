@@ -36,13 +36,27 @@ export default function LiveBrowserPanel({ broker: initialBroker = 'binance' }) 
   const alive = useRef(true)
 
   useEffect(() => {
+    // CHAINED streaming (2026-07-10 speed fix): request the next frame only after the
+    // previous one finished loading — a fixed interval piled up requests on slow links
+    // and made every click feel seconds-laggy. This self-paces to the connection:
+    // fast link ≈ 3-4 fps, slow link degrades gracefully instead of jamming the queue.
     alive.current = true
-    let t
-    const tick = async () => {
-      if (running && imgRef.current) imgRef.current.src = `${API}/frame?broker=${broker}&t=${Date.now()}`
+    let timer
+    const img = imgRef.current
+    const next = (delay) => { if (alive.current) timer = setTimeout(load, delay) }
+    const load = () => {
+      if (!alive.current) return
+      if (!running || !imgRef.current) return next(400)
+      imgRef.current.onload = () => next(220)
+      imgRef.current.onerror = () => next(1200)   // 204/blip — retry gently
+      imgRef.current.src = `${API}/frame?broker=${broker}&t=${Date.now()}`
     }
-    t = setInterval(tick, 900)  // ~1 fps stream (enough to read + click a captcha)
-    return () => { alive.current = false; clearInterval(t) }
+    load()
+    return () => {
+      alive.current = false
+      clearTimeout(timer)
+      if (img) { img.onload = null; img.onerror = null }
+    }
   }, [running, broker])
 
   const start = async () => { setBusy(true); const r = await post({ op: 'start', broker }); if (alive.current) { setRunning(!!r.ok); setStatus(r); setBusy(false) } }

@@ -302,6 +302,36 @@ def _engine_segments() -> list:
         return list(CRYPTO_SEGMENTS)
 
 
+@registry.tool("Open a named page/section of a broker app with the brain's eyes+hand "
+               "(fast learned navigation: skill replay → learned URL → visual explore; "
+               "read-only, order-guarded). Use when the owner asks to open/show a broker "
+               "app page, e.g. 'open holdings on Upstox'.",
+               {"app": ("str", "upstox or binance", True),
+                "target": ("str", "page/section to reach, e.g. 'holdings', 'option chain', "
+                                  "'funds', 'futures markets'", True)})
+def navigate_app(app: str, target: str) -> dict:
+    """Boss-commanded fast navigation (ledger #10 consumer). Watch it live on the
+    Screen Mirror panel; outcome stats compound in fast_nav_stats.json."""
+    app = (app or "").strip().lower()
+    if app not in ("upstox", "binance"):
+        return {"ok": False, "error": "app must be 'upstox' or 'binance'"}
+    try:
+        from trading.broker_sense.account_watchlist import _open_ui
+        from trading.broker_sense.sessions import get_sessions
+        ui, _pg = _open_ui(get_sessions(), app)
+        if ui is None:
+            return {"ok": False,
+                    "error": f"no {app} browser session (headed open failed — need "
+                             "BROKER_SENSE_HEADED=1 + Xvfb, and a logged-in session)"}
+        res = ui.navigate(target)
+        if res.get("done"):
+            mind_events.emit("boss", f"Navigated {app} → {target} via {res.get('method')}",
+                             salience=0.5)
+        return {"ok": bool(res.get("done")), **res}
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {str(e)[:140]}"}
+
+
 @registry.tool("Set a TARGET number of open trades for a segment ('open at least N'). The "
                "loop pushes entries until the target is met and reports progress.",
                {"market": ("str", "CRYPTO or NSE", True),

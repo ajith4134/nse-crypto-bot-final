@@ -230,6 +230,7 @@ class BrainExecutor:
         # threshold. Every bypass is still recorded honestly (decision_snapshot + app_signals).
         explore = (not allow_live) and self._explore_open_all(open_now=len(open_pairs))
         entered, exited, skipped = [], [], 0
+        queued: list = []                      # inbox mode: queued-not-yet-filled decisions
         picks: dict = {}
         vetoes: list = []
         deadline_deferred = 0
@@ -277,6 +278,13 @@ class BrainExecutor:
                                                segment=self.segment)
                         if isinstance(_res, dict) and _res.get("ok") is False:
                             skipped += 1
+                            continue
+                        if isinstance(_res, dict) and _res.get("queued"):
+                            # inbox mode: queued ≠ filled — meta still recorded (joins by
+                            # pair+time at fill), but never booked as an entry
+                            queued.append(_tsym)
+                            self._record_entry_meta(_tsym, _act, "explore_open_all",
+                                                    {"explore": True}, None, explore=True)
                             continue
                         entered.append(_tsym)
                         # #13: use the FULL recorder (psych read + FinMem episode +
@@ -396,9 +404,13 @@ class BrainExecutor:
                     if isinstance(res, dict) and res.get("ok") is False:
                         skipped += 1
                         continue
-                    entered.append(tsym)
                     if tsym != sym and sym in (getattr(self, "extra_signals", {}) or {}):
                         self.extra_signals[tsym] = self.extra_signals[sym]
+                    if isinstance(res, dict) and res.get("queued"):
+                        queued.append(tsym)        # inbox mode: queued ≠ filled entry
+                        self._record_entry_meta(tsym, act, tag, brain, psych)
+                        continue
+                    entered.append(tsym)
                     self._record_entry_meta(tsym, act, tag, brain, psych)
                 elif act == "EXIT" and sym in open_pairs:
                     cli.close_pair(sym, segment=self.segment)
@@ -410,6 +422,7 @@ class BrainExecutor:
         self._last_picks = picks
         self._last_vetoes = vetoes
         return {"entered": entered, "exited": exited, "skipped": skipped,
+                "queued": queued,
                 "universe": len(syms), "picks": picks, "vetoes": vetoes,
                 "explore": explore, "deadline_deferred": deadline_deferred}
 
@@ -565,6 +578,7 @@ class BrainExecutor:
         opts = [o for o in (self._parse_option(s) for s in self.symbols()) if o]
         open_pairs = set(cli.open_pairs(segment="options"))
         entered, exited, skipped = [], [], 0
+        queued: list = []                      # inbox mode: queued-not-yet-filled decisions
         # per-reason skip counts so an all-skipped cycle is diagnosable from its log line
         # (no_direction / positioned / no_candidates / hollow_book / refused / error)
         reasons: dict = {}
@@ -611,12 +625,15 @@ class BrainExecutor:
                 if isinstance(res, dict) and res.get("ok") is False:
                     _skip("refused")          # refused (guard/engine) is NOT an entry
                     continue
-                entered.append(pick["symbol"])
                 picks[pick["symbol"]] = {"strategy": f"underlying-{act}", "action": act}
+                if isinstance(res, dict) and res.get("queued"):
+                    queued.append(pick["symbol"])   # inbox mode: queued ≠ filled entry
+                    continue
+                entered.append(pick["symbol"])
             except Exception:
                 _skip("error")
         self._last_picks = picks
-        return {"entered": entered, "exited": exited, "skipped": skipped,
+        return {"entered": entered, "exited": exited, "skipped": skipped, "queued": queued,
                 "skip_reasons": reasons, "universe": len(opts), "picks": picks, "vetoes": []}
 
     # ── prediction segment (Polymarket, paper) ────────────────────────────────

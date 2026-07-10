@@ -99,7 +99,7 @@ const predMap = ref<Record<string, { strategy_label?: string; brain_pred?: strin
 let predTimer: number | undefined;
 async function loadPredictions() {
   try {
-    const s = await (await fetch(`/mlnb_status.json?t=${Date.now()}`)).json();
+    const s = await (await fetch(`${import.meta.env.BASE_URL}mlnb_status.json?t=${Date.now()}`)).json();
     const dash = String(s?.dashboard_url || '').replace(/\/$/, '');
     if (!dash) return;
     // Dedicated lightweight endpoint (cached, no slow 500-trade peak enrichment); returns a

@@ -57,6 +57,53 @@ class TestClassify(unittest.TestCase):
     def test_unknown_stays_unknown(self):
         self.assertEqual(ix.classify("https://x/whatever", {"foo": 1}), "unknown")
 
+    def test_account_paths_never_steal_market_kinds(self):
+        """2026-07-10: Upstox portfolio/v4/orderbook (the user's ORDER HISTORY) matched
+        the 'orderbook' needle and recorded a FALSE market-depth route. Account-path
+        prefixes must classify as positions/balance BEFORE market rules run."""
+        self.assertEqual(ix.classify("https://service.upstox.com/portfolio/v4/orderbook"),
+                         "positions")
+        self.assertEqual(ix.classify("https://service.upstox.com/portfolio/v2/positions"),
+                         "positions")
+        self.assertEqual(ix.classify("https://service.upstox.com/funds/v2/history"),
+                         "balance")
+        # real market depth still classifies as orderbook
+        self.assertEqual(ix.classify("https://fapi.binance.com/fapi/v1/depth?symbol=BTC"),
+                         "orderbook")
+        self.assertEqual(ix.classify("https://x/api/marketDepth?symbol=RELIANCE"),
+                         "orderbook")
+        # Upstox live streams (verified 2026-07-10): quote feeder ws → ticker; the
+        # portfolio streamer ws is account data, never a market kind
+        self.assertEqual(ix.classify(
+            "wss://market-data.upstox.com/market-data-feeder/v2/feeds?requestId=x"),
+            "ticker")
+        self.assertEqual(ix.classify(
+            "wss://service.upstox.com/portfolio-streamer-v2/v4?requestId=x"),
+            "positions")
+
+    def test_upstox_opaque_url_body_shapes(self):
+        """2026-07-10: Upstox Pro API URLs (service.upstox.com/market-data-api/…) match no
+        URL needle — the App School sat at 10% because nothing classified. These shapes are
+        the grounded fallback that unlocks option_chain + ticker-family goals."""
+        u = "https://service.upstox.com/market-data-api/v2/opaque"
+        # option chain: strike + CE/PE legs, flat / data-wrapped / row-list forms
+        self.assertEqual(ix.classify(u, {"strikePrice": 24000, "callOption": {},
+                                         "putOption": {}}), "option_chain")
+        self.assertEqual(ix.classify(u, {"data": {"strikes": [24000], "ce": {}, "pe": {}}}),
+                         "option_chain")
+        self.assertEqual(ix.classify(u, {"data": [{"strike_price": 1, "ce": {}, "pe": {}}]}),
+                         "option_chain")
+        # quote rows: instrument + ltp/%change → ticker (grounds movers/spot/currency too)
+        self.assertEqual(ix.classify(u, [{"symbol": "RELIANCE", "ltp": 1349.6,
+                                          "perChange": 0.4}]), "ticker")
+        self.assertEqual(ix.classify(u, {"data": [{"tradingSymbol": "USDINR26JULFUT",
+                                                   "lastPrice": 83.2, "netChg": 0.1}]}),
+                         "ticker")
+        # data-wrapped depth
+        self.assertEqual(ix.classify(u, {"data": {"bids": [], "asks": []}}), "orderbook")
+        # rows WITHOUT price/change context stay unknown (no false positives)
+        self.assertEqual(ix.classify(u, [{"symbol": "X", "note": "y"}]), "unknown")
+
     def test_new_per_symbol_kinds(self):
         # per-symbol decision kinds added 2026-07-06 for the indicator-fusion engine
         self.assertEqual(ix.classify("https://fapi.binance.com/fapi/v1/aggTrades?symbol=BTC"),
@@ -162,6 +209,16 @@ class TestRecorder(_IsolatedState):
                                       {"bids": [[1, 2], [3, 4]], "asks": [[5, 6]]}), "binance")
         self.assertEqual(rec.captured, 1)                       # endpoint still recorded…
         self.assertIsNone(rec.latest("binance", "orderbook"))  # …but oversized body not cached
+
+    def test_registry_autosaves_without_flush(self):
+        """2026-07-10: nothing called flush(), so broker_endpoints.json never existed and
+        the endpoint ground-truth died with every restart. record() must autosave."""
+        reg = ix.EndpointRegistry()
+        reg.record("upstox", "https://service.upstox.com/market-data-api/v2/quotes",
+                   body={"ltp": 1})
+        on_disk = state.load_json("broker_endpoints.json", {})
+        self.assertIn("upstox", on_disk)
+        self.assertEqual(len(on_disk["upstox"]), 1)
 
     def test_attach_is_safe_without_real_page(self):
         rec = ix.NetworkRecorder()

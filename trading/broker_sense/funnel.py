@@ -468,10 +468,10 @@ class BrokerSenseFunnel:
         rep["completed_within_budget"] = took <= budget
         rep["next_shortlist_n"] = self.shortlist_n
         self.last = rep
-        st = state.load_json(_STATUS_FILE, {})
-        st[self.market] = rep
-        st[f"{self.market}_shortlist_n"] = self.shortlist_n
-        state.save_json(_STATUS_FILE, st)
+        # locked merge — the crypto and NSE funnels are separate PROCESSES writing this
+        # same file; an unlocked read-modify-write clobbered the other market's tile
+        state.update_json(_STATUS_FILE, {self.market: rep,
+                                         f"{self.market}_shortlist_n": self.shortlist_n})
         return rep
 
     # ── dashboard status (honest) ───────────────────────────────────────────────

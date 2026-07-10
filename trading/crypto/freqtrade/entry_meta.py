@@ -17,6 +17,28 @@ MAX_PER_KEY = 20          # entries kept per pair (brain re-enters the same pair
 MAX_AGE_S = 30 * 86400
 MATCH_WINDOW_S = 15 * 60  # entry meta ↔ Freqtrade open_date tolerance
 
+# 2026-07-10: lookup() used to state.load_json() on EVERY call — this file grows to
+# many MB (decision snapshots), and closed_view calls lookup once per trade row, so a
+# cold view rebuild parsed gigabytes of JSON while holding the GIL and starved every
+# other thread in the process (the live-browser login stream froze for seconds).
+# Parse ONCE per file change (mtime-keyed); all lookups share the parsed dict.
+_CACHE: tuple[float, dict] | None = None
+
+
+def _load() -> dict:
+    global _CACHE
+    try:
+        mt = state._path(FILE).stat().st_mtime
+    except OSError:
+        mt = 0.0
+    if _CACHE is not None and _CACHE[0] == mt:
+        return _CACHE[1]
+    data = state.load_json(FILE, {})
+    if not isinstance(data, dict):
+        data = {}
+    _CACHE = (mt, data)
+    return data
+
 
 def _key(pair: str, segment: str | None) -> str:
     return f"{(segment or 'futures').lower()}|{pair}"
@@ -47,18 +69,25 @@ def record(pair: str, segment: str | None, meta: dict) -> None:
                 "ui_only_mode": ui_data.enabled()}
     except Exception:
         pass
-    data = state.load_json(FILE, {})
+    global _CACHE
+    data = state.load_json(FILE, {})        # authoritative re-read for the read-modify-write
+    if not isinstance(data, dict):
+        data = {}
     now = time.time()
     rows = [r for r in data.get(_key(pair, segment), []) if now - r.get("ts", 0) < MAX_AGE_S]
     rows.append({"ts": now, "meta": meta})
     data[_key(pair, segment)] = rows[-MAX_PER_KEY:]
     state.save_json(FILE, data)
+    try:                                    # keep readers hot without a re-parse
+        _CACHE = (state._path(FILE).stat().st_mtime, data)
+    except OSError:
+        _CACHE = None
 
 
 def lookup(pair: str, segment: str | None, open_date: str) -> dict | None:
     """Entry metadata recorded closest to (and within MATCH_WINDOW_S of) the trade's open."""
     open_ts = _parse_ts(open_date)
-    rows = state.load_json(FILE, {}).get(_key(pair, segment), [])
+    rows = _load().get(_key(pair, segment), [])
     if open_ts is None or not rows:
         return None
     best = min(rows, key=lambda r: abs(r.get("ts", 0) - open_ts), default=None)

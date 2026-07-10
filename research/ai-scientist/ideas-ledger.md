@@ -176,12 +176,41 @@ explore-wide funnel, Binance/Upstox Brain-Open mirrors, ui_candles cross-process
    doubly-robust off-policy evaluation over the journal's decision_snapshot columns, so
    lane weights learn from EVERY logged decision, not just taken ones. Module: funnel-learn.
 
-## 2026-07-10 — Brain de-stagnation round (proposed; grounded in research/brain-audit-2026-07-10.md)
-1. [proposed] Loop Keeper — runtime self-heal for the 3 loop processes + learn daemon: systemd user units (Restart=on-failure) or a 5-min keeper cron running pgrep-guarded start_all.sh; dead-loop banner on the dashboard. Ends "silent mid-day death" (today's #1 root cause).
-2. [proposed] LLM Budget Governor + local floor — per-provider token-bucket RPM caps honoring free tiers, prompt dedupe/cache, circuit breaker on reload_at, and a LOCAL fallback model (ollama qwen/llama or distilled micro_llm) so brain features degrade to local instead of 429-dying (95% of 4.5k calls/day are failures).
-3. [proposed] Calibration truth loop — per-symbol Brier/ECE computed at close-learn (root-cause ETH brier 0.0), reliability panel, auto re-fit of conformal UQ + confidence recalibration from realized outcomes.
-4. [proposed] Learning that visibly improves — FSRS param re-fit from quiz outcomes; error-driven topic picker (learn what the brain got WRONG last week, not a fixed topic list); learning-curve panel (retention, OOF-acc, rolling win-rate deltas) so improvement is visible.
-5. [proposed] Demo→LIVE panel wiring (8 panels) — memory/hybrid/librarian/quiz/thinking/stream/self-coding → real get_brain() HippoRAG/A-MEM, knowledge_main, FSRS log, mind_events.json, self_evolve state; options chain → real OpenAlgo NFO chain already fetched by the options segment.
-6. [proposed] TradeOutcomeNet SOTA replacement scan — TabPFN-v2 (CPU tabular foundation model) vs current gated_moe as champion/challenger on the same OOF protocol; abstention-aware objective.
-7. [proposed] Off-policy gate tuning — doubly-robust OPE over the journal's off-policy lanes to auto-tune UQ_GATE θ, CRYPTO_MIN_SCORE, explore-graduation ACC instead of hand-set env values.
-8. [proposed] Knowledge gathering upgrade — scheduled news/announcement crawl (Binance + NSE/broker) into HippoRAG with symbol-entity links; retrieval surfaces in decision_snapshot.
+## 2026-07-10 — Brain de-stagnation round (1-5 DONE same day + Dream-Trainer + fast_nav shipped; 6-8 proposed; grounded in research/brain-audit-2026-07-10.md)
+1. [done 2026-07-10] Loop Keeper — runtime self-heal for the 3 loop processes + learn daemon: systemd user units (Restart=on-failure) or a 5-min keeper cron running pgrep-guarded start_all.sh; dead-loop banner on the dashboard. Ends "silent mid-day death" (today's #1 root cause).
+2. [done 2026-07-10] LLM Budget Governor + local floor — per-provider token-bucket RPM caps honoring free tiers, prompt dedupe/cache, circuit breaker on reload_at, and a LOCAL fallback model (ollama qwen/llama or distilled micro_llm) so brain features degrade to local instead of 429-dying (95% of 4.5k calls/day are failures).
+3. [done 2026-07-10] Calibration truth loop — per-symbol Brier/ECE computed at close-learn (root-cause ETH brier 0.0), reliability panel, auto re-fit of conformal UQ + confidence recalibration from realized outcomes.
+4. [done 2026-07-10] Learning that visibly improves — FSRS param re-fit from quiz outcomes; error-driven topic picker (learn what the brain got WRONG last week, not a fixed topic list); learning-curve panel (retention, OOF-acc, rolling win-rate deltas) so improvement is visible.
+5. [done 2026-07-10] Demo→LIVE panel wiring (8 panels) — memory/hybrid/librarian/quiz/thinking/stream/self-coding → real get_brain() HippoRAG/A-MEM, knowledge_main, FSRS log, mind_events.json, self_evolve state; options chain → real OpenAlgo NFO chain already fetched by the options segment.
+6. [done 2026-07-10] TradeOutcomeNet SOTA replacement scan — trading/brain/challenger.py (champion/challenger on the same OOF protocol) + _TabPFNWrap in trade_features.py; tests/test_challenger.py.
+7. [done 2026-07-10] Off-policy gate tuning — trading/brain/gate_tuner.py (counterfactual θ sweeps over the explore-open-all journal lanes) + learn-loop tick + /api/trading/gate_tuning; tests/test_gate_tuner.py.
+8. [done 2026-07-10] Knowledge gathering upgrade — trading/brain/news_ingest.py (free public RSS → symbol-linked news_memory.json, 15-min internal rate limit, zero-cost-first) + learn-loop tick; tests/test_news_ingest.py.
+
+9. [done 2026-07-10] Dream-Trainer counterfactual regret decomposition (trading/brain/dreamer.py) — owner 'entirely different' ask; phase 2 worldmodel imagination replay = imagine_replay() [done 2026-07-10, tests/test_dream_replay.py].
+10. [done 2026-07-10, wiring landed same day] fast_nav planner (trading/brain/vision/fast_nav.py) — skill→goto→explore ranked nav plans + 2-strikes accuracy loop. WIRED: HumanUI.navigate() (honest landing check — goto only counts when the target's words appear on the landed page) + boss tool navigate_app ("open holdings on Upstox" from Brain Chat) + fast_nav block in /api/trading/ocular; tests/test_fast_nav_wiring.py.
+
+## 2026-07-10 — Brain-native FreqUI + engine redesign (owner-initiated)
+| id | idea | type | status |
+|----|------|------|--------|
+| BN-E1 | In-engine tailgate/lock enforcement at engine tick (~5-15s) | replace (funnel-cadence exits) | done 2026-07-10 — MlBridgeStrategy.custom_exit (`tailgate_lock`), kill-switch mlnb_tailgate_enforce |
+| BN-E2 | Native brain fields in engine /api/v1 (kill cross-origin overlay) + segment-routed /status | replace | done 2026-07-10 — mlnb_sidecar enrich (tg_* + strategy_label/brain_pred) + /api/v1/mlnb/{feed,funnel,tailgate,xray} + header-scoped /status |
+| BN-E3 | decisions.jsonl push inbox: funnel writes, engine executes (replaces forceenter polling) | replace | done 2026-07-10 — mlnb_inbox.py + freqtradebot hook + engine_client CRYPTO_DECISION_INBOX=1 (OFF by default) |
+| BN-E4 | Fill-time journal stamping in engine (entry context at fill, not ingest reconstruction) | replace | done 2026-07-10 — mlnb_fills.py at _notify_enter/_notify_exit fill branches → mlnb_fills.jsonl |
+| BN-E5 | Fork hygiene: disable FreqAI/hyperopt surfaces, FORK.md divergence doc | new | done 2026-07-10 — vendor/freqtrade/FORK.md divergence index + unused-surfaces policy |
+| BN-U1 | FreqUI "Brain Cockpit" trading view (segment rails + decision feed + X-Ray drawer) | new | done 2026-07-10 — BrainSegmentsRail/BrainFeed/BrainXray in TradingView.vue; built+deployed |
+| BN-U2 | FreqUI "Mission Control" (dashboard brain panels as native tabs) | new | done 2026-07-10 (owner go-ahead) — MissionControlView.vue (/mission): Brain feed + Funnel tiles same-origin, School + Sandbox via mlnbDash composable; live-verified all tabs |
+| BN-U3 | FreqUI "Pro Terminal" (chart-first, brain markers + ratchet lines) | new | done 2026-07-10 (owner go-ahead) — ProTerminalView.vue (/terminal): full-height chart, real entry/exit markers w/ reason, ≈LOCK/≈PEAK ratchet price lines, trades+brain docks; swap-pool candles fix for futures-only symbols; BASE_URL overlay fix (4 files had silent site-root fetch) |
+Details: research/brain-native-frequi-engine-redesign-2026-07-10.md
+
+## 2026-07-10 — evening code-review round (8 CONFIRMED findings, all fixed same day)
+1. Inbox queued≠entered — brain_executor books queued decisions separately ("queued" report field), engine flag mlnb_decision_inbox=true added to config.json so CRYPTO_DECISION_INBOX=1 is end-to-end.
+2. /api/trading/options/status now cache-keys per ?underlying (server _QUERY_KEYED_CACHE) — was serving one index's analytics for all.
+3. Options tile falls back honestly on {"available": false} cached-chain errors (was a permanent error box).
+4. state.update_json (flock merge) ends cross-process broker_sense_status.json tile clobbering (funnel.py + run_funnel_loop.py); tests/test_state_update_json.py.
+5. dreamer.dream_once preserves the imagination section (was wholesale-overwriting nightly replay results).
+6. Inbox exits carry trade_id ("all" closes every open trade on the pair; specific id closes exactly that one).
+7. challenger duel masks TRADE_NET_ENGINE for the champion side + labels the engine that actually trained; duel() wired into run_micro_distill (CHALLENGER_DUEL=1 nightly).
+8. _pool_ohlcv falls to perp candles ONLY on BadSymbol for /USDT pairs (transient spot errors no longer silently chart perp prices); FreqUI candle fallback now sends the full pair.
+Also: gate_tuner reads live UQ_P_UP_MIN / CRYPTO_MIN_SCORE envs instead of a hardcoded copy.
+Deferred (ledgered, not done): consolidate 4 legacy mlnb_status.json fetch sites onto the useMlnbDash composable; extract shared chart composable for BrainControlView/ProTerminal; GateTuning dashboard panel; screen_mirror O(1) action append + cheap n_actions.
+Fork-tracking gap (found at commit time): only 3 vendor files were ever git-tracked while FORK.md names ~20 diverged ones — this commit adds the brain-native layer (mlnb_* + E2 api_server files + BN-U sources); the OLDER segment-fork divergences (persistence/segment_context, deps.py, rpc.py, exchange/deribit.py, worker plumbing…) remain untracked [proposed: vendor-update-style sweep to land them].

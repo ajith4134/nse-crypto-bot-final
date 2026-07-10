@@ -113,6 +113,12 @@ def dream_once(lookback: int = 300) -> dict:
     out = {"ts": time.time(), "n_dreamed": len(dreams), "n_rows": len(rows),
            "lessons": lessons,
            "note": "counterfactual regret decomposition off real journal excursions"}
+    # merge-save: imagine_replay() (phase-2, nightly) keeps its "imagination" section in
+    # this same file — a wholesale save here erased the world-model replay minutes after
+    # it was computed (2026-07-10 review fix)
+    prev = state.load_json(_STATE_FILE, {}) or {}
+    if isinstance(prev, dict) and prev.get("imagination"):
+        out["imagination"] = prev["imagination"]
     state.save_json(_STATE_FILE, out)
     return out
 
@@ -136,3 +142,72 @@ def status() -> dict:
     from trading import state
     return state.load_json(_STATE_FILE, {"ts": None, "lessons": [],
                                          "note": "no dream cycle has run yet"})
+
+
+# ── phase 2: WORLD-MODEL imagination replay (nightly, separate process) ──────────────
+def _candles_before(symbol: str, entry_ts: float, timeframe: str = "5m",
+                    limit: int = 400):
+    """OHLCV DataFrame ending at (or before) the trade's entry — the information the
+    brain actually had. None when the free-venue window no longer reaches back that far
+    (old trades are skipped honestly, never replayed on future data)."""
+    import pandas as pd
+    from trading.crypto.exchange_pool import ExchangePool
+    rows = ExchangePool().ohlcv(symbol, timeframe=timeframe, limit=limit) or []
+    rows = [r for r in rows if r and (r[0] / 1000.0) <= entry_ts]
+    if len(rows) < 140:                      # worldmodel needs a real fitting window
+        return None
+    df = pd.DataFrame(rows, columns=["ts", "open", "high", "low", "close", "volume"])
+    return df.drop(columns=["ts"])
+
+
+def imagine_replay(n_trades: int = 8, timeframe: str = "5m") -> dict:
+    """Phase-2 dreams: replay the newest crypto closed trades through the world-model's
+    ImaginationPlanner ON PRE-ENTRY CANDLES ONLY, and measure whether agreeing with the
+    imagination correlates with realized R. Heavy (MCTS per trade) — runs in the nice-10
+    micro-distill process, NEVER inside the dashboard (GIL-wedge rule)."""
+    import datetime as _dtm
+    import math as _m
+    from trading import state
+    from trading.brain.worldmodel import build_planner
+    rows = [r for r in (state.load_json("journal.json", []) or []) if isinstance(r, dict)
+            and "/" in str(r.get("symbol") or "") and r.get("r_multiple") is not None
+            and r.get("entry_datetime")]
+    replays, skipped = [], 0
+    for r in reversed(rows):
+        if len(replays) >= n_trades:
+            break
+        try:
+            ets = _dtm.datetime.fromisoformat(
+                str(r["entry_datetime"]).replace("Z", "+00:00")).timestamp()
+            df = _candles_before(r["symbol"], ets, timeframe)
+            if df is None:
+                skipped += 1
+                continue
+            out = build_planner(df).plan(df)
+            action = out.get("action")
+            direction = (r.get("direction") or "").upper()
+            agree = ((action == "ENTER_LONG" and direction == "LONG")
+                     or (action == "ENTER_SHORT" and direction == "SHORT"))
+            rm = float(r["r_multiple"])
+            if not _m.isfinite(rm):
+                skipped += 1
+                continue
+            replays.append({"symbol": r["symbol"], "direction": direction,
+                            "r_multiple": round(rm, 3), "wm_action": action,
+                            "wm_expected_R": out.get("expected_R"),
+                            "agree": agree})
+        except Exception:
+            skipped += 1
+    agr = [x["r_multiple"] for x in replays if x["agree"]]
+    dis = [x["r_multiple"] for x in replays if not x["agree"]]
+    section = {"ts": time.time(), "n_replayed": len(replays), "n_skipped": skipped,
+               "replays": replays,
+               "mean_R_when_agree": round(sum(agr) / len(agr), 3) if agr else None,
+               "mean_R_when_disagree": round(sum(dis) / len(dis), 3) if dis else None,
+               "note": ("world-model MCTS replay on PRE-ENTRY candles only; skipped = "
+                        "trades older than the free candle window (never replayed on "
+                        "future data)")}
+    d = state.load_json(_STATE_FILE, {}) or {}
+    d["imagination"] = section
+    state.save_json(_STATE_FILE, d)
+    return section

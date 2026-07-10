@@ -28,14 +28,22 @@ export default function BrainMirrorPanel() {
   const alive = useRef(true)
 
   useEffect(() => {
+    // Per-effect liveness + fetch timeout (2026-07-10 fix): a hung request used to
+    // freeze the panel on the PREVIOUS broker's frame + action feed after switching
+    // (upstox tab kept showing binance). Payloads are tagged with the broker they were
+    // fetched for, so stale data can never render under the wrong tab.
+    let live = true
     alive.current = true
+    setFrameTs(0)
     const tick = async () => {
+      const ctl = new AbortController()
+      const kill = setTimeout(() => ctl.abort(), 6000)
       try {
         const q = broker ? `?broker=${broker}&limit=40` : ''
-        const r = await fetch(`${API}${q}`)
+        const r = await fetch(`${API}${q}`, { signal: ctl.signal })
         const j = await r.json()
-        if (!alive.current) return
-        setSt(j)
+        if (!live) return
+        setSt({ ...j, _for: broker })
         const names = Object.keys(j.brokers || {})
         if (!broker && names.length) {
           // default to the busiest LIVE mirror, else the first one
@@ -44,16 +52,18 @@ export default function BrainMirrorPanel() {
         }
         const meta = j.brokers && j.brokers[broker]
         if (meta && meta.ts) setFrameTs(meta.ts)   // new frame → new <img> URL
-      } catch { /* dashboard offline blip — next tick retries */ }
+      } catch { /* offline blip or timeout — next tick retries */ }
+      finally { clearTimeout(kill) }
     }
     tick()
     const t = setInterval(tick, 2500)
-    return () => { alive.current = false; clearInterval(t) }
+    return () => { live = false; alive.current = false; clearInterval(t) }
   }, [broker])
 
   const brokers = st ? Object.keys(st.brokers || {}) : []
   const meta = (st && st.brokers && st.brokers[broker]) || null
-  const actions = (st && st.actions) || []
+  // only show an action feed fetched FOR the selected broker (never a stale tab's)
+  const actions = (st && st._for === broker && st.actions) || []
   const la = meta && meta.last_action
   const vp = (meta && meta.viewport) || {}
 
@@ -92,7 +102,7 @@ export default function BrainMirrorPanel() {
       {meta && meta.ts ? (
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: '2 1 480px', position: 'relative', minWidth: 320 }}>
-            <img ref={imgRef} alt={`brain browser ${broker}`}
+            <img ref={imgRef} key={broker} alt={`brain browser ${broker}`}
               src={`${API}/frame?broker=${broker}&t=${frameTs}`}
               style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, display: 'block',
                 filter: meta.live ? 'none' : 'grayscale(60%) brightness(0.8)' }} />

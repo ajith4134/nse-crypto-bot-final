@@ -139,6 +139,9 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # allow REST-driven manual entries (CryptoEngineClient.place_order -> /forceenter); the
         # bot is the execution venue, our system drives the signals.
         "force_entry_enable": True,
+        # mlnb E3: each segment bot consumes <state>/decisions_inbox.jsonl (push model).
+        # Harmless no-op while the funnel side is off (CRYPTO_DECISION_INBOX unset).
+        "mlnb_decision_inbox": True,
         "timeframe": "5m",
         "exchange": {
             "name": cfg.default_exchange,

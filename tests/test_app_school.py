@@ -156,6 +156,27 @@ class TestExplore(_IsolatedState):
         self.assertEqual(s.map.best("binance", "futures")["via"], "Futures")
         self.assertTrue(page.closed)
 
+    def test_url_hint_gates_page_scoped_goals(self):
+        """2026-07-10 (Upstox): options/greeks/pcr/orderbook accept the 'ticker' kind but
+        ONLY on their own page (url_hint) — a live quote stream on /holdings must never
+        ground an option-chain route; on /option-chain it must."""
+        sessions = mock.MagicMock()
+        s = sch.AppSchool(sessions=sessions, cortex=_FakeCortex([]))
+        rec = _FakeRecorder({"ticker"})
+        with mock.patch.object(s, "recorder", return_value=rec):
+            rep = {"learned": [], "goals_met": []}
+            s._harvest("upstox", _FakePage("https://pro.upstox.com/holdings", []),
+                       via="home", rep=rep)
+            self.assertNotIn("options", rep["goals_met"])   # wrong page → gated
+            self.assertNotIn("greeks", rep["goals_met"])
+            rep2 = {"learned": [], "goals_met": []}
+            s._harvest("upstox", _FakePage("https://pro.upstox.com/option-chain", []),
+                       via="home", rep=rep2)
+            self.assertIn("options", rep2["goals_met"])     # right page → grounded
+            self.assertIn("greeks", rep2["goals_met"])
+            self.assertIn("pcr", rep2["goals_met"])
+            self.assertNotIn("orderbook", rep2["goals_met"])  # its hint is 'chart'
+
     def test_explore_not_logged_in(self):
         sessions = mock.MagicMock()
         sessions.page.return_value = None                  # login wall

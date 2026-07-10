@@ -44,7 +44,10 @@ class TestSwitch(_IsolatedState):
         self.assertEqual(st["angelone"]["mode"], "public")
 
     def test_status_only_toggleable_brokers(self):
-        self.assertEqual(set(ds.status().keys()), {"binance", "angelone"})
+        # the toggleable set legitimately grows (upstox/groww landed with the Upstox-
+        # primary feature) — pin to the module's own registry + the _primary summary,
+        # not a hardcoded broker list that goes stale (2026-07-10 fix)
+        self.assertEqual(set(ds.status().keys()), set(ds._TOGGLEABLE) | {"_primary"})
 
 
 class TestScreenAllGating(_IsolatedState):

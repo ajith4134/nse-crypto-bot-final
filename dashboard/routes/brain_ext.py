@@ -206,19 +206,23 @@ def handle_quiz_status(h):
     """GET /api/brain/quiz/status — P4.4 self-quiz mastery (cloze self-test + FSRS mastery/
     retention curve). OFFLINE deterministic demo snapshot, labelled demo.
     """
+    # LIVE path inline (2026-07-10): cheap state-file read — must NOT queue behind the
+    # serial snapshot warmer (a dashboard restart parked it "warming" for many minutes
+    # behind the ultra producer). Only the heavy demo builder stays behind _bg_snapshot.
+    ll = _state_json("learn_loop.json", {}) or {}
+    ev = ll.get("last_eval") or {}
+    if ev.get("final_retention") is not None:
+        body = json.dumps({"demo": False, "live": True,
+                           "retention": ev.get("final_retention"),
+                           "rising": ev.get("rising"), "eval_ts": ev.get("ts"),
+                           "cycles": ll.get("cycles"),
+                           "topics_done": len(ll.get("done") or []),
+                           "note": ("LIVE FSRS self-evaluation from the continuous "
+                                    "learn-loop (retention over recently-learned "
+                                    "topics)")}, default=str).encode()
+        return h._send(200, body, "application/json")
+
     def _p_quiz():
-        # LIVE-FIRST (2026-07-10): the learn-loop self-evaluates with FSRS every
-        # eval_every cycles — that IS the live mastery signal.
-        ll = _state_json("learn_loop.json", {}) or {}
-        ev = ll.get("last_eval") or {}
-        if ev.get("final_retention") is not None:
-            return {"demo": False, "live": True,
-                    "retention": ev.get("final_retention"),
-                    "rising": ev.get("rising"), "eval_ts": ev.get("ts"),
-                    "cycles": ll.get("cycles"),
-                    "topics_done": len(ll.get("done") or []),
-                    "note": ("LIVE FSRS self-evaluation from the continuous learn-loop "
-                             "(retention over recently-learned topics)")}
         from run_self_quiz import build_demo_self_quiz
         snap = build_demo_self_quiz()
         snap["demo"] = True
@@ -232,20 +236,21 @@ def handle_thinking_status(h):
     """GET /api/brain/thinking/status — P4.5 deliberate reasoning over memory (ReAct/ToT + pymdp
     active inference + pyDatalog/DoWhy + conformal abstention + NeMo constitution). Demo snapshot.
     """
+    # LIVE path inline (cheap state reads — never behind the serial warmer)
+    hyp = _state_json("hypotheses.json", {}) or {}
+    n_hyp = len(hyp.get("hypotheses", hyp) if isinstance(hyp, dict) else hyp)
+    ab = _state_json("uq_abstentions.json", {}) or {}
+    n_ab = len(ab.get("abstentions", ab) if isinstance(ab, dict) else ab)
+    if n_hyp or n_ab:
+        body = json.dumps({"demo": False, "live": True,
+                           "hypotheses": n_hyp, "abstentions": n_ab,
+                           "uq_calibration": _state_json("uq_calibration.json", {}) or {},
+                           "note": ("LIVE deliberation: hypothesis ledger + conformal-UQ "
+                                    "abstention log (answers when confident, abstains "
+                                    "when not)")}, default=str).encode()
+        return h._send(200, body, "application/json")
+
     def _p_thinking():
-        # LIVE-FIRST (2026-07-10): real deliberation artifacts — hypothesis ledger +
-        # UQ abstentions (the brain literally "answering when confident, abstaining when not").
-        hyp = _state_json("hypotheses.json", {}) or {}
-        n_hyp = len(hyp.get("hypotheses", hyp) if isinstance(hyp, dict) else hyp)
-        ab = _state_json("uq_abstentions.json", {}) or {}
-        n_ab = len(ab.get("abstentions", ab) if isinstance(ab, dict) else ab)
-        uq = _state_json("uq_calibration.json", {}) or {}
-        if n_hyp or n_ab:
-            return {"demo": False, "live": True,
-                    "hypotheses": n_hyp, "abstentions": n_ab,
-                    "uq_calibration": uq,
-                    "note": ("LIVE deliberation: hypothesis ledger + conformal-UQ "
-                             "abstention log (answers when confident, abstains when not)")}
         from run_thinking_p45 import build_demo_thinking
         snap = build_demo_thinking()
         snap["demo"] = True
@@ -259,19 +264,22 @@ def handle_stream_status(h):
     """GET /api/brain/stream/status — P4.6 Stream-of-Mind (think-cycle → thought stream → Global
     Workspace consolidation to long-term memory; Langfuse trace). Demo snapshot, labelled demo.
     """
+    # LIVE path inline (cheap state read — never behind the serial warmer)
+    me = _state_json("mind_events.json", []) or []
+    events = me.get("events", me) if isinstance(me, dict) else me
+    if events:
+        kinds: dict = {}
+        for e in events:
+            k = (e.get("kind") or e.get("type") or "event") if isinstance(e, dict) else "event"
+            kinds[k] = kinds.get(k, 0) + 1
+        body = json.dumps({"demo": False, "live": True,
+                           "n_events": len(events), "kinds": kinds,
+                           "tail": events[-25:],
+                           "note": ("LIVE stream of mind — the brain's mind-event bus "
+                                    "(mind_events.json)")}, default=str).encode()
+        return h._send(200, body, "application/json")
+
     def _p_stream():
-        # LIVE-FIRST (2026-07-10): the mind-event bus IS the live stream of mind.
-        me = _state_json("mind_events.json", []) or []
-        events = me.get("events", me) if isinstance(me, dict) else me
-        if events:
-            kinds: dict = {}
-            for e in events:
-                k = (e.get("kind") or e.get("type") or "event") if isinstance(e, dict) else "event"
-                kinds[k] = kinds.get(k, 0) + 1
-            return {"demo": False, "live": True,
-                    "n_events": len(events), "kinds": kinds,
-                    "tail": events[-25:],
-                    "note": "LIVE stream of mind — the brain's mind-event bus (mind_events.json)"}
         from run_stream_of_mind import build_demo_thinking
         snap = build_demo_thinking()
         snap["demo"] = True
@@ -300,20 +308,23 @@ def handle_autonomy_status(h):
     """GET /api/brain/autonomy/status — P4.7 autonomy + self-coding (propose→sandbox→benchmark-gate
     →admit; safety gate rejects malicious specs). OFFLINE deterministic demo snapshot.
     """
+    # LIVE path inline (cheap state reads — never behind the serial warmer)
+    se = _state_json("self_evolve.json", {}) or {}
+    rv = _state_json("rule_versions.json", []) or []
+    n_rules = len(rv if isinstance(rv, list) else rv.get("versions", []))
+    if se or n_rules:
+        body = json.dumps({"demo": False, "live": True,
+                           "self_evolve": {k: se.get(k) for k in
+                                           ("generations", "evaluated", "best", "ts")
+                                           if isinstance(se, dict) and k in se} or se,
+                           "rule_versions": n_rules,
+                           "note": ("LIVE autonomy: self-evolve generation state + "
+                                    "versioned rule changes "
+                                    "(trading/state/rule_versions.json)")},
+                          default=str).encode()
+        return h._send(200, body, "application/json")
+
     def _p_autonomy():
-        # LIVE-FIRST (2026-07-10): real self-modification evidence — the self-evolve
-        # generation state + W2 versioned rule changes the brain actually made.
-        se = _state_json("self_evolve.json", {}) or {}
-        rv = _state_json("rule_versions.json", []) or []
-        n_rules = len(rv if isinstance(rv, list) else rv.get("versions", []))
-        if se or n_rules:
-            return {"demo": False, "live": True,
-                    "self_evolve": {k: se.get(k) for k in
-                                    ("generations", "evaluated", "best", "ts")
-                                    if isinstance(se, dict) and k in se} or se,
-                    "rule_versions": n_rules,
-                    "note": ("LIVE autonomy: self-evolve generation state + versioned "
-                             "rule changes (trading/state/rule_versions.json)")}
         from run_self_coding_p47 import build_demo_self_coding
         snap = build_demo_self_coding()
         snap["demo"] = True

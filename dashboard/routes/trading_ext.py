@@ -154,13 +154,31 @@ def handle_execution_status(h):
 
 
 def handle_options_status(h):
-    """GET /api/trading/options/status — honest T4 options-intelligence snapshot (forward/spot,
-    ATM IV, max pain, PCR, GEX+zero-gamma, OI walls) off a labelled DEMO synthetic chain."""
+    """GET /api/trading/options/status — T4 options intelligence (forward/spot, ATM IV,
+    max pain, PCR, GEX+zero-gamma, OI walls). LIVE-FIRST (2026-07-10): the REAL broker
+    chain via OpenAlgo optionchain (?underlying=NIFTY|BANKNIFTY|…); cached last real
+    chain when the broker/market is quiet; the synthetic demo only if never fetched."""
     try:
-        snap = _srv(h)._options_chain().status()
-        snap["demo"] = True
-        snap["note"] = ("offline demo chain (run_options_t4 synthetic chain); "
-                        "no live options feed wired yet — real computed analytics only")
+        from urllib.parse import parse_qs, urlparse
+        und = (parse_qs(urlparse(h.path).query).get("underlying") or ["NIFTY"])[0]
+        snap = None
+        try:
+            from trading.options import live_chain
+            snap = live_chain.live_status(und)
+        except Exception:
+            snap = None
+        # fall back not just when never fetched (None) but also when the cached real
+        # chain is unusable ({"available": False, error}) — a single bad pre-open chain
+        # otherwise pins a permanent error tile (2026-07-10 review fix); the real error
+        # stays visible on the labeled fallback.
+        if snap is None or not snap.get("available", True):
+            err = (snap or {}).get("error")
+            snap = _srv(h)._options_chain().status()
+            snap["demo"] = True
+            snap["note"] = ("no usable real chain (broker session down / bad cached "
+                            "chain) — offline demo chain (run_options_t4); real "
+                            "computed analytics only"
+                            + (f" · last real-chain error: {err}" if err else ""))
         body = json.dumps(snap, default=str).encode()
     except Exception as e:
         body = json.dumps({
@@ -572,11 +590,21 @@ def handle_news_status(h):
     try:
         import brain_live
         snap = brain_live.live_news()
+        # persistent symbol-linked news memory (trading/brain/news_ingest, 2026-07-10):
+        # the scheduled free-RSS ingest the learn loop drives — entry-time lookups read
+        # this store instead of refetching feeds.
+        try:
+            from trading.brain import news_ingest
+            ingest = news_ingest.status()
+            ingest.pop("latest", None)
+        except Exception as e:
+            ingest = {"error": f"{type(e).__name__}: {e}"[:120]}
         body = json.dumps({
             "scorer_backend": snap["scorer_backend"],
             "research": snap["research"],
             "autonomous": snap["autonomous"],
             "node_p_bullish": snap["node_p_bullish"],
+            "ingest": ingest,
             "demo": snap.get("demo", False),
             "n_items": snap.get("n_items"),
             "note": (f"LIVE news/sentiment — {snap.get('n_items')} real headlines via RSS "
@@ -1490,6 +1518,20 @@ def handle_dreams(h):
     return h._send(200, body, "application/json")
 
 
+def handle_gate_tuning(h):
+    """GET /api/trading/gate_tuning — counterfactual θ sweeps for the UQ / confidence
+    gates off the explore-open-all journal (trading/brain/gate_tuner, 2026-07-10).
+    Recommendation-only; state-file read."""
+    try:
+        from trading.brain import gate_tuner
+        body = json.dumps({**gate_tuner.status(), "live": True, "demo": False},
+                          default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
 def handle_learning_curve(h):
     """GET /api/trading/learning_curve — is the brain IMPROVING? (owner ask 2026-07-10).
 
@@ -2163,6 +2205,13 @@ def handle_ocular(h):
         try:
             from trading.brain.vision.grounded_eyes import status as _gstatus
             payload["grounded_eyes"] = _gstatus()
+        except Exception:
+            pass
+        # fast_nav (ledger #10): learned-navigation inventory + per-target accuracy —
+        # pure JSON reads, dashboard-thread-cheap.
+        try:
+            from trading.brain.vision import fast_nav
+            payload["fast_nav"] = fast_nav.status()
         except Exception:
             pass
         body = json.dumps(payload, default=str).encode()

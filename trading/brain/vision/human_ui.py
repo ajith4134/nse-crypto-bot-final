@@ -312,15 +312,34 @@ class HumanUI:
         onboarding tour tooltips (the recurring 'Quick Navigation … Next/×' coach-marks that
         block the real controls). Returns how many it dismissed. Never touches order dialogs."""
         cleared = 0
+        dead: set[str] = set()      # labels that clicked but changed nothing (this pass)
         for _ in range(max_dialogs):
             done = False
             for label in _DISMISS_LABELS:
-                if _control_forbidden(label):
+                if label in dead or _control_forbidden(label):
                     continue
-                if self.click(label, settle_ms=500):
-                    cleared += 1
-                    done = True
-                    break
+                before = self.locate(label)
+                if before is None:
+                    continue
+                if not self.click(label, settle_ms=500):
+                    dead.add(label)
+                    continue
+                # VERIFY the dialog actually went away (2026-07-10): a click "succeeding"
+                # only means the mouse fired — a decorative/covered match stays put and
+                # used to be re-clicked forever ('Okay, I Understand' @1254,27 loop),
+                # which also starved the × fallback below. Same label still at the same
+                # spot → not a dismissal; blacklist it for this pass and move on.
+                after = self.locate(label)
+                if after is not None and abs(after[0] - before[0]) <= 2 \
+                        and abs(after[1] - before[1]) <= 2:
+                    self._note({"act": "click", "target": label, "ok": False,
+                                "detail": f"{label} — no effect, skipping this pass"},
+                               frame=False)
+                    dead.add(label)
+                    continue
+                cleared += 1
+                done = True
+                break
             if not done:                               # try the tour's close (×) icon by sight
                 if self.click("the small × (close) icon on the onboarding tooltip / coach-mark "
                               "popup, if any is visible", settle_ms=400):
@@ -346,6 +365,57 @@ class HumanUI:
                 state.save_json("human_ui_memory.json", (log + [rec])[-500:])
         except Exception:
             pass
+
+    # ── fast learned navigation: plan from what the stack already knows ──────────
+    def navigate(self, target: str, *, max_steps: int = 6) -> dict:
+        """Reach the named app page/section FAST + ACCURATELY (ledger #10 wiring).
+
+        fast_nav ranks HOW from what the stack already learned: replay a recorded hand
+        skill (zero per-step vision) → direct goto of the best school-learned URL →
+        honest visual explore (which records a new nav skill for next time). A goto only
+        counts as arrived when the target's words actually appear in the landed URL/
+        title/headings — never trust the jump itself. Every attempt's outcome feeds
+        fast_nav_stats.json (2-strikes demotion), so accuracy compounds run over run.
+        Read-only: the same order-guard as every other hand action applies."""
+        from trading.brain.vision import fast_nav
+        tt = fast_nav._tokens(target)
+        for step in fast_nav.plan(self.name, target):
+            method = str(step.get("method") or "")
+            key = str(step.get("key") or step.get("url") or "")
+            t0 = time.time()
+            ok = False
+            try:
+                if method == "skill":
+                    # ui_skills.json keys are "<app>:<skill>"; _replay_skill re-prefixes
+                    bare = key.split(":", 1)[1] if key.startswith(f"{self.name}:") else key
+                    ok = self._replay_skill(bare, {})
+                elif method == "goto":
+                    self.page.goto(key, timeout=20000, wait_until="domcontentloaded")
+                    self.page.wait_for_timeout(800)
+                    self.dismiss_modals()
+                    seen = f"{self.page.url or ''} "
+                    try:
+                        seen += (self.page.title() or "") + " "
+                        seen += " ".join(self.page.locator("h1, h2").all_inner_texts())
+                    except Exception:
+                        pass
+                    ok = bool(tt & fast_nav._tokens(seen))
+                elif method == "explore":
+                    res = self.explore(
+                        f"Navigate to the {target} page/section of this app. Do NOT "
+                        "click any Buy/Sell/Trade button.",
+                        max_steps=max_steps,
+                        skill_key=f"nav-{'-'.join(sorted(tt)) or 'page'}")
+                    ok = bool(res.get("done"))
+            except Exception:
+                ok = False
+            fast_nav.record(self.name, target, method, key, ok,
+                            (time.time() - t0) * 1000.0)
+            self._note({"act": "navigate", "target": target, "ok": ok,
+                        "detail": f"{method}:{key[:80]}"}, frame=ok)
+            if ok:
+                return {"target": target, "method": method, "key": key, "done": True}
+        return {"target": target, "done": False}
 
     # ── autonomous exploration: see → decide → act → repeat (the full loop) ───────
     def explore(self, goal: str, *, max_steps: int = 8, skill_key: str | None = None,

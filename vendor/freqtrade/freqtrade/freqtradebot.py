@@ -264,6 +264,17 @@ class FreqtradeBot(LoggingMixin):
         # Check whether markets have to be reloaded and reload them when it's needed
         self.exchange.reload_markets()
 
+        # mlnb E3: consume the brain's queued decisions for this segment (push model;
+        # config flag "mlnb_decision_inbox", default off). Same force-entry/exit guards
+        # as the REST path; never raises.
+        if self.config.get("mlnb_decision_inbox"):
+            try:
+                from freqtrade.mlnb_inbox import consume
+
+                consume(self)
+            except Exception:
+                logger.warning("mlnb decision inbox failed this iteration", exc_info=True)
+
         self.update_trades_without_assigned_fees()
 
         # Query trades from persistence layer
@@ -1254,6 +1265,12 @@ class FreqtradeBot(LoggingMixin):
 
         # Send the message
         self.rpc.send_msg(msg)
+
+        if fill:
+            # mlnb E4: stamp the REAL fill into the brain's journal sidecar at fill time
+            from freqtrade.mlnb_fills import record_fill
+
+            record_fill(self.config, trade, order, "entry")
 
     def _notify_enter_cancel(
         self, trade: Trade, order_type: str, reason: str, sub_trade: bool = False
@@ -2257,6 +2274,12 @@ class FreqtradeBot(LoggingMixin):
 
         # Send the message
         self.rpc.send_msg(msg)
+
+        if fill and order is not None:
+            # mlnb E4: stamp the REAL exit fill into the brain's journal sidecar
+            from freqtrade.mlnb_fills import record_fill
+
+            record_fill(self.config, trade, order, "exit")
 
     def _notify_exit_cancel(
         self, trade: Trade, order_type: str, reason: str, order_id: str, sub_trade: bool = False

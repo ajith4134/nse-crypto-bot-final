@@ -138,6 +138,24 @@ def main() -> int:
                                   f"skipped={res.get('skipped')} "
                                   f"universe={res.get('universe')} "
                                   f"reasons={res.get('skip_reasons')}", flush=True)
+                            # persist for the Brain Cockpit segment tiles (served by the
+                            # engine's /api/v1/mlnb/funnel): "crypto:<seg>" key, same file
+                            # the main funnel cycles report into.
+                            try:
+                                # locked merge — never clobber the other funnel process's tile
+                                from trading import state as _st
+                                _st.update_json("broker_sense_status.json", {f"crypto:{seg}": {
+                                    "segment": seg, "ts": time.time(),
+                                    "stages": {"execute": {
+                                        "entered": res.get("entered"),
+                                        "exited": res.get("exited"),
+                                        "skipped": res.get("skipped"),
+                                        "skip_reasons": res.get("skip_reasons"),
+                                    }},
+                                    "universe": res.get("universe"),
+                                }})
+                            except Exception:
+                                pass
                         except Exception as e:
                             print(f"[funnel:crypto:{seg}] cycle error: {e!r}", flush=True)
                 except Exception as e:

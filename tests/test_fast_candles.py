@@ -45,7 +45,12 @@ class TestDirection(unittest.TestCase):
 
 class TestRead(unittest.TestCase):
     def test_read_shape_and_uses_ohlcv(self):
-        with mock.patch("trading.broker_sense.data_failsafe.ohlcv", return_value=_uptrend()):
+        # _ohlcv_fast tries a LIVE ccxt fetch before the data_failsafe fallback — mock
+        # BOTH so this unit test never depends on the real market's current direction
+        # (it flaked 'short' whenever real BTC trended down, 2026-07-10 fix)
+        with mock.patch("trading.broker_sense.app_school._ccxt_exchange",
+                        side_effect=RuntimeError("no network in unit tests")), \
+             mock.patch("trading.broker_sense.data_failsafe.ohlcv", return_value=_uptrend()):
             out = fc.read([{"symbol": "BTC/USDT:USDT"}], "crypto", timeframes=("5m", "1h"))
         self.assertIn("BTC/USDT:USDT", out)
         self.assertEqual(set(out["BTC/USDT:USDT"]), {"5m", "1h"})

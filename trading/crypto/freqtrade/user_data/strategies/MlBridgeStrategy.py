@@ -40,6 +40,33 @@ class MlBridgeStrategy(IStrategy):
         lev = float(self.config.get("ml_leverage", 1.0) or 1.0)
         return max(1.0, min(lev, max_leverage))
 
+    def custom_exit(self, pair, trade, current_time, current_rate, current_profit, **kwargs):
+        """mlnb E1 (2026-07-10): IN-ENGINE profit-tailgate enforcement.
+
+        The brain's funnel ratchets a locked-profit floor per open trade into
+        profit_tailgate_locks.json, but its own exit pass only runs once per funnel
+        cycle (2–4 min) — trades gapped through their locks between passes. This hook
+        runs on EVERY bot iteration (~throttle seconds), so the lock the UI shows is
+        enforced at engine cadence. The funnel still OWNS the ratchet + the learned
+        trail distance; the engine only reads and enforces. `current_profit` is
+        Freqtrade's leverage-scaled ratio — the same basis the lock file uses.
+        Kill-switch: "mlnb_tailgate_enforce": false in config.json. Never raises.
+        """
+        try:
+            if not self.config.get("mlnb_tailgate_enforce", True):
+                return None
+            from freqtrade.rpc.api_server.mlnb_sidecar import load_state_json
+            lk = (load_state_json(self.config, "profit_tailgate_locks.json", {}) or {}).get(
+                str(trade.id))
+            locked = lk.get("locked") if isinstance(lk, dict) else None
+            if locked is None or float(locked) <= 0:
+                return None                         # no armed lock → other exits rule
+            if current_profit * 100.0 <= float(locked):
+                return "tailgate_lock"              # engine force-exits at the lock
+        except Exception:
+            return None                             # sidecar trouble must never block exits
+        return None
+
     def informative_pairs(self):
         """Make extra timeframes available to the LIVE chart (/pair_candles) for every whitelist pair.
 
