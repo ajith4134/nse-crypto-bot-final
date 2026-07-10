@@ -532,6 +532,32 @@ class BrainExecutor:
         except Exception:
             return None
 
+    def _option_book_ok(self, symbol: str) -> bool:
+        """LIQUIDITY GUARD: refuse a market entry into a hollow option book.
+
+        2026-07-10: the first real option entry filled at ask 300.0 while the bid was
+        0.2 — the mark instantly read the bid → stop_loss at -99.9% in 5 seconds.
+        Thin daily contracts do this routinely; a market order there is a guaranteed
+        loss, not a trade. Require a live bid AND a sane spread before entering.
+        Levers: OPTIONS_LIQ_GUARD=0 disables, OPTIONS_MAX_SPREAD_PCT (default 25).
+        Fail-CLOSED on an unreadable book — market-entering blind is the exact harm."""
+        if os.environ.get("OPTIONS_LIQ_GUARD", "1") in ("0", "false", "no"):
+            return True
+        try:
+            import ccxt
+            ex = getattr(self, "_opt_book_ex", None)
+            if ex is None:
+                ex = self._opt_book_ex = ccxt.deribit()
+            ob = ex.fetch_order_book(symbol, limit=1)
+            bid = (ob.get("bids") or [[0]])[0][0] or 0.0
+            ask = (ob.get("asks") or [[0]])[0][0] or 0.0
+            if bid <= 0 or ask <= 0:
+                return False
+            max_spread = float(os.environ.get("OPTIONS_MAX_SPREAD_PCT", "25"))
+            return (ask - bid) / ((ask + bid) / 2.0) * 100.0 <= max_spread
+        except Exception:
+            return False
+
     def _run_options_cycle(self, *, allow_live: bool = False) -> dict:
         cli = self.client()
         opts = [o for o in (self._parse_option(s) for s in self.symbols()) if o]
@@ -565,9 +591,15 @@ class BrainExecutor:
                 atm = sorted((o for o in cands if o["expiry"] == nearest),
                              key=lambda o: o["strike"])
                 pick = atm[len(atm) // 2]             # median strike ≈ ATM
-                cli.place_order(symbol=pick["symbol"], action="BUY", side="long",
-                                allow_live=allow_live, segment="options",
-                                enter_tag=f"opt-{act.lower()}-{base}")
+                if not self._option_book_ok(pick["symbol"]):
+                    skipped += 1              # hollow/unreadable book → honest skip
+                    continue
+                res = cli.place_order(symbol=pick["symbol"], action="BUY", side="long",
+                                      allow_live=allow_live, segment="options",
+                                      enter_tag=f"opt-{act.lower()}-{base}")
+                if isinstance(res, dict) and res.get("ok") is False:
+                    skipped += 1              # refused (guard/engine) is NOT an entry
+                    continue
                 entered.append(pick["symbol"])
                 picks[pick["symbol"]] = {"strategy": f"underlying-{act}", "action": act}
             except Exception:
@@ -595,9 +627,12 @@ class BrainExecutor:
                 sma20 = sum(closes[-20:]) / 20.0
                 last = float(closes[-1])
                 if sym not in open_pairs and last > sma20 * 1.02 and 0.03 < last < 0.95:
-                    cli.place_order(symbol=sym, action="BUY", side="long",
-                                    allow_live=allow_live, segment="prediction",
-                                    enter_tag="pred-momentum")
+                    res = cli.place_order(symbol=sym, action="BUY", side="long",
+                                          allow_live=allow_live, segment="prediction",
+                                          enter_tag="pred-momentum")
+                    if isinstance(res, dict) and res.get("ok") is False:
+                        skipped += 1          # refused (guard/engine) is NOT an entry
+                        continue
                     entered.append(sym)
                     picks[sym] = {"strategy": "pred-momentum", "action": "LONG"}
                 elif sym in open_pairs and last < sma20:

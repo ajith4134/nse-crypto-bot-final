@@ -234,12 +234,25 @@ class CryptoEngineClient:
 
         FAIL-OPEN on lookup failure — a metadata hiccup must never block trading; the
         guard exists to refuse symbols that are KNOWN-absent (delisted/foreign-venue/
-        prediction-market strings). Note: options/prediction symbols (Deribit/Polymarket)
-        correctly FAIL here while those segments still execute on the one binance-backed
-        engine — that is the guard working (see the 2026-07-05 phantom); when dedicated
-        venue engines land, route this check per venue."""
+        prediction-market strings), see the 2026-07-05 phantom.
+
+        Options/prediction have dedicated segment workers whose universes (option
+        contracts / outcome markets) are NOT in the ccxt spot/swap market lists, so
+        those segments validate against the worker's own live whitelist — checking
+        them against spot/swap silently vetoed every legitimate option entry while
+        the cycle still logged it as entered (2026-07-10)."""
         try:
             import time as _t
+            if (segment or "futures") in ("options", "prediction"):
+                hit = self._MARKETS_CACHE.get(segment)
+                if hit is None or _t.monotonic() - hit[0] > 600:
+                    wl = self._client(segment).whitelist()
+                    pairs = set((wl or {}).get("whitelist") or [])
+                    if not pairs:               # empty/failed read → fail-open, no cache
+                        return True
+                    self._MARKETS_CACHE[segment] = (_t.monotonic(), pairs)
+                    hit = self._MARKETS_CACHE[segment]
+                return symbol in hit[1]
             typ = "spot" if (segment or "futures") == "spot" else "swap"
             hit = self._MARKETS_CACHE.get(typ)
             if hit is None or _t.monotonic() - hit[0] > 3600:

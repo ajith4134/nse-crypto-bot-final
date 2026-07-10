@@ -1837,6 +1837,12 @@ _Phase 2: pure CE/PE generation logic (no live broker/market needed)._
 - **functions:** `_chain(expiry)`; `test_atm_strike_picks_nearest_listed()`; `test_nearest_expiry()`; `test_atm_mode_gives_one_ce_one_pe_at_atm()`; `test_ladder_mode_adds_otm_strikes()`; `test_chain_mode_returns_capped_chain()`; `test_picks_only_nearest_expiry()`; `test_norm_rows_derives_opt_type_from_symbol_suffix()`; `test_no_broker_returns_empty(monkeypatch)`
 - **imports:** pathlib, tempfile, trading.screener, trading.state
 
+## `tests/test_options_segment.py`
+_Options-segment regressions (2026-07-10)._
+- **classes:** TestOptionsTradeabilityGuard, TestOptionsCycleHonesty, TestOptionBookGuard
+- **functions:** `_bare_executor()`
+- **imports:** __future__, unittest
+
 ## `tests/test_options_t4.py`
 _Trading Phase T4 (Options Intelligence) acceptance tests — fully offline._
 - **classes:** TestBlack76Greeks, TestImpliedVol, TestIVRankPercentile, TestMaxPain, TestPCR, TestGEX, TestOI, TestPayoff, TestOptionsChain
