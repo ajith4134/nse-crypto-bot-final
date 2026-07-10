@@ -213,35 +213,36 @@ def apply_sync(*, sessions=None) -> dict:
         seg_of = {s: (desired_map.get(s) or {}).get("segment", "futures") for s in desired}
         actions = 0
         deferred = 0
-        for sym in plan["add"]:
+        # FAIR INTERLEAVE: removals used to run only AFTER every add, so while explore
+        # mode churns (adds arrive faster than the per-pass budget) the remove queue
+        # starved forever — closed trades stayed starred. Alternate add/remove so both
+        # queues converge; a closed trade's segment comes from the last sync's map.
+        last_segs = ((st.get("last_report") or {}).get("segments") or {})
+        queue: list[tuple[str, str, str]] = []
+        for i in range(max(len(plan["add"]), len(plan["remove"]))):
+            if i < len(plan["add"]):
+                sym = plan["add"][i]
+                queue.append(("add", sym, seg_of.get(sym, "futures")))
+            if i < len(plan["remove"]):
+                sym = plan["remove"][i]
+                queue.append(("remove", sym, last_segs.get(sym, "futures")))
+        for op, sym, seg in queue:
             if actions >= max_actions or time.monotonic() - t0 > budget_s:
                 deferred += 1
                 continue                    # honest: next pass picks it up
             actions += 1
-            ui, pg = _open_symbol_ui(sessions, sym, seg_of.get(sym, "futures"))
-            if ui is None:
-                report["error"] = "no Binance browser session (login expired or page failed)"
-                continue
-            report["login_ok"] = True
-            if _set_star(ui, sym, True):
-                report["added"].append(sym)
-                synced.add(sym)
-            _close(pg)
-        for sym in plan["remove"]:
-            if actions >= max_actions or time.monotonic() - t0 > budget_s:
-                deferred += 1
-                continue
-            actions += 1
-            # a closed trade's segment came from the last sync; default futures page
-            seg = ((st.get("last_report") or {}).get("segments") or {}).get(sym, "futures")
             ui, pg = _open_symbol_ui(sessions, sym, seg)
             if ui is None:
                 report["error"] = "no Binance browser session (login expired or page failed)"
                 continue
             report["login_ok"] = True
-            if _set_star(ui, sym, False):
-                report["removed"].append(sym)
-                synced.discard(sym)
+            if _set_star(ui, sym, op == "add"):
+                if op == "add":
+                    report["added"].append(sym)
+                    synced.add(sym)
+                else:
+                    report["removed"].append(sym)
+                    synced.discard(sym)
             _close(pg)
         report["segments"] = seg_of
         report["deferred"] = deferred

@@ -220,20 +220,25 @@ def apply_sync(*, sessions=None, broker: str = "upstox") -> dict:
             max_actions = 4
         actions = 0
         deferred = 0
-        for sym in plan["add"]:
+        # FAIR INTERLEAVE (same fix as the Binance mirror): alternating add/remove keeps
+        # the remove queue from starving behind a churn of adds, so closed trades leave
+        # the watchlist at the same pace new opens join it.
+        queue: list[tuple[str, str]] = []
+        for i in range(max(len(plan["add"]), len(plan["remove"]))):
+            if i < len(plan["add"]):
+                queue.append(("add", plan["add"][i]))
+            if i < len(plan["remove"]):
+                queue.append(("remove", plan["remove"][i]))
+        for op, sym in queue:
             if actions >= max_actions:
                 deferred += 1
                 continue
             actions += 1
-            if _add_symbol(ui, sym):
-                report["added"].append(sym)
-                synced.add(sym)
-        for sym in plan["remove"]:
-            if actions >= max_actions:
-                deferred += 1
-                continue
-            actions += 1
-            if _remove_symbol(ui, sym):
+            if op == "add":
+                if _add_symbol(ui, sym):
+                    report["added"].append(sym)
+                    synced.add(sym)
+            elif _remove_symbol(ui, sym):
                 report["removed"].append(sym)
                 synced.discard(sym)
         report["deferred"] = deferred

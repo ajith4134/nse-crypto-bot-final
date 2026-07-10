@@ -60,9 +60,25 @@ class HumanUI:
     # ── EYES: capture the rendered screen ────────────────────────────────────────
     def _shot(self) -> bytes:
         try:
-            return self.page.screenshot()
+            shot = self.page.screenshot()
         except Exception:
             return b""
+        self._mirror_shot(shot)
+        return shot
+
+    def _mirror_shot(self, shot: bytes) -> None:
+        """Reuse an eyes screenshot as the owner's screen-mirror frame (throttled inside
+        the mirror) — keeps the mirror seconds-fresh during long vision/LLM waits at zero
+        extra browser work (2026-07-10). Never raises into the trading path."""
+        if not shot:
+            return
+        try:
+            from trading.broker_sense import screen_mirror
+            w, h = self._viewport()
+            screen_mirror.record_bytes(self.name, shot, url=self.page.url,
+                                       viewport={"w": w, "h": h})
+        except Exception:
+            pass
 
     def _viewport(self) -> tuple[int, int]:
         vp = self.page.viewport_size or {"width": 1600, "height": 1000}
@@ -77,6 +93,7 @@ class HumanUI:
             try:
                 g = self.eyes.glance()
                 screen_text, shot = g.text(), g.shot
+                self._mirror_shot(shot)
             except Exception:
                 screen_text = ""
         # FREE: understand from the extracted text (DOM+OCR) via the text model
@@ -97,7 +114,8 @@ class HumanUI:
             except Exception as e:
                 txt = f"(perception unavailable: {str(e)[:80]})"
         p = Perception(text=txt, shot=shot, ts=time.time())
-        self.trail.append({"act": "perceive", "goal": goal, "via": "free" if screen_text else "vision"})
+        self._note({"act": "perceive", "goal": goal,
+                    "via": "free" if screen_text else "vision"}, frame=False)
         return p
 
     def read(self, question: str, *, timeout: float = 40.0) -> str:
@@ -105,6 +123,7 @@ class HumanUI:
         OCR) and captured JSON, and answer with the far-less-limited TEXT model. Falls back
         to cloud VISION only when the free senses returned nothing."""
         from core import llm
+        self._note({"act": "read", "detail": question[:120]}, frame=False)
         screen_text = ""
         if self.eyes is not None:
             try:
@@ -155,6 +174,31 @@ class HumanUI:
         shot = self._shot()
         if not shot:
             return None
+        # GROUNDED EYES (invent-beyond #1): OmniParser icon-detection grounds the click in a
+        # REAL detected control — local match first ($0), then ONE Set-of-Marks cloud pick
+        # over the numbered boxes. Only if grounding is unavailable/misses does the old
+        # raw-coordinate grid guess below run.
+        try:
+            from trading.brain.vision.grounded_eyes import get_grounded
+            ge = get_grounded()
+            if ge is not None:
+                ocr = None
+                try:
+                    if self.eyes is not None:
+                        ocr = self.eyes.glance(want_ocr=True).ocr
+                except Exception:
+                    ocr = None
+                xy = ge.locate(target, shot, ocr=ocr)
+                via = "grounded-local"
+                if xy is None:
+                    xy = ge.locate_som(target, shot, ocr=ocr, timeout=timeout)
+                    via = "grounded-som"
+                if xy is not None:
+                    self.trail.append({"act": "locate", "target": target, "xy": list(xy),
+                                       "via": via})
+                    return xy
+        except Exception:
+            pass
         prompt = (
             f"Find this control on the screen: \"{target}\".\n"
             "Return ONLY JSON: {\"found\": true/false, \"x\": <0-1000>, \"y\": <0-1000>} where x,y "
@@ -181,11 +225,11 @@ class HumanUI:
         """Move the pointer to `target` and click it — like a human. Returns True on click.
         Guarded: refuses anything that could place an order / move money."""
         if guard and _control_forbidden(target):
-            self.trail.append({"act": "click", "target": target, "blocked": "order-guard"})
+            self._note({"act": "click", "target": target, "blocked": "order-guard"})
             return False
         xy = self.locate(target)
         if xy is None:
-            self.trail.append({"act": "click", "target": target, "found": False})
+            self._note({"act": "click", "target": target, "found": False}, frame=False)
             return False
         x, y = xy
         try:
@@ -194,10 +238,10 @@ class HumanUI:
             self.page.mouse.click(x, y)
             self.page.wait_for_timeout(settle_ms)
             self._fresh_eyes()                    # the screen changed — drop the glance cache
-            self.trail.append({"act": "click", "target": target, "xy": [x, y], "ok": True})
+            self._note({"act": "click", "target": target, "xy": [x, y], "ok": True})
             return True
         except Exception as e:
-            self.trail.append({"act": "click", "target": target, "error": str(e)[:80]})
+            self._note({"act": "click", "target": target, "error": str(e)[:80]}, frame=False)
             return False
 
     def _fresh_eyes(self) -> None:
@@ -208,18 +252,37 @@ class HumanUI:
         except Exception:
             pass
 
+    def _note(self, row: dict, *, frame: bool = True) -> None:
+        """Record one action honestly in BOTH stores: the in-memory trail (this process)
+        and the cross-process screen mirror the owner watches (/api/trading/mirror).
+        frame=True captures an annotated frame now; False logs the act but lets the
+        mirror's idle throttle decide (for high-frequency read-only acts)."""
+        self.trail.append(row)
+        try:
+            from trading.broker_sense import screen_mirror
+            detail = str(row.get("target") or row.get("goal") or row.get("text")
+                         or row.get("detail") or "")
+            screen_mirror.log_action(
+                self.name, self.page, str(row.get("act") or "?"), detail,
+                xy=row.get("xy"), ok=row.get("ok"),
+                extra={k: str(row[k])[:80] for k in ("blocked", "error", "found")
+                       if k in row},
+                force=frame)
+        except Exception:
+            pass
+
     def type_text(self, text: str, *, guard: bool = True, per_char_ms: int = 45) -> bool:
         """Type into the currently-focused field with human cadence (per-char delay)."""
         if guard and _control_forbidden(text):
-            self.trail.append({"act": "type", "blocked": "order-guard"})
+            self._note({"act": "type", "blocked": "order-guard"})
             return False
         try:
             self.page.keyboard.type(str(text), delay=per_char_ms)
             self._fresh_eyes()
-            self.trail.append({"act": "type", "text": text[:40], "ok": True})
+            self._note({"act": "type", "text": text[:40], "ok": True})
             return True
         except Exception as e:
-            self.trail.append({"act": "type", "error": str(e)[:80]})
+            self._note({"act": "type", "error": str(e)[:80]}, frame=False)
             return False
 
     def click_and_type(self, target: str, text: str, *, clear: bool = True) -> bool:
@@ -238,6 +301,7 @@ class HumanUI:
         try:
             self.page.keyboard.press(key)
             self._fresh_eyes()
+            self._note({"act": "press", "detail": key})
             return True
         except Exception:
             return False

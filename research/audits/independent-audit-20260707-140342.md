@@ -1,0 +1,205 @@
+# Independent connectivity audit — 20260707-140342
+
+_Engine: **ast+networkx (fallback)** · modules: 666 · edges: 2041 · report-only._
+
+## 1. Orphan modules (imported by nothing, not entrypoints/tests)
+**117** found — candidates for dead subsystems or missing wiring:
+
+- `.cortex_build_job`
+- `cognition._sandbox_worker`
+- `dashboard.verify_render`
+- `eval`
+- `nodes.advanced_ml_nodes`
+- `nodes.loop_nodes`
+- `nodes.symbolic_node`
+- `tools.gen_index`
+- `tools.orderbook_collector`
+- `tools.remote_login_browser`
+- `trading.advintel`
+- `trading.alerts.bot`
+- `trading.altdata`
+- `trading.crypto.freqtrade.launch`
+- `trading.crypto.freqtrade.ml_decider`
+- `trading.crypto.freqtrade.user_data.strategies.FreqAIDirection`
+- `trading.crypto.freqtrade.user_data.strategies.MlBridgeStrategy`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutAtrChannel`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutBollingerSqueeze`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutDonchianTrailing`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutGapAndGo`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutInsideBar`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutLwVolatility`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutOpeningRange`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutRangeExpansion`
+- `trading.crypto.freqtrade.user_data.strategies.lib_BreakoutTtmSqueeze`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboAdxGatedCross`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboBollingerRsi`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboElderTripleScreen`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboEmaCloud`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboPullbackContinuation`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboRsiMacd`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboSupertrendRsi`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboTrendDay`
+- `trading.crypto.freqtrade.user_data.strategies.lib_ComboVwapRsi`
+- `trading.crypto.freqtrade.user_data.strategies.lib_FlowAccumulation`
+- `trading.crypto.freqtrade.user_data.strategies.lib_FlowChaikinAdosc`
+- `trading.crypto.freqtrade.user_data.strategies.lib_FlowMfiTrend`
+- `trading.crypto.freqtrade.user_data.strategies.lib_FlowObvTrend`
+- `trading.crypto.freqtrade.user_data.strategies.lib_FlowRvolShock`
+- `trading.crypto.freqtrade.user_data.strategies.lib_FlowVolumeBreakout`
+- `trading.crypto.freqtrade.user_data.strategies.lib_FlowVwapTrend`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevAtrOverextension`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevBbPctb`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevBollinger`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevCci`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevConnorsRsi2`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevKeltner`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevMfi`
+- `trading.crypto.freqtrade.user_data.strategies.lib_MeanrevRsi`
+
+## 2. Import cycles (circular deps — refactor targets)
+- trading.crypto.freqtrade.percoin_decider → trading.crypto.freqtrade.brain_executor → …
+- trading.brain.boss → trading.online.controls → trading.online.live_loop → trading.crypto.freqtrade_ingest → trading.broker_sense.broker_features → …
+- trading.brain.boss → trading.online.live_loop → trading.crypto.freqtrade_ingest → trading.broker_sense.broker_features → …
+- trading.online.live_loop → trading.online.controls → …
+- trading.screener → trading.screener.screener → …
+- trading.screener.screener → trading.screener.commodities → trading.screener.options → …
+- trading.screener.screener → trading.screener.commodities → …
+- trading.screener.screener → trading.screener.options → …
+- trading.goal → trading.journal → trading.journal.journal → …
+- trading.brain.pipeline → trading.brain.hypothesis → trading.brain → …
+- cognition.embodiment → cognition → …
+
+## 3. Disconnected islands (clusters not linked to the main graph)
+- `tests.test_rl_execution`, `trading.execution.rl_exec_env`, `trading.execution.rl_execution`
+- `tests.test_candle_updater`, `trading.crypto.freqtrade.candle_updater`
+- `tests.test_skill_learnings`, `tools.skill_learnings`
+
+## 4. Hubs
+**Most depended-on** (change carefully):
+- `trading.state` ← 115 importers
+- `trading` ← 90 importers
+- `core.node_protocol` ← 86 importers
+- `trading.strategy.freqtrade_strategy_base` ← 81 importers
+- `core` ← 48 importers
+- `trading.brain` ← 40 importers
+- `trading.broker_sense` ← 30 importers
+- `eval.golden` ← 28 importers
+- `core.llm` ← 23 importers
+- `core.registry` ← 21 importers
+- `nodes.pool` ← 20 importers
+- `trading.strategy.library.base` ← 20 importers
+- `nodes` ← 17 importers
+- `nodes.quant_nodes` ← 17 importers
+- `trading.brain.mind_events` ← 17 importers
+- `trading.broker_sense.brokers` ← 17 importers
+- `trading.crypto.config` ← 16 importers
+- `trading.openalgo_client` ← 16 importers
+- `trading.crypto.engine_client` ← 15 importers
+- `nodes.gated_node` ← 14 importers
+- `trading.strategy.features` ← 14 importers
+- `trading.strategy.genome` ← 14 importers
+- `trading.journal.journal` ← 12 importers
+- `trading.strategy.generators.base` ← 12 importers
+- `trading.strategy.operators` ← 12 importers
+
+**Most coupled** (imports the most — split candidates):
+- `dashboard.routes.trading_ext` → 50 deps
+- `dashboard.routes.brain_ext` → 34 deps
+- `dashboard.server` → 33 deps
+- `trading.online.live_loop` → 32 deps
+- `run_multi` → 28 deps
+- `trading.broker_sense.funnel` → 24 deps
+- `dashboard.routes.post_ext` → 23 deps
+- `run_brain_t8` → 22 deps
+- `trading.crypto.freqtrade.brain_executor` → 21 deps
+- `tests.test_broker_sense` → 17 deps
+- `trading.brain` → 17 deps
+- `trading.brain.boss` → 16 deps
+- `trading.crypto.freqtrade.brain_learning` → 15 deps
+- `nodes.pool` → 13 deps
+- `tests.test_domain_nodes` → 13 deps
+- `trading.broker_sense.broker_features` → 13 deps
+- `run_phase3` → 12 deps
+- `tests.test_phase3` → 12 deps
+- `trading.journal.journal` → 12 deps
+- `tests.test_cortex_b9_gaps` → 11 deps
+- `tests.test_generators` → 11 deps
+- `tests.test_pipeline_t8` → 11 deps
+- `trading.crypto.freqtrade_ingest` → 11 deps
+- `trading.strategy.self_evolve` → 11 deps
+- `.cortex_build_job` → 10 deps
+
+## 5. Dashboard honest-wiring (server routes ↔ UI calls)
+_Heuristic: dynamic paths built at runtime can cause false positives; confirm each before acting._
+
+**Endpoints defined but never called by the UI:**
+- `/api/brain/activity`
+- `/api/brain/agent`
+- `/api/brain/agent/status`
+- `/api/brain/autonomy/status`
+- `/api/brain/boss`
+- `/api/brain/embodiment/status`
+- `/api/brain/hybrid/status`
+- `/api/brain/librarian/status`
+- `/api/brain/memory/status`
+- `/api/brain/quiz/status`
+- `/api/brain/stream/status`
+- `/api/brain/thinking/status`
+- `/api/brain/web`
+- `/api/knowledge`
+- `/api/network/autoload`
+- `/api/network/trust`
+- `/api/state/routing`
+- `/api/trading/account_watchlist`
+- `/api/trading/advintel/status`
+- `/api/trading/alerts/status`
+- `/api/trading/brain/decisions`
+- `/api/trading/crypto/ingest`
+- `/api/trading/crypto/predictions`
+- `/api/trading/exits/status`
+- `/api/trading/live_browser/frame`
+- `/api/trading/memory_search`
+- `/api/trading/onchain`
+- `/api/trading/remote_login`
+- `/api/trading/screener/status`
+- `/api/trading/sizing/status`
+- `/api/trading/status`
+
+**UI calls with no backing route (broken/missing wiring):**
+- `/api/trading/brain/decisions${query `
+
+## 6. Dead / unused code
+_vulture not available (vulture error: Command '['/home/karan18190164/.venv/bin/python', '-m', 'vulture', '/home/karan18190164', '/home/karan18190164/cognition', '/home/karan18190164/core', '/home/karan18190164/dashboard', '/home/karan18190164/eval', '/home/karan18190164/memory', '/home/karan18190164/native', '/home/karan18190164/nodes', '/home/karan18190164/tests', '/home/karan18190164/tools', '/home/karan18190164/trading', '--min-confidence', '80']' timed out after 180 seconds) — install for unused-function/class detection._
+
+## 7. INDEX.md drift (auto-index vs disk)
+- Undocumented on disk: **1** (first 1 shown)
+  - `.cortex_build_job.py`
+- Stale index entries (in INDEX.md, not on disk): **377**
+  - `_catalog/_impl_crypto_deriv.py`
+  - `_catalog/_impl_crypto_options.py`
+  - `_catalog/_impl_ml_direction.py`
+  - `_catalog/_impl_multi_asset.py`
+  - `_catalog/_impl_nse_factor.py`
+  - `_catalog/_impl_orderflow.py`
+  - `_catalog/alternative_data.py`
+  - `_catalog/breakout.py`
+  - `_catalog/event_macro.py`
+  - `_catalog/high_frequency.py`
+  - `_catalog/machine_learning.py`
+  - `_catalog/market_making.py`
+  - `_catalog/mean_reversion.py`
+  - `_catalog/meta_systems.py`
+  - `_catalog/momentum.py`
+  - `_catalog/multi_indicator.py`
+  - `_catalog/options.py`
+  - `_catalog/order_flow.py`
+  - `_catalog/pattern.py`
+  - `_catalog/statistical_arbitrage.py`
+  - `_catalog/trend.py`
+  - `_catalog/volatility.py`
+  - `_catalog/volume_flow.py`
+  - `_cognition/_sandbox_worker.py`
+  - `_cognition/active_inference.py`
+
+---
+_Next: an independent reviewer interprets each item with fresh eyes and proposes better connections + function usage. This tool reports; it does not edit._

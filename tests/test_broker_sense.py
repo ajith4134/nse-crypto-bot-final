@@ -425,5 +425,39 @@ class TestWedgeRegressions(_IsolatedState):
                          "chain must stop once the total budget is exhausted")
 
 
+class TestExecutorPerSegment(_IsolatedState):
+    """Regression 2026-07-10: a single cached executor baked in whichever segment asked
+    first — the options/prediction drivers got the FUTURES executor back, so options
+    cycles opened futures trades under a [funnel:crypto:options] log label."""
+
+    def test_each_segment_gets_its_own_executor(self):
+        from trading.broker_sense.funnel import BrokerSenseFunnel
+        f = BrokerSenseFunnel("crypto", sessions=mock.Mock())
+        made = []
+
+        class _FakeExec:
+            def __init__(self, segment=None):
+                self.segment = segment
+                made.append(segment)
+
+        with mock.patch("trading.crypto.freqtrade.brain_executor.BrainExecutor",
+                        _FakeExec):
+            fut = f.executor("futures")
+            opt = f.executor("options")
+        self.assertIsNot(fut, opt, "options must not reuse the futures executor")
+        self.assertEqual(fut.segment, "futures")
+        self.assertEqual(opt.segment, "options")
+        self.assertIs(f.executor("futures"), fut)     # still cached per segment
+        self.assertIs(f.executor("options"), opt)
+        self.assertEqual(made, ["futures", "options"])
+
+    def test_injected_executor_still_overrides_all_segments(self):
+        from trading.broker_sense.funnel import BrokerSenseFunnel
+        ex = mock.Mock()
+        f = BrokerSenseFunnel("crypto", sessions=mock.Mock(), executor=ex)
+        self.assertIs(f.executor("futures"), ex)
+        self.assertIs(f.executor("options"), ex)
+
+
 if __name__ == "__main__":
     unittest.main()

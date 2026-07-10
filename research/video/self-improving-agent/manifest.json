@@ -1,0 +1,413 @@
+{
+  "source": "vidssave.com How To Build A Self-Improving AI Trading Agent (Insanely Cool) 720P.mp4",
+  "video_file": "/home/karan18190164/vidssave.com How To Build A Self-Improving AI Trading Agent (Insanely Cool) 720P.mp4",
+  "duration_s": 1081.1,
+  "n_frames": 80,
+  "frames": [
+    {
+      "file": "f_0000_014.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_015.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0020_016.jpg",
+      "t": 20.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0030_017.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0040_018.jpg",
+      "t": 40.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0050_019.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_020.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0110_021.jpg",
+      "t": 70.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0120_022.jpg",
+      "t": 80.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0130_023.jpg",
+      "t": 90.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0140_024.jpg",
+      "t": 100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0150_025.jpg",
+      "t": 110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0201_000.jpg",
+      "t": 121.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0210_026.jpg",
+      "t": 130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0220_027.jpg",
+      "t": 140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0230_028.jpg",
+      "t": 150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0240_029.jpg",
+      "t": 160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0250_030.jpg",
+      "t": 170.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0300_031.jpg",
+      "t": 180.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0310_032.jpg",
+      "t": 190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0324_001.jpg",
+      "t": 204.27,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0330_033.jpg",
+      "t": 210.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0340_034.jpg",
+      "t": 220.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0345_002.jpg",
+      "t": 225.8,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0400_035.jpg",
+      "t": 240.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0407_003.jpg",
+      "t": 247.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0420_036.jpg",
+      "t": 260.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0430_037.jpg",
+      "t": 270.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0440_038.jpg",
+      "t": 280.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0450_039.jpg",
+      "t": 290.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0500_040.jpg",
+      "t": 300.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0510_041.jpg",
+      "t": 310.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0520_042.jpg",
+      "t": 320.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0526_004.jpg",
+      "t": 326.67,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0540_043.jpg",
+      "t": 340.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0550_044.jpg",
+      "t": 350.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0600_045.jpg",
+      "t": 360.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0610_046.jpg",
+      "t": 370.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0702_005.jpg",
+      "t": 422.97,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0715_006.jpg",
+      "t": 435.1,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0849_007.jpg",
+      "t": 529.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1140_076.jpg",
+      "t": 700.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1150_077.jpg",
+      "t": 710.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1200_078.jpg",
+      "t": 720.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1210_079.jpg",
+      "t": 730.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1220_080.jpg",
+      "t": 740.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1229_008.jpg",
+      "t": 749.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1240_081.jpg",
+      "t": 760.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1250_082.jpg",
+      "t": 770.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1300_083.jpg",
+      "t": 780.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1310_084.jpg",
+      "t": 790.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1320_085.jpg",
+      "t": 800.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1330_086.jpg",
+      "t": 810.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1340_087.jpg",
+      "t": 820.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1350_088.jpg",
+      "t": 830.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1400_089.jpg",
+      "t": 840.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1410_090.jpg",
+      "t": 850.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1420_091.jpg",
+      "t": 860.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1430_092.jpg",
+      "t": 870.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1440_093.jpg",
+      "t": 880.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1450_094.jpg",
+      "t": 890.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1458_009.jpg",
+      "t": 898.43,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1510_095.jpg",
+      "t": 910.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1520_096.jpg",
+      "t": 920.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1530_097.jpg",
+      "t": 930.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1540_098.jpg",
+      "t": 940.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1550_099.jpg",
+      "t": 950.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1600_100.jpg",
+      "t": 960.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1610_101.jpg",
+      "t": 970.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1623_010.jpg",
+      "t": 983.9,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1630_102.jpg",
+      "t": 990.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1640_103.jpg",
+      "t": 1000.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1651_011.jpg",
+      "t": 1011.07,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1704_012.jpg",
+      "t": 1024.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1710_013.jpg",
+      "t": 1030.2,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1720_104.jpg",
+      "t": 1040.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1730_105.jpg",
+      "t": 1050.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1740_106.jpg",
+      "t": 1060.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1750_107.jpg",
+      "t": 1070.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1800_108.jpg",
+      "t": 1080.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 267,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/self-improving-agent"
+}

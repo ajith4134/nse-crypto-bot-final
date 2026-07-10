@@ -507,12 +507,12 @@ class LiveTradeLoop:
 
     def _ingest_freqtrade(self) -> dict:
         """Record any new Freqtrade closed crypto trades into the journal (trade→NN bridge).
-        Skipped when CRYPTO is disabled; never raises."""
-        try:
-            if not self.registry.get("CRYPTO").enabled:
-                return {"ingested": 0, "skipped": 0, "seen": 0, "detail": "CRYPTO disabled"}
-        except Exception:
-            pass
+        Never raises.
+
+        Runs regardless of the registry's CRYPTO enabled flag: that flag gates whether
+        THIS loop may place crypto ORDERS (the funnel owns crypto trading, so it stays
+        off), but ingest is read-only learning — gating it on the same flag silently
+        starved the journal of every explore-mode closed trade (found 2026-07-09)."""
         from trading.crypto.freqtrade_ingest import ingest_closed
         res = ingest_closed(self.journal(), self._crypto_engine)
         if res.get("ingested"):

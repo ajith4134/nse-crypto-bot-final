@@ -37,6 +37,7 @@ import BrokerSensePanel from './BrokerSensePanel.jsx'
 import OcularCortexPanel from './OcularCortexPanel.jsx'
 import XRayPanel from './XRayPanel.jsx'
 import LiveBrowserPanel from './LiveBrowserPanel.jsx'
+import BrainMirrorPanel from './BrainMirrorPanel.jsx'
 import AppSchoolPanel from './AppSchoolPanel.jsx'
 import BrokerFeaturesPanel from './BrokerFeaturesPanel.jsx'
 import SegmentFocusPanel from './SegmentFocusPanel.jsx'
@@ -270,6 +271,10 @@ export default function TradingDashboard() {
 
       <Card title="Live browser — connect your broker account" hint="a real browser streamed here so YOU solve the login captcha/OTP that automation can't · your clicks+typing drive the page · Save session → the brain reads your account headless after">
         <LiveBrowserPanel broker="binance" />
+      </Card>
+
+      <Card title="Brain Screen Mirror — watch the brain operate the apps" hint="READ-ONLY live mirror of the browser the BRAIN drives after login · every page it opens, button it clicks (marker shown), text it reads · funnel screening + ⭐ watchlist hand + app-school · watching never steers the hand">
+        <BrainMirrorPanel />
       </Card>
 
       <Card title="App Driving School — Binance (crypto)" hint="explores the logged-in BINANCE app read-only · clicks every feature · learns the golden route to each market-data kind (spot/futures/options/screeners) from the app's own traffic · no hardcoded pages">

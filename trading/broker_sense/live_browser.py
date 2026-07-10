@@ -25,10 +25,21 @@ _VIEW_W, _VIEW_H = 1280, 800
 class _Session:
     """One broker's live browser, driven entirely on its own worker thread."""
 
+    # Speed (2026-07-10): the worker serializes EVERYTHING, so frame polls used to queue
+    # ahead of the operator's clicks/typing and each poll cost a fresh screenshot — login
+    # felt seconds-laggy. Now (a) frames are cached ~0.4s and served without touching the
+    # worker when fresh, (b) input commands jump the queue ahead of frame requests, and
+    # (c) input ops invalidate the cache so the very next poll shows their effect.
+    _FRAME_CACHE_S = 0.4
+
     def __init__(self, broker: str, url: str):
         self.broker = broker
         self.url = url
-        self.q: queue.Queue = queue.Queue()
+        self.q: queue.PriorityQueue = queue.PriorityQueue()
+        self._seq = 0
+        self._seq_lock = threading.Lock()
+        self.last_jpeg: bytes | None = None
+        self.last_jpeg_ts: float = 0.0
         self.ready = threading.Event()
         self.err: str | None = None
         self.thread = threading.Thread(target=self._run, name=f"live-browser-{broker}",
@@ -40,7 +51,11 @@ class _Session:
             return {"error": "session not running"}
         ev = threading.Event()
         box: dict = {}
-        self.q.put((name, kw or {}, ev, box))
+        prio = 1 if name == "frame" else 0     # operator input beats frame polls
+        with self._seq_lock:
+            self._seq += 1
+            seq = self._seq
+        self.q.put((prio, seq, (name, kw or {}, ev, box)))
         if not ev.wait(timeout):
             return {"error": "timeout"}
         return box.get("result", {"error": "no result"})
@@ -72,7 +87,7 @@ class _Session:
         stop = False
         while not stop:
             try:
-                name, kw, ev, box = self.q.get(timeout=0.5)
+                _, _, (name, kw, ev, box) = self.q.get(timeout=0.5)
             except queue.Empty:
                 continue
             try:
@@ -94,23 +109,30 @@ class _Session:
 
     def _exec(self, pg, ctx, name: str, kw: dict) -> dict:
         if name == "frame":
-            return {"jpeg": pg.screenshot(type="jpeg", quality=55)}
+            jpeg = pg.screenshot(type="jpeg", quality=45)
+            self.last_jpeg, self.last_jpeg_ts = jpeg, time.monotonic()
+            return {"jpeg": jpeg}
         if name == "click":
             pg.mouse.click(float(kw.get("x", 0)), float(kw.get("y", 0)))
-            pg.wait_for_timeout(300)
+            pg.wait_for_timeout(120)
+            self.last_jpeg_ts = 0.0            # screen changed — next poll refetches
             return {"ok": True}
         if name == "type":
-            pg.keyboard.type(str(kw.get("text", "")), delay=25)
+            pg.keyboard.type(str(kw.get("text", "")), delay=12)
+            self.last_jpeg_ts = 0.0
             return {"ok": True}
         if name == "key":
             pg.keyboard.press(str(kw.get("key", "Enter")))
-            pg.wait_for_timeout(300)
+            pg.wait_for_timeout(120)
+            self.last_jpeg_ts = 0.0
             return {"ok": True}
         if name == "scroll":
             pg.mouse.wheel(0, int(kw.get("dy", 400)))
+            self.last_jpeg_ts = 0.0
             return {"ok": True}
         if name == "nav":
             pg.goto(str(kw.get("url") or self.url), timeout=30000, wait_until="domcontentloaded")
+            self.last_jpeg_ts = 0.0
             return {"ok": True}
         if name == "save":
             sf = state._path("browser_sessions") / f"{self.broker}.json"
@@ -166,6 +188,9 @@ class LiveBrowser:
         s = self._sessions.get(broker)
         if s is None:
             return None
+        # fresh-enough cache → serve instantly without occupying the worker thread
+        if s.last_jpeg is not None and (time.monotonic() - s.last_jpeg_ts) < s._FRAME_CACHE_S:
+            return s.last_jpeg
         r = s.request("frame", timeout=15)
         return r.get("jpeg")
 

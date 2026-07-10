@@ -302,6 +302,11 @@ class SessionManager:
                 pg.close()
                 return None
             self.save_state(broker)
+        try:                                   # owner's screen mirror: every page the brain
+            from trading.broker_sense import screen_mirror
+            screen_mirror.log_action(broker, pg, "open", url or app.home_url)
+        except Exception:
+            pass
         return pg
 
     def ensure_login_requested(self, broker: str) -> bool:

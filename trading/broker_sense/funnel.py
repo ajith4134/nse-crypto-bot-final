@@ -134,7 +134,8 @@ class BrokerSenseFunnel:
         self.vision = cv.ChartVision(sessions, on_app_shot=self.ocular.on_app_shot)
         self.book = BookMonitor(sessions)
         self.exec = exec_adapter or ExecAdapter()
-        self._executor = executor                     # crypto: BrainExecutor (lazy)
+        self._executor = executor                     # crypto: injected override (tests)
+        self._executors: dict = {}                    # crypto: BrainExecutor per segment (lazy)
         self.cycle_n = 0
         st = state.load_json(_STATUS_FILE, {})
         self.shortlist_n = int(st.get(f"{market}_shortlist_n", 12))
@@ -142,10 +143,15 @@ class BrokerSenseFunnel:
 
     # ── crypto executor (all existing gates) ────────────────────────────────────
     def executor(self, segment: str):
-        if self._executor is None:
+        if self._executor is not None:                # injected (tests): one for all segments
+            return self._executor
+        # One executor PER SEGMENT — a shared instance would bake in whichever segment
+        # asked first, silently routing options/prediction cycles to the futures bot.
+        ex = self._executors.get(segment)
+        if ex is None:
             from trading.crypto.freqtrade.brain_executor import BrainExecutor
-            self._executor = BrainExecutor(segment=segment)
-        return self._executor
+            ex = self._executors[segment] = BrainExecutor(segment=segment)
+        return ex
 
     # ── the cycle ────────────────────────────────────────────────────────────────
     def run_cycle(self, *, segment: str = "futures", allow_live: bool = False) -> dict:

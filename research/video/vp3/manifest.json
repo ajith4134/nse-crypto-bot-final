@@ -1,0 +1,413 @@
+{
+  "source": "videoplayback (3).mp4",
+  "video_file": "/home/karan18190164/videoplayback (3).mp4",
+  "duration_s": 1248.86,
+  "n_frames": 80,
+  "frames": [
+    {
+      "file": "f_0000_026.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0008_000.jpg",
+      "t": 8.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0015_001.jpg",
+      "t": 15.33,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0021_002.jpg",
+      "t": 21.3,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0026_003.jpg",
+      "t": 26.23,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0032_004.jpg",
+      "t": 32.5,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0038_005.jpg",
+      "t": 38.77,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0043_006.jpg",
+      "t": 43.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0048_007.jpg",
+      "t": 48.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0055_008.jpg",
+      "t": 55.23,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0111_009.jpg",
+      "t": 71.1,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0119_010.jpg",
+      "t": 79.63,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0129_011.jpg",
+      "t": 89.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0141_012.jpg",
+      "t": 101.53,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0148_013.jpg",
+      "t": 108.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0200_027.jpg",
+      "t": 120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0210_028.jpg",
+      "t": 130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0220_029.jpg",
+      "t": 140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0230_030.jpg",
+      "t": 150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0240_031.jpg",
+      "t": 160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0250_032.jpg",
+      "t": 170.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0300_033.jpg",
+      "t": 180.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0310_034.jpg",
+      "t": 190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0320_035.jpg",
+      "t": 200.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0330_036.jpg",
+      "t": 210.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0340_037.jpg",
+      "t": 220.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0350_038.jpg",
+      "t": 230.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0400_039.jpg",
+      "t": 240.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0410_040.jpg",
+      "t": 250.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0420_041.jpg",
+      "t": 260.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0430_042.jpg",
+      "t": 270.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0440_043.jpg",
+      "t": 280.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0450_044.jpg",
+      "t": 290.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0500_045.jpg",
+      "t": 300.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0510_046.jpg",
+      "t": 310.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0520_047.jpg",
+      "t": 320.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0530_048.jpg",
+      "t": 330.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0540_049.jpg",
+      "t": 340.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0550_050.jpg",
+      "t": 350.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0600_051.jpg",
+      "t": 360.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0610_052.jpg",
+      "t": 370.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0853_014.jpg",
+      "t": 533.93,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1201_015.jpg",
+      "t": 721.4,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1243_016.jpg",
+      "t": 763.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1350_017.jpg",
+      "t": 830.37,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1409_018.jpg",
+      "t": 849.17,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1440_019.jpg",
+      "t": 880.6,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1452_020.jpg",
+      "t": 892.77,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1500_021.jpg",
+      "t": 900.3,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1500_022.jpg",
+      "t": 900.83,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1511_023.jpg",
+      "t": 911.93,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1512_024.jpg",
+      "t": 912.37,
+      "kind": "scene"
+    },
+    {
+      "file": "f_1610_103.jpg",
+      "t": 970.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1620_104.jpg",
+      "t": 980.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1630_105.jpg",
+      "t": 990.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1640_106.jpg",
+      "t": 1000.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1650_107.jpg",
+      "t": 1010.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1700_108.jpg",
+      "t": 1020.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1710_109.jpg",
+      "t": 1030.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1720_110.jpg",
+      "t": 1040.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1730_111.jpg",
+      "t": 1050.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1740_112.jpg",
+      "t": 1060.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1750_113.jpg",
+      "t": 1070.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1800_114.jpg",
+      "t": 1080.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1810_115.jpg",
+      "t": 1090.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1820_116.jpg",
+      "t": 1100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1830_117.jpg",
+      "t": 1110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1840_118.jpg",
+      "t": 1120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1850_119.jpg",
+      "t": 1130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1900_120.jpg",
+      "t": 1140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1910_121.jpg",
+      "t": 1150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1920_122.jpg",
+      "t": 1160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1930_123.jpg",
+      "t": 1170.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1940_124.jpg",
+      "t": 1180.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_1950_125.jpg",
+      "t": 1190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2000_126.jpg",
+      "t": 1200.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2010_127.jpg",
+      "t": 1210.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2020_128.jpg",
+      "t": 1220.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2030_129.jpg",
+      "t": 1230.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_2038_025.jpg",
+      "t": 1238.73,
+      "kind": "scene"
+    }
+  ],
+  "transcript": {
+    "segments": 282,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/vp3"
+}

@@ -155,6 +155,7 @@ class CryptoEngineClient:
         allow_live: bool = False,
         enter_tag: str | None = None,  # tag the entry (e.g. the brain's chosen strategy per coin)
         segment: str | None = None,    # multi-segment engine: futures/spot/options/prediction
+        stake_amount: float | None = None,  # scaled stake USDT (champion-bandit #3); None = engine default
     ) -> dict:
         """Place a crypto order via Freqtrade. In dry-run this is a paper fill in the engine.
 
@@ -183,18 +184,25 @@ class CryptoEngineClient:
             otype = _order_type()                        # owner prefers MARKET (guaranteed fill)
             # a market order ignores price and fills at the book — pass price only for a limit
             oprice = None if otype == "market" else price
-            # order_type + enter_tag are optional on older freqtrade-client builds → degrade.
+            # order_type/enter_tag/stake_amount are optional on older freqtrade-client
+            # builds → degrade (a missing kwarg drops the refinement, never the entry).
             try:
                 return self._check(cli.forceenter(symbol, entry_side, price=oprice,
-                                                  order_type=otype, enter_tag=enter_tag),
+                                                  order_type=otype, enter_tag=enter_tag,
+                                                  stake_amount=stake_amount),
                                    "forceenter")
             except TypeError:
                 try:
                     return self._check(cli.forceenter(symbol, entry_side, price=oprice,
-                                                      order_type=otype), "forceenter")
-                except TypeError:
-                    return self._check(cli.forceenter(symbol, entry_side, price=oprice),
+                                                      order_type=otype, enter_tag=enter_tag),
                                        "forceenter")
+                except TypeError:
+                    try:
+                        return self._check(cli.forceenter(symbol, entry_side, price=oprice,
+                                                          order_type=otype), "forceenter")
+                    except TypeError:
+                        return self._check(cli.forceenter(symbol, entry_side, price=oprice),
+                                           "forceenter")
         if act in ("SELL", "EXIT", "CLOSE"):
             tid = trade_id if trade_id is not None else "all"
             return self._check(cli.forceexit(tid), "forceexit")
@@ -202,6 +210,24 @@ class CryptoEngineClient:
 
     # ── tradeability guard ─────────────────────────────────────────────────────
     _MARKETS_CACHE: dict = {}          # market-type -> (mono_ts, {active symbols})
+
+    def tradeable_form(self, symbol: str, segment: str | None = None) -> str | None:
+        """The engine-tradeable pair for `symbol` on `segment` — or None.
+
+        The broker's OWN app surfaces quote books the engine can't trade (RUB/TRY/BIDR/
+        MXN spot pairs, long delisted): same coin, wrong book. Route the BASE to the
+        segment's USDT book instead of dropping the pick, so a candidate the brain wants
+        still opens on the one Freqtrade engine (owner 2026-07-09: all segments open in
+        ONE framework). Returns `symbol` unchanged when already tradeable."""
+        if self._pair_tradeable(symbol, segment):
+            return symbol
+        base = str(symbol or "").split("/", 1)[0].strip().upper()
+        if not base:
+            return None
+        alt = f"{base}/USDT" if (segment or "futures") == "spot" else f"{base}/USDT:USDT"
+        if alt != symbol and self._pair_tradeable(alt, segment):
+            return alt
+        return None
 
     def _pair_tradeable(self, symbol: str, segment: str | None) -> bool:
         """Is `symbol` an ACTIVE market on the engine's exchange (binance)? Cached ~1h.

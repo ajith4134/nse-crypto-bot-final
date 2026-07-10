@@ -1,0 +1,68 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/7a1b852c-34b0-4a6c-86ee-b5bababd855d/34c2b14c-VIDEO20260705175741.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/7a1b852c-34b0-4a6c-86ee-b5bababd855d/34c2b14c-VIDEO20260705175741.mp4",
+  "duration_s": 103.61,
+  "n_frames": 11,
+  "frames": [
+    {
+      "file": "f_0000_001.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_002.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0020_003.jpg",
+      "t": 20.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0030_004.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0040_005.jpg",
+      "t": 40.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0049_000.jpg",
+      "t": 49.23,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0100_006.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0110_007.jpg",
+      "t": 70.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0120_008.jpg",
+      "t": 80.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0130_009.jpg",
+      "t": 90.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0140_010.jpg",
+      "t": 100.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 0,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/coinbase-login"
+}

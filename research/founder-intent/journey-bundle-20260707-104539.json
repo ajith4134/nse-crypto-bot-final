@@ -1,0 +1,820 @@
+{
+  "stamp": "20260707-104539",
+  "git": {
+    "count": 120,
+    "first": {
+      "hash": "587b2a5",
+      "date": "2026-06-27",
+      "subject": "Phase 0: initial commit \u2014 code, docs, dashboard source, CI + index discipline"
+    },
+    "last": {
+      "hash": "8aa103e",
+      "date": "2026-07-07",
+      "subject": "Commit remaining working-tree changes: research, panels, builds, engine updates"
+    },
+    "commits": [
+      {
+        "hash": "587b2a5",
+        "date": "2026-06-27",
+        "subject": "Phase 0: initial commit \u2014 code, docs, dashboard source, CI + index discipline"
+      },
+      {
+        "hash": "2a80337",
+        "date": "2026-06-27",
+        "subject": "Area 4: upgrade brain/memory to ChromaDB + sentence-transformers + NetworkX"
+      },
+      {
+        "hash": "87f0d5e",
+        "date": "2026-06-27",
+        "subject": "Dashboard: honest layered network view (real wiring, no fakery)"
+      },
+      {
+        "hash": "ab59c7f",
+        "date": "2026-06-27",
+        "subject": "Perf: drop nolds_chaos from growth pool \u2014 15.6x faster CI gate"
+      },
+      {
+        "hash": "60025ef",
+        "date": "2026-06-27",
+        "subject": "Add rules: verify-first (\u00a711) + error-research (\u00a712)"
+      },
+      {
+        "hash": "ced0f23",
+        "date": "2026-06-27",
+        "subject": "Honest stacking: meta really consumes the pool nodes (no misleading edge)"
+      },
+      {
+        "hash": "c76a32d",
+        "date": "2026-06-27",
+        "subject": "P1: multi-output contract \u2014 OutputHead + generalized NodeProtocol"
+      },
+      {
+        "hash": "815bc4a",
+        "date": "2026-06-27",
+        "subject": "P2-P4: multi-task eval + multi-target data + multiclass/regression nodes"
+      },
+      {
+        "hash": "240dffc",
+        "date": "2026-06-27",
+        "subject": "P5: multi-output runner \u2014 output layer of 3 heads (binary/multiclass/regression)"
+      },
+      {
+        "hash": "f698919",
+        "date": "2026-06-27",
+        "subject": "P6: dashboard multi-output rendering \u2014 one honest band per head"
+      },
+      {
+        "hash": "f29d36c",
+        "date": "2026-06-27",
+        "subject": "P7: per-head CI gate + per-node head/task binding test"
+      },
+      {
+        "hash": "89ff766",
+        "date": "2026-06-27",
+        "subject": "Wire REAL crypto multi-targets into run_multi (honest per-coin walk-forward)"
+      },
+      {
+        "hash": "4599c2a",
+        "date": "2026-06-27",
+        "subject": "Add node catalog from 4-agent research pass (CPU-first OSS to wrap as nodes)"
+      },
+      {
+        "hash": "c2d12c3",
+        "date": "2026-06-27",
+        "subject": "Add 26 PhD-domain nodes across 7 families + rich multi-output pool"
+      },
+      {
+        "hash": "bc58963",
+        "date": "2026-06-27",
+        "subject": "Add NEVER-SKIP rule (\u00a79): only skip a node/feature if it needs a GPU"
+      },
+      {
+        "hash": "2e2df16",
+        "date": "2026-06-27",
+        "subject": "Promote never-skip to a formal rule (\u00a713 + banner token)"
+      },
+      {
+        "hash": "23ede9a",
+        "date": "2026-06-27",
+        "subject": "Expand to ~13 node families (111-node rich multi-output) + fix numpy conflict"
+      },
+      {
+        "hash": "605d976",
+        "date": "2026-06-27",
+        "subject": "Add multi-dataset rule (\u00a714 + banner): never crypto-only"
+      },
+      {
+        "hash": "57b2332",
+        "date": "2026-06-27",
+        "subject": "Multi-dataset eval (\u00a714): Indian stocks + sunspots/weather/energy/ECG"
+      },
+      {
+        "hash": "697be0c",
+        "date": "2026-06-27",
+        "subject": "3rd wave: +15 nodes (CPU-DL + new families), MTF inputs, order book"
+      },
+      {
+        "hash": "06943d8",
+        "date": "2026-06-27",
+        "subject": "Add GitHub-projects-as-nodes catalog (4-agent deep search)"
+      },
+      {
+        "hash": "63cdf8e",
+        "date": "2026-06-27",
+        "subject": "Tier 1 GitHub nodes: 10 projects wrapped as NodeProtocol nodes"
+      },
+      {
+        "hash": "609381b",
+        "date": "2026-06-27",
+        "subject": "Tier 2 GitHub nodes (18) + env repair after zombie-agent overwrite"
+      },
+      {
+        "hash": "bbf6c57",
+        "date": "2026-06-27",
+        "subject": "River online-learning nodes (final): incremental NodeProtocol adapter"
+      },
+      {
+        "hash": "960830b",
+        "date": "2026-06-27",
+        "subject": "Add pattern-in-noise node catalog (3-agent deep search)"
+      },
+      {
+        "hash": "5b43663",
+        "date": "2026-06-27",
+        "subject": "Pattern-in-noise batch: 21 nodes (separation/denoising + detection/discovery)"
+      },
+      {
+        "hash": "cefe6c0",
+        "date": "2026-06-27",
+        "subject": "Add ultra-advanced-ML integration design + catalog (3-agent research)"
+      },
+      {
+        "hash": "7b98d3d",
+        "date": "2026-06-27",
+        "subject": "Ultra-advanced ML: declarative algorithm registry + UniversalNode adapter"
+      },
+      {
+        "hash": "496b677",
+        "date": "2026-06-27",
+        "subject": "Enable TabPFN (env-gated) + fix NGBoost multiclass"
+      },
+      {
+        "hash": "9802db1",
+        "date": "2026-06-27",
+        "subject": "TabPFN: ignore_pretraining_limits so it fits >1000 training rows"
+      },
+      {
+        "hash": "74011e5",
+        "date": "2026-06-27",
+        "subject": "Add quant-firm/trader/finance-ML node catalog (3-agent research)"
+      },
+      {
+        "hash": "a0eac24",
+        "date": "2026-06-27",
+        "subject": "Quant-finance nodes: single-series + cross-sectional PANEL mode"
+      },
+      {
+        "hash": "44b0bd0",
+        "date": "2026-06-27",
+        "subject": "Ignore mljar AutoML_* artifact dirs"
+      },
+      {
+        "hash": "ec88202",
+        "date": "2026-06-28",
+        "subject": "Trading arc T1\u2013T8: NSE+Crypto foundations through strategy-evolution + ultra-brain"
+      },
+      {
+        "hash": "1e132ed",
+        "date": "2026-06-28",
+        "subject": "Fix code-review findings: kill backtest look-ahead + wire overfitting guards + safety"
+      },
+      {
+        "hash": "b71d031",
+        "date": "2026-06-28",
+        "subject": "Build all deferred Phase-8 plans (real + gated): Advanced-Intelligence + brain engines"
+      },
+      {
+        "hash": "c658d73",
+        "date": "2026-06-28",
+        "subject": "Go online (O1-O5): continuous paper/live trading + per-market Start/Stop + paper\u2194real"
+      },
+      {
+        "hash": "57e38c7",
+        "date": "2026-06-28",
+        "subject": "Fix: show Online Control in NSE/Crypto pop-out windows + immediate status refresh"
+      },
+      {
+        "hash": "75c0103",
+        "date": "2026-06-28",
+        "subject": "P4.1 \u2014 Talk to the brain: LangGraph brain agent (recall\u2192respond, gated LLM)"
+      },
+      {
+        "hash": "b6755e4",
+        "date": "2026-06-28",
+        "subject": "P4.2 \u2014 Human-like memory: Ebbinghaus decay + tiers + auto_dream consolidation"
+      },
+      {
+        "hash": "8f78dd6",
+        "date": "2026-06-29",
+        "subject": "P4.3 \u2014 Self-feeding internet: autonomous Librarian (discover\u2192extract\u2192dedup\u2192ingest)"
+      },
+      {
+        "hash": "1481192",
+        "date": "2026-06-29",
+        "subject": "P4.2 (rebuilt) \u2014 Hybrid human memory on REAL projects: Letta + vendored Generative-Agents"
+      },
+      {
+        "hash": "4d094df",
+        "date": "2026-06-29",
+        "subject": "P4.4 \u2014 Proof it gets smarter: self-quiz + FSRS + EduKTM dual mastery curve"
+      },
+      {
+        "hash": "08ad72c",
+        "date": "2026-06-29",
+        "subject": "P4.5 \u2014 Thinking + knowing-what-it-knows: reason, stay calibrated, ask for help"
+      },
+      {
+        "hash": "7453dc7",
+        "date": "2026-06-29",
+        "subject": "Ops + Hub: all-in-one /hub landing page (every dashboard + live panel, new-tab tiles)"
+      },
+      {
+        "hash": "3db0532",
+        "date": "2026-06-29",
+        "subject": "P4.6 \u2014 Stream-of-Mind + observability: see its state of mind; salient thoughts become knowledge"
+      },
+      {
+        "hash": "39d7b24",
+        "date": "2026-06-29",
+        "subject": "P4.7 + P4.8 + dashboard nav + multi-head network graph"
+      },
+      {
+        "hash": "c5818f9",
+        "date": "2026-06-29",
+        "subject": "Live trade loop: real-data PAPER trading on NSE + crypto, journaled, switches fixed"
+      },
+      {
+        "hash": "8ef0251",
+        "date": "2026-06-29",
+        "subject": "Dashboard speed (gzip+cache+keepalive+cloudflared) + live candles + brain decider + button UX"
+      },
+      {
+        "hash": "e0e030c",
+        "date": "2026-06-29",
+        "subject": "Real data for the last demo panels: order book, Fear&Greed, confidence (+ deferred loop start)"
+      },
+      {
+        "hash": "09d071f",
+        "date": "2026-06-29",
+        "subject": "Fix open-trades table showing all \"\u2014\": emit dict rows keyed by column name"
+      },
+      {
+        "hash": "358d0e9",
+        "date": "2026-06-29",
+        "subject": "Open/closed trades: Trade Type, Peak P/L (one col), Capital, totals bar (Total/NSE/Binance)"
+      },
+      {
+        "hash": "9956d9d",
+        "date": "2026-06-29",
+        "subject": "Currency-correct P&L: crypto in $ (USDT), NSE in \u20b9 (INR) \u2014 no mixed-currency math"
+      },
+      {
+        "hash": "cb84c83",
+        "date": "2026-06-29",
+        "subject": "Trading intelligence: segment selectors + per-segment screeners + 4 trailing exits + AI sizing"
+      },
+      {
+        "hash": "5f3a91f",
+        "date": "2026-06-29",
+        "subject": "Dashboard: live Watchlist/Screener panel + Strategy & Sizing controls"
+      },
+      {
+        "hash": "f335f00",
+        "date": "2026-06-29",
+        "subject": "Fix: open trades never visible \u2014 ATR trailing-stop was too tight + exited too eagerly"
+      },
+      {
+        "hash": "4bd2d8d",
+        "date": "2026-06-29",
+        "subject": "Strategy: hold trades longer \u2014 wide % trailing stop + far take-profit (intraday)"
+      },
+      {
+        "hash": "6427f71",
+        "date": "2026-06-30",
+        "subject": "Crypto reset: paginate Freqtrade closed_trades past the 500-row REST cap"
+      },
+      {
+        "hash": "fac86a6",
+        "date": "2026-07-02",
+        "subject": "Brain: cloud-LLM failover + closed learning loop + Strategy Foundry + autonomous web-brain"
+      },
+      {
+        "hash": "43aab99",
+        "date": "2026-07-03",
+        "subject": "Brain nodes: cloud-LLM forecaster + per-provider LLM telemetry panel + foundation/tier2-3 model expansion"
+      },
+      {
+        "hash": "555b71b",
+        "date": "2026-07-03",
+        "subject": "Concept Discovery Engine: idea-discovery mode (pure-self market-feature invention)"
+      },
+      {
+        "hash": "68e984e",
+        "date": "2026-07-04",
+        "subject": "CORTEX B1+B2: fitness engine + honesty gates + video lanes (9-video requirements)"
+      },
+      {
+        "hash": "7f7445a",
+        "date": "2026-07-04",
+        "subject": "CORTEX B3: reflex arc \u2014 ABC/PABEE conditional-compute tiers + MoD router + AdaHedge/BOCD trust ledger + hierarchical Leiden gates"
+      },
+      {
+        "hash": "4dab1d4",
+        "date": "2026-07-04",
+        "subject": "CORTEX B4: brain hub meta-controller \u2014 jumpmodels regime + drift sentries + champion manager + DFA broadcast"
+      },
+      {
+        "hash": "c1093bf",
+        "date": "2026-07-04",
+        "subject": "CORTEX B5: evolution lane \u2014 NEAT + REINFORCE edge learner + grow/prune + SimLab"
+      },
+      {
+        "hash": "01cd693",
+        "date": "2026-07-04",
+        "subject": "CORTEX B6: forecast heads (direct+AR on TTM/Chronos/TabPFN) + real data downloaders"
+      },
+      {
+        "hash": "9dec6ea",
+        "date": "2026-07-04",
+        "subject": "Catch-up: prior-session feature work (brain-ultra panels, decision memory, psychology, venues, verifier, memory upgrades)"
+      },
+      {
+        "hash": "ad5ca17",
+        "date": "2026-07-04",
+        "subject": "CORTEX B7: living cortex dashboard \u2014 run_network.py + /api/network/* + community SigmaNetwork"
+      },
+      {
+        "hash": "194e952",
+        "date": "2026-07-04",
+        "subject": "CORTEX B8: live integration \u2014 per-bar cortex signal (shadow mode) + trust feedback + holdout validation + 63-CANON coverage matrix"
+      },
+      {
+        "hash": "c6b9e00",
+        "date": "2026-07-04",
+        "subject": "CORTEX B9: close all 13 PARTIAL canon gaps \u2192 61 FULL / 2 PARKED"
+      },
+      {
+        "hash": "98589ee",
+        "date": "2026-07-04",
+        "subject": "Gateway: route /api/network/* to the dark dashboard"
+      },
+      {
+        "hash": "132a4a4",
+        "date": "2026-07-04",
+        "subject": "CORTEX truth-mode: real candles only \u2014 no demos anywhere"
+      },
+      {
+        "hash": "1ae4b33",
+        "date": "2026-07-04",
+        "subject": "CORTEX real-edge wiring: 15m barriers + deep lanes + walk-forward + selective accuracy"
+      },
+      {
+        "hash": "3995b16",
+        "date": "2026-07-04",
+        "subject": "Feature bus: every brain data stream \u2192 the cortex on EVERY trade decision"
+      },
+      {
+        "hash": "8b90a7a",
+        "date": "2026-07-04",
+        "subject": "Train on ALL pairs: viz dataset cap removed (env-bounded only) + live arc re-pools at every doubling of pairs seen"
+      },
+      {
+        "hash": "784d011",
+        "date": "2026-07-04",
+        "subject": "Whole-Brain System Map: every neuron drawn \u2014 awake ones glow, resting ones stay wired"
+      },
+      {
+        "hash": "d6aea38",
+        "date": "2026-07-04",
+        "subject": "System Map locked: outputs layer + honest model census + decongested auto-layout; firing animation removed"
+      },
+      {
+        "hash": "daed1d7",
+        "date": "2026-07-04",
+        "subject": "Guard dashboard \u27f3 Refresh: bounded 24-pair interactive tier (ML_NETWORK_PAIRS_UI) so it can't spawn an hours-long run or clobber manual full-catalog jobs"
+      },
+      {
+        "hash": "386d12b",
+        "date": "2026-07-04",
+        "subject": "NSE practice mode: brain trades historic data + full cortex parity with crypto"
+      },
+      {
+        "hash": "c0b13fe",
+        "date": "2026-07-04",
+        "subject": "Boss-command Brain Chat + ultra Stream of Mind + autonomous R&D drive"
+      },
+      {
+        "hash": "fe4e7f0",
+        "date": "2026-07-04",
+        "subject": "Wave 0: opt-in node recovery + drawdown-Kelly + Brain-Ops panel + income Prime Directive"
+      },
+      {
+        "hash": "5f3a182",
+        "date": "2026-07-04",
+        "subject": "Hot-path: numba triple_barrier_labels \u2014 13.8x (32.9ms->2.4ms), identical output"
+      },
+      {
+        "hash": "f1b05a4",
+        "date": "2026-07-04",
+        "subject": "Wave0-5 (seam): begin server.py split \u2014 extract /api/brain/ops to dashboard/routes/brain_ext.py"
+      },
+      {
+        "hash": "e186cbe",
+        "date": "2026-07-04",
+        "subject": "Wave0-5 cont + parallel pytest runner + honest boss path"
+      },
+      {
+        "hash": "a8f8655",
+        "date": "2026-07-04",
+        "subject": "test_runner: mark multihead/phase3/robust/pipeline_t8 known-heavy so --fast stays clean"
+      },
+      {
+        "hash": "65cdca4",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G1: extract 12 /api/brain/* GET routes \u2192 dashboard/routes/brain_ext.py"
+      },
+      {
+        "hash": "d200b61",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G1b: extract /api/brain/{worldmodel,hypotheses,evolve} GET \u2192 brain_ext.py"
+      },
+      {
+        "hash": "6a8acb5",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G2.1: new dashboard/routes/trading_ext.py + 6 clean /api/trading/* GET routes"
+      },
+      {
+        "hash": "09de73c",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G2.2: extract 12 more /api/trading/* GET routes \u2192 trading_ext.py"
+      },
+      {
+        "hash": "7116b47",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G2.3: extract stateful crypto/trades + crypto/predictions \u2192 trading_ext.py"
+      },
+      {
+        "hash": "e6e041b",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G2.4: extract 8 more /api/trading/* GET routes \u2192 trading_ext.py"
+      },
+      {
+        "hash": "016458a",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G2.5: extract orderbook + scorecard + opentrades \u2192 trading_ext.py"
+      },
+      {
+        "hash": "13021d4",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G2.6: extract 7 brain-facing /api/trading/* GET routes \u2192 trading_ext.py"
+      },
+      {
+        "hash": "a550851",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G2.7: extract final trading GET routes \u2192 trading_ext.py (Group 2 COMPLETE)"
+      },
+      {
+        "hash": "736102a",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G3: new dashboard/routes/network_ext.py \u2014 /api/network,state,knowledge,llm"
+      },
+      {
+        "hash": "e8348a2",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G4a: new dashboard/routes/post_ext.py \u2014 8 body-reading POST routes"
+      },
+      {
+        "hash": "4ad4efe",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464 G4b: extract streaming + mutating POST routes \u2192 post_ext.py (Group 4 COMPLETE)"
+      },
+      {
+        "hash": "e958226",
+        "date": "2026-07-04",
+        "subject": "Wave0-\u2464: mark server.py split COMPLETE in dashboard/routes/README.md"
+      },
+      {
+        "hash": "496d0bb",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #1 DONE: pkgutil node auto-loader \u2014 recovers 162 built-but-unpooled families"
+      },
+      {
+        "hash": "79e4783",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #9 DONE: \u03b2-VAE synthetic factors + scenario generator (CPU torch)"
+      },
+      {
+        "hash": "23fb382",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #7 DONE: regime-conditioned MoE router (learned gate over frozen experts)"
+      },
+      {
+        "hash": "2547bbc",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #10 DONE: Intermarket GNN (PyTorch-Geometric GCN over the cross-feature graph)"
+      },
+      {
+        "hash": "f3cf359",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #6 DONE: LiT \u2014 limit-order-book transformer for short-horizon direction"
+      },
+      {
+        "hash": "f71b7cd",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #5 DONE: TSFM ensemble + conformal + Time-MoE head"
+      },
+      {
+        "hash": "4b7d181",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #8 DONE: RL execution agent (SB3-PPO order slicing beats TWAP)"
+      },
+      {
+        "hash": "eab9246",
+        "date": "2026-07-04",
+        "subject": "AI-scientist #11 DONE: on-chain + whale alt-data lane (live, free, keyless)"
+      },
+      {
+        "hash": "2cc337b",
+        "date": "2026-07-04",
+        "subject": "ai-scientist ledger: mark all 11 ideas DONE (completion table)"
+      },
+      {
+        "hash": "73df304",
+        "date": "2026-07-04",
+        "subject": "dashboard-visual-qa skill: add end-to-end INPUT + BUTTON interaction testing"
+      },
+      {
+        "hash": "47d0c7a",
+        "date": "2026-07-04",
+        "subject": "dashboard-visual-qa SKILL.md: interaction-testing section (companion to interaction_qa.py)"
+      },
+      {
+        "hash": "f35b346",
+        "date": "2026-07-04",
+        "subject": "Add dashboard data-consistency check + new dashboard-redesign skill"
+      },
+      {
+        "hash": "4fccd4a",
+        "date": "2026-07-05",
+        "subject": "Dashboard QA: fix Active-subnetwork KPI (top-undefined\u2192top-8/10) + accurate, safe interaction-QA harness"
+      },
+      {
+        "hash": "6dc9f8f",
+        "date": "2026-07-06",
+        "subject": "Broker-sense: multi-TF indicator-fusion entries + 5 new interception kinds + live per-symbol crawl"
+      },
+      {
+        "hash": "f1c7220",
+        "date": "2026-07-07",
+        "subject": "NSE trading: open liquid intraday equity + ALL option indices (incl. BSE), not just NIFTY"
+      },
+      {
+        "hash": "b4ea143",
+        "date": "2026-07-07",
+        "subject": "Human-like UI engine (eyes\u2192brain\u2192hand\u2192memory) + Brain-Open Upstox watchlist sync"
+      },
+      {
+        "hash": "e8d1aa4",
+        "date": "2026-07-07",
+        "subject": "Activate Brain-Open watchlist: periodic sync driver + dashboard endpoint + autonomous add"
+      },
+      {
+        "hash": "0b0fbf0",
+        "date": "2026-07-07",
+        "subject": "Free 24/7 eyes: DOM + local-OCR + network perception replaces rate-limited cloud vision"
+      },
+      {
+        "hash": "55214cd",
+        "date": "2026-07-07",
+        "subject": "Research: free/local 24-7 eyes ladder (rapidocr+DOM+network) \u2014 findings"
+      },
+      {
+        "hash": "1ccd64b",
+        "date": "2026-07-07",
+        "subject": "Upstox Stock X-Ray: fused per-stock capture (OpenAlgo + free-eyes) on trade-open + endpoint"
+      },
+      {
+        "hash": "03b3640",
+        "date": "2026-07-07",
+        "subject": "Stock X-Ray dashboard panel \u2014 honest fused snapshot per stock"
+      },
+      {
+        "hash": "8aa103e",
+        "date": "2026-07-07",
+        "subject": "Commit remaining working-tree changes: research, panels, builds, engine updates"
+      }
+    ]
+  },
+  "project_brief": "# PROJECT BRIEF \u2014 Vision, Goal, and Captured Plans\n\n> This is the durable record of **what we are building and why**, so no step is\n> taken blindly. It captures the user's own words/plans. Secrets are NOT stored\n> here (see `.env.example` / `config.py`).\n\n## \u2b50 PRIME DIRECTIVE \u2014 the WHY (added 2026-07-04)\n**This project exists to generate consistent, risk-managed income for its owner \u2014 a real,\nrepeatable living, not a lottery.** Every capability below is a means to that end. Honest truth:\nno system guarantees profit; the path to income is *protect capital, take small risk-managed\nedges, and compound.* **Dual-mode risk:** **PAPER** = unlimited-risk learning lab (blowups are\ntraining data, no caps \u2014 discover what makes money); **LIVE / real money** = capital-preservation\nFIRST, balanced risk, all guardrails enforced, never blow up \u2014 reached only after a strategy proves\nconsistent profitability on paper. Full statement + the `/money-lens` decision rule live in the\n`/goal` skill; run `/money-lens` before any money/risk/build decision.\n\n## The Goal (one paragraph)\nBuild a **CPU-first \"network of prediction models with a brain\"**: hundreds of\nML/DL/quant models wired as **graph \"nodes\"** (each a full model with its own\ngolden dataset), trained supervised-style \u2014 known input\u2192output first to raise\naccuracy, then predicting unknown outputs. An outside **\"brain\" agent** has\naccess to all nodes and the full data flow, **reads books/PDFs/news into\nmemory**, learns, grows, and learns *how to wire/route the nodes*. Primary domain\nis trading/quant, but nodes generalize to any data. Reuse mature open-source\nfirst; invent only where nothing exists. GPU is off for now, switchable later.\n\n## Scope of \"nodes\" / domains\nAdvanced ML models, deep learning, transformers, AI agents, ML algorithms;\nmathematics, physics, quantum finance, quantitative methods; probability,\nstatistics; **noise finding, chaos finding, finding patterns in chaos/noise,\nlearning patterns, and prediction**. PhD-level concepts welcomed.\n\n## Hard constraints / preferences\n- **CPU-only first**, GPU path deferred and flag-switchable.\n- **Reuse-first (search-copy-adapt-stitch)**: for any new code, FIRST search online/GitHub\n  for working code; copy & adapt it to our interface, and stitch multiple OSS projects/\n  snippets together. Build from scratch ONLY when no similar code exists anywhere.\n- **Self-documenting + indexed + interface-enforced** codebase (see `CONVENTIONS.md`).\n- **Dashboard-sync**: every node/feature/intelligence capability appears on an\n  ultra-visual animated dashboard (**React + D3/Three.js**), auto-reflecting new additions.\n- **Secrets-safe**: keys only in gitignored `.env`.\n- Free cloud-LLM API keys provided (stored in `.env`, rotate-later) + local LLM fallback.\n\n## Captured prompts / plans (chronological summary)\n1. **Brain-like AI memory** \u2014 wants agents that store/recall like a human brain,\n   ingest books/PDFs. (Researched: Mem0, Graphiti, Cognee, agentmemory,\n   neo4j-agent-memory, Awesome-GraphMemory.)\n2. **True intelligence/consciousness** \u2014 explored OpenCog Hyperon, LIDA (Global\n   Workspace Theory), Darwin G\u00f6del Machine, W3C CogAI. Conclusion: functional\n   intelligence is tractable; \"consciousness\" is unsolved/philosophical.\n3. **AI that grows as it learns** \u2014 reads web/books/news \u2192 vector/graph DB \u2192\n   gets smarter. (LLM-Wiki/Karpathy pattern, RAGFlow, DeepTutor, Crawl4AI,\n   ScrapeGraphAI, OpenAgent, R2R.)\n4. **AI that creates & tests new equations** \u2014 Symbolic Regression: PySR, LLM-SR,\n   AI Feynman, DSR, SymbolicRegressionToolkit.\n5. **AI creating new ML models from equations** \u2014 NAS (DARTS, NNI, AutoGluon) and\n   algorithm discovery (FunSearch, AlphaEvolve, OpenEvolve, AI-Scientist).\n6. **500\u20131000 ML models as neuron-nodes in a giant network** \u2014 MoE (Mixtral,\n   OLMoE, Switch Transformer), model merging (MergeKit, FusionBench), Sakana Fugu.\n7. **\"Not LLaMA but predictions\"** \u2014 deep stacked ensembles / model-graph networks:\n   AutoGluon, H2O AutoML, FLAML, TPOT. Confirmed: 500\u20131000 full-model routed graph\n   doesn't exist yet \u2014 this is the novel contribution.\n8. **Coding-discipline rules** \u2014 self-documenting names, an auto index of files/\n   functions/imports/exports/IO/summaries, to stop agents writing code that\n   doesn't fit. \u2192 Formalized in `CONVENTIONS.md`.\n9. **This turn** \u2014 do the conventions, show rules banner each message, dashboard\n   for all nodes/features, save all plans (this file), provided API keys.\n\n## Related project artifacts\n- `ml-network-research.md` \u2014 best-practices research (cited).\n- `ml-network-related-topics.md` \u2014 adjacent fields & CPU-first OSS (cited).\n- `ml-network-master-plan.md` \u2014 unified architecture + phased roadmap.\n- `CONVENTIONS.md` \u2014 standing coding rules.\n- `.env.example` / `config.py` \u2014 secrets pattern.\n\n## Data decision (development vs real)\n**Development/test data = synthetic dynamical-system benchmarks with known generating\nprocesses** (default: **Mackey-Glass** chaos; also logistic map, noisy-XOR) \u2014 chosen\nbecause they have real, measurable signal + tunable chaos/noise, so the growing\nnetwork's accuracy provably rises as it learns (crypto daily-direction is ~random\nand useless for development). Verified: MG baseline 52% \u2192 ensemble 96.4%, reservoir\nnode 97.1%. **Real data (crypto via CoinGecko/Coinalyze/Etherscan \u2014 already wired)\ngets swapped in after the full project is built.** Runners: `run_dev.py` (synthetic,\ndefault), `run_crypto.py` (real). Live nodes: logreg, knn, stump, mlp, reservoir,\ngaussnb \u2192 stacking_ensemble.\n\n## Status & next step\nPlanning complete. **Next: scaffold Phase 0 + Phase 1** \u2014 repo skeleton, data/eval\nplane with golden datasets, `NodeProtocol` + registry + auto-`INDEX.md`, and a\nsmall CPU-only AutoGluon/H2O stacked ensemble proving the known-I/O \u2192 accuracy \u2192\nunknown-prediction loop. Dashboard (React + D3/Three.js) stood up alongside.\n",
+  "goal": {
+    "pillars": [
+      "1 \u2014 HUMAN-LIKE MEMORY & RECALL",
+      "2 \u2014 AUTONOMOUS INTERNET RESEARCH",
+      "3 \u2014 VISUAL KNOWLEDGE GROWTH",
+      "4 \u2014 KNOWLEDGE-FIRST TRADE DECISIONS",
+      "5 \u2014 SELF-CREATED STRATEGIES",
+      "6 \u2014 CONTINUOUS SELF-EVOLUTION",
+      "7 \u2014 NEURAL NETWORK PREDICTION ENGINE",
+      "8 \u2014 NSE DAILY RHYTHM",
+      "9 \u2014 COMPILED-SPEED HOT PATHS (no stuck buttons, no lag)",
+      "10 \u2014 CONSISTENT TRADE TABLES ACROSS ALL ENGINES",
+      "11 \u2014 PERPETUAL OPEN-ENDED GAP SCAN (nothing left to improve)",
+      "12 \u2014 DASHBOARD INTEGRITY, DATA CORRECTNESS & ULTRA-ADVANCED UX",
+      "13 \u2014 BRAIN-OWNED PROFIT TRAILING & PROFIT LOCKING",
+      "14 \u2014 ULTRA-ADVANCED DASHBOARD REDESIGN (visual excellence + speed)",
+      "15 \u2014 BALANCED NSE + CRYPTO RESEARCH & LEARNING",
+      "16 \u2014 SEGMENT FOCUS SELECTOR (brain narrows to what you choose)",
+      "17 \u2014 CALIBRATED UNCERTAINTY & CONFIDENCE-AWARE ABSTENTION",
+      "18 \u2014 ADVERSARIAL TRUTH-SEEKING (multi-agent debate + verifier-guided reasoning)",
+      "19 \u2014 CAUSAL EDGE DISCOVERY (causation, not correlation)",
+      "20 \u2014 ANTI-OVERFITTING BACKBONE (the hard gate on every promotion)",
+      "21 \u2014 EXECUTION REALISM: TCA + MARKET-IMPACT (net-of-cost alpha only)",
+      "22 \u2014 PORTFOLIO-LEVEL RISK & REGIME-AWARE CAPITAL ALLOCATION",
+      "23 \u2014 CURIOSITY-DRIVEN EXPLORATION & SLEEP CONSOLIDATION",
+      "24 \u2014 OPEN-ENDED SELF-MODIFICATION & PROGRAM SYNTHESIS",
+      "25 \u2014 THEORY-OF-MIND PARTICIPANT MODELING (the other side of every trade)",
+      "26 \u2014 ACTIVE INFERENCE META-CONTROLLER (principled explore/exploit)"
+    ],
+    "has_prime_directive": true,
+    "north_star": "> Build the world's most self-aware, self-improving, knowledge-driven trading brain \u2014\n> one that gets measurably smarter every single day, trades only when it has an edge,\n> explains every decision it makes, and compounds knowledge just as a master trader\n> compounds capital.\n>\n> **\u2014 all of it in service of the PRIME DIRECTIVE: a consistent, risk-managed income for\n> its owner. Learn without limits on paper; protect capital without compromise on real money.**"
+  },
+  "memories": {
+    "index": "- [Prompt-quality protocol](prompt-quality-protocol.md) \u2014 rate every prompt, upgrade to 10/10, then execute\n- [Project: ML network brain](project-ml-network-brain.md) \u2014 CPU-first network of prediction-model nodes + learning brain agent\n- [Coding conventions](coding-conventions.md) \u2014 auto-index, enforced NodeProtocol, reuse-first, dashboard-sync, secrets-safe\n- [Ask-to-install deps](ask-to-install-deps.md) \u2014 when new packages/data/downloads help, ask the user to install instead of stdlib workarounds\n- [No license filter](no-license-filter.md) \u2014 private non-published project: never exclude OSS by license when searching to stitch in; rank by capability\n- [Reuse real code first](reuse-real-code-first.md) \u2014 ALWAYS reuse real tested OSS: pip when packaged, else git-clone-and-vendor (clone WORKS; only pip-git+ blocked); NEVER reimplement what has public source\n- [Dep weight by capability](dep-weight-by-capability.md) \u2014 pick deps by capability/perf not footprint: heavy if it beats light, light if equal; ALWAYS follow blueprint's named heavy/light type\n- [Persist research findings](persist-research-findings.md) \u2014 save web-research output to research/ on disk immediately; prefer direct agents over flaky deep-research workflow\n- [Implement optionals now](implement-optionals-now.md) \u2014 build \"optional/later\" blueprint items at that step, never postpone; if a dep is incompatible, ship the equivalent capability\n- [Polyglot performance](polyglot-performance.md) \u2014 may use C/C++/Rust for hot paths, not Python-only\n- [Honest dashboard wiring](honest-dashboard-wiring.md) \u2014 dashboard shows REAL node connectivity only, never fake/decorative\n- [Verify-first & error-research](verify-first-and-error-research.md) \u2014 never trust unverified reports; research errors online + in-project before fixing\n- [Research-then-fix](research-then-fix.md) \u2014 fix bugs with researched root-cause solutions at the right depth; never blind-patch or silence symptoms\n- [Phase-3 routing status](phase3-routing-status.md) \u2014 Hellsemble + deep L2/L3 built; routing ties/trails stacking (expected); DESlib is the path to beat it\n- [Trainable network design](trainable-network-design.md) \u2014 DGMG: make 320 nodes train like a NN via differentiable gates over frozen experts (see ml-network-trainable-architecture.md)\n- [Brain ultra blueprint](brain-ultra-blueprint.md) \u2014 Phase-4+ ultra-advanced brain: stitch top OSS (memory/learning/web/cognition/autonomy/identity) + Stream-of-Mind + honest sentience (see ml-network-brain-ultra-blueprint.md)\n- [Trading execution blueprint](trading-execution-blueprint-ref.md) \u2014 NSE+Crypto trading phase: OpenAlgo server + ccxt, all market types, 85-col trade journal, Dark Pro UI, T1\u2013T8 build plan (see trading-execution-blueprint.md)\n- [Trade\u2192NN bridge](trade-to-nn-bridge.md) \u2014 TradeOutcomeNet feeds trade rows into the node network; open-trade columns filled + /api/trading/brain/predict + BrainOutcomeNet panel\n- [Trading engine split](trading-engine-split-plan.md) \u2014 NSE\u2192OpenAlgo, crypto\u2192Freqtrade (over Jesse/OctoBot); dashboard = control plane; plan in research/trading-engine-split.md\n- [Brain controls Freqtrade](brain-controls-freqtrade.md) \u2014 brain reads strategies as instructions + drives Freqtrade exec; ML via brain (FreqAI env-blocked)\n- [Trading wallet semantics](trading-wallet-semantics.md) \u2014 \"wallet\" = paper simulator only; NSE has no real wallet (broker margin), crypto has a real balance\n- [Strategy Library feature](strategy-library-feature.md) \u2014 239 institutional strategies (79 executable/160 data-gated); evolution gated OFF on purpose, library-first\n- [No data-gating skip](no-data-gating-skip.md) \u2014 NEVER stub/skip for missing data; download it (GPU-only is the sole skip reason); don't narrow scope without confirming\n- [Isolate state in tests](isolate-state-in-tests.md) \u2014 monkeypatch trading.state.STATE_DIR to a temp dir before any live_loop smoke-test; never mutate live paper journal/wallets\n- [Dashboard public tunnel](dashboard-public-tunnel.md) \u2014 ONE link via cloudflared\u2192Caddy :8100 (URL in ~/public_link.txt; loca.lt backup 502s on parallel loads); boot all with bash ~/start_all.sh\n- [Brain stitch + world-model](brain-stitch-worldmodel.md) \u2014 gap-map fully closed: built world-model/MuZero imagination + HypothesisLedger + self-evolving loop (worldmodel.py/hypothesis.py/self_evolve.py); 31 brain tests green; uncommitted on feat/trading-t8\n- [Computer-use GUI agent](computer-use-gui-agent.md) \u2014 brain SEES dashboards + presses buttons + experiments + learns (trading/brain/gui, vendored browser-use/voyager/reflexion); GET/POST /api/trading/gui + ComputerUsePanel; paper-first; install paddleocr + chromium to unlock OCR/DOM-click\n- [Crypto trades need brain loop](crypto-trades-need-brain-loop.md) \u2014 Freqtrade Start alone opens nothing; trades come from run_brain_loop.py (brain\u2192/forceenter); fixed futures-pair-format + dynamic-whitelist bugs\n- [Crypto config settings stale](crypto-config-settings-stale.md) \u2014 root config.settings cached at startup, never re-reads .env; use config.json as truth for live crypto params (fixed set_params/switch revert-to-default bug)\n- [FreqUI dark columns injection](frequi-dark-columns-injection.md) \u2014 FreqUI shows dark-dashboard columns INDEPENDENTLY, reads Freqtrade's own /api/v1 via FreqUI's token (no dark-dash link); param-revert was FreqUI-can't-save not a bug\n- [Per-coin strategy + reset](percoin-strategy-and-reset.md) \u2014 brain picks best strategy PER COIN (backtest\u00d7brain, stay-flat), chosen strat \u2192 enter_tag; + permanent brain-safe closed-trade reset button (journal + Freqtrade, backs up first)\n- [Extend native FreqUI tables](frequi-extend-native-tables.md) \u2014 add trade columns IN the native FreqUI TradeList.vue (vendor/frequi), not a separate replica panel; build+deploy path inside\n- [Strict skill invocation](strict-skill-invocation.md) \u2014 EVERY matched skill must be formally invoked via the Skill tool before executing; no inlining\n- [Custom skills created](custom-skills-created.md) \u2014 26 skills in .claude/skills/ (build-feature master idea\u2192production pipeline, methodology chain, understand-prompt wired into every-prompt hook, trading ops, dev workflow, quality/expert trio: independent-audit + ai-scientist + dashboard-visual-qa w/ PostToolUse hook + interaction_qa + data_consistency_qa tools, dashboard-redesign, money-lens + founder-intent, cpu-solo, hot-path; run immediately)\n- [CPU-solo rule](cpu-solo-rule.md) \u2014 before any heavy test/build/feature run, /cpu-solo pauses (SIGSTOP) CPU-hog batch jobs (run_network etc.), run solo on all 12 cores, then resume (SIGCONT); never kill; always resume after\n- [Project PRIME DIRECTIVE](project-prime-directive.md) \u2014 WHY = consistent risk-managed income (not a lottery); dual-mode risk (paper = unlimited-risk learn lab, live = capital-preservation-first); owner is a non-coder; enforce via /money-lens; vision preserved in FOUNDERS_INTENT.md via /founder-intent\n- [Unified trading UI](unified-trading-ui.md) \u2014 one open/closed table (loop+Freqtrade+OpenAlgo), OpenAlgo /paper controls page, OnlineControlPanel removed; dashboard needs .venv python\n- [Crypto candle data + chart](crypto-candle-data-and-chart.md) \u2014 FreqUI live chart \"No data\" for non-5m TFs = pair_candles(live 5m) vs pair_history(disk); candle_updater.py + indicator; leverage default in .env/config.json not code\n- [OpenAlgo Zerodha OAuth domain](openalgo-zerodha-oauth-domain.md) \u2014 login-loop fix: stable ngrok domain (claw-repent-carving.ngrok-free.dev) fronts :8100 so login+callback share one domain; set Zerodha redirect to it, click \"Visit Site\" once/7d\n- [Column network A\u2192B\u2192C\u2192D](column-network-abcd.md) \u2014 320+ nodes connected as functional columns: intra-gate(A)+cross-router(B)+grow/prune(C)+brain-gate(D)+dynamic HeadRequest I/O; columns.py/column_node.py/column_network.py, 8 tests green, ColumnsPanel\n- [Brain audit 2026-07-02](brain-audit-2026-07-02.md) \u2014 closed loop half-wired; hub tiles show demo; dashboard thread-leak = false \"down\"\n- [NSE futures/options split](nse-futures-options-split.md) \u2014 NSE 'fno' \u2192 independent 'futures' + 'options' segments; single-leg CE/PE gen via OpenAlgo broker (nselib chain IP-blocked); option_mode atm/ladder/chain; needs Zerodha login + loop restart to go live\n- [LLM providers configured](llm-providers-configured.md) \u2014 brain cloud LLM live: 12-provider failover (core/llm.py+LiteLLM), keys in .env\n- [Strategy Foundry](strategy-foundry.md) \u2014 brain discovers/creates 60 institutional strategies per segment, unique id, tracks perf, keeps best\n- [Commodities MCX FUT](commodities-mcx-fut.md) \u2014 commodities opened no trades: fixed per-segment quote exchange + near-month FUT symbol resolution via OpenAlgo search; entries need auto_open ON\n- [Autonomous web brain](autonomous-web-brain.md) \u2014 credential vault + ephemeral feed + read-only external web screener + Google gap-browse (execution stays API-only)\n- [Brain ultra-upgrade](brain-ultra-upgrade.md) \u2014 Phases A\u2013F stitched: HippoRAG+A-MEM associative memory, brain_memory/ file notes, cloned nanoGPT/llama2.c micro_llm node, Docling perception, gpt-researcher, Avalanche continual, /api/trading/brain/ultra + panel; CPU-torch reinstall gotcha\n- [Crypto 4-segment buttons](crypto-four-segment-buttons.md) \u2014 Futures/Spot/Options/Prediction toggles live in FreqtradeCryptoPanel + no-limit universe/max_open_trades; spot/options/prediction exec staged\n- [Trader psychology feature](trader-psychology-feature.md) \u2014 order-book crowd signal (OBI/OFI/microprice/walls/fear) + decision_snapshot column; full live signal + sidecar for crypto closes\n- [GCP VM external stops](gcp-vm-external-stops.md) \u2014 \"server keeps exiting\" = VM stopped from GCP side (ACPI power-key), not crash/OOM; check Console Activity log for initiator; reboot needs start_all.sh\n- [Freqtrade deep fork](freqtrade-deep-fork.md) \u2014 vendor/freqtrade fork: ONE engine, 4 segments (futures/spot/options/prediction), one URL; segment via ?segment=/header\n- [Segment zero-trades fixes](segment-zero-trades-fixes.md) \u2014 5 root causes for segments opening 0 trades (bare NFO symbols, websocket get_ltp, mtf tag collision, Binance l2 ban, $1 paper cash) + legacy fno key ate min-trades\n- [Multi-venue data pool](multi-venue-data-pool.md) \u2014 crypto DATA reads round-robin binance/bybit/okx/kucoin with hard budgets (ban-proof); execution stays Binance/Bybit; MULTI_VENUE_POOL=0 kill-switch\n- [NFO lot size + unlimited sandbox](nfo-lot-size-and-unlimited-sandbox.md) \u2014 real per-symbol lots from OpenAlgo (NIFTY 65/BANKNIFTY 30) fixed rejected NFO entries; sandbox capital \u20b910,000 Cr (vendored validation patched); Close All backend works via /api/v1/closeposition\n- [Dashboard SWR performance](dashboard-swr-performance.md) \u2014 lag root-cause fixed: SWR cache + prewarm + POST-marks-stale; polling tiers; restart ONLY via tools/restart_dash.sh (pkill self-kill trap); boot ~90s warming\n- [Decision memory feature](decision-memory-feature.md) \u2014 FinMem episodes + SHAP attribution + reflections built & wired; all 4 empty-column causes FIXED; BRAIN_LOOP=1 warmup slowness gotcha\n- [Empty brain columns root causes](empty-brain-columns-root-causes.md) \u2014 4 causes (BRAIN_LOOP off, view skips journal derivation, stale loop predates sidecar, ingest mapping gap) + decision-memory research in research/\n- [Positions capital consistency](positions-capital-consistency.md) \u2014 qty-0 phantom unrealized fixed + Capital column + Show Closed toggle in OpenAlgo Positions; signal_source parity for Freqtrade rows\n- [Brain learning persistence](brain-learning-persistence.md) \u2014 Learn button inert: KnowledgeBrain had no persistence (uuid Chroma per process); get_brain() singleton + knowledge_main collection + honest learn errors\n- [Continuous learning loop](continuous-learning-loop.md) \u2014 auto-learn daemon: queue\u2192retry\u2192curriculum every 30m, FSRS self-eval, panel \u221e toggle, restart-safe; ENABLED in prod\n- [Goal Level-2 pillars](goal-level2-pillars.md) \u2014 north star leveled up with next-frontier pillars 17-26 (calibrated UQ, debate+verifier, causal, anti-overfit gate, TCA, portfolio risk, curiosity+sleep, self-mod+synthesis, theory-of-mind, active inference)\n- [Concept Discovery Engine](concept-discovery-engine.md) \u2014 idea-discovery mode: net invents its own market features pure-self (SSL encoders \u2192 SAE probe \u2192 LLM name \u2192 manifold panel); 2-lane paper design; build pending user model list\n- [Model catalog 22 parts](model-catalog-22parts.md) \u2014 ChatGPT 22-part list vs 320+ nodes: ~40 ADDs (TS foundation models, PyG GNN, Tigramite, GPyTorch, Riskfolio, Optuna, SB3, KAN/xLSTM); doc in research/\n- [Pillar 17 conformal UQ](pillar17-conformal-uq.md) \u2014 trading/uq gate (crepes CPS+ACI) blocks low-p_up entries by design; \"no trades\" \u2192 check uq_abstentions.json; UQ_GATE=0/UQ_P_UP_MIN overrides\n- [LLM forecast + provider telemetry](llm-forecast-and-provider-telemetry.md) \u2014 LLMForecastNode (cloud-LLM directional forecaster) + per-provider dashboard panel (hit-rate/calls/latency/reload cooldown), real core.llm.chat stats\n- [Switch to Fable 5 on goal impl](switch-to-fable5-on-goal-impl.md) \u2014 flag the user before implementing a /goal PILLAR (not general features) so they can switch to Fable 5\n- [Dashboard 524 wedge root cause](dashboard-524-wedge-rootcause.md) \u2014 GIL starvation from in-process online loop + threadpoolctl .so scan; fix = run dashboard NO_LOOP=1 (default) + lazy foundation imports + subprocess strategy build\n- [Ultra-network mandate](ultra-network-mandate.md) \u2014 invent a new ultra NN-of-ML-nodes; full redesign/replace freedom; stitch 9 videos (research/video/) + saved plan + own inventions; video-understand skill built\n- [One agent at a time](one-agent-at-a-time.md) \u2014 NEVER launch multiple subagents; strictly sequential, verify each before the next\n- [CORTEX network built](cortex-network-built.md) \u2014 self-wiring market cortex SHIPPED (B1-B9, 144 tests, live-verified); shadow CORTEX_SIGNAL=1 (durable in start_all.sh), promote CORTEX_TRADE=1; 61/63 CANONs FULL (2 PARKED)\n- [System Map design locked](system-map-design-locked.md) \u2014 locked brain-map view (glow/dim neurons, 7 layers, outputs col); firing animation removed; honest 219+239 model census\n- [NSE practice mode](nse-practice-mode.md) \u2014 brain replays 2017-21 NSE 1m history through the live cortex (explore mode, isolated ledger); NSE loop has cortex shadow parity; Zerodha+dump data tiers\n- [Boss-command brain](boss-command-brain.md) \u2014 Brain Chat executes boss orders immediately (boss.py directives both loops obey); mind-event bus behind Stream of Mind; rnd.py invents features; /status-suffix = 8s cache gotcha\n- [Do not surface goal/money unless asked](dont-surface-goal-money-unless-asked.md) \u2014 focus on skills/ai-scientist/dashboard/connectivity, drop goal/founder/money framing\n- [FreqUI blank = wrong URL](frequi-blank-gateway-path.md) \u2014 FreqUI renders only via Caddy :8100/frequi/ (base /frequi/); direct :8080/ is blank (MIME text/html); check gateway before rebuilding\n- [Broker-Sense Funnel](broker-sense-funnel.md) \u2014 broker-app perception funnel built; run_cycle wedge = 3 root causes fixed (closed-trades HTTP storm TTL, run_once deadline, chat total_timeout) + TV crypto needs prebuilt crypto() Query\n- [Broker-Native Trader / Ocular Cortex](broker-native-trader-ocular.md) \u2014 FREE-vision eyes (core.llm.vision_chat, no GPU/paid) + interception + episodic layout memory + read-only computer-use loop, wired into the funnel + /api/trading/ocular panel; ~90 tests green, uncommitted on feat/trading-t8\n- [Crypto trade cap + order type](crypto-trade-cap-and-order-type.md) \u2014 \"only 10 trades\" = per-segment .env caps (not data limit); raised to 50/50/25/25; order type already MARKET; Binance IP-ban rate caveat\n- [Upstox NSE account + Driving School](broker-sense-funnel.md) \u2014 NSE primary switched Angel One\u2192Upstox (AngelOne blocks automated login; Upstox QR login works); NSE candles via OpenAlgo history; per-market watchlist; separate Upstox App Driving School panel (binance/upstox never confused)\n- [Broker-feature exploitation](broker-feature-exploitation.md) \u2014 broker built-in pickers USED as candidate sources (parallel read + stacking fusion + new-entry + invented presets + cross-broker + order-preview + watchlist-memory) + 6 new trade columns\n- [Global segment focus](global-segment-focus.md) \u2014 boss.active_segments = single source of truth gating the WHOLE brain (crypto loop, funnel, broker pickers, strategy foundry); SegmentFocusPanel toggles crypto+NSE segments on/off\n- [Broker-feature follow-ons](broker-feature-followons.md) \u2014 self-growing trade columns + order-preview gate + segment-focus CPU-save + momentum-ignition boost + regime-aware picker weights + self-healing wiring watchdog\n- [Profit tailgate + unlimited trades](profit-tailgate-and-unlimited.md) \u2014 ratcheting locked-profit exit (brain-learned) + unlimited caps + why-few-trades=selectivity-not-cap (CRYPTO_MIN_SCORE lever) + websocket ban-avoidance + dynamic feature discovery + 1m peak accuracy\n- [Brain paper sandbox](brain-paper-sandbox.md) \u2014 fast in-dashboard paper simulator (reuses PaperEngine); picks now driven by the REAL per-coin brain engine (PerCoinBrainDecider + cortex) w/ momentum fallback via signal_mode toggle; cross-process JSON = single source of truth (_reload); tailgate display now honest (armed only when peak\u22650.5%, negative trades exit via \u22128% stop); Freqtrade OFF (CRYPTO_ENGINE=sandbox default); SandboxPanel + /api/trading/sandbox\n- [App-school learning mechanics](app-school-learning-mechanics.md) \u2014 school learns market-data routes ONLY from live app traffic during MARKET HOURS (upstox/NSE 09:15-15:30 IST, binance 24/7); seed-sweep + Trading-Data hub took binance 38%\u219262%; Upstox Pro SPA (deep-links\u2192/holdings) needs a click-nav+interception adapter; run_school_monitor is market-aware; os NameError fix in trading_ext\n- [Broker-sense indicator fusion](broker-sense-indicator-fusion.md) \u2014 new interception kinds (recent_trades/mark_price/index_price/basis/symbol_info, coverage 90\u219293%) + indicator_fusion.py (multi-TF confluence + regime gate + vision fuse + UQ meta-label + ATR triple-barrier) wired into funnel decision_snapshot + live per-symbol FeatureCatalog crawl; chart TFs = 1m,5m,15m,1h,4h,1d\n- [Strategy-generator portfolio](strategy-generator-portfolio.md) \u2014 DEAP + 6 SOTA generators (LLM-mutation, gplearn+PySR symbolic, pyribs QD, alpha-mining, Optuna, RD-Agent) stitched into one portfolio through ONE CPCV+DSR+family-wise gate \u2192 SkillLibrary \u2192 brain pipeline; deps gplearn/ribs/optuna/arch/pysr; kill-switches in start_all.sh\n- [Self-improving skills + memory search](self-improving-skills-and-memory-search.md) \u2014 Hermes-inspired: per-skill LEARNINGS.md loop (hook on Skill tool) + FTS5 full-text search over all brain memory (GET /api/trading/memory_search); stdlib-only, no new dep\n- [Trade driver is the funnel](trade-driver-is-funnel.md) \u2014 broker-sense funnel (Binance built-in ranked pickers + discovered URLs \u2192 fuse \u2192 executor, API OHLCV = fallback) is THE crypto+NSE trade driver; run_brain_loop (API-only) is OFF by default; ocular is read-only; zero-lag RAM env (warm-cache TTL + 27GB guard); OPEN: enters 0 (conservative gating)\n- [Stock X-Ray feature](stock-xray-feature.md) \u2014 fused per-stock snapshot (OpenAlgo multi-TF candles+indicators+depth+circuit+zones + free-eyes visual) auto-captured on trade-open; /api/trading/xray + XRayPanel\n- [Human-UI eyes\u2192brain\u2192hand](human-ui-eyes-brain-hand.md) \u2014 vision-based human-like web engine (human_ui.py: perceive/locate/click-at-coords/remember, order-guarded) + headed-Xvfb rendering (Upstox Pro hangs headless); Brain-Open watchlist mirrors open trades into the real Upstox account\n- [NSE three-loop architecture](nse-three-loop-architecture.md) \u2014 NSE=3 SEPARATE loop processes (crypto funnel, NSE-equity funnel, live_loop=options incl. BSE Sensex); dashboard NO_LOOP viewer (GIL-wedge); liquid F&O universe module; fixed 2026-07-07 \"only-NIFTY-options, no equity\" bug\n",
+    "count": 91,
+    "files": [
+      "app-school-learning-mechanics.md",
+      "ask-to-install-deps.md",
+      "autonomous-web-brain.md",
+      "boss-command-brain.md",
+      "brain-audit-2026-07-02.md",
+      "brain-controls-freqtrade.md",
+      "brain-learning-persistence.md",
+      "brain-paper-sandbox.md",
+      "brain-stitch-worldmodel.md",
+      "brain-ultra-blueprint.md",
+      "brain-ultra-upgrade.md",
+      "broker-feature-exploitation.md",
+      "broker-feature-followons.md",
+      "broker-native-trader-ocular.md",
+      "broker-sense-funnel.md",
+      "broker-sense-indicator-fusion.md",
+      "coding-conventions.md",
+      "column-network-abcd.md",
+      "commodities-mcx-fut.md",
+      "computer-use-gui-agent.md",
+      "concept-discovery-engine.md",
+      "continuous-learning-loop.md",
+      "cortex-network-built.md",
+      "cpu-solo-rule.md",
+      "crypto-candle-data-and-chart.md",
+      "crypto-config-settings-stale.md",
+      "crypto-four-segment-buttons.md",
+      "crypto-trade-cap-and-order-type.md",
+      "crypto-trades-need-brain-loop.md",
+      "custom-skills-created.md",
+      "dashboard-524-wedge-rootcause.md",
+      "dashboard-public-tunnel.md",
+      "dashboard-swr-performance.md",
+      "decision-memory-feature.md",
+      "dep-weight-by-capability.md",
+      "dont-surface-goal-money-unless-asked.md",
+      "empty-brain-columns-root-causes.md",
+      "freqtrade-deep-fork.md",
+      "frequi-blank-gateway-path.md",
+      "frequi-dark-columns-injection.md",
+      "frequi-extend-native-tables.md",
+      "gcp-vm-external-stops.md",
+      "global-segment-focus.md",
+      "goal-level2-pillars.md",
+      "honest-dashboard-wiring.md",
+      "human-ui-eyes-brain-hand.md",
+      "implement-optionals-now.md",
+      "isolate-state-in-tests.md",
+      "llm-forecast-and-provider-telemetry.md",
+      "llm-providers-configured.md",
+      "model-catalog-22parts.md",
+      "multi-venue-data-pool.md",
+      "nfo-lot-size-and-unlimited-sandbox.md",
+      "no-data-gating-skip.md",
+      "no-license-filter.md",
+      "nse-futures-options-split.md",
+      "nse-practice-mode.md",
+      "nse-three-loop-architecture.md",
+      "one-agent-at-a-time.md",
+      "openalgo-zerodha-oauth-domain.md",
+      "percoin-strategy-and-reset.md",
+      "persist-research-findings.md",
+      "phase3-routing-status.md",
+      "pillar17-conformal-uq.md",
+      "polyglot-performance.md",
+      "positions-capital-consistency.md",
+      "profit-tailgate-and-unlimited.md",
+      "project-ml-network-brain.md",
+      "project-prime-directive.md",
+      "prompt-quality-protocol.md",
+      "research-then-fix.md",
+      "reuse-real-code-first.md",
+      "segment-zero-trades-fixes.md",
+      "self-improving-skills-and-memory-search.md",
+      "stock-xray-feature.md",
+      "strategy-foundry.md",
+      "strategy-generator-portfolio.md",
+      "strategy-library-feature.md",
+      "strict-skill-invocation.md",
+      "switch-to-fable5-on-goal-impl.md",
+      "system-map-design-locked.md",
+      "trade-driver-is-funnel.md",
+      "trade-to-nn-bridge.md",
+      "trader-psychology-feature.md",
+      "trading-engine-split-plan.md",
+      "trading-execution-blueprint-ref.md",
+      "trading-wallet-semantics.md",
+      "trainable-network-design.md",
+      "ultra-network-mandate.md",
+      "unified-trading-ui.md",
+      "verify-first-and-error-research.md"
+    ]
+  },
+  "research_docs": [
+    "research/README.md",
+    "research/agentic-longterm-memory-2026.md",
+    "research/angelone-login-blocked.md",
+    "research/app-feature-audit-2026-07-06.md",
+    "research/boss-command-brain-stitch-map.md",
+    "research/boss-command-brain.md",
+    "research/brain-activation-map.md",
+    "research/brain-advanced-features-chat.md",
+    "research/brain-features-chat.md",
+    "research/brain-stitch-gap-map.md",
+    "research/brain-ultra-upgrade-2026.md",
+    "research/brain-ultra-upgrade-stitch-map.md",
+    "research/broker-native-trader-spec.md",
+    "research/broker-sense-design.md",
+    "research/broker-sense-indicator-fusion.md",
+    "research/broker-sense-prompt.md",
+    "research/column-moe-architecture.md",
+    "research/concept-discovery-engine.md",
+    "research/cortex-stitch-map.md",
+    "research/crypto-all-segments-feasibility.md",
+    "research/crypto-filters-screeners.md",
+    "research/decision-lineage-feature-attribution-logging.md",
+    "research/decision-memory-stitch-map.md",
+    "research/episodic-memory-trading-agents.md",
+    "research/feature-bus.md",
+    "research/free-local-eyes.md",
+    "research/gui-ai-agents-deep-research.md",
+    "research/hermes-agent.md",
+    "research/lob-crowd-psychology-features.md",
+    "research/manifold-concept-space-viz-oss.md",
+    "research/model-catalog-22parts.md",
+    "research/multi-venue-data-pool.md",
+    "research/neat-rollout-diffusion-oss-scan.md",
+    "research/nse-filters-screeners.md",
+    "research/nse-historical-data-sources.md",
+    "research/online-alwayson-loop-and-features.md",
+    "research/online-editable-paper-money-engine.md",
+    "research/online-market-toggles-paper-real-switch.md",
+    "research/online-nse-offhours-paper-trading.md",
+    "research/orderbook-analytics-oss.md",
+    "research/orderbook-microstructure-features-oss.md",
+    "research/pillar17-conformal-uq.md",
+    "research/position-sizing-ai.md",
+    "research/robot-learning-evolution-2026.md",
+    "research/self-supervised-representation-learning-oss.md",
+    "research/session-review-20260705-gui-web-reader.md",
+    "research/skill-independent-audit.md",
+    "research/strategy-creator-to-brain.md",
+    "research/strategy-generation-sota-2026.md",
+    "research/t8-brain-ultra-features-oss.md",
+    "research/t8-experience-intelligence-oss.md",
+    "research/t8-strategy-evolution-oss.md",
+    "research/tcn-transformer-lstm-oss-candidates.md",
+    "research/torch-torchvision-abi-mismatch.md",
+    "research/trade-journal-decision-provenance-oss.md",
+    "research/trader-psychology-stitch-map.md",
+    "research/trading-engine-split.md",
+    "research/trailing-exit-systems.md",
+    "research/ultra-advanced-brain-ideas-2026.md",
+    "research/ultra-network-PROGRESS.md",
+    "research/ultra-network-data-plan.md",
+    "research/ultra-network-design.md",
+    "research/ultra-network-frontier.md",
+    "research/universe-scan-architecture.md",
+    "research/video-requirements-sota.md",
+    "research/video-understand-skill.md",
+    "research/web-reader-broker-scraper.md",
+    "research/web-reader-oss-deep.md",
+    "research/web-reader-pipeline-design.md"
+  ],
+  "conventions_head": "# CONVENTIONS \u2014 Standing Rules for This Project\n\n> These rules exist to stop the #1 failure mode of agent-built codebases:\n> the agent assumes wrong things about existing code, writes new code that\n> doesn't fit, and you end up with large files that don't talk to each other\n> plus orphaned/dead code. Every coding step MUST follow these.\n\nA one-line banner of the active rules is shown at the top of every reply:\n`Rules: prompt-rating | reuse-first | ask-to-install | polyglot | auto-index | enforced-interfaces | secrets-safe | dashboard-sync | never-skip`\n\n---\n\n## 1. Self-documenting names\n- File, class, and function names must describe **what the code does**, so the\n  name alone conveys purpose (e.g. `reservoir_node.py`, `class RegimeChangeNode`,\n  `def predict_next_close(...)`).\n- Each file starts with a 1\u20132 line module docstring: what it does, its inputs,\n  its outputs.\n\n## 2. Auto-generated index (`INDEX.md`) \u2014 never hand-edited\n- A machine-generated manifest maps **every file \u2192 its functions/classes,\n  imports, exports, input types, output types, and a 1-line summary**.\n- It is regenerated from the code (AST parse) via `make index` and a pre-commit\n  hook. **A stale index is worse than none**, so humans/agents never edit it by\n  hand \u2014 they change the code and regenerate.\n- The coding agent reads `INDEX.md` FIRST to get grounded, then opens only the\n  specific files it needs. This is also the **context-budget** mechanism \u2014 never\n  load the whole repo.\n\n## 3. Enforced interfaces, not described ones\n- The index *describes* contracts; the type system *enforces* them.\n- Every node implements a shared **`NodeProtocol`** (`fit`, `predict`,\n  `golden_dataset`, typed `InputSchema`/`OutputSchema` via Pydantic or\n  `typing.Protocol`). A node that doesn't conform **fails at import/test time**,\n  not after merge. This is what actually prevents \"code that doesn't fit.\"\n- Nodes self-register in a **registry**, so wiring cannot be silently wrong.\n\n## 4. Reuse-first / search-copy-adapt-stitch (build-from-scratch is LAST resort)\n- For ANY new code or feature: **FIRST search online \u2014 GitHub and other open-source \u2014\n  for working code that already does it.**\n- If you find similar/working code, **copy it and edit/adapt it to fit our needs**\n  (match our `NodeProtocol`/interfaces). Don't reinvent what already exists.\n- **Prefer stitching multiple OSS pieces together** \u2014 connect different/many GitHub or\n  open-source projects/snippets into the solution \u2014 over writing original code.\n- Reuse mature OSS libraries too (AutoGluon, ReservoirPy, nolds, ruptures, Mem0,\n  Graphiti, sigma.js\u2026); if a library needs installing, request it (\u2192 ask-to-install).\n- **Write code from scratch ONLY when no similar code exists anywhere** to find/adapt\n  (the genuine gaps: the node-graph substrate, the learned router at depth, the node\n  interface/data bus). See `ml-network-master-plan.md`.\n\n## 5. No orphans / no dead code (automated)\n- CI runs dead-code detection (`vulture`) + an import-graph check. Orphaned files\n  or uncalled functions **block the merge**. Don't rely on discipline.\n\n## 6. Dashboard-sync (every node & feature is visible)\n- **Every new node, feature, or intelligence/learning capability MUST register a\n  dashboard view** when added \u2014 nothing ships invisible.\n- Dashboard stack: **Web \u2014 React + D3/Three.js** (3D node graph, real-time data\n  flows, animated learning/accuracy metrics). New additions auto-reflect via a\n  registry the dashboard reads."
+}

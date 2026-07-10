@@ -75,7 +75,12 @@ def _segments_block(cfg: CryptoConfig) -> dict:
         "spot": {
             "enabled": "spot" in on,
             # VolumePairList works on spot markets too; seed whitelist in spot pair format.
+            # strategy: spot cannot short — Freqtrade REFUSES to boot a can_short strategy
+            # in spot mode, and the base MlBridgeStrategy is can_short=True. Without this
+            # override the spot worker died at every boot (ImportError) and all "spot"
+            # API calls silently fell back to the futures bot (found 2026-07-09).
             "overrides": {"exchange": {"pair_whitelist": spot_pairs}, "ml_leverage": 1.0,
+                          "strategy": "MlBridgeStrategySpot",
                           **_seg_max_open("spot")},
         },
         # Options/prediction universes are dynamic (strikes roll, markets rotate) — the

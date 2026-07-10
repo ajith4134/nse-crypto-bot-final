@@ -112,6 +112,31 @@ def main() -> int:
                           f"next_n={rep['next_shortlist_n']})", flush=True)
                 except Exception as e:               # a cycle error never kills the loop
                     print(f"[funnel:{market}:{seg}] cycle error: {e!r}", flush=True)
+            if market == "crypto":
+                # OPTIONS/PREDICTION drivers (owner 2026-07-09: "the brain trades ALL the
+                # segments I enabled on the dashboard"). These segments have dynamic
+                # universes with their OWN cycle logic inside BrainExecutor.run_once —
+                # they don't need the broker-picker shortlist — but since the funnel
+                # replaced run_brain_loop as the crypto trade driver, NOTHING was driving
+                # them: options was toggled ON yet never opened a trade. Drive them here.
+                try:
+                    extra = [s for s in enabled_segments()
+                             if s in ("options", "prediction")]
+                    if active is not None:
+                        extra = [s for s in extra if s in active]
+                    for seg in extra:
+                        try:
+                            res = funnel.executor(seg).run_once(allow_live=allow_live)
+                            if res.get("entered") or res.get("exited"):
+                                print(f"[funnel:crypto:{seg}] "
+                                      f"{time.strftime('%H:%M:%S')} "
+                                      f"entered={res.get('entered')} "
+                                      f"exited={res.get('exited')} "
+                                      f"skipped={res.get('skipped')}", flush=True)
+                        except Exception as e:
+                            print(f"[funnel:crypto:{seg}] cycle error: {e!r}", flush=True)
+                except Exception as e:
+                    print(f"[funnel:crypto:extra-segments] error: {e!r}", flush=True)
             try:
                 # BRAIN-OPEN mirror, IN-PROCESS (owner 2026-07-07 — the durable home the
                 # start_all.sh note promised): this funnel OWNS its broker's chromium

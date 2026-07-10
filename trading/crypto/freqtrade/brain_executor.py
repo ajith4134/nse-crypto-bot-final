@@ -261,21 +261,52 @@ class BrainExecutor:
                     else:
                         _act = "LONG"
                     try:
-                        cli.place_order(symbol=sym, action="BUY",
-                                        side=("long" if _act == "LONG" else "short"),
-                                        allow_live=allow_live, enter_tag="explore_open_all",
-                                        segment=self.segment)
-                        entered.append(sym)
+                        # Broker-app picks arrive in the app's own book (ADA/RUB, BSW/TRY —
+                        # delisted quote books): route to the engine-tradeable USDT book,
+                        # or skip honestly. Fixes phantom "entered" (2026-07-09): a refused
+                        # order used to be counted as an entry because the guard's
+                        # {"ok": False} reply was never checked.
+                        _tsym = cli.tradeable_form(sym, self.segment)
+                        if _tsym is None:
+                            skipped += 1
+                            continue
+                        _res = cli.place_order(symbol=_tsym, action="BUY",
+                                               side=("long" if _act == "LONG" else "short"),
+                                               allow_live=allow_live,
+                                               enter_tag="explore_open_all",
+                                               segment=self.segment)
+                        if isinstance(_res, dict) and _res.get("ok") is False:
+                            skipped += 1
+                            continue
+                        entered.append(_tsym)
                         # #13: use the FULL recorder (psych read + FinMem episode +
                         # attribution + ui_view) so explore trades carry the same
                         # learning columns as selective ones — explore exists to
                         # produce richly-labelled training data, not blank rows.
-                        self._record_entry_meta(sym, _act, "explore_open_all",
+                        if _tsym != sym and sym in (getattr(self, "extra_signals", {}) or {}):
+                            # the entry meta joins by TRADED pair — carry the pick's signals over
+                            self.extra_signals[_tsym] = self.extra_signals[sym]
+                        self._record_entry_meta(_tsym, _act, "explore_open_all",
                                                 {"explore": True}, None, explore=True)
                     except Exception:
                         skipped += 1
                     continue
-                d = self.decider.decide("CRYPTO", sym, None, in_position=(sym in open_pairs))
+                # DISTILLED MICRO-POLICY (invent-beyond #4): the nightly-distilled student
+                # answers in ~ms from the persisted per-coin winner table + LightGBM student;
+                # None (unknown coin / stale teacher / unconfident) falls through to the full
+                # 153-strategy tournament below — the exact compute the distill compresses.
+                d = None
+                try:
+                    from trading.crypto.freqtrade.micro_policy import get_micro
+                    _mp = get_micro()
+                    if _mp is not None:
+                        d = _mp.decide(sym, self.decider._ohlcv(sym),
+                                       in_position=(sym in open_pairs))
+                except Exception:
+                    d = None
+                if d is None:
+                    d = self.decider.decide("CRYPTO", sym, None,
+                                            in_position=(sym in open_pairs))
                 # CORTEX B8 (CANON-51): OPT-IN shadow lane. Env unset → zero change.
                 d = self._cortex_shadow(sym, d, in_position=(sym in open_pairs))
                 act = d.get("action")
@@ -350,16 +381,25 @@ class BrainExecutor:
                             vetoes.append(sym)
                             skipped += 1
                             continue
-                if act == "LONG" and sym not in open_pairs:
-                    cli.place_order(symbol=sym, action="BUY", side="long", allow_live=allow_live,
-                                    enter_tag=tag, segment=self.segment)
-                    entered.append(sym)
-                    self._record_entry_meta(sym, act, tag, brain, psych)
-                elif act == "SHORT" and sym not in open_pairs:
-                    cli.place_order(symbol=sym, action="BUY", side="short", allow_live=allow_live,
-                                    enter_tag=tag, segment=self.segment)
-                    entered.append(sym)
-                    self._record_entry_meta(sym, act, tag, brain, psych)
+                if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    # same honesty as the explore path: route to the engine-tradeable book
+                    # and count an entry ONLY when the engine accepted the order.
+                    tsym = cli.tradeable_form(sym, self.segment)
+                    if tsym is None:
+                        skipped += 1
+                        continue
+                    res = cli.place_order(symbol=tsym, action="BUY",
+                                          side=("long" if act == "LONG" else "short"),
+                                          allow_live=allow_live, enter_tag=tag,
+                                          segment=self.segment,
+                                          stake_amount=self._bandit_stake(cli, tag))
+                    if isinstance(res, dict) and res.get("ok") is False:
+                        skipped += 1
+                        continue
+                    entered.append(tsym)
+                    if tsym != sym and sym in (getattr(self, "extra_signals", {}) or {}):
+                        self.extra_signals[tsym] = self.extra_signals[sym]
+                    self._record_entry_meta(tsym, act, tag, brain, psych)
                 elif act == "EXIT" and sym in open_pairs:
                     cli.close_pair(sym, segment=self.segment)
                     exited.append(sym)
@@ -372,6 +412,34 @@ class BrainExecutor:
         return {"entered": entered, "exited": exited, "skipped": skipped,
                 "universe": len(syms), "picks": picks, "vetoes": vetoes,
                 "explore": explore, "deadline_deferred": deadline_deferred}
+
+    def _bandit_stake(self, cli, tag: str | None) -> float | None:
+        """Champion-bandit stake scaling (invent-beyond #3): a SELECTIVE entry attributed to a
+        library strategy gets the bandit's Thompson-sampled multiplier applied to the ENGINE'S
+        OWN base stake (show_config truth, cached 1h — config.settings is stale-cached at
+        startup, so we ask the running bot). None = engine default, returned for: unknown/
+        blank tag, scale ≈ 1, unlimited base stake, CHAMPION_BANDIT=0, or any failure —
+        sizing is never changed silently on an error path. PAPER shaping only today; live
+        promotion rides the existing allow_live/W3 gates."""
+        import os as _os
+        if not tag or _os.environ.get("CHAMPION_BANDIT", "1") not in ("1", "true", "TRUE", "yes"):
+            return None
+        try:
+            from trading.strategy import champion_bandit as _cb
+            scale = _cb.stake_scale("CRYPTO", tag)
+            if abs(scale - 1.0) < 0.05:
+                return None
+            now = time.monotonic()
+            cache = getattr(self, "_stake_cache", None)
+            if cache is None or now - cache[0] > 3600:
+                base = (cli.show_config() or {}).get("stake_amount")
+                cache = (now, float(base) if isinstance(base, (int, float)) and base > 0
+                         else None)                     # "unlimited"/0 → no honest base to scale
+                self._stake_cache = cache
+            base = cache[1]
+            return round(base * scale, 2) if base else None
+        except Exception:
+            return None
 
     def _explore_open_all(self, *, open_now: int = 0) -> bool:
         """PAPER explore-open-all (owner 2026-07-06): open EVERY candidate the pickers surface —

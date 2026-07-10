@@ -1435,7 +1435,7 @@ _Tests for the broker login flow (trading/broker_sense/sessions) — multi-step 
 
 ## `tests/test_broker_sense.py`
 _Tests for the Broker-Sense Funnel (trading/broker_sense) — offline, STATE_DIR-isolated._
-- **classes:** _IsolatedState, TestBrokerRoles, TestVaultMerge, TestWatchlist, TestLearningColumns, TestChartVision, TestBookMonitor, TestExecAdapter, TestFunnelCycle, TestCnnModel, TestOtpBoxDetection, TestWedgeRegressions
+- **classes:** _IsolatedState, TestBrokerRoles, TestVaultMerge, TestWatchlist, TestLearningColumns, TestChartVision, TestBookMonitor, TestExecAdapter, TestFunnelCycle, TestCnnModel, TestOtpBoxDetection, TestWedgeRegressions, TestExecutorPerSegment
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
 ## `tests/test_candle_updater.py`
@@ -2716,7 +2716,7 @@ _trading/broker_sense/run_school_monitor.py — DEDICATED App-Driving-School lea
 
 ## `trading/broker_sense/screen_mirror.py`
 _trading/broker_sense/screen_mirror.py — live screen-mirror of the brain's OWN browsers._
-- **functions:** `enabled() -> bool`; `_dir(broker)`; `_min_interval() -> float`; `record(broker, page) -> bool`; `log_action(broker, page, act, detail) -> None`; `_append_action(broker, row) -> None`; `frame(broker) -> bytes | None`; `actions(broker, limit) -> list[dict]`; `status() -> dict`
+- **functions:** `enabled() -> bool`; `_dir(broker)`; `_min_interval() -> float`; `record(broker, page) -> bool`; `record_bytes(broker, jpeg) -> bool`; `log_action(broker, page, act, detail) -> None`; `_append_action(broker, row) -> None`; `frame(broker) -> bytes | None`; `actions(broker, limit) -> list[dict]`; `status() -> dict`
 - **imports:** __future__, json, os, time, trading, typing
 
 ## `trading/broker_sense/screeners.py`

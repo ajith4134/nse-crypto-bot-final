@@ -1937,6 +1937,49 @@ def handle_remote_login(h):
     return h._send(200, body, "application/json")
 
 
+def handle_mirror(h):
+    """GET /api/trading/mirror[?broker=&limit=] — the Brain Screen Mirror status + action feed.
+
+    Read-only view of the browsers the BRAIN drives (funnels / watchlist hand / app-school):
+    per-broker frame age + LIVE/STALE, the page it's on, and the newest actions (opens,
+    clicks with coordinates, reads, order-guard blocks). Pure state-file reads — safe in a
+    request thread (no heavy imports, no browser calls)."""
+    from urllib.parse import parse_qs, urlparse
+
+    from trading.broker_sense import screen_mirror
+    qs = parse_qs(urlparse(h.path).query)
+    broker = (qs.get("broker", [""])[0] or "").lower()
+    try:
+        limit = int(qs.get("limit", ["60"])[0])
+    except ValueError:
+        limit = 60
+    try:
+        st = screen_mirror.status()
+        if broker:
+            st["actions"] = screen_mirror.actions(broker, limit=limit)
+        body = json.dumps(st, default=str).encode()
+    except Exception as e:
+        body = json.dumps({"enabled": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
+def handle_mirror_frame(h):
+    """GET /api/trading/mirror/frame?broker= — latest JPEG frame of the brain's browser."""
+    from urllib.parse import parse_qs, urlparse
+
+    from trading.broker_sense import screen_mirror
+    qs = parse_qs(urlparse(h.path).query)
+    broker = (qs.get("broker", ["binance"])[0] or "binance").lower()
+    try:
+        jpeg = screen_mirror.frame(broker)
+    except Exception:
+        jpeg = None
+    if not jpeg:
+        return h._send(204, b"", "image/jpeg")
+    return h._send(200, jpeg, "image/jpeg")
+
+
 def handle_live_browser_frame(h):
     """GET /api/trading/live_browser/frame?broker= — the current JPEG frame of the live browser."""
     from urllib.parse import parse_qs, urlparse
@@ -2017,6 +2060,13 @@ def handle_ocular(h):
             "cortex": cortex.status(),
             "interception": rec.status(),
         }
+        # Grounded eyes (invent-beyond #1): local OmniParser icon-grounding layer status —
+        # status() never loads the model, so this stays dashboard-thread-cheap.
+        try:
+            from trading.brain.vision.grounded_eyes import status as _gstatus
+            payload["grounded_eyes"] = _gstatus()
+        except Exception:
+            pass
         body = json.dumps(payload, default=str).encode()
     except Exception as e:
         body = json.dumps({

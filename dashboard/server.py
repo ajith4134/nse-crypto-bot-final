@@ -1278,6 +1278,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/live_browser":               # live browser status
             from dashboard.routes import trading_ext
             return trading_ext.handle_live_browser(self)
+        if path == "/api/trading/mirror/frame":               # Brain Screen Mirror JPEG frame
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_mirror_frame(self)
+        if path == "/api/trading/mirror":                     # Brain Screen Mirror status+actions
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_mirror(self)
         if path == "/api/brain/evolve":                       # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
             from dashboard.routes import brain_ext
             return brain_ext.handle_evolve(self)
@@ -1512,17 +1518,42 @@ class BoundedHTTPServer(ThreadingHTTPServer):
 
     def process_request_thread(self, request, client_address):
         try:
-            # Wait for a handler slot instead of resetting the connection. 20s < the 25s
-            # per-request socket timeout and well under the tunnel's upstream timeout.
-            if not self._sem.acquire(timeout=20):
-                self._refuse(request)
-                return
-            try:
-                super().process_request_thread(request, client_address)
-            finally:
-                self._sem.release()
+            # Slot accounting moved to PER-REQUEST (see _slotted below, 2026-07-09): holding
+            # a slot for the whole keep-alive CONNECTION meant every browser/Caddy connection
+            # parked between polls occupied one — ~25 parked + a few active saturated all 32
+            # and the server 503'd healthy requests indefinitely. A parked connection costs a
+            # daemon thread (bounded by _backlog) but no slot; only real handler work counts.
+            super().process_request_thread(request, client_address)
         finally:
             self._backlog.release()
+
+
+def _slotted(fn):
+    """Bound ACTIVE request handlers (GIL-bound python work) by the server's slot
+    semaphore — acquired only for the parsed request's dispatch, never while a
+    keep-alive connection idles waiting for its next request."""
+    def _wrapped(self):
+        sem = getattr(self.server, "_sem", None)
+        if sem is None:
+            return fn(self)
+        if not sem.acquire(timeout=20):
+            try:
+                self.send_response(503)
+                self.send_header("Retry-After", "2")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            except Exception:
+                pass
+            return None
+        try:
+            return fn(self)
+        finally:
+            sem.release()
+    return _wrapped
+
+
+Handler.do_GET = _slotted(Handler.do_GET)
+Handler.do_POST = _slotted(Handler.do_POST)
 
 
 def main() -> None:
@@ -1539,7 +1570,13 @@ def main() -> None:
             __import__(_m)
         except Exception:
             pass
-    Handler.timeout = 25                       # per-request socket timeout → hung reads release
+    # Per-request socket timeout. Was 25s — but the handler-slot semaphore is held for the
+    # WHOLE keep-alive connection, so every browser/Caddy connection PARKED between polls
+    # occupied a slot for up to 25s; ~25 parked connections starved all 32 slots and the
+    # server 503'd healthy requests for half an hour (2026-07-09 storm, py-spy: 25 threads
+    # idle in readinto). 5s keeps keep-alive wins WITHIN a polling burst while releasing
+    # parked connections fast; Caddy fronts the tunnel locally so reconnects are cheap.
+    Handler.timeout = 5
     srv = BoundedHTTPServer(("0.0.0.0", port), Handler)
     # SWR: loopback port for background refreshes + prewarm the measured-heavy endpoints
     # (staggered, one at a time) so the FIRST page load after boot already hits warm cache.

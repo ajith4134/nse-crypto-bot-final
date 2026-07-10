@@ -117,8 +117,17 @@ class TradeJournal:
         for k, v in trade_quality(trade).items():
             setattr(trade, k, v)
 
-        # behaviour flags against the running history (mutates flags in place)
-        screen_behavior(self._trades + [trade], daily_limit=self.daily_limit,
+        # behaviour flags (mutates flags in place). Screen only the SAME-DAY slice, not
+        # the whole history: flags are stamped at close time and both signals are local —
+        # revenge looks back revenge_window_min, overtrading counts the calendar day.
+        # screen_behavior is O(n²) with a datetime parse per comparison, so re-screening
+        # 2,700+ rows per close turned a 415-trade backfill into hours (2026-07-09) and
+        # silently taxed every live close as the journal grew.
+        day = str(trade.entry_datetime or trade.exit_datetime or "")[:10]
+        same_day = [t for t in self._trades
+                    if day and (str(t.entry_datetime or "").startswith(day)
+                                or str(t.exit_datetime or "").startswith(day))]
+        screen_behavior(same_day + [trade], daily_limit=self.daily_limit,
                         revenge_window_min=self.revenge_window_min)
 
         # W1 goal scoreboard (owner goal 2026-07-07): every closed trade carries its own
