@@ -26,7 +26,10 @@ from config import settings
 # a 2026-07-02 live health-check: Groq 0.21s and SambaNova 1.3s were the fastest working.)
 PROVIDERS = [
     ("GROQ_API_KEY", "groq/llama-3.3-70b-versatile", "GROQ_API_KEY", None),
-    ("CEREBRAS_API_KEY", "cerebras/llama-3.3-70b", "CEREBRAS_API_KEY", None),
+    # llama-3.3-70b was RETIRED by Cerebras (deprecated 2026-02-16 → 100% NotFoundError,
+    # 3.8k dead calls by 2026-07-10); gpt-oss-120b is their current production model
+    # (~3,000 tok/s, on the free tier) per inference-docs.cerebras.ai/models/overview.
+    ("CEREBRAS_API_KEY", "cerebras/gpt-oss-120b", "CEREBRAS_API_KEY", None),
     ("SAMBANOVA_API_KEY", "sambanova/Meta-Llama-3.3-70B-Instruct", "SAMBANOVA_API_KEY", None),
     ("GOOGLE_AISTUDIO_API_KEY", "gemini/gemini-2.0-flash", "GEMINI_API_KEY", None),
     ("OPENROUTER_API_KEY", "openrouter/meta-llama/llama-3.3-70b-instruct:free", "OPENROUTER_API_KEY", None),

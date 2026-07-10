@@ -69,9 +69,17 @@ MANIFEST = [
      # never a dropped record. A negative (api<disk) would be the real bug.
      lambda a: sum(1 for r in (a if isinstance(a, list) else a.get("rows") or a.get("trades") or [])
                    if (r.get("signal_source") or "") != "freqtrade"),
-     lambda d: _len(d, "trades") if isinstance(d, dict) else (len(d) if isinstance(d, list) else 0),
-     "trade journal (STATE_DIR) — api excludes live-Freqtrade merge"),
+     # disk must apply the SAME freqtrade exclusion as the api extractor — journal.json
+     # also holds freqtrade-INGESTED rows (2026-07-10: 222 of them read as a false
+     # "210 dropped rows" mismatch when the disk side counted everything).
+     lambda d: sum(1 for r in (d.get("trades") if isinstance(d, dict) else (d if isinstance(d, list) else []))
+                   if (r.get("signal_source") or "") != "freqtrade"),
+     "trade journal (STATE_DIR) — both sides exclude freqtrade-sourced rows"),
 ]
+
+# Sources whose API is a documented UNION of disk + live rows (one-table design):
+# api > disk is honest live merge; only api < disk (dropped records) is a bug.
+API_SUPERSET_OK = {"closed trades"}
 
 
 def run():
@@ -102,6 +110,11 @@ def run():
             elif am == dm:
                 rec["verdict"] = "consistent"
                 rec["detail"] = f"api {am} == disk {dm}"
+            elif name in API_SUPERSET_OK and am > dm:
+                # documented live-merge design: api unions live rows not yet on disk;
+                # only api < disk (dropped records) is a bug for these sources
+                rec["verdict"] = "consistent"
+                rec["detail"] = f"api {am} ⊇ disk {dm} (+{am - dm} live-merged, honest)"
             else:
                 rec["verdict"] = "mismatch"
                 rec["detail"] = f"api {am} != disk {dm} — dashboard NOT true to disk"

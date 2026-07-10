@@ -854,6 +854,17 @@ def handle_scorecard(h):
     return h._send(200, body, "application/json")
 
 
+def _tg_cells(locked, dist):
+    """Profit-tailgate display cells (unified open table, both venues). locked = the
+    ratcheting locked-profit floor %, dist = the trail distance % in use. None → '—'."""
+    def _pct(v, pre=""):
+        try:
+            return f"{pre}{float(v):.2f}%"
+        except (TypeError, ValueError):
+            return "—"
+    return {"Tailgate Lock": _pct(locked), "Tailgate Trail": _pct(dist, "~")}
+
+
 def handle_opentrades(h):
     """GET /api/trading/opentrades — T6 unified Open Trades table: LIVE open PAPER positions from
     the trade loop (marked at last price) + Freqtrade engine-owned crypto + OpenAlgo NSE sandbox,
@@ -945,6 +956,8 @@ def handle_opentrades(h):
                 "Unrealized P&L": f"{sym}{upnl:,.2f}", "Unrealized P&L %": pct,
                 "Peak P/L": f"{sym}{pp:,.2f}/{sym}{pl:,.2f}",
                 "Stop": stop_txt, "Trail Stop": stop_txt,
+                **_tg_cells(p.get("tailgate_locked_profit_pct"),
+                            p.get("tailgate_distance_pct")),
                 "R-multiple": rmult_txt, "Efficiency": eff_txt,
                 "Strategy": p.get("strategy", "momentum"),
                 "Exchange": "binance" if p["market"] == "CRYPTO" else "NSE",
@@ -957,7 +970,16 @@ def handle_opentrades(h):
         try:
             from trading.crypto.engine_client import CryptoEngineClient
             from trading.crypto.freqtrade_ingest import open_trades_view
+            # live tailgate lock state (same store the FreqUI Tailgate column reads),
+            # keyed by the bare Freqtrade trade id
+            try:
+                from trading import state as _tstate
+                _tg_locks = _tstate.load_json("profit_tailgate_locks.json", {}) or {}
+            except Exception:
+                _tg_locks = {}
             for t in open_trades_view(CryptoEngineClient()):
+                _lk = _tg_locks.get(
+                    str(t.get("trade_id", "")).replace("FT-", "")) or {}
                 upnl = float(t.get("unrealized_pnl_usdt") or 0.0)
                 margin = float(t.get("capital_usdt") or 0.0)
                 lev = float(t.get("leverage") or 1.0)
@@ -986,6 +1008,7 @@ def handle_opentrades(h):
                     "Peak P/L": (f"${float(t.get('peak_profit_usdt') or 0.0):,.2f}/"
                                  f"${float(t.get('peak_loss_usdt') or 0.0):,.2f}"),
                     "Stop": stop_txt, "Trail Stop": stop_txt,
+                    **_tg_cells(_lk.get("locked"), _lk.get("dist")),
                     "R-multiple": "—", "Efficiency": "—",
                     "Strategy": t.get("enter_tag") or t.get("strategy") or "freqtrade",
                     "Exchange": t.get("exchange", "binance"),
@@ -1019,6 +1042,7 @@ def handle_opentrades(h):
                     "Unrealized P&L": f"₹{upnl:,.2f}",
                     "Unrealized P&L %": round(float(p.get("pnlpercent") or 0.0), 3),
                     "Peak P/L": "—", "Stop": "—", "Trail Stop": "—",
+                    "Tailgate Lock": "—", "Tailgate Trail": "—",
                     "R-multiple": "—", "Efficiency": "—",
                     "Strategy": p.get("strategy") or "openalgo",
                     "Exchange": p.get("exchange", "NSE"),

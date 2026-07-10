@@ -240,7 +240,11 @@ OPEN_TRADE_COLUMNS = [
     "Qty", "Lots", "Lot Size",
     "Capital", "Notional", "Leverage", "Fees",
     "Entry Price", "Current Price", "Unrealized P&L", "Unrealized P&L %", "Peak P/L", "Stop",
-    "Trail Stop", "R-multiple", "Efficiency", "Strategy", "Exchange", "Exit Policy",
+    "Trail Stop",
+    # profit-tailgate ratchet (owner 2026-07-07: every crypto AND NSE trade) — the locked
+    # profit floor + the trail distance in use (brain-learned via profit_tailgate.learn)
+    "Tailgate Lock", "Tailgate Trail",
+    "R-multiple", "Efficiency", "Strategy", "Exchange", "Exit Policy",
     "Liq Price", "Hold Time", "Confidence",
     # T-wire: the project node network's outcome call on THIS open trade (trade row → NN)
     "Win Prob", "NN Verdict", "Exp R",

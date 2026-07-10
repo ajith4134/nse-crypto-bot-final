@@ -666,7 +666,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -1602,6 +1602,11 @@ _Phase P4.8 (Multimodal + identity + society + affect) acceptance tests._
 - **classes:** TestAffect, TestIdentity, TestSociety, TestSensesDegrade, TestEmbodiment, TestDemo
 - **imports:** __future__, cognition.affect, cognition.embodiment, cognition.identity, cognition.society, os, tempfile, unittest, warnings
 
+## `tests/test_entry_meta_cache.py`
+_Regression: entry_meta.lookup must parse the sidecar file ONCE per file change._
+- **classes:** EntryMetaCacheTest
+- **imports:** __future__, pathlib, tempfile, trading.state, unittest
+
 ## `tests/test_evidence_lane.py`
 _W3 evidence lane tests — isolated STATE_DIR, synthetic cycles._
 - **classes:** EvidenceLaneTest
@@ -1955,7 +1960,7 @@ _Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandbo
 
 ## `tests/test_self_evolve.py`
 _tests/test_self_evolve.py — lifelong self-evolving strategy loop._
-- **functions:** `isolated_state(tmp_path, monkeypatch)`; `_ohlcv(seed, n) -> pd.DataFrame`; `test_gated_off_by_default(isolated_state)`; `test_force_runs_and_persists(isolated_state)`; `test_admission_grows_library(isolated_state)`; `test_reevaluate_retires_weak_skill(isolated_state)`; `test_node_protocol_and_registry(isolated_state)`
+- **functions:** `isolated_state(tmp_path, monkeypatch)`; `_ohlcv(seed, n) -> pd.DataFrame`; `test_gated_off_by_default(isolated_state, monkeypatch)`; `test_force_runs_and_persists(isolated_state)`; `test_admission_grows_library(isolated_state)`; `test_reevaluate_retires_weak_skill(isolated_state)`; `test_node_protocol_and_registry(isolated_state)`
 - **imports:** __future__, core.node_protocol, numpy, pandas, pytest
 
 ## `tests/test_self_quiz.py`
@@ -2075,6 +2080,12 @@ _AI-scientist idea #9 — VAE factor node + synthetic scenario generator._
 - **functions:** `_dataset(n, d, seed)`
 - **imports:** core.node_protocol, nodes.vae_factor, numpy, unittest
 
+## `tests/test_visible_controls.py`
+_Regression tests for the 2026-07-10 phantom-click fixes._
+- **classes:** _IsolatedState, TestCoveredControls, TestDismissModalsProgress
+- **functions:** `_eyes()`
+- **imports:** __future__, pathlib, tempfile, trading.state, unittest
+
 ## `tests/test_vision_computer_use.py`
 _Tests for the FREE computer-use loop (trading/brain/vision/computer_use) — offline._
 - **classes:** _IsolatedState, _FakeElement, _FakePage, TestActionParsing, TestGuard, TestLoop, TestPaidBackendOff
@@ -2094,6 +2105,11 @@ _tests/test_worldmodel.py — world-model + MuZero imagination planner._
 _gen_index.py — auto-generate INDEX.md from the source tree (AST, stdlib only)._
 - **functions:** `_sig(fn) -> str`; `_summarize(path) -> dict`; `_iter_py() -> list[str]`; `build() -> str`
 - **imports:** __future__, ast, os
+
+## `tools/gen_upstox_census.py`
+_tools/gen_upstox_census.py — compile the Upstox discovered-features inventory._
+- **functions:** `_load(name, default)`; `main() -> int`
+- **imports:** __future__, datetime, json, pathlib, sys
 
 ## `tools/orderbook_collector.py`
 _Live Binance L2 order-book snapshot collector (no key)._
@@ -2720,6 +2736,11 @@ _trading/broker_sense/run_school_monitor.py — DEDICATED App-Driving-School lea
 - **functions:** `_explore_symbol(broker) -> dict`; `_market_open(broker) -> bool`; `_coverage(broker) -> dict`; `_log(msg) -> None`; `main() -> int`; `_snapshot(rounds, done, stale) -> None`
 - **imports:** __future__, json, sys, time, trading, trading.broker_sense.app_school
 
+## `trading/broker_sense/run_upstox_focus.py`
+_trading/broker_sense/run_upstox_focus.py — drive the Upstox App School to 100%._
+- **functions:** `_coverage() -> dict`; `_nse_open() -> bool`; `_log(msg) -> None`; `main() -> int`
+- **imports:** __future__, json, subprocess, sys, time
+
 ## `trading/broker_sense/screen_mirror.py`
 _trading/broker_sense/screen_mirror.py — live screen-mirror of the brain's OWN browsers._
 - **functions:** `enabled() -> bool`; `_dir(broker)`; `_min_interval() -> float`; `record(broker, page) -> bool`; `record_bytes(broker, jpeg) -> bool`; `log_action(broker, page, act, detail) -> None`; `_append_action(broker, row) -> None`; `frame(broker) -> bytes | None`; `actions(broker, limit) -> list[dict]`; `status() -> dict`
@@ -2852,7 +2873,7 @@ _trading/crypto/freqtrade/control.py — guarded paper↔live & spot↔futures s
 
 ## `trading/crypto/freqtrade/entry_meta.py`
 _Sidecar store for per-entry brain metadata (trader psychology + decision snapshot)._
-- **functions:** `_key(pair, segment) -> str`; `_parse_ts(iso) -> float | None`; `record(pair, segment, meta) -> None`; `lookup(pair, segment, open_date) -> dict | None`
+- **functions:** `_load() -> dict`; `_key(pair, segment) -> str`; `_parse_ts(iso) -> float | None`; `record(pair, segment, meta) -> None`; `lookup(pair, segment, open_date) -> dict | None`
 - **imports:** __future__, datetime, time, trading
 
 ## `trading/crypto/freqtrade/launch.py`

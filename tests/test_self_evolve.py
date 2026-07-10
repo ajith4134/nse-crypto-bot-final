@@ -34,7 +34,12 @@ def _ohlcv(seed: int = 0, n: int = 360) -> pd.DataFrame:
                          "close": close, "volume": rng.uniform(1e3, 9e3, n)})
 
 
-def test_gated_off_by_default(isolated_state):
+def test_gated_off_by_default(isolated_state, monkeypatch):
+    # The prod box arms the gate via .env (STRATEGY_EVOLUTION_ENABLED=1, owner paper-lab
+    # directive) — clear it so this test exercises the CODE default, not ops config.
+    monkeypatch.delenv("STRATEGY_EVOLUTION_ENABLED", raising=False)
+    from trading.strategy import control as _ctl
+    monkeypatch.setattr(_ctl, "_OVERRIDE", None)
     from trading.strategy.self_evolve import SelfEvolvingLoop
     loop = SelfEvolvingLoop(persist=True)
     out = loop.run_generation(_ohlcv(), market="CRYPTO")     # no force
