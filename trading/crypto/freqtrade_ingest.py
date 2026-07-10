@@ -414,9 +414,13 @@ def _tailgate_open_cols(ft: dict) -> dict:
         op, mx = _f(ft.get("open_rate")), _f(ft.get("max_rate"))
         prof = ft.get("profit_ratio")
         profit_pct = float(prof) * 100.0 if prof is not None else None
+        # LEVERAGE-AWARE peak: profit_ratio is leverage-scaled, so the rate-derived peak
+        # must be on the same basis or the shared lock file ratchets from mixed units
+        lev = _f(ft.get("leverage"), 1.0) or 1.0
         peak_pct = None
         if op and mx:
-            peak_pct = ((op - mx) / op if ft.get("is_short") else (mx - op) / op) * 100.0
+            peak_pct = ((op - mx) / op if ft.get("is_short")
+                        else (mx - op) / op) * lev * 100.0
             peak_pct = max(peak_pct, profit_pct or 0.0)
         seg = ft.get("bot_segment") or "futures"
         dec = pt.locked_profit("crypto", seg, trade_id=str(ft.get("trade_id") or ft.get("pair")),

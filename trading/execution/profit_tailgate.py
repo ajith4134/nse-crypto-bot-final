@@ -51,21 +51,28 @@ def locked_profit(market: str, segment: str, *, trade_id: str, profit_pct: float
     the lock only increases across polls."""
     dist = learned_distance(market, segment, regime)
     locks = state.load_json(_LOCK_FILE, {})
-    prev = float((locks.get(trade_id) or {}).get("locked", 0.0))
+    rec = locks.get(trade_id) or {}
+    prev = float(rec.get("locked", 0.0))
+    # the PEAK ratchets too: callers derive it from live data each poll, so a momentary dip
+    # (or a caller sending a lower reading) must never shrink the stored peak below the lock
+    prev_peak = float(rec.get("peak", 0.0))
+    peak = max(prev_peak, peak_profit_pct) if peak_profit_pct is not None else prev_peak
     exit_now, reason = False, "riding"
     locked = prev
-    if peak_profit_pct is not None and peak_profit_pct >= _MIN_ARM_PROFIT:
-        floor = peak_profit_pct * (1.0 - dist)     # the tailgate floor for the current peak
+    if peak >= _MIN_ARM_PROFIT:
+        floor = peak * (1.0 - dist)                # the tailgate floor for the current peak
         locked = max(prev, floor)                  # RATCHET UP only — never give back a locked gain
-        if profit_pct is not None and profit_pct <= locked and profit_pct > 0:
+        # exit at/below the lock REGARDLESS of sign: if profit gapped through the lock into
+        # the red between polls, holding on hoping is exactly what the ratchet must prevent
+        if profit_pct is not None and locked > 0 and profit_pct <= locked:
             exit_now = True
             reason = (f"tailgate lock hit: profit {profit_pct:.2f}% fell to locked "
-                      f"{locked:.2f}% (peak {peak_profit_pct:.2f}%, {dist*100:.0f}% trail)")
-        locks[trade_id] = {"locked": round(locked, 4), "peak": round(peak_profit_pct, 4),
+                      f"{locked:.2f}% (peak {peak:.2f}%, {dist*100:.0f}% trail)")
+        locks[trade_id] = {"locked": round(locked, 4), "peak": round(peak, 4),
                            "dist": dist}
         state.save_json(_LOCK_FILE, locks)
     return {"locked_profit_pct": round(locked, 4), "distance_pct": round(dist, 4),
-            "exit": exit_now, "reason": reason, "peak_profit_pct": peak_profit_pct}
+            "exit": exit_now, "reason": reason, "peak_profit_pct": round(peak, 4)}
 
 
 def clear_lock(trade_id: str) -> None:
@@ -83,9 +90,10 @@ def should_exit(market: str, segment: str, profit_pct: float, peak_profit_pct: f
     dist = learned_distance(market, segment, regime)
     if peak_profit_pct is None or peak_profit_pct < _MIN_ARM_PROFIT:
         return False, dist, "not armed (peak below arm threshold)"
-    # exit line = peak × (1 - distance). profit dropping below it locks the gain.
+    # exit line = peak × (1 - distance). profit dropping below it locks the gain —
+    # even if it gapped straight through into the red between polls.
     exit_line = peak_profit_pct * (1.0 - dist)
-    if profit_pct is not None and profit_pct <= exit_line and profit_pct > 0:
+    if profit_pct is not None and profit_pct <= exit_line:
         return True, dist, (f"tailgate: profit {profit_pct:.2f}% retraced to {exit_line:.2f}% "
                             f"({dist*100:.0f}% off peak {peak_profit_pct:.2f}%)")
     return False, dist, "riding (still near peak)"

@@ -46,24 +46,33 @@ function tradeFees(trade: Trade): number {
 // Peak favorable / adverse excursion (MFE / MAE) as leverage-aware ratios, derived from
 // the trade's recorded max_rate / min_rate vs entry. A real price-excursion analytic — it
 // tracks how far price ran in each direction (fees excluded), not realized P&L.
+// Clamped with the live profit_ratio so the invariant peak ≥ current ≥ trough always holds
+// on screen: max/min_rate lag one bot iteration and exclude fees, so without the clamp the
+// current profit could read above the peak (or below the trough) — impossible to a reader.
 function peakProfit(trade: Trade): { mfe: number | null; mae: number | null } {
   const open = trade.open_rate;
   const lev = trade.leverage ?? 1;
   if (!open || trade.max_rate == null || trade.min_rate == null) return { mfe: null, mae: null };
-  return trade.is_short
+  let { mfe, mae } = trade.is_short
     ? { mfe: ((open - trade.min_rate) / open) * lev, mae: ((open - trade.max_rate) / open) * lev }
     : { mfe: ((trade.max_rate - open) / open) * lev, mae: ((trade.min_rate - open) / open) * lev };
+  const cur = trade.profit_ratio;
+  if (cur != null) {
+    mfe = Math.max(mfe, cur);
+    mae = Math.min(mae, cur);
+  }
+  return { mfe, mae };
 }
 // Profit tailgate: the brain's ratcheting locked-profit exit. It ARMS once the trade's peak
 // favorable excursion (MFE, from the real recorded max_rate) reaches ARM_PCT, then locks in
 // profit that ratchets up with the peak (peak − TRAIL_PCT giveback) and never falls back —
 // negative trades are handled by the −8% stop, not the tailgate. Same semantics as the sandbox.
-const TG_ARM_PCT = 0.005; // arm once peak ≥ +0.5%
-const TG_TRAIL_PCT = 0.005; // display fallback only — the LIVE trail comes from the brain
 // mlnb (2026-07-07, owner ask): the REAL tailgate state — the ratcheting locked floor and
 // the trail distance the brain LEARNS from closed outcomes (profit_tailgate.learn, W2-railed)
 // — rides the predictions overlay (tg_locked_pct / tg_trail_dist / tg_peak_pct, in % units).
-// The local max_rate math stays as the honest fallback when the overlay hasn't loaded.
+// HONESTY (2026-07-10): when the overlay hasn't loaded there is NO live lock to show — a
+// locally fabricated "peak − 0.5%" looked exactly like a brain lock and misled the owner
+// into expecting exits the brain never promised. Fallback = unlocked + the local peak only.
 function tailgate(trade: Trade): {
   armed: boolean;
   locked: number | null;
@@ -79,10 +88,7 @@ function tailgate(trade: Trade): {
       trail: ov.tg_trail_dist != null ? Number(ov.tg_trail_dist) : null,
     };
   }
-  const mfe = peakProfit(trade).mfe;
-  if (mfe == null) return { armed: false, locked: null, peak: null, trail: null };
-  if (mfe < TG_ARM_PCT) return { armed: false, locked: null, peak: mfe, trail: null };
-  return { armed: true, locked: Math.max(0, mfe - TG_TRAIL_PCT), peak: mfe, trail: null };
+  return { armed: false, locked: null, peak: peakProfit(trade).mfe, trail: null };
 }
 const isFutures = computed(() => botStore.activeBot.botFeatures?.futures ?? false);
 
@@ -378,7 +384,7 @@ const rowSelection = computed({
             ~{{ (Number(tailgate(row.original).trail) * 100).toFixed(0) }}%
           </span>
         </span>
-        <span v-else class="opacity-40" title="arms once peak ≥ +0.5%; below that the −8% stop protects the trade">
+        <span v-else class="opacity-40" title="no live brain lock for this trade (arms once peak ≥ +0.5%; shows 🔓 + local peak until the dashboard overlay loads)">
           🔓 {{ tailgate(row.original).peak != null ? formatPercent(tailgate(row.original).peak, 1) : '–' }}
         </span>
       </template>

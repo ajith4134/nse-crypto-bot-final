@@ -127,12 +127,17 @@ def main() -> int:
                     for seg in extra:
                         try:
                             res = funnel.executor(seg).run_once(allow_live=allow_live)
-                            if res.get("entered") or res.get("exited"):
-                                print(f"[funnel:crypto:{seg}] "
-                                      f"{time.strftime('%H:%M:%S')} "
-                                      f"entered={res.get('entered')} "
-                                      f"exited={res.get('exited')} "
-                                      f"skipped={res.get('skipped')}", flush=True)
+                            # ALWAYS log (2026-07-10): silent all-skipped cycles previously
+                            # looked identical to the driver being dead — 4.5h of "options
+                            # opens nothing" was invisible because only non-empty cycles
+                            # printed. Skip reasons make an empty cycle self-explaining.
+                            print(f"[funnel:crypto:{seg}] "
+                                  f"{time.strftime('%H:%M:%S')} "
+                                  f"entered={res.get('entered')} "
+                                  f"exited={res.get('exited')} "
+                                  f"skipped={res.get('skipped')} "
+                                  f"universe={res.get('universe')} "
+                                  f"reasons={res.get('skip_reasons')}", flush=True)
                         except Exception as e:
                             print(f"[funnel:crypto:{seg}] cycle error: {e!r}", flush=True)
                 except Exception as e:

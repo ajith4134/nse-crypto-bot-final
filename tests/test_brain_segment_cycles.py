@@ -71,6 +71,9 @@ class TestOptionsCycle(unittest.TestCase):
     def _executor(self, whitelist, open_pairs, actions):
         cli = FakeClient(whitelist=whitelist, open_pairs=open_pairs)
         ex = BrainExecutor(decider=FakeDecider(actions), client=cli, segment="options")
+        # these tests pin the CYCLE logic, not the live order-book liquidity guard —
+        # stub it open (fake symbols have no real book; the fail-closed guard would skip all)
+        ex._option_book_ok = lambda symbol: True
         return ex, cli
 
     def test_long_buys_nearest_expiry_atm_call(self):

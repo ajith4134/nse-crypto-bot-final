@@ -421,8 +421,9 @@ class PaperSandbox:
     def open_view(self) -> list:
         prices = self._all_prices()               # ONE batched fetch, not per-symbol (fast API)
         # REAL tailgate state (read-only — never mutates the lock file): the ratchet only ARMS once
-        # peak ≥ _MIN_ARM_PROFIT, and only exits a POSITIVE trade that retraced to the lock. Show the
-        # honest state so "profit below lock" always matches whether an exit is actually pending.
+        # peak ≥ _MIN_ARM_PROFIT; once armed it exits ANY retrace to the lock — even one that gapped
+        # below zero between ticks. Show the honest state so "profit below lock" always matches
+        # whether an exit is actually pending.
         try:
             from trading.execution import profit_tailgate as pt
             arm = pt._MIN_ARM_PROFIT
@@ -437,9 +438,9 @@ class PaperSandbox:
             peak = t.get("peak_pct", 0.0)
             armed = peak >= arm                                  # ratchet engaged?
             locked = round(peak * (1.0 - dist), 3) if armed else None   # None → no active lock yet
-            # what will close this trade next: tailgate (armed + positive) vs the −8% hard stop
+            # what will close this trade next: tailgate (armed) vs the −8% hard stop
             exit_by = ("tailgate" if armed else "stop") if pnl_pct <= 0 or armed else "riding"
-            if armed and pnl_pct > 0 and pnl_pct <= locked:
+            if armed and pnl_pct <= locked:
                 exit_by = "tailgate-pending"                     # should close on the next tick
             out.append({"symbol": sym, "side": t["side"], "entry": round(t["entry"], 6),
                         "price": round(px, 6), "pnl_pct": round(pnl_pct, 3),

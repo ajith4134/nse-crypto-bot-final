@@ -123,7 +123,7 @@ export default function SandboxPanel({ intervalMs = 6000 }) {
         <span style={{ fontSize: 10, color: T.muted }}>Enter or blur to apply · trades are unlimited</span>
       </div>
 
-      <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>Open positions <span style={{ fontWeight: 400, color: T.muted, fontSize: 10 }}>· 🔒 lock only arms once peak ≥ 0.5% · negative trades exit via the −8% stop, not the tailgate</span></div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>Open positions <span style={{ fontWeight: 400, color: T.muted, fontSize: 10 }}>· 🔒 lock arms once peak ≥ 0.5%; once armed, any retrace to the lock exits (even if profit gapped negative) · unarmed trades exit via the −8% stop</span></div>
       {open.length === 0
         ? <div style={{ fontSize: 12, color: T.muted }}>{on
             ? (mode === 'brain' ? 'The brain is scoring coins (per-coin backtest) — trades open when a strategy clears the gate…' : 'Opening momentum trades on the next tick…')

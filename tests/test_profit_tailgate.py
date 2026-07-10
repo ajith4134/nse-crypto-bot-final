@@ -30,6 +30,26 @@ class TestRatchet(_Iso):
         d = pt.locked_profit("crypto", "spot", trade_id="X", profit_pct=0.2, peak_profit_pct=0.3)
         self.assertFalse(d["exit"])
 
+    def test_exit_fires_when_profit_gapped_negative(self):
+        """2026-07-10 regression: profit fell straight through the lock into the red between
+        polls — the old `profit_pct > 0` guard then blocked the exit FOREVER and the trade
+        rode down to the hard stop, giving back the whole locked gain."""
+        from trading.execution import profit_tailgate as pt
+        a = pt.locked_profit("crypto", "futures", trade_id="G", profit_pct=4, peak_profit_pct=5)
+        self.assertFalse(a["exit"])                             # riding above the lock
+        b = pt.locked_profit("crypto", "futures", trade_id="G", profit_pct=-2.7, peak_profit_pct=5)
+        self.assertTrue(b["exit"])                              # gapped below zero → still exits
+
+    def test_stored_peak_ratchets_never_below_lock(self):
+        """2026-07-10 regression: callers derive the peak from live data each poll; a lower
+        reading (e.g. a mixed leverage basis) must never shrink the stored peak below the
+        lock — the file showed impossible locked > peak states."""
+        from trading.execution import profit_tailgate as pt
+        pt.locked_profit("crypto", "futures", trade_id="P", profit_pct=9, peak_profit_pct=10)
+        c = pt.locked_profit("crypto", "futures", trade_id="P", profit_pct=2, peak_profit_pct=3)
+        self.assertAlmostEqual(c["peak_profit_pct"], 10.0)      # peak held, not overwritten down
+        self.assertGreaterEqual(c["peak_profit_pct"], c["locked_profit_pct"])
+
     def test_learn_tightens_after_poor_capture(self):
         from trading.execution import profit_tailgate as pt
         base = pt.learned_distance("crypto", "futures")

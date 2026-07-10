@@ -539,7 +539,9 @@ class BrainExecutor:
         0.2 — the mark instantly read the bid → stop_loss at -99.9% in 5 seconds.
         Thin daily contracts do this routinely; a market order there is a guaranteed
         loss, not a trade. Require a live bid AND a sane spread before entering.
-        Levers: OPTIONS_LIQ_GUARD=0 disables, OPTIONS_MAX_SPREAD_PCT (default 25).
+        Levers: OPTIONS_LIQ_GUARD=0 disables, OPTIONS_MAX_SPREAD_PCT (default 12 —
+        a market entry fills at the ask while the mark reads ~mid, an instant hit of
+        ~spread/2; 12% keeps that inside the −10% stoploss, 25% insta-stopped).
         Fail-CLOSED on an unreadable book — market-entering blind is the exact harm."""
         if os.environ.get("OPTIONS_LIQ_GUARD", "1") in ("0", "false", "no"):
             return True
@@ -553,7 +555,7 @@ class BrainExecutor:
             ask = (ob.get("asks") or [[0]])[0][0] or 0.0
             if bid <= 0 or ask <= 0:
                 return False
-            max_spread = float(os.environ.get("OPTIONS_MAX_SPREAD_PCT", "25"))
+            max_spread = float(os.environ.get("OPTIONS_MAX_SPREAD_PCT", "12"))
             return (ask - bid) / ((ask + bid) / 2.0) * 100.0 <= max_spread
         except Exception:
             return False
@@ -563,6 +565,14 @@ class BrainExecutor:
         opts = [o for o in (self._parse_option(s) for s in self.symbols()) if o]
         open_pairs = set(cli.open_pairs(segment="options"))
         entered, exited, skipped = [], [], 0
+        # per-reason skip counts so an all-skipped cycle is diagnosable from its log line
+        # (no_direction / positioned / no_candidates / hollow_book / refused / error)
+        reasons: dict = {}
+
+        def _skip(why: str):
+            nonlocal skipped
+            skipped += 1
+            reasons[why] = reasons.get(why, 0) + 1
         picks: dict = {}
         for base in sorted({o["base"] for o in opts}):
             try:
@@ -576,37 +586,38 @@ class BrainExecutor:
                     for s in held:
                         cli.close_pair(s, segment="options")
                         exited.append(s)
+                    _skip("no_direction")
                     continue
                 if any((self._parse_option(s) or {}).get("kind") == want for s in held):
-                    skipped += 1
+                    _skip("positioned")
                     continue                          # already positioned this direction
                 for s in held:                        # flip: exit wrong-direction options
                     cli.close_pair(s, segment="options")
                     exited.append(s)
                 cands = [o for o in opts if o["base"] == base and o["kind"] == want]
                 if not cands:
-                    skipped += 1
+                    _skip("no_candidates")
                     continue
                 nearest = min(o["expiry"] for o in cands)
                 atm = sorted((o for o in cands if o["expiry"] == nearest),
                              key=lambda o: o["strike"])
                 pick = atm[len(atm) // 2]             # median strike ≈ ATM
                 if not self._option_book_ok(pick["symbol"]):
-                    skipped += 1              # hollow/unreadable book → honest skip
+                    _skip("hollow_book")      # hollow/unreadable book → honest skip
                     continue
                 res = cli.place_order(symbol=pick["symbol"], action="BUY", side="long",
                                       allow_live=allow_live, segment="options",
                                       enter_tag=f"opt-{act.lower()}-{base}")
                 if isinstance(res, dict) and res.get("ok") is False:
-                    skipped += 1              # refused (guard/engine) is NOT an entry
+                    _skip("refused")          # refused (guard/engine) is NOT an entry
                     continue
                 entered.append(pick["symbol"])
                 picks[pick["symbol"]] = {"strategy": f"underlying-{act}", "action": act}
             except Exception:
-                skipped += 1
+                _skip("error")
         self._last_picks = picks
         return {"entered": entered, "exited": exited, "skipped": skipped,
-                "universe": len(opts), "picks": picks, "vetoes": []}
+                "skip_reasons": reasons, "universe": len(opts), "picks": picks, "vetoes": []}
 
     # ── prediction segment (Polymarket, paper) ────────────────────────────────
     # Outcome prices live in [0,1]; real 5m candles come from the CLOB history through the
@@ -815,11 +826,16 @@ class BrainExecutor:
                     continue
                 prof = t.get("profit_ratio")
                 profit_pct = float(prof) * 100.0 if prof is not None else None
-                # peak% from Freqtrade's tracked max_rate vs open_rate (direction-aware)
+                # peak% from Freqtrade's tracked max_rate vs open_rate (direction-aware).
+                # LEVERAGE-AWARE: profit_ratio is scaled by leverage (5x → a 1% price move
+                # reads 5%), so the rate-derived peak MUST be too — mixing bases ratcheted
+                # locks from two different units (seen live: locked > peak in the lock file).
                 op, mx = _num(t.get("open_rate")), _num(t.get("max_rate"))
+                lev = _num(t.get("leverage")) or 1.0
                 peak_pct = None
                 if op and mx:
-                    peak_pct = ((op - mx) / op if t.get("is_short") else (mx - op) / op) * 100.0
+                    peak_pct = ((op - mx) / op if t.get("is_short")
+                                else (mx - op) / op) * lev * 100.0
                     peak_pct = max(peak_pct, profit_pct or 0.0)
                 tid = str(t.get("trade_id") or pair)
                 dec = pt.locked_profit("crypto", self.segment or "futures", trade_id=tid,
@@ -837,6 +853,23 @@ class BrainExecutor:
                                          f"(peak {peak_pct:.2f}%)", salience=0.6)
                     except Exception:
                         pass
+            # PRUNE stale locks (2026-07-10): clear_lock only fires on tailgate exits, so
+            # trades closed any other way (stop, strategy, manual) left their entries behind
+            # forever — 166 entries vs 19 open, with pre-fix mixed-unit values still being
+            # served to the dashboard overlay. /status returns every worker's trades, so any
+            # pure-numeric lock id not open anymore is a closed trade's leftover. Sandbox
+            # locks ("sb:SYM") are the sandbox engine's to clear — never touched here.
+            try:
+                open_ids = {str(t.get("trade_id")) for t in trades if t.get("trade_id")}
+                from trading import state as _st
+                locks = _st.load_json("profit_tailgate_locks.json", {}) or {}
+                stale = [k for k in locks if k.isdigit() and k not in open_ids]
+                if stale:
+                    for k in stale:
+                        locks.pop(k, None)
+                    _st.save_json("profit_tailgate_locks.json", locks)
+            except Exception:
+                pass
         except Exception:
             pass
         return exited

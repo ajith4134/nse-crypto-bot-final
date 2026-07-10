@@ -601,12 +601,12 @@ _Optuna-backed hyperparameter optimization (Tier-2/3 infra, group H of the model
 ## `core/llm.py`
 _core/llm.py — P4.1 cloud-LLM access (the brain's "mouth"), reuse-first via LiteLLM._
 - **classes:** NoLLMConfigured
-- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
-- **imports:** __future__, base64, config, os, time
+- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `_governor_on() -> bool`; `_cache_ttl() -> float`; `_cache_key(messages, max_tokens, temperature) -> str`; `_cache_get(key) -> str | None`; `_cache_put(key, text) -> None`; `_skippable(prov) -> bool`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
+- **imports:** __future__, base64, config, hashlib, json, os, threading, time
 
 ## `core/llm_telemetry.py`
 _Per-provider cloud-LLM telemetry (real call stats for the dashboard)._
-- **functions:** `_blank() -> dict`; `_load() -> dict`; `_save(d) -> None`; `_is_rate_limit(err) -> bool`; `record(provider, ok, latency_ms, error) -> None`; `snapshot(order) -> dict`; `reset() -> None`
+- **functions:** `_blank() -> dict`; `_load() -> dict`; `_save(d) -> None`; `_is_rate_limit(err) -> bool`; `_is_permanent(err) -> bool`; `cooling(provider) -> bool`; `record(provider, ok, latency_ms, error) -> None`; `snapshot(order) -> dict`; `reset() -> None`
 - **imports:** __future__, json, os, tempfile, threading, time
 
 ## `core/node_protocol.py`
@@ -651,7 +651,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `_state_json(name, default)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -666,7 +666,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -1438,6 +1438,11 @@ _Tests for the Broker-Sense Funnel (trading/broker_sense) — offline, STATE_DIR
 - **classes:** _IsolatedState, TestBrokerRoles, TestVaultMerge, TestWatchlist, TestLearningColumns, TestChartVision, TestBookMonitor, TestExecAdapter, TestFunnelCycle, TestCnnModel, TestOtpBoxDetection, TestWedgeRegressions, TestExecutorPerSegment
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_calibration_truth.py`
+_tests/test_calibration_truth.py — calibration honesty + error-driven learning (2026-07-10)._
+- **functions:** `_trade(symbol, net_pnl, conf)`; `test_zero_and_negative_confidence_are_missing_not_perfect()`; `test_ece_and_reliability_from_real_pairs()`; `test_no_forecasts_means_null_not_fake(monkeypatch)`; `test_mistake_topics_from_loss_clusters(monkeypatch, tmp_path)`; `test_small_or_winning_groups_do_not_trigger(monkeypatch, tmp_path)`
+- **imports:** __future__, json, trading.journal.confidence, types
+
 ## `tests/test_candle_updater.py`
 _candle_updater throttle — batched, de-prioritised OHLCV refresh._
 - **classes:** TestCandleUpdaterThrottle
@@ -1761,6 +1766,11 @@ _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & determ
 - **functions:** `make_web(items, recorder)`; `make_arxiv(items, recorder)`; `make_rss(items, recorder)`; `make_extractor(text, recorder)`; `_lib(brain)`
 - **imports:** __future__, json, memory.librarian, os, tempfile, unittest, warnings
 
+## `tests/test_llm_governor.py`
+_tests/test_llm_governor.py — LLM budget governor (2026-07-10)._
+- **functions:** `gov(monkeypatch, tmp_path)`; `test_rate_limited_provider_skipped_while_cooling(gov)`; `test_permanent_error_gets_hour_cooldown(gov)`; `test_response_cache_hits_within_ttl(gov)`; `test_blackout_guard_single_attempt_when_all_cooling(gov)`; `test_governor_kill_switch(gov, monkeypatch)`
+- **imports:** __future__, pytest, time
+
 ## `tests/test_llm_telemetry.py`
 _Cloud-LLM telemetry (core/llm_telemetry.py) + LLMForecastNode (nodes/llm_forecast_node.py)._
 - **classes:** TestLLMTelemetry, TestLLMForecastNode
@@ -1771,6 +1781,11 @@ _AI-scientist idea #6 — LiT order-book transformer node._
 - **classes:** TestLOBTransformer
 - **functions:** `_microstructure_dataset(n, d, seed)`
 - **imports:** core.node_protocol, nodes.lob_transformer, numpy, unittest
+
+## `tests/test_loop_keeper.py`
+_tests/test_loop_keeper.py — runtime self-heal keeper (2026-07-10)._
+- **functions:** `_fresh_keeper(monkeypatch, tmp_path)`; `test_all_alive_no_restart(monkeypatch, tmp_path)`; `test_dead_loop_triggers_start_all(monkeypatch, tmp_path)`; `test_off_flag_blocks_restart(monkeypatch, tmp_path)`
+- **imports:** __future__, importlib, sys
 
 ## `tests/test_memory_assoc.py`
 _P4.2 acceptance: human-like ASSOCIATIVE recall (Personalized-PageRank + RRF fusion)._
@@ -2111,6 +2126,11 @@ _tools/gen_upstox_census.py — compile the Upstox discovered-features inventory
 - **functions:** `_load(name, default)`; `main() -> int`
 - **imports:** __future__, datetime, json, pathlib, sys
 
+## `tools/loop_keeper.py`
+_tools/loop_keeper.py — RUNTIME self-heal for the trading stack (2026-07-10)._
+- **functions:** `_alive(pattern) -> bool`; `_check() -> dict`; `_save_state(state) -> None`; `run_once() -> int`; `install_cron() -> None`
+- **imports:** __future__, json, os, subprocess, sys, time
+
 ## `tools/orderbook_collector.py`
 _Live Binance L2 order-book snapshot collector (no key)._
 - **functions:** `snapshot(symbol, levels)`; `main(symbol, every)`
@@ -2340,6 +2360,11 @@ _Read out the self-invented features: sparse-autoencoder probe over the encoder 
 _Live discovery signal registry — feeds self-invented features into trade decisions._
 - **functions:** `_fit_bg(symbol, closes) -> None`; `signal(symbol, closes) -> dict`; `status() -> dict`
 - **imports:** __future__, engine, numpy, threading, time
+
+## `trading/brain/dreamer.py`
+_trading/brain/dreamer.py — Counterfactual Dream-Trainer (invented 2026-07-10)._
+- **functions:** `_pct(x) -> float | None`; `_dream_trade(r) -> dict | None`; `dream_once(lookback) -> dict`; `study_topics(max_topics) -> list[str]`; `status() -> dict`
+- **imports:** __future__, time
 
 ## `trading/brain/entryexit.py`
 _trading/brain/entryexit.py — regime/pattern-gated entry + learned exit (T8.6)._
