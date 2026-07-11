@@ -311,6 +311,22 @@ def _barriers(direction: str, price: float, atr: float,
             "rr": round(k_tp / k_stop, 2), "atr": round(atr, 8), "time_bars": time_bars}
 
 
+_ONCHAIN_CACHE: dict = {"ts": 0.0, "snap": None}
+
+
+def _onchain_cached(ttl: float = 300.0) -> dict | None:
+    """On-chain snapshot (altdata.onchain), cached ttl seconds — the fetch hits external free APIs,
+    far too slow to run per fuse() call. Market-wide, so one snapshot serves every symbol."""
+    if time.time() - _ONCHAIN_CACHE["ts"] > ttl:
+        try:
+            from trading.altdata.onchain import OnChainAltData
+            _ONCHAIN_CACHE["snap"] = OnChainAltData().snapshot()
+        except Exception:
+            _ONCHAIN_CACHE["snap"] = None
+        _ONCHAIN_CACHE["ts"] = time.time()
+    return _ONCHAIN_CACHE["snap"]
+
+
 def fuse(symbol: str, market: str = "crypto",
          timeframes=("1m", "5m", "15m", "1h", "4h", "1d"),
          vision: dict | None = None) -> dict:
@@ -482,6 +498,20 @@ def fuse(symbol: str, market: str = "crypto",
     except Exception:
         direction_eq = None
 
+    # 4i ── ON-CHAIN sentiment/flow regime (fear&greed + network + whale, altdata.onchain). Market-
+    # wide risk-on/off ∈[-1,1] → a small ±0.06 tilt; TTL-cached (external fetch). Crypto only. This is
+    # the LIVE on-chain lens (COVERAGE-AUDIT gap C); per-bar on-chain HISTORY for the equation bus
+    # remains a documented data-plumbing task.
+    onchain = None
+    if market == "crypto":
+        try:
+            onchain = _onchain_cached()
+            c = onchain.get("composite") if onchain and onchain.get("available") else None
+            if c is not None:
+                confluence = _clamp(confluence + 0.06 * float(c), -1.0, 1.0)
+        except Exception:
+            onchain = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -527,6 +557,7 @@ def fuse(symbol: str, market: str = "crypto",
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
         "sectors": sectors, "options_regime": options_regime, "ai_select": ai_select,
         "volume_profile": vp_profile, "chart_yolo": yolo, "direction_equation": direction_eq,
+        "onchain": onchain,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

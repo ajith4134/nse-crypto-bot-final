@@ -71,3 +71,17 @@ Mirror-Gate self-correcting + reevolve daemon. ~45 tests. Commits 750bb82/6058d1
    equation is genuinely order-flow-first (the biggest lift, biggest payoff).
 4. **GAP-C** — wire on-chain (Etherscan/CoinGecko/Coinalyze) as feature columns.
 5. **GAP-E** — capture the real Binance-UI chart with indicators ON for chart_yolo/VLM.
+
+## 2026-07-11 (2nd pass) — GAP-C lens + GAP-E built
+- **GAP-C on-chain LIVE LENS WIRED ✅** — indicator_fusion.fuse() 4i folds altdata.onchain composite
+  (fear&greed+network+whale, risk-on/off∈[-1,1]) as a bounded ±0.06 crypto tilt, TTL-cached; snapshot
+  key `onchain`. Per-bar on-chain HISTORY for equation TRAINING still deferred.
+- **GAP-E intelligent real-UI capture BUILT + live-smoke-verified ✅** — chart_capture.py
+  (IndicatorChartCapture + capture_symbol): vision-driven via HumanUI — opens the live Binance chart,
+  enables built-in indicators, cycles timeframes, screenshots each, feeds the REAL screenshot to the
+  YOLO lane. 6 tests. Live: Binance trade page loads + screenshots (title showed real price) and
+  screenshot→YOLO→cache works end-to-end. Remaining live-TUNING (iterative vs the logged-in UI): the
+  vision indicator-click accuracy + crop-to-chart-canvas; auto-wire capture_symbol into the funnel
+  behind a flag (like nav_brain).
+- **Still open (honest, external-data infra):** GAP-B/A(b) true book-OFI/GOFI = per-bar HISTORICAL
+  order-flow series (stream+store); GAP-C per-bar on-chain history for equation training.

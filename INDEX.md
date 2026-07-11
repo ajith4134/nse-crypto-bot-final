@@ -1799,6 +1799,11 @@ _W5 champion lineage + leak tripwire tests — isolated STATE_DIR._
 - **classes:** ChampionLineageTest
 - **imports:** pathlib, tempfile, unittest
 
+## `tests/test_chart_capture.py`
+_Tests for trading/broker_sense/chart_capture.py — GAP-E intelligent Binance chart capture._
+- **classes:** _Page, _UI, TestCapture
+- **imports:** __future__, trading.broker_sense.chart_capture, unittest
+
 ## `tests/test_chart_render.py`
 _Tests for trading/broker_sense/chart_render.py + chart_vision vision-escalation wiring._
 - **classes:** TestPlain, TestAnnotated, TestVisionEscalate
@@ -3217,6 +3222,12 @@ _trading/broker_sense/brokers.py — broker-app registry + ROLE ENFORCEMENT in c
 - **functions:** `_overrides() -> dict`; `set_real_nse_broker(name) -> dict`; `real_broker(market) -> str | None`; `screening_brokers(market) -> list[BrokerApp]`; `assert_can_execute(name, market) -> None`; `status() -> dict`
 - **imports:** __future__, dataclasses, trading
 
+## `trading/broker_sense/chart_capture.py`
+_trading/broker_sense/chart_capture.py — GAP-E: intelligent REAL Binance-UI chart capture._
+- **classes:** IndicatorChartCapture
+- **functions:** `capture_symbol(page, symbol) -> dict`
+- **imports:** __future__, time
+
 ## `trading/broker_sense/chart_render.py`
 _trading/broker_sense/chart_render.py — draw candle charts locally, two flavors._
 - **functions:** `_shot_dir()`; `_out(symbol, tf, tag) -> str`; `plain(rows, symbol, tf, out_path) -> str | None`; `_frame(rows)`; `annotated(rows, symbol, tf, out_path) -> str | None`; `_overlay_volume_profile(ax, rows) -> None`
@@ -3289,7 +3300,7 @@ _trading/broker_sense/human_handoff.py — mid-session human-CAPTCHA handoff._
 
 ## `trading/broker_sense/indicator_fusion.py`
 _trading/broker_sense/indicator_fusion.py — ultra-advanced multi-timeframe indicator fusion._
-- **functions:** `_ohlc(rows)`; `_sma(vals, n) -> float`; `_ema_series(vals, n) -> list[float]`; `_true_ranges(h, l, c) -> list[float]`; `_wilder(vals, n) -> float`; `_atr(h, l, c, n) -> float`; `_adx(h, l, c, n) -> tuple[float, float, float]`; `_supertrend(h, l, c, n, mult) -> tuple[int, float]`; `_parabolic_sar(h, l, c, af0, af_max) -> tuple[int, float]`; `_macd(c) -> tuple[float, float, float]`; `_bollinger(c, n, k) -> tuple[float, float, float]`; `_stoch_rsi(c, n) -> float`; `indicators_from_ohlcv(rows) -> dict`; `_fetch(sym, market, tf, bars) -> list | None`; `_meta_label(confluence, direction, market, symbol) -> dict`; `_barriers(direction, price, atr, k_stop, k_tp, time_bars) -> dict`; `fuse(symbol, market, timeframes, vision) -> dict`
+- **functions:** `_ohlc(rows)`; `_sma(vals, n) -> float`; `_ema_series(vals, n) -> list[float]`; `_true_ranges(h, l, c) -> list[float]`; `_wilder(vals, n) -> float`; `_atr(h, l, c, n) -> float`; `_adx(h, l, c, n) -> tuple[float, float, float]`; `_supertrend(h, l, c, n, mult) -> tuple[int, float]`; `_parabolic_sar(h, l, c, af0, af_max) -> tuple[int, float]`; `_macd(c) -> tuple[float, float, float]`; `_bollinger(c, n, k) -> tuple[float, float, float]`; `_stoch_rsi(c, n) -> float`; `indicators_from_ohlcv(rows) -> dict`; `_fetch(sym, market, tf, bars) -> list | None`; `_meta_label(confluence, direction, market, symbol) -> dict`; `_barriers(direction, price, atr, k_stop, k_tp, time_bars) -> dict`; `_onchain_cached(ttl) -> dict | None`; `fuse(symbol, market, timeframes, vision) -> dict`
 - **imports:** __future__, math, os, time, trading.broker_sense, trading.broker_sense.fast_candles
 
 ## `trading/broker_sense/interception.py`

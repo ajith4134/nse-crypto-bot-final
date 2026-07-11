@@ -90,6 +90,10 @@ class TestFuse(unittest.TestCase):
         self._dv = mock.patch.object(vision_worker, "deep_vision", return_value=None)
         self._dv.start()
         self.addCleanup(self._dv.stop)
+        # isolate from the external on-chain fetch (altdata.onchain) — deterministic + fast
+        self._oc = mock.patch.object(IF, "_onchain_cached", return_value=None)
+        self._oc.start()
+        self.addCleanup(self._oc.stop)
 
     def _patch_fetch(self, trend):
         return mock.patch.object(IF, "_fetch",
