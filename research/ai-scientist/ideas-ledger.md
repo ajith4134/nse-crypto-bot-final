@@ -288,3 +288,10 @@ Binance-native listing catalysts shipped: binance_catalysts.py (free announcemen
 discovery boost (+0.15). Token-Unlock catalyst DEFERRED: DefiLlama emissions API now paywalled
 (402), no free Binance endpoint — zero-cost-first forbids a pay item. Do NOT fabricate. Revisit
 when a free unlock source is found (Binance bapi token-unlock path, or a free mirror of the data).
+
+## 2026-07-11 · Binance compute-offload roadmap — COMPLETE (P1–P4 + panel)
+All shipped + live + committed: P1 WS mirror + order-flow + universe migration · P2 listing
+catalysts · P3 sector rotation · P4 options IV/skew regime · Binance Edge dashboard panel.
+Brain reads funding/movers/order-flow/long-short/liquidations/catalysts/sectors/options-regime
+ALL from Binance (local CPU reserved for ML). Deferred (no free source): AI Select (UI-only),
+Token Unlock (DefiLlama paywalled). ~9 commits, ~100 new tests.
