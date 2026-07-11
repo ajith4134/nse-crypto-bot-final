@@ -2,18 +2,23 @@
 import json
 import random
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
 import trading.state as state
 
 
+# Fixed epoch so hour/dow features are deterministic: anchored to time.time() the
+# hour-of-day at run time interacts with the tiny synthetic ledger and swings the
+# bad-source calibrated p across the META_MIN_P boundary (flaked 2026-07-11).
+_T_BASE = 1_700_000_000.0
+
+
 def _write_examples(n=3000):
     """Synthetic ledger: source 'good' correct 72%, 'bad' 28% — a learnable split."""
     rng = random.Random(7)
     rows = []
-    t0 = time.time() - n * 60
+    t0 = _T_BASE - n * 60
     for i in range(n):
         src = "good" if i % 2 == 0 else "bad"
         p = 0.72 if src == "good" else 0.28
@@ -47,7 +52,7 @@ class TestMetaLabeler(_Iso):
         rep = self.ml.train(min_examples=1000)
         self.assertNotIn("error", rep)
         self.assertGreater(rep["auc"], 0.6)                # learnable → must rank
-        ex = {"ts": time.time(), "market": "CRYPTO", "segment": "futures",
+        ex = {"ts": _T_BASE, "market": "CRYPTO", "segment": "futures",
               "regime": "chop", "confidence": 0.5, "taken": False, "horizon": "1h"}
         p_good = self.ml.p_correct({**ex, "source": "good", "direction": "LONG"})
         p_bad = self.ml.p_correct({**ex, "source": "bad", "direction": "LONG"})
@@ -78,7 +83,7 @@ class TestMetaLabeler(_Iso):
     def test_unseen_category_is_safe(self):
         _write_examples(n=1500)
         self.ml.train(min_examples=1000)
-        p = self.ml.p_correct({"ts": time.time(), "source": "never_seen_lane",
+        p = self.ml.p_correct({"ts": _T_BASE, "source": "never_seen_lane",
                                "direction": "SHORT", "regime": "weird",
                                "segment": "options", "horizon": "1h"})
         self.assertTrue(p is None or 0.0 <= p <= 1.0)

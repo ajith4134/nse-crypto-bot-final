@@ -31,8 +31,20 @@ _REVISIT_S = float(os.environ.get("UI_CRAWL_REVISIT_S", "600"))   # candle fresh
 _TF_CLICK = os.environ.get("UI_CRAWL_TF_CLICK", "1") in ("1", "true", "TRUE", "yes")
 
 
+# Regional/delisted quote books the broker pickers surface picks in (ADA/RUB,
+# BSW/TRY, …). The engine only trades the USDT book, so the eyes must study THAT
+# book — candles captured from a RUB page are unusable for the shortlist and
+# starve UI-only mode (observed 2026-07-11: crawler on ALGORUB/ADARUB pages).
+_DEAD_QUOTES = ("RUB", "TRY", "EUR", "BRL", "UAH", "NGN", "BIDR", "IDRT",
+                "ARS", "PLN", "RON", "ZAR", "DAI")
+
+
 def _binance_url(symbol: str) -> str:
     flat = symbol.upper().replace("/", "").replace(":USDT", "")
+    for _q in _DEAD_QUOTES:
+        if flat.endswith(_q) and len(flat) > len(_q):
+            flat = flat[: -len(_q)] + "USDT"
+            break
     if symbol.endswith(":USDT") or ":" in symbol:
         return f"https://www.binance.com/en/futures/{flat}"
     return f"https://www.binance.com/en/trade/{flat}?type=spot"

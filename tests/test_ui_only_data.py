@@ -133,3 +133,19 @@ class AutoFlipGovernorTest(unittest.TestCase):
         # recorded through the surface rails
         led = state.load_json("rule_versions.json", [])
         self.assertTrue(any(e["knob"] == "data.ui_only.mode" for e in led))
+
+
+class TestCrawlUrlNormalization(unittest.TestCase):
+    """Pickers surface regional-book symbols (ADA/RUB) — the crawler must study the
+    engine-tradeable USDT book or its captures are useless for the shortlist."""
+
+    def test_dead_quote_books_rewrite_to_usdt(self):
+        from trading.broker_sense.ui_crawl import _binance_url
+        self.assertIn("/trade/ALGOUSDT?", _binance_url("ALGO/RUB"))
+        self.assertIn("/trade/ADAUSDT?", _binance_url("ADARUB"))
+        self.assertIn("/trade/BSWUSDT?", _binance_url("BSW/TRY"))
+
+    def test_usdt_and_futures_untouched(self):
+        from trading.broker_sense.ui_crawl import _binance_url
+        self.assertIn("/trade/ETHUSDT?", _binance_url("ETH/USDT"))
+        self.assertIn("/futures/ETHUSDT", _binance_url("ETH/USDT:USDT"))

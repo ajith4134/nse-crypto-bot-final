@@ -89,6 +89,26 @@ def atr_from_df(df) -> float | None:
         return None
 
 
+def atr_from_feather(symbol: str, segment: str = "futures",
+                     tf: str = "5m") -> float | None:
+    """ATR(14) from the LOCAL candle feather (zero network) — so the explore path
+    can arm with a REAL volatility distance instead of the blind pct fallback.
+    None when no feather / not enough bars; callers pass it straight to arm()."""
+    try:
+        import pandas as pd
+        from trading.direction.truth_ledger import _feather_for
+        p5, _ = _feather_for(symbol, segment)
+        if p5 is None:
+            return None
+        p = p5 if tf == "5m" else p5.with_name(p5.name.replace("-5m-", f"-{tf}-"))
+        if not p.exists():
+            return None
+        df = pd.read_feather(p, columns=["date", "open", "high", "low", "close"]).tail(60)
+        return atr_from_df(df)
+    except Exception:
+        return None
+
+
 def arm(*, symbol: str, segment: str, direction: str, source: str,
         ref_price: float, atr: float | None = None,
         confidence: float | None = None, extra: dict | None = None) -> bool:

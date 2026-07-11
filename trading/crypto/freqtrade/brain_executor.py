@@ -199,6 +199,49 @@ class BrainExecutor:
             return []  # dynamic universes only — no meaningful hardcoded fallback
         return ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
 
+    def sweep_pullbacks(self, cli=None, *, allow_live: bool = False) -> dict:
+        """D3: enter every armed pullback entry whose retrace has arrived. Called from
+        run_once AND every PULLBACK_SWEEP_SEC by the funnel loop's fast sweeper thread
+        (a 0.15-0.5×ATR retrace is often gone within minutes — waiting for the next
+        20-40min cycle expired 7/8 armed entries on 2026-07-11). pullback.sweep pops
+        triggered rows under the state-file lock, so a row fires exactly once no
+        matter how many sweepers race. Never raises."""
+        rep: dict = {"entered": [], "queued": []}
+        try:
+            from trading.direction import pullback as _pb
+            if not _pb.enabled():
+                return rep
+            cli = cli or self.client()
+            for _row in _pb.sweep(
+                    lambda s: _pb.live_price(s, self.segment or "futures"),
+                    segment=self.segment or "futures"):
+                try:
+                    _psym = cli.tradeable_form(_row["symbol"], self.segment)
+                    if _psym is None:
+                        continue
+                    _res = cli.place_order(
+                        symbol=_psym, action="BUY",
+                        side=("long" if _row["direction"] == "LONG" else "short"),
+                        allow_live=allow_live,
+                        enter_tag=str(_row.get("source") or "pullback"),
+                        segment=self.segment)
+                    if isinstance(_res, dict) and _res.get("ok") is False:
+                        continue
+                    if isinstance(_res, dict) and _res.get("queued"):
+                        rep["queued"].append(_psym)
+                    else:
+                        rep["entered"].append(_psym)
+                    self._record_entry_meta(
+                        _psym, _row["direction"], _row.get("source"),
+                        {"pullback": {k: _row.get(k) for k in
+                                      ("ref_price", "entry_ref", "atr",
+                                       "armed_ts")}}, None, explore=True)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return rep
+
     def run_once(self, *, allow_live: bool = False, deadline: float | None = None) -> dict:
         """One brain→Freqtrade execution cycle. Returns a summary. Never raises.
 
@@ -241,41 +284,20 @@ class BrainExecutor:
         exited.extend(tailgated)
         armed_n = 0
         # D3 pullback entries (Pillar 27): armed verdicts whose price has pulled back
-        # to us fire NOW — the entry gets the retrace as a discount instead of chasing
-        # the spike (sub-15m holds graded 34.9% direction-correct when entered at the
-        # screen-time extreme). Sweep is quote-cached + time-budgeted; never raises.
-        try:
-            from trading.direction import pullback as _pb
-            if _pb.enabled():
-                for _row in _pb.sweep(
-                        lambda s: _pb.live_price(s, self.segment or "futures"),
-                        segment=self.segment or "futures"):
-                    try:
-                        _psym = cli.tradeable_form(_row["symbol"], self.segment)
-                        if _psym is None:
-                            continue
-                        _res = cli.place_order(
-                            symbol=_psym, action="BUY",
-                            side=("long" if _row["direction"] == "LONG" else "short"),
-                            allow_live=allow_live,
-                            enter_tag=str(_row.get("source") or "pullback"),
-                            segment=self.segment)
-                        if isinstance(_res, dict) and _res.get("ok") is False:
-                            continue
-                        if isinstance(_res, dict) and _res.get("queued"):
-                            queued.append(_psym)
-                        else:
-                            entered.append(_psym)
-                        self._record_entry_meta(
-                            _psym, _row["direction"], _row.get("source"),
-                            {"pullback": {k: _row.get(k) for k in
-                                          ("ref_price", "entry_ref", "atr",
-                                           "armed_ts")}}, None, explore=True)
-                    except Exception:
-                        continue
-        except Exception:
-            pass
+        # to us fire NOW. Retraces live on second-scale while funnel cycles are
+        # minute-scale, so the funnel loop's fast sweeper thread also calls
+        # sweep_pullbacks between cycles — this in-cycle pass stays as the fallback.
+        _sw = self.sweep_pullbacks(cli, allow_live=allow_live)
+        entered.extend(_sw["entered"])
+        queued.extend(_sw["queued"])
         syms = self.symbols()
+        # Voted candidates FIRST: a budget-starved cycle must spend its remaining
+        # seconds on the symbols the funnel's LOOK stage actually voted on —
+        # whitelist order let 43/44 decisions defer while the 5 voted candidates
+        # never even armed (2026-07-11 06:17 cycle, deadline_deferred=43).
+        _voted = set(getattr(self, "extra_signals", {}) or {})
+        if _voted:
+            syms = sorted(syms, key=lambda s: s not in _voted)
         for i, sym in enumerate(syms):
             if deadline is not None and time.monotonic() > deadline:
                 deadline_deferred = len(syms) - i        # honest: deferred, not decided
@@ -318,11 +340,24 @@ class BrainExecutor:
                         from trading.direction import pullback as _pb
                         if _pb.enabled():
                             _q = _pb.live_price(sym, self.segment or "futures")
+                            if not _q:
+                                # UI-only mode Nones the quote path and each pair's
+                                # feather is fresh only ~half the time (updater
+                                # rotation) — but the VERIFY stage fetched this
+                                # symbol's order book seconds ago THIS cycle: its mid
+                                # is an equally honest arm reference (2026-07-11:
+                                # None here dumped ~24 entries/cycle straight to
+                                # market with no retrace discount).
+                                _bk = _sig.get("book") or {}
+                                if _bk.get("bid") and _bk.get("ask"):
+                                    _q = (float(_bk["bid"]) + float(_bk["ask"])) / 2
                             if _q and _pb.arm(symbol=sym,
                                               segment=self.segment or "futures",
                                               direction=_act,
                                               source="explore_open_all",
-                                              ref_price=float(_q), atr=None):
+                                              ref_price=float(_q),
+                                              atr=_pb.atr_from_feather(
+                                                  sym, self.segment or "futures")):
                                 armed_n += 1
                                 continue
                     except Exception:

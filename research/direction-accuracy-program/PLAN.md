@@ -131,6 +131,23 @@ Current: throttled JPEGs per action (screen_mirror.py). Upgrade path (zero-cost)
    k×ATR or pct fallback, runaway/expiry honest counts, 8 tests) wired at all 3
    executor entry sites + sweep-and-enter after the tailgate pass; "armed" count in
    the cycle report. Levers: PULLBACK_ENTRY/_ATR/_PCT/_TTL_MIN/_RUNAWAY_ATR.
+   ⚠→✅ D3.1 FIX 2026-07-11 (post-restart finding): sweeping once per funnel cycle
+   (20-40min under budget overruns) missed every retrace — 7/8 armed entries expired,
+   0 triggered, crypto stopped opening trades entirely. Fixes: (a) fast sweeper
+   thread in run_funnel_loop (PULLBACK_SWEEP_SEC=45, 0=off) calling the extracted
+   BrainExecutor.sweep_pullbacks (lock-guarded, race-safe with the in-cycle pass);
+   (b) explore arms now pass REAL ATR via pullback.atr_from_feather (5m feather,
+   zero network) instead of atr=None/pct-fallback. +2 tests.
+   ⚠→✅ D3.2 FIX 2026-07-11 (same session): two more entry-starvation causes:
+   (a) budget-starved cycles walked the whitelist in raw order — deadline_deferred=43
+   while the 5 LOOK-voted candidates never armed; run_once now sorts VOTED
+   candidates first (stable sort on extra_signals membership).
+   (b) UI-only governor (ON since 2026-07-07, one-way by design) Nones every API
+   quote and each pair's feather is fresh only ~half the updater rotation →
+   live_price=None dumped ~24 entries/cycle straight to market, zero arms. Arm now
+   falls back to the VERIFY stage's cycle-fresh order-book MID from extra_signals.
+   Flipping UI-only OFF stays the owner's call (ui_only_mode.json, flipped with
+   hit_rate 0.0 evidence — worth the owner revisiting).
    ✅ D8 SHIPPED 2026-07-11 (validate+size): regime-TRANSITION block for non-explore
    entries unless ledger-TRUSTED (REGIME_TRANSITION_BLOCK), and fractional-Kelly
    stake scaling from the meta-labeler's calibrated p (KELLY_SCALE, only while the
@@ -158,6 +175,15 @@ Current: throttled JPEGs per action (screen_mirror.py). Upgrade path (zero-cost)
    app watchlist via BOTH Brain-Open mirrors; per-symbol StudyReport = multi-TF
    chart read + micro lanes + regime, fused verdict; "app_study" ledger claims;
    auto-drop when studied+gone; 8 tests) wired into the funnel loop per market.
+   ✅ W.1 DEPTH 2026-07-11 (owner: "candle patterns of ALL timeframes + ALL
+   built-in indicators"): study_round now also runs indicator_fusion.fuse (full
+   indicator suite × every TF, with the chart read as its candlestick-vision lens)
+   and a textbook candle-pattern read (engulfing/hammer/star/soldiers/crows on
+   15m/1h/4h feathers, zero network). Both fold into the fused verdict (2 + 1
+   votes) AND stake their own ledger claims — sources "app_indicators" and
+   "candle_pattern" earn independent hit-rates in the D7 league. +6 tests.
+   NOTE: pre-restart processes predated this module — first StudyReports only
+   ever appear after the 2026-07-11 06:11 restart.
 8. M live mirror                       (see it all happen)
    ✅ SHIPPED 2026-07-11: trading/broker_sense/live_mirror.py (ffmpeg x11grab →
    MJPEG generator, viewer-demand spawn/kill, viewer cap, nice 10) +

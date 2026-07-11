@@ -59,6 +59,45 @@ def main() -> int:
     if "nse" in want_set and do_nse:
         funnels["nse"] = BrokerSenseFunnel("nse", sessions)
     learn = BrainLearningCycle()
+    if "crypto" in funnels:
+        # D3 FAST SWEEPER (2026-07-11): armed pullback entries wait for a retrace that
+        # lives on second-scale, but funnel cycles are 20-40min when budgets overrun —
+        # sampling the price once per cycle expired 7/8 armed entries without a single
+        # trigger. This thread sweeps every PULLBACK_SWEEP_SEC (default 45s, 0=off)
+        # using cached quotes/feathers; pullback.sweep pops each trigger under the
+        # state-file lock so it can never double-enter with the in-cycle sweep.
+        import threading
+
+        def _pullback_sweeper(funnel):
+            from trading.direction import pullback as _pb
+            while True:
+                try:
+                    sec = float(os.environ.get("PULLBACK_SWEEP_SEC", "45") or 45)
+                    if sec <= 0:
+                        time.sleep(300)
+                        continue
+                    time.sleep(sec)
+                    if not _pb.enabled():
+                        continue
+                    try:
+                        if boss.is_paused("CRYPTO"):
+                            continue
+                    except Exception:
+                        pass
+                    armed = _pb.status().get("armed") or []
+                    for seg in sorted({r.get("segment") or "futures" for r in armed}):
+                        if seg not in ("futures", "spot"):
+                            continue
+                        r = funnel.executor(seg).sweep_pullbacks(allow_live=allow_live)
+                        if r.get("entered") or r.get("queued"):
+                            print(f"[pullback-sweep:{seg}] entered={r['entered']} "
+                                  f"queued={r['queued']}", flush=True)
+                except Exception as e:
+                    print(f"[pullback-sweep] error: {e!r}", flush=True)
+                    time.sleep(30)
+
+        threading.Thread(target=_pullback_sweeper, args=(funnels["crypto"],),
+                         daemon=True, name="pullback-sweeper").start()
     print(f"[funnel-loop] start: markets={sorted(funnels)} allow_live={allow_live} "
           f"budget={os.environ.get('BROKER_SENSE_BUDGET', '60')}s "
           f"(brokers' servers screen the universe; APIs execute only)", flush=True)

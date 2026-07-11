@@ -1842,7 +1842,7 @@ _Tests for trading/brain/memory_search.py — FTS5 full-text memory search (offl
 _Tests for trading/direction/meta_labeler — D6 direction meta-labeler._
 - **classes:** _Iso, TestMetaLabeler
 - **functions:** `_write_examples(n)`
-- **imports:** json, pathlib, random, tempfile, time, trading.state, unittest
+- **imports:** json, pathlib, random, tempfile, trading.state, unittest
 
 ## `tests/test_micro_features.py`
 _Tests for trading/direction/micro_features — D4 microstructure direction lanes._
@@ -2159,7 +2159,7 @@ _AI-scientist idea #5 — TSFM ensemble + conformal calibration._
 
 ## `tests/test_ui_only_data.py`
 _UI-only data mode tests (owner 2026-07-07) — capture parsing + honest misses._
-- **classes:** UiOnlyDataTest, AutoFlipGovernorTest
+- **classes:** UiOnlyDataTest, AutoFlipGovernorTest, TestCrawlUrlNormalization
 - **functions:** `_klines(n, t0, tf_ms, price)`
 - **imports:** os, pathlib, tempfile, time, unittest
 
@@ -2199,7 +2199,7 @@ _Tests for the free vision engine (core.llm.vision_chat) — the brain's FREE ey
 
 ## `tests/test_watchlist_study.py`
 _Tests for trading/broker_sense/watchlist_study — W watchlist study funnel._
-- **classes:** _FakeReader, _Iso, TestPropose, TestStudyRound, TestFuse
+- **classes:** _FakeReader, _Iso, TestPropose, TestStudyRound, TestFuse, TestPatterns
 - **imports:** pathlib, tempfile, time, trading.state, unittest
 
 ## `tests/test_worldmodel.py`
@@ -2931,7 +2931,7 @@ _trading/broker_sense/watchlist.py — hot watchlist with TTL (saver E)._
 
 ## `trading/broker_sense/watchlist_study.py`
 _trading/broker_sense/watchlist_study.py — W: the watchlist study funnel (Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `study_symbols(market) -> list[str]`; `propose(candidates) -> dict`; `_fuse(mtf, micro) -> tuple[str | None, float, dict]`; `study_round(sessions) -> dict`; `status() -> dict`
+- **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `study_symbols(market) -> list[str]`; `propose(candidates) -> dict`; `_patterns_from_ohlc(o, h, l, c) -> tuple[list[str], int]`; `_candle_patterns(symbol, segment) -> dict`; `_fuse(mtf, micro, fusion, patterns) -> tuple[str | None, float, dict]`; `study_round(sessions) -> dict`; `status() -> dict`
 - **imports:** __future__, os, time, trading
 
 ## `trading/classification_eval.py`
@@ -3531,7 +3531,7 @@ _trading/direction/mirror_gate.py — D2: the Mirror Gate (goal Pillar 27)._
 
 ## `trading/direction/pullback.py`
 _trading/direction/pullback.py — D3: pullback entries (goal Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `_key(symbol, segment) -> str`; `live_price(symbol, segment) -> float | None`; `atr_from_df(df) -> float | None`; `arm() -> bool`; `_dist(row) -> float`; `sweep(price_fn) -> list[dict]`; `status() -> dict`
+- **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `_key(symbol, segment) -> str`; `live_price(symbol, segment) -> float | None`; `atr_from_df(df) -> float | None`; `atr_from_feather(symbol, segment, tf) -> float | None`; `arm() -> bool`; `_dist(row) -> float`; `sweep(price_fn) -> list[dict]`; `status() -> dict`
 - **imports:** __future__, os, time, trading
 
 ## `trading/direction/regime.py`

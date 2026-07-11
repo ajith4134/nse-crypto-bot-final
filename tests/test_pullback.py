@@ -89,6 +89,26 @@ class TestPullback(_Iso):
         self.assertAlmostEqual(self.pb.atr_from_df(df), 2.0)
         self.assertIsNone(self.pb.atr_from_df(df.head(5)))
 
+    def test_atr_from_feather(self):
+        import os
+        import pandas as pd
+        with tempfile.TemporaryDirectory() as cd:
+            os.environ["DIRECTION_CANDLE_DIR"] = cd
+            try:
+                from trading.direction import truth_ledger as tl
+                tl._CANDLE_CACHE.clear()
+                # no feather yet → honest None, never a guess
+                self.assertIsNone(self.pb.atr_from_feather("ETH/USDT:USDT", "futures"))
+                (Path(cd) / "futures").mkdir()
+                pd.DataFrame({"date": pd.date_range("2026-01-01", periods=20, freq="5min"),
+                              "open": [100.0] * 20, "high": [101.0] * 20,
+                              "low": [99.0] * 20, "close": [100.0] * 20}).to_feather(
+                    Path(cd) / "futures" / "ETH_USDT_USDT-5m-futures.feather")
+                self.assertAlmostEqual(
+                    self.pb.atr_from_feather("ETH/USDT:USDT", "futures"), 2.0)
+            finally:
+                os.environ.pop("DIRECTION_CANDLE_DIR", None)
+
 
 if __name__ == "__main__":
     unittest.main()
