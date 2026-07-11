@@ -2194,6 +2194,11 @@ _tests/test_live_chain.py — real-broker option chain → T4 analytics (2026-07
 - **functions:** `_raw(expiry_days, spot, atm)`; `test_to_chain_builds_real_analytics()`; `test_expiry_day_still_has_time_value()`; `test_empty_chain_raises_not_fakes()`
 - **imports:** __future__, datetime, pytest, trading.options.live_chain
 
+## `tests/test_live_login_coord.py`
+_Regression tests for the Live-Browser ↔ funnel profile-ownership coordination._
+- **classes:** LiveLoginCoordTest
+- **imports:** pathlib, tempfile, time, trading, unittest
+
 ## `tests/test_llm_governor.py`
 _tests/test_llm_governor.py — LLM budget governor (2026-07-10)._
 - **functions:** `gov(monkeypatch, tmp_path)`; `test_rate_limited_provider_skipped_while_cooling(gov)`; `test_permanent_error_gets_hour_cooldown(gov)`; `test_response_cache_hits_within_ttl(gov)`; `test_blackout_guard_single_attempt_when_all_cooling(gov)`; `test_governor_kill_switch(gov, monkeypatch)`
@@ -2340,6 +2345,12 @@ _Options-segment regressions (2026-07-10)._
 _Trading Phase T4 (Options Intelligence) acceptance tests — fully offline._
 - **classes:** TestBlack76Greeks, TestImpliedVol, TestIVRankPercentile, TestMaxPain, TestPCR, TestGEX, TestOI, TestPayoff, TestOptionsChain
 - **imports:** __future__, math, trading.options.chain, trading.options.gex, trading.options.greeks, trading.options.iv, trading.options.max_pain, trading.options.oi, trading.options.payoff, trading.options.pcr, unittest
+
+## `tests/test_orderflow_store.py`
+_Tests for trading/broker_sense/orderflow_store.py — per-bar real order-flow history store._
+- **classes:** StoreTest
+- **functions:** `_feat(tr, crowd)`
+- **imports:** __future__, numpy, pandas, pathlib, tempfile, trading, trading.broker_sense, unittest
 
 ## `tests/test_patterns_t8.py`
 _Trading Phase T8.6 acceptance tests — fully offline + deterministic._
@@ -3318,8 +3329,8 @@ _trading/broker_sense/learning_columns.py — discovered app data → DYNAMIC le
 ## `trading/broker_sense/live_browser.py`
 _trading/broker_sense/live_browser.py — an interactive HEADLESS browser streamed to the_
 - **classes:** _Session, LiveBrowser
-- **functions:** `get_live_browser() -> LiveBrowser`
-- **imports:** __future__, queue, threading, time, trading
+- **functions:** `_foreign_lock_pid(prof) -> int | None`; `_wait_profile_free(prof, timeout) -> None`; `get_live_browser() -> LiveBrowser`
+- **imports:** __future__, os, queue, threading, time, trading
 
 ## `trading/broker_sense/live_mirror.py`
 _trading/broker_sense/live_mirror.py — M: LIVE video screen mirror (Pillar 27 batch)._
@@ -3337,6 +3348,11 @@ _trading/broker_sense/ocular_perception.py — the funnel's NEW eyes (Phase-2 de
 - **classes:** OcularPerception
 - **functions:** `_vision_quota() -> int`; `_flag(name, default) -> bool`; `_flatten_numbers(obj, prefix) -> str`; `_summarize_book(ob) -> dict`
 - **imports:** __future__, os, time, trading.broker_sense.learning_columns
+
+## `trading/broker_sense/orderflow_store.py`
+_trading/broker_sense/orderflow_store.py — per-bar REAL order-flow history store (COVERAGE-AUDIT_
+- **functions:** `_bar(ts) -> int`; `_extract(feat) -> dict`; `snapshot(symbol, market) -> dict | None`; `snapshot_all(symbols, market) -> int`; `series(symbol)`; `join_features(feats, symbol)`
+- **imports:** __future__, time, trading
 
 ## `trading/broker_sense/run_account_watchlist.py`
 _trading/broker_sense/run_account_watchlist.py — keep the Upstox 'Brain-Open' watchlist_
@@ -3382,7 +3398,7 @@ _trading/broker_sense/screeners.py — the whole-universe screen runs on OTHER p
 ## `trading/broker_sense/sessions.py`
 _trading/broker_sense/sessions.py — persistent logged-in broker browser sessions (saver H)._
 - **classes:** SessionManager
-- **functions:** `_sess_path(broker)`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `is_human_challenge(pg) -> bool`; `_challenge_present(pg) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
+- **functions:** `_sess_path(broker)`; `_login_lock_path(broker)`; `login_in_progress(broker) -> bool`; `begin_operator_login(broker) -> None`; `end_operator_login(broker) -> None`; `ensure_headed_display() -> str | None`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `is_human_challenge(pg) -> bool`; `_challenge_present(pg) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
 - **imports:** __future__, os, re, stat, time, trading, trading.broker_sense.brokers
 
 ## `trading/broker_sense/stock_xray.py`
@@ -4492,7 +4508,7 @@ _trading/strategy/cpcv.py — Combinatorial Purged Cross-Validation (Pillar 20).
 
 ## `trading/strategy/direction_equation.py`
 _trading/strategy/direction_equation.py — P2 of the direction-equation quest: discover ONE_
-- **functions:** `features_bus(ohlcv) -> pd.DataFrame`; `_forward_return(close, h) -> np.ndarray`; `horizon_ic(raw, close, h) -> float`; `_equation_generators()`; `score_equation(cand, feats_oos, close_oos, horizons) -> dict | None`; `discover(ohlcv, market) -> list[dict]`; `cpcv_robustness(ohlcv, expr, kind, features) -> dict | None`; `_triple_barrier_winrate(ohlcv, expr, kind, features) -> dict | None`; `_block_ic_matrix(ohlcv, cands) -> np.ndarray | None`; `validate(ohlcv, ranked, market) -> dict`; `save_equations(market, ranked) -> None`; `load_equations(market) -> list[dict]`; `_now() -> float`; `discover_and_save(ohlcv, market) -> list[dict]`; `_ohlcv_for(symbol, market, tf, bars) -> pd.DataFrame | None`; `run_for_market(symbol, market) -> list[dict]`
+- **functions:** `features_bus(ohlcv, symbol, market) -> pd.DataFrame`; `_forward_return(close, h) -> np.ndarray`; `horizon_ic(raw, close, h) -> float`; `_equation_generators()`; `score_equation(cand, feats_oos, close_oos, horizons) -> dict | None`; `discover(ohlcv, market) -> list[dict]`; `cpcv_robustness(ohlcv, expr, kind, features) -> dict | None`; `_triple_barrier_winrate(ohlcv, expr, kind, features) -> dict | None`; `_block_ic_matrix(ohlcv, cands) -> np.ndarray | None`; `validate(ohlcv, ranked, market) -> dict`; `save_equations(market, ranked) -> None`; `load_equations(market) -> list[dict]`; `_now() -> float`; `discover_and_save(ohlcv, market) -> list[dict]`; `_ohlcv_for(symbol, market, tf, bars) -> pd.DataFrame | None`; `run_for_market(symbol, market) -> list[dict]`
 - **imports:** __future__, numpy, pandas, trading, trading.strategy.generators.expression, trading.strategy.guardrails
 
 ## `trading/strategy/direction_equation_deploy.py`

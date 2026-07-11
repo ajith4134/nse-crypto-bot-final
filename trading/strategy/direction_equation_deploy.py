@@ -30,7 +30,7 @@ def _rows_to_df(rows) -> pd.DataFrame | None:
     if not rows or len(rows) < 60:
         return None
     a = np.asarray(rows, dtype=float)
-    return pd.DataFrame({"open": a[:, 1], "high": a[:, 2], "low": a[:, 3],
+    return pd.DataFrame({"ts": a[:, 0], "open": a[:, 1], "high": a[:, 2], "low": a[:, 3],
                          "close": a[:, 4], "volume": a[:, 5] if a.shape[1] > 5 else 0.0})
 
 
@@ -69,7 +69,7 @@ def predict(rows, market: str = "crypto", *, symbol: str = "", segment: str = "f
         return None
     try:
         from trading.strategy.direction_equation import features_bus
-        feats = features_bus(df)
+        feats = features_bus(df, symbol or None, market)
     except Exception:
         return None
     score = _equation_score(feats, eqs)

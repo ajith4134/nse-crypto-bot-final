@@ -411,6 +411,14 @@ def fuse(symbol: str, market: str = "crypto",
                 t = order_flow.get("tilt")
                 if t is not None:
                     confluence = _clamp(confluence + 0.12 * t, -1.0, 1.0)
+                # accumulate the per-bar REAL order-flow HISTORY (orderflow_store) so the direction
+                # equation trains on true order-flow, not just OHLCV proxies (COVERAGE-AUDIT gap B).
+                if not _cheap:                        # only the deep (non-mirror) read has the fields
+                    try:
+                        from trading.broker_sense import orderflow_store
+                        orderflow_store.snapshot(symbol, market)
+                    except Exception:
+                        pass
         except Exception:
             order_flow = None
 

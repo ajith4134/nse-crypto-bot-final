@@ -50,8 +50,28 @@ class IndicatorChartCapture:
             return False
 
     def _shot(self) -> bytes:
+        """Screenshot the CHART itself (the largest candlestick canvas) so the vision lanes see a
+        chart, not the whole trading page (the full-page shot buried the candles → YOLO saw nothing).
+        Falls back to the full page if no canvas is found."""
+        pg = self.ui.page
         try:
-            return self.ui.page.screenshot(type="png")
+            cvs = pg.locator("canvas")
+            best, best_area = None, 0.0
+            for i in range(min(cvs.count(), 8)):        # pick the biggest visible canvas = the chart
+                try:
+                    box = cvs.nth(i).bounding_box()
+                    if box:
+                        area = box["width"] * box["height"]
+                        if area > best_area and box["height"] > 150:
+                            best, best_area = cvs.nth(i), area
+                except Exception:
+                    continue
+            if best is not None:
+                return best.screenshot(type="png")
+        except Exception:
+            pass
+        try:
+            return pg.screenshot(type="png")
         except Exception:
             return b""
 
@@ -126,14 +146,21 @@ def capture_symbol(page, symbol: str, *, market: str = "crypto",
         rep = cap.capture(symbol, timeframes)
     except Exception as e:
         return {"symbol": symbol, "shots": {}, "error": str(e)[:120]}
-    if feed_yolo and rep.get("shots"):
-        try:                                # real screenshot → YOLO pattern read, cached per symbol
-            import io
-            from PIL import Image
-            from trading.broker_sense import chart_yolo
-            tf0 = next(iter(rep["shots"]))
-            img = Image.open(io.BytesIO(rep["shots"][tf0])).convert("RGB")
-            rep["yolo"] = chart_yolo.detect_and_cache(symbol, img, tf=tf0, market=market)
+    if rep.get("shots"):
+        tf0 = next(iter(rep["shots"]))
+        shot0 = rep["shots"][tf0]
+        if feed_yolo:
+            try:                            # real screenshot → YOLO pattern read, cached per symbol
+                import io
+                from PIL import Image
+                from trading.broker_sense import chart_yolo
+                img = Image.open(io.BytesIO(shot0)).convert("RGB")
+                rep["yolo"] = chart_yolo.detect_and_cache(symbol, img, tf=tf0, market=market)
+            except Exception:
+                rep["yolo"] = None
+        try:                                # real chart → VLM structured read (reads ANY chart well)
+            from trading.broker_sense import chart_vlm
+            rep["vlm"] = chart_vlm.read_chart(shot0, symbol, tf0, total_timeout=40)
         except Exception:
-            rep["yolo"] = None
+            rep["vlm"] = None
     return rep

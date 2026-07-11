@@ -31,18 +31,28 @@ DEFAULT_HORIZONS = (1, 4, 12, 24)          # bars ahead — the metric shifts wi
 _EQ_FILE = "direction_equations.json"      # persisted top-K per market (for P4 deploy)
 
 
-def features_bus(ohlcv: pd.DataFrame) -> pd.DataFrame:
+def features_bus(ohlcv: pd.DataFrame, symbol: str | None = None,
+                 market: str = "crypto") -> pd.DataFrame:
     """The equation's feature bus — the EXTENDED indicator set (EMA/SAR/supertrend/VWAP/MACD/ADX/
     Bollinger/Keltner/Donchian/OBV/…) so the discovered equation is built from a rich variable set,
-    not the 10 base TA columns (COVERAGE-AUDIT gap A). `with_vp=False`: the per-bar rolling Volume
-    Profile is too heavy for the live deploy path — VP rides in the fusion's own lens. Falls back to
-    the base features if the extended set is unavailable."""
+    not the 10 base TA columns (COVERAGE-AUDIT gap A). When `symbol` is given AND the frame carries a
+    'ts' column, the REAL per-bar order-flow history (orderflow_store: of_taker_ratio/gofi/oi/…) is
+    spliced on by timestamp so the equation trains on true order-flow (gap B) — bars before the store
+    began carry NaN and are ignored by the generators. `with_vp=False`: the rolling Volume Profile is
+    too heavy for the live path (it rides in the fusion's own lens). Falls back to base features."""
     try:
         from trading.strategy.library.features_ext import compute_features_ext
-        return compute_features_ext(ohlcv, with_vp=False)
+        feats = compute_features_ext(ohlcv, with_vp=False)
     except Exception:
         from trading.strategy.features import compute_features
-        return compute_features(ohlcv)
+        feats = compute_features(ohlcv)
+    if symbol and market == "crypto" and "ts" in getattr(feats, "columns", []):
+        try:
+            from trading.broker_sense import orderflow_store
+            feats = orderflow_store.join_features(feats, symbol, ts_col="ts")
+        except Exception:
+            pass
+    return feats
 
 
 def _forward_return(close: pd.Series, h: int) -> np.ndarray:
@@ -107,14 +117,14 @@ def score_equation(cand, feats_oos: pd.DataFrame, close_oos: pd.Series,
     }
 
 
-def discover(ohlcv: pd.DataFrame, market: str = "crypto", *, horizons=DEFAULT_HORIZONS,
-             budget: int = 10, seed: int = 0, top_k: int = 8, test_frac: float = 0.3,
-             generators=None, min_abs_ic: float = 0.0) -> list[dict]:
+def discover(ohlcv: pd.DataFrame, market: str = "crypto", *, symbol: str | None = None,
+             horizons=DEFAULT_HORIZONS, budget: int = 10, seed: int = 0, top_k: int = 8,
+             test_frac: float = 0.3, generators=None, min_abs_ic: float = 0.0) -> list[dict]:
     """Discover + OOS-Rank-IC-score direction equations; return the top-K (best |IC| first).
 
     Generators fit on the TRAIN split; every discovered equation is scored on the untouched OOS
     tail so the ranking is honest. `min_abs_ic` drops equations weaker than a floor (0 = keep all)."""
-    feats = features_bus(ohlcv)                      # rich variable set (gap A)
+    feats = features_bus(ohlcv, symbol, market)      # rich variable set (gap A) + order-flow (gap B)
     n = len(feats)
     if n < 120:                                      # need enough for train + OOS + max horizon
         return []
@@ -298,7 +308,7 @@ def _ohlcv_for(symbol: str, market: str, tf: str, bars: int) -> pd.DataFrame | N
     if not rows or len(rows) < 120:
         return None
     a = np.asarray(rows, dtype=float)
-    return pd.DataFrame({"open": a[:, 1], "high": a[:, 2], "low": a[:, 3],
+    return pd.DataFrame({"ts": a[:, 0], "open": a[:, 1], "high": a[:, 2], "low": a[:, 3],
                          "close": a[:, 4], "volume": a[:, 5] if a.shape[1] > 5 else 0.0})
 
 
@@ -310,7 +320,7 @@ def run_for_market(symbol: str, market: str = "crypto", *, tf: str = "15m", bars
         df = _ohlcv_for(symbol, market, tf, bars)
         if df is None:
             return []
-        ranked = discover(df, market, **kw)           # P2: discover + OOS Rank-IC rank
+        ranked = discover(df, market, symbol=symbol, **kw)   # P2: discover + OOS Rank-IC + order-flow
         if not ranked:
             return []
         rep = validate(df, ranked, market)            # P3: purged-CPCV gate → persist survivors
