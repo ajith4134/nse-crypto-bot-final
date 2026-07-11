@@ -106,6 +106,40 @@ class DecisionMemory:
         self._save()
         return ep["episode_id"]
 
+    def _claim_resolution(self, episode_id: str) -> bool:
+        """Atomically flip pending→False on DISK under flock; True only for the claimant.
+
+        The losing processes sync from the fresh store and skip their emit. Also adopts
+        the on-disk episodes list so the claimant's later _save() doesn't resurrect rows
+        another process already resolved."""
+        import fcntl
+        lock = state._path(f"{FILE}.lock")
+        with open(lock, "w") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)
+            try:
+                d = state.load_json(FILE, {})
+                eps = d.get("episodes", [])
+                idx = next((i for i, e in enumerate(eps)
+                            if e.get("episode_id") == episode_id), None)
+                if idx is None or not eps[idx].get("pending"):
+                    return False
+                # splice MY object over the disk copy: adopting the disk list must not
+                # clobber the claimant's un-persisted in-memory mutations (importance/
+                # access updates between open and close), and callers holding the object
+                # must observe the claim — a naive adopt lost the FinMem layer jump
+                # (test_loss_demotes_and_layer_jumps, 2026-07-11).
+                mine = next((e for e in self.episodes
+                             if e.get("episode_id") == episode_id), None)
+                if mine is not None:
+                    eps[idx] = mine
+                eps[idx]["pending"] = False
+                state.save_json(FILE, d)
+                self.episodes = eps
+                self._seq = int(d.get("seq", self._seq))
+                return True
+            finally:
+                fcntl.flock(lf, fcntl.LOCK_UN)
+
     def find(self, episode_id: str = "", trade_id: str = "") -> dict | None:
         for ep in reversed(self.episodes):
             if (episode_id and ep["episode_id"] == episode_id) or \
@@ -121,6 +155,14 @@ class DecisionMemory:
         ep = self.find(episode_id, trade_id)
         if ep is None or not ep.get("pending"):
             return ep                          # idempotent: polled ingest paths re-call this
+        if self.persist:
+            # cross-process idempotency: several loop processes ingest closed trades, each
+            # with its own boot-time singleton, so the in-memory pending check alone re-emits
+            # the same close once per process (3× duplicate feed events, 2026-07-10)
+            if not self._claim_resolution(ep["episode_id"]):
+                ep["pending"] = False          # another process already resolved it
+                return ep
+            ep = self.find(ep["episode_id"]) or ep   # re-find in the freshly adopted store
         ep["outcome"] = {"net_pnl": round(float(net_pnl), 6), "r_multiple": r_multiple,
                          "exit_price": exit_price, "exit_reason": exit_reason,
                          "brain_correct": brain_correct, "closed_ts": time.time()}
