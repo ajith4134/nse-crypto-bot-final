@@ -65,6 +65,16 @@ def record(broker: str, page, *, action: dict | None = None, force: bool = False
     if not enabled() or page is None:
         return False
     broker = (broker or "web").lower()
+    # Human-CAPTCHA handoff: the shared per-action chokepoint every driving loop funnels
+    # through, so one hook covers them all. If a security challenge is on the page this PARKS
+    # the loop (hands the operator interactive control) until it clears; otherwise it returns
+    # instantly (throttled check). force=False refreshes inside the park loop must not recurse.
+    if force:
+        try:
+            from trading.broker_sense import human_handoff
+            human_handoff.guard(broker, page)
+        except Exception:
+            pass
     now = time.monotonic()
     if not force and now - _LAST_TS.get(broker, 0.0) < _min_interval():
         # throttled: skip the frame but keep the feed truthful (reads fire often)

@@ -76,31 +76,45 @@ def _candidates(providers=PROVIDERS, *, allow_local: bool = True) -> list[tuple[
 
     `providers` selects the chain (text PROVIDERS by default, or VISION_PROVIDERS for the
     eyes). `allow_local` appends the Ollama/llama.cpp fallback (only sensible for text)."""
-    out: list[tuple[str, dict]] = []
+    # Each candidate is (litellm model id, extra kwargs, provider label). The label is the
+    # dashboard/telemetry identity: for OpenAI-compatible providers it comes from the config
+    # key so ZAI/Alibaba/local don't all collapse to "openai" (see _label_from_key).
+    out: list[tuple[str, dict, str]] = []
     for key, model, env, api_base in providers:
         val = settings.get(key)
         if val:
             if api_base:                     # OpenAI-compatible provider → pass key+base inline
-                out.append((model, {"api_base": api_base, "api_key": val}))
+                out.append((model, {"api_base": api_base, "api_key": val}, _label_from_key(key)))
             else:
                 if env and not os.getenv(env):   # map our key name to the one litellm expects
                     os.environ[env] = val
-                out.append((model, {}))
+                out.append((model, {}, provider_name(model)))
     base = settings.get("LOCAL_LLM_BASE_URL")
     if allow_local and base:                  # Ollama / llama.cpp OpenAI-compatible fallback
         model = "openai/" + (os.getenv("LOCAL_LLM_MODEL") or "llama3")
-        out.append((model, {"api_base": base, "api_key": os.getenv("LOCAL_LLM_API_KEY", "ollama")}))
+        out.append((model, {"api_base": base, "api_key": os.getenv("LOCAL_LLM_API_KEY", "ollama")},
+                    "local"))
     return out
 
 
 def active_model() -> tuple[str, dict] | None:
     """The first usable (model, extra) or None if nothing is configured."""
     c = _candidates()
-    return c[0] if c else None
+    return (c[0][0], c[0][1]) if c else None    # public 2-tuple; drop the internal provider label
 
 
 def provider_name(model: str) -> str:
     return model.split("/", 1)[0]
+
+
+def _label_from_key(key: str) -> str:
+    """Distinct dashboard/telemetry name for an OpenAI-compatible provider.
+
+    Many providers (ZAI, Alibaba, the local LLM) share litellm's `openai/` prefix, so
+    provider_name(model) collapses them all to "openai" — merging their telemetry, pacing,
+    and dashboard rows. We name them by their config key instead so each is shown, cooled,
+    and paced independently. e.g. ZAI_API_KEY → "zai", ALIBABA_API_KEY → "alibaba"."""
+    return key.split("_API_KEY")[0].lower()
 
 
 # ── LLM budget governor (2026-07-10) ──────────────────────────────────────────────
@@ -116,7 +130,7 @@ def provider_name(model: str) -> str:
 _MIN_INTERVAL = {         # seconds between calls PER PROVIDER, per process (free-tier RPM)
     "groq": 2.5, "cerebras": 2.5, "sambanova": 6.0, "gemini": 8.0, "openrouter": 4.0,
     "deepseek": 3.0, "deepinfra": 3.0, "fireworks_ai": 3.0, "mistral": 2.5,
-    "nvidia_nim": 3.0, "openai": 1.0,
+    "nvidia_nim": 3.0, "openai": 1.0, "zai": 2.0, "alibaba": 2.0,  # "local" = unpaced
 }
 _last_call: dict[str, float] = {}
 _CACHE_MAX = 512
@@ -201,10 +215,10 @@ def chat(messages: list[dict], max_tokens: int = 600, temperature: float = 0.4,
     # attempt rather than a guaranteed raise. Real pass-1 failures are never re-attempted.
     for honor_governor in (True, False):
         attempted = 0
-        for model, extra in cands:
+        for model, extra, *rest in cands:
             if total_timeout is not None and time.time() - chain_t0 > total_timeout:
                 break                         # budget exhausted → surface the last error
-            prov = provider_name(model)
+            prov = rest[0] if rest else provider_name(model)   # distinct label if _candidates gave one
             if honor_governor and _skippable(prov):
                 continue
             attempted += 1
@@ -284,10 +298,10 @@ def vision_chat(prompt: str, images, *, system: str | None = None, max_tokens: i
     # whole chain was skipped without a single attempt (vision cooldowns key on ":vision").
     for honor_governor in (True, False):
         attempted = 0
-        for model, extra in cands:
+        for model, extra, *rest in cands:
             if total_timeout is not None and time.time() - chain_t0 > total_timeout:
                 break
-            prov = provider_name(model)
+            prov = rest[0] if rest else provider_name(model)   # distinct label if _candidates gave one
             if honor_governor and _skippable(prov + ":vision"):
                 continue
             attempted += 1
@@ -308,7 +322,8 @@ def vision_chat(prompt: str, images, *, system: str | None = None, max_tokens: i
 
 def vision_order() -> list[str]:
     """Vision provider names in failover priority order (only those with a key present)."""
-    return [provider_name(m) for m, _ in _candidates(VISION_PROVIDERS, allow_local=False)]
+    return [t[2] if len(t) > 2 else provider_name(t[0])
+            for t in _candidates(VISION_PROVIDERS, allow_local=False)]
 
 
 def _telemetry(_fn, provider, ok, latency_ms, err):
@@ -322,7 +337,7 @@ def _telemetry(_fn, provider, ok, latency_ms, err):
 
 def configured_order() -> list[str]:
     """Provider names in failover priority order (only those with a key present)."""
-    return [provider_name(m) for m, _ in _candidates()]
+    return [t[2] if len(t) > 2 else provider_name(t[0]) for t in _candidates()]
 
 
 def chat_stream(messages: list[dict], max_tokens: int = 600, temperature: float = 0.4,
@@ -335,7 +350,7 @@ def chat_stream(messages: list[dict], max_tokens: int = 600, temperature: float 
     if not cands:
         raise NoLLMConfigured("no LLM provider configured")
     last: Exception | None = None
-    for model, extra in cands:
+    for model, extra, *rest in cands:
         emitted = False
         try:
             resp = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,

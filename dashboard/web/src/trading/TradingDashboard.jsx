@@ -39,6 +39,7 @@ import OcularCortexPanel from './OcularCortexPanel.jsx'
 import XRayPanel from './XRayPanel.jsx'
 import LiveBrowserPanel from './LiveBrowserPanel.jsx'
 import BrainMirrorPanel from './BrainMirrorPanel.jsx'
+import HumanHandoffPanel from './HumanHandoffPanel.jsx'
 import AppSchoolPanel from './AppSchoolPanel.jsx'
 import BrokerFeaturesPanel from './BrokerFeaturesPanel.jsx'
 import SegmentFocusPanel from './SegmentFocusPanel.jsx'
@@ -276,6 +277,10 @@ export default function TradingDashboard() {
 
       <Card title="Live browser — connect your broker account" hint="a real browser streamed here so YOU solve the login captcha/OTP that automation can't · your clicks+typing drive the page · Save session → the brain reads your account headless after">
         <LiveBrowserPanel broker="binance" />
+      </Card>
+
+      <Card title="Human Handoff — solve the broker's CAPTCHA" hint="when a brain browser hits a human-only security check (Binance slide puzzle / image CAPTCHA) it PAUSES that browser and hands you interactive control · Take control → drag the slider yourself → automation auto-resumes the instant it clears · also pings Telegram">
+        <HumanHandoffPanel />
       </Card>
 
       <Card title="Brain Screen Mirror — watch the brain operate the apps" hint="READ-ONLY live mirror of the browser the BRAIN drives after login · every page it opens, button it clicks (marker shown), text it reads · funnel screening + ⭐ watchlist hand + app-school · watching never steers the hand">

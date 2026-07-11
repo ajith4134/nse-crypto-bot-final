@@ -2163,6 +2163,39 @@ def handle_mirror(h):
     return h._send(200, body, "application/json")
 
 
+def handle_handoff(h):
+    """GET /api/trading/handoff — human-CAPTCHA handoff state (which brokers are paused on a
+    security challenge, VNC health, noVNC path). Pure state-file read; safe in a request thread.
+
+    POST {op:'take_control'|'resume'|'stop', broker} — bring up the interactive noVNC on the
+    brain's shared display / force-resume a broker / tear the VNC down. Never raises."""
+    from trading.broker_sense import human_handoff
+    if h.command == "POST":
+        try:
+            length = int(h.headers.get("content-length", 0) or 0)
+            data = json.loads(h.rfile.read(length) or b"{}") if length else {}
+            op = str(data.get("op", "")).lower()
+            broker = str(data.get("broker", "")).lower()
+            if op == "take_control":
+                body = human_handoff.take_control(broker)
+            elif op == "resume":
+                body = human_handoff.request_resume(broker)
+            elif op == "stop":
+                body = human_handoff.stop_control()
+            else:
+                body = {"ok": False, "error": f"unknown op: {op!r}"}
+            body = {**body, "status": human_handoff.status()}
+        except Exception as e:
+            body = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        return h._send(200, json.dumps(body, default=str).encode(), "application/json")
+    try:
+        body = json.dumps(human_handoff.status(), default=str).encode()
+    except Exception as e:
+        body = json.dumps({"enabled": False, "any_active": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
 def handle_mirror_frame(h):
     """GET /api/trading/mirror/frame?broker= — latest JPEG frame of the brain's browser."""
     from urllib.parse import parse_qs, urlparse

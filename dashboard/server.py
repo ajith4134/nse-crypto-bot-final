@@ -1318,6 +1318,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/mirror":                     # Brain Screen Mirror status+actions
             from dashboard.routes import trading_ext
             return trading_ext.handle_mirror(self)
+        if path == "/api/trading/handoff":                    # Human-CAPTCHA handoff state
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_handoff(self)
         if path == "/api/brain/evolve":                       # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
             from dashboard.routes import brain_ext
             return brain_ext.handle_evolve(self)
@@ -1517,6 +1520,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/remote_login":               # POST start/stop remote-view login
             from dashboard.routes import trading_ext
             return trading_ext.handle_remote_login(self)
+        if path == "/api/trading/handoff":                    # POST take_control/resume/stop CAPTCHA handoff
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_handoff(self)
         if path == "/api/trading/live_browser":               # POST drive the live browser
             from dashboard.routes import trading_ext
             return trading_ext.handle_live_browser(self)

@@ -76,6 +76,16 @@ _CHALLENGE_TXT = ("select all images", "select each image", "please select all",
                   "i'm not a robot", "are you human", "complete the security check")
 
 
+def is_human_challenge(pg) -> bool:
+    """Public: True if `pg` shows a human-only security challenge (image CAPTCHA, slide
+    puzzle, bot check). Thin, never-raising wrapper over the login detector so mid-session
+    loops (via human_handoff.guard) reuse the exact same detection as the login flow."""
+    try:
+        return _challenge_present(pg)
+    except Exception:
+        return False
+
+
 def _challenge_present(pg) -> bool:
     """True if the page shows a human-only challenge (image CAPTCHA, puzzle, bot check). Kept
     specific: a page with a promo carousel or the word 'verification' is NOT a challenge."""

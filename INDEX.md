@@ -601,7 +601,7 @@ _Optuna-backed hyperparameter optimization (Tier-2/3 infra, group H of the model
 ## `core/llm.py`
 _core/llm.py — P4.1 cloud-LLM access (the brain's "mouth"), reuse-first via LiteLLM._
 - **classes:** NoLLMConfigured
-- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `_governor_on() -> bool`; `_cache_ttl() -> float`; `_cache_key(messages, max_tokens, temperature) -> str`; `_cache_get(key) -> str | None`; `_cache_put(key, text) -> None`; `_skippable(prov) -> bool`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
+- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `_label_from_key(key) -> str`; `_governor_on() -> bool`; `_cache_ttl() -> float`; `_cache_key(messages, max_tokens, temperature) -> str`; `_cache_get(key) -> str | None`; `_cache_put(key, text) -> None`; `_skippable(prov) -> bool`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
 - **imports:** __future__, base64, config, hashlib, json, os, threading, time
 
 ## `core/llm_telemetry.py`
@@ -666,7 +666,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_mirror_stream(h)`; `handle_direction_truth(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_mirror_stream(h)`; `handle_direction_truth(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_handoff(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -1348,6 +1348,10 @@ _(2) Fold regime-routing into the main learned_router._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
 - **imports:** __future__, core, data.benchmarks, eval.golden, json, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, nodes.router_node, os, random, time
 
+## `scratchpad/qa_handoff_panel.py`
+_Targeted render QA: does the Human Handoff panel land in the Trading view?_
+- **imports:** os, pathlib, playwright.sync_api, sys
+
 ## `tests/__init__.py`
 _Test package init._
 - **imports:** os
@@ -1745,6 +1749,12 @@ _Regression: the numba triple_barrier_labels hot path (Pillar 9) must EXACTLY eq
 _Optuna HPO utility (core/hpo.py, Tier-2/3 infra group H)._
 - **classes:** TestHPO
 - **imports:** __future__, core.hpo, numpy, unittest, warnings
+
+## `tests/test_human_handoff.py`
+_tests/test_human_handoff.py — mid-session human-CAPTCHA handoff._
+- **classes:** FakePage, TestHumanHandoff
+- **functions:** `_fresh_module(tmp_state)`
+- **imports:** importlib, os, unittest
 
 ## `tests/test_human_memory.py`
 _Phase P4.2 (human-like memory layer) acceptance tests — fully offline + deterministic._
@@ -2835,6 +2845,11 @@ _trading/broker_sense/funnel.py — the cascade orchestrator (savers B + I: ever
 - **functions:** `_budget_s() -> float`; `_fast_book(symbol, market) -> dict`; `_fast_candles() -> bool`; `_login_brokers(market) -> list[str]`; `_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, os, time, trading, trading.broker_sense, trading.broker_sense.app_explorer, trading.broker_sense.book_monitor, trading.broker_sense.exec_adapter, trading.broker_sense.ocular_perception, trading.broker_sense.screeners, trading.broker_sense.watchlist
 
+## `trading/broker_sense/human_handoff.py`
+_trading/broker_sense/human_handoff.py — mid-session human-CAPTCHA handoff._
+- **functions:** `enabled() -> bool`; `_vnc_enabled() -> bool`; `_display() -> str`; `_max_wait() -> float`; `_poll_interval() -> float`; `_check_interval() -> float`; `_state_path()`; `_read() -> dict`; `_write(data) -> None`; `_now() -> float`; `_vnc(op) -> str`; `_vnc_up() -> tuple[bool, str]`; `_alert(broker, url) -> None`; `_any_other_active(brokers, exclude) -> bool`; `_activate(broker, url) -> None`; `_deactivate(broker) -> None`; `is_challenge(page) -> bool`; `guard(broker, page) -> bool`; `_resume_flag_path(broker)`; `_resume_requested(broker) -> bool`; `request_resume(broker) -> dict`; `clear_resume(broker) -> None`; `take_control(broker) -> dict`; `stop_control() -> dict`; `status() -> dict`
+- **imports:** __future__, json, os, subprocess, time, trading
+
 ## `trading/broker_sense/indicator_fusion.py`
 _trading/broker_sense/indicator_fusion.py — ultra-advanced multi-timeframe indicator fusion._
 - **functions:** `_ohlc(rows)`; `_sma(vals, n) -> float`; `_ema_series(vals, n) -> list[float]`; `_true_ranges(h, l, c) -> list[float]`; `_wilder(vals, n) -> float`; `_atr(h, l, c, n) -> float`; `_adx(h, l, c, n) -> tuple[float, float, float]`; `_supertrend(h, l, c, n, mult) -> tuple[int, float]`; `_parabolic_sar(h, l, c, af0, af_max) -> tuple[int, float]`; `_macd(c) -> tuple[float, float, float]`; `_bollinger(c, n, k) -> tuple[float, float, float]`; `_stoch_rsi(c, n) -> float`; `indicators_from_ohlcv(rows) -> dict`; `_fetch(sym, market, tf, bars) -> list | None`; `_meta_label(confluence, direction, market, symbol) -> dict`; `_barriers(direction, price, atr, k_stop, k_tp, time_bars) -> dict`; `fuse(symbol, market, timeframes, vision) -> dict`
@@ -2913,7 +2928,7 @@ _trading/broker_sense/screeners.py — the whole-universe screen runs on OTHER p
 ## `trading/broker_sense/sessions.py`
 _trading/broker_sense/sessions.py — persistent logged-in broker browser sessions (saver H)._
 - **classes:** SessionManager
-- **functions:** `_sess_path(broker)`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `_challenge_present(pg) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
+- **functions:** `_sess_path(broker)`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `is_human_challenge(pg) -> bool`; `_challenge_present(pg) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
 - **imports:** __future__, os, re, stat, time, trading, trading.broker_sense.brokers
 
 ## `trading/broker_sense/stock_xray.py`

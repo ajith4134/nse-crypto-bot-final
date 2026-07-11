@@ -14,6 +14,13 @@
 }
 
 :8100 {
+	# --- Human-CAPTCHA handoff: interactive noVNC over the brain's shared Xvfb display
+	# (tools/handoff_vnc.sh brings up x11vnc+websockify on :6090). Caddy proxies the VNC
+	# WebSocket natively, so the operator can drag the slider from the dashboard. ---
+	handle_path /handoff-vnc/* {
+		reverse_proxy 127.0.0.1:6090
+	}
+
 	# --- FreqUI (crypto) ---
 	redir /frequi /frequi/ permanent
 	handle_path /frequi/* {
