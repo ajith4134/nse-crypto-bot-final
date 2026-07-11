@@ -268,4 +268,16 @@ Design (extends existing modules, no net-new subsystems):
 - R4 (optional, Pillar 9) numba-jit the retrace/ATR check if profiling ever shows
   it hot (unlikely — it's ~microseconds today).
 Effort: R1+R2 ~1 day; risk: low (paper-first, reuses order path + levers).
-Pillar: 27 (Direction Supremacy) + 9 (hot paths). STATUS: proposed, awaiting owner.
+Pillar: 27 (Direction Supremacy) + 9 (hot paths). STATUS: R1+R2 DONE 2026-07-11 (commit; 2.75s latency measured); R3 deferred until latency data demands it.
+
+## 2026-07-11 · Binance surface exploitation (compute-offload architecture) — PROPOSED
+Source: research/video/binance-app-improve/plan.md (owner video + "migrate compute to Binance account").
+Principle: Binance's servers do universe-wide compute (Screener TA, AI Select, /futures/data,
+movers); we READ results + deep-dive API only the shortlist → low CPU. 3-tier funnel (Tier0 bulk
+narrow · Tier1 shortlist API · Tier2 liq websocket) → indicator_fusion/decision_snapshot.
+25-surface catalog beyond the video's 4. Phases:
+- P1 (proposed): Tier-0 narrower + order-flow pack (taker/long-short/OI/basis) + liquidation WS + funding upgrade.
+- P2: Token Unlock + listing/launchpool catalysts.
+- P3: AI Select + movers + native Screener + sector rotation as candidate sources.
+- P4: options IV/skew/max-pain + Square sentiment.
+Status: awaiting owner approval on phase(s) to build.

@@ -1,0 +1,263 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/942d80a4-7b35-4169-8c95-010778620cd2/985f678c-VIDEO20260711152823_compressed.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/942d80a4-7b35-4169-8c95-010778620cd2/985f678c-VIDEO20260711152823_compressed.mp4",
+  "duration_s": 488.83,
+  "n_frames": 50,
+  "frames": [
+    {
+      "file": "f_0000_002.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_003.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0020_004.jpg",
+      "t": 20.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0030_005.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0040_006.jpg",
+      "t": 40.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0050_007.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_008.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0110_009.jpg",
+      "t": 70.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0120_010.jpg",
+      "t": 80.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0130_011.jpg",
+      "t": 90.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0140_012.jpg",
+      "t": 100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0150_013.jpg",
+      "t": 110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0200_014.jpg",
+      "t": 120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0210_015.jpg",
+      "t": 130.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0220_016.jpg",
+      "t": 140.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0230_017.jpg",
+      "t": 150.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0240_018.jpg",
+      "t": 160.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0250_019.jpg",
+      "t": 170.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0300_020.jpg",
+      "t": 180.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0310_021.jpg",
+      "t": 190.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0320_022.jpg",
+      "t": 200.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0330_023.jpg",
+      "t": 210.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0340_024.jpg",
+      "t": 220.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0350_025.jpg",
+      "t": 230.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0400_026.jpg",
+      "t": 240.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0410_027.jpg",
+      "t": 250.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0420_028.jpg",
+      "t": 260.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0430_029.jpg",
+      "t": 270.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0440_030.jpg",
+      "t": 280.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0450_031.jpg",
+      "t": 290.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0500_032.jpg",
+      "t": 300.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0510_033.jpg",
+      "t": 310.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0520_034.jpg",
+      "t": 320.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0530_035.jpg",
+      "t": 330.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0540_036.jpg",
+      "t": 340.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0550_037.jpg",
+      "t": 350.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0600_038.jpg",
+      "t": 360.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0610_039.jpg",
+      "t": 370.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0620_040.jpg",
+      "t": 380.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0630_041.jpg",
+      "t": 390.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0640_042.jpg",
+      "t": 400.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0650_043.jpg",
+      "t": 410.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0700_044.jpg",
+      "t": 420.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0710_000.jpg",
+      "t": 430.3,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0711_001.jpg",
+      "t": 431.03,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0720_045.jpg",
+      "t": 440.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0730_046.jpg",
+      "t": 450.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0740_047.jpg",
+      "t": 460.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0750_048.jpg",
+      "t": 470.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0800_049.jpg",
+      "t": 480.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 1,
+    "language": "si"
+  },
+  "out_dir": "/home/karan18190164/research/video/binance-app-improve"
+}
