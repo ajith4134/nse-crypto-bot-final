@@ -371,6 +371,22 @@ def fuse(symbol: str, market: str = "crypto",
     else:
         vision_agree = None
 
+    # 4b ── Binance order-flow tilt (compute-offload: positioning/flow COMPUTED BY BINANCE, read not
+    # derived — long/short ratios, taker buy/sell, funding, liquidation skew). Crypto only; a BOUNDED
+    # ±0.12 nudge so it informs the TA confluence without dominating it. Cheap: mirror=RAM,
+    # /futures/data is TTL-cached, and only shortlisted symbols ever reach fuse(). Never raises.
+    order_flow = None
+    if market == "crypto":
+        try:
+            from trading.broker_sense import binance_orderflow as _of
+            if _of.enabled():
+                order_flow = _of.signal(symbol)
+                t = order_flow.get("tilt")
+                if t is not None:
+                    confluence = _clamp(confluence + 0.12 * t, -1.0, 1.0)
+        except Exception:
+            order_flow = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -388,7 +404,7 @@ def fuse(symbol: str, market: str = "crypto",
         "regime": regime, "veto": veto, "vision_agree": vision_agree,
         "vision_dir": round(vision_dir, 4) if vision_dir is not None else None,
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
-        "barriers": barriers, "meta": meta,
+        "barriers": barriers, "meta": meta, "order_flow": order_flow,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

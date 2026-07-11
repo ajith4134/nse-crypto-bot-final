@@ -1409,6 +1409,12 @@ _Tests for trading/strategy/autoresearch.py — the live autoresearch driver (#5
 - **functions:** `_rows(n, base)`
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_binance_orderflow.py`
+_tests/test_binance_orderflow.py — Binance-computed order-flow feature pack._
+- **classes:** TestOrderFlow
+- **functions:** `_fake_rest(url)`
+- **imports:** time, trading.broker_sense, trading.broker_sense.binance_stream, unittest
+
 ## `tests/test_binance_stream.py`
 _tests/test_binance_stream.py — Binance all-market in-RAM mirror._
 - **classes:** TestBinanceMirror
@@ -2789,6 +2795,11 @@ _trading/broker_sense/app_school.py — the brain LEARNS to drive a broker app (
 - **classes:** AppMap, AppSchool
 - **functions:** `market_status(broker) -> dict`; `_min_quote_volume() -> float`; `_ccxt_exchange(segment)`; `get_school() -> AppSchool`
 - **imports:** __future__, datetime, os, time, trading, trading.broker_sense.brokers, zoneinfo
+
+## `trading/broker_sense/binance_orderflow.py`
+_trading/broker_sense/binance_orderflow.py — Binance-computed order-flow & positioning features._
+- **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `_get_json(url)`; `_cached(key, url)`; `_data(path, symbol)`; `_f(v)`; `_liq_pressure(symbol) -> dict`; `features(symbol) -> dict`; `signal(symbol) -> dict`; `clear_cache() -> None`
+- **imports:** __future__, json, os, threading, time, trading.broker_sense.binance_stream, urllib.parse, urllib.request
 
 ## `trading/broker_sense/binance_stream.py`
 _trading/broker_sense/binance_stream.py — Binance all-market WEBSOCKET mirror (compute-offload)._
