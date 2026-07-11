@@ -458,6 +458,278 @@ _(no summary)_
 _(no summary)_
 - **imports:** glob, re
 
+## `.local/lib/python3.13/site-packages/pypdf/__init__.py`
+_pypdf is a free and open-source pure-python PDF library capable of splitting,_
+- **imports:** _crypt_providers, _doc_common, _encryption, _page, _reader, _text_extraction, _version, _writer, constants, pagerange, papersizes
+
+## `.local/lib/python3.13/site-packages/pypdf/_cmap.py`
+_(no summary)_
+- **functions:** `get_encoding(ft) -> tuple[Union[str, dict[int, str]], dict[Any, Any]]`; `_parse_encoding(ft) -> Union[str, dict[int, str]]`; `_parse_to_unicode(ft) -> tuple[dict[Any, Any], list[int]]`; `prepare_cm(ft) -> bytes`; `process_cm_line(line, process_rg, process_char, multiline_rg, map_dict, int_entry) -> tuple[bool, bool, Union[None, tuple[int, int]]]`; `_check_mapping_size(size) -> None`; `parse_bfrange(line, map_dict, int_entry, multiline_rg) -> Union[None, tuple[int, int]]`; `parse_bfchar(line, map_dict, int_entry) -> None`; `_type1_alternative(ft, map_dict, int_entry) -> tuple[dict[Any, Any], list[int]]`
+- **imports:** _codecs, _utils, binascii, errors, generic, math, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/__init__.py`
+_(no summary)_
+- **functions:** `fill_from_encoding(enc) -> list[str]`; `rev_encoding(enc) -> dict[str, int]`
+- **imports:** adobe_glyphs, pdfdoc, std, symbol, zapfding
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/_codecs.py`
+_This module is for codecs only._
+- **classes:** Codec, LzwCodec
+- **imports:** abc, io, pypdf._utils, pypdf.errors
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/adobe_glyphs.py`
+_(no summary)_
+- **functions:** `_complete() -> None`
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/core_font_metrics.py`
+_(no summary)_
+- **imports:** pypdf._font
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/pdfdoc.py`
+_(no summary)_
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/std.py`
+_(no summary)_
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/symbol.py`
+_(no summary)_
+
+## `.local/lib/python3.13/site-packages/pypdf/_codecs/zapfding.py`
+_(no summary)_
+
+## `.local/lib/python3.13/site-packages/pypdf/_crypt_providers/__init__.py`
+_(no summary)_
+- **imports:** pypdf._crypt_providers._base
+
+## `.local/lib/python3.13/site-packages/pypdf/_crypt_providers/_base.py`
+_(no summary)_
+- **classes:** CryptBase, CryptIdentity
+
+## `.local/lib/python3.13/site-packages/pypdf/_crypt_providers/_cryptography.py`
+_(no summary)_
+- **classes:** CryptRC4, CryptAES
+- **functions:** `rc4_encrypt(key, data) -> bytes`; `rc4_decrypt(key, data) -> bytes`; `aes_ecb_encrypt(key, data) -> bytes`; `aes_ecb_decrypt(key, data) -> bytes`; `aes_cbc_encrypt(key, iv, data) -> bytes`; `aes_cbc_decrypt(key, iv, data) -> bytes`
+- **imports:** cryptography, cryptography.hazmat.primitives.ciphers.algorithms, cryptography.hazmat.primitives.ciphers.base, cryptography.hazmat.primitives.ciphers.modes, cryptography.hazmat.primitives.padding, pypdf._crypt_providers._base, pypdf._utils, pypdf.errors, secrets
+
+## `.local/lib/python3.13/site-packages/pypdf/_crypt_providers/_fallback.py`
+_(no summary)_
+- **classes:** CryptRC4, CryptAES
+- **functions:** `rc4_encrypt(key, data) -> bytes`; `rc4_decrypt(key, data) -> bytes`; `aes_ecb_encrypt(key, data) -> bytes`; `aes_ecb_decrypt(key, data) -> bytes`; `aes_cbc_encrypt(key, iv, data) -> bytes`; `aes_cbc_decrypt(key, iv, data) -> bytes`
+- **imports:** pypdf._crypt_providers._base, pypdf.errors
+
+## `.local/lib/python3.13/site-packages/pypdf/_crypt_providers/_pycryptodome.py`
+_(no summary)_
+- **classes:** CryptRC4, CryptAES
+- **functions:** `rc4_encrypt(key, data) -> bytes`; `rc4_decrypt(key, data) -> bytes`; `aes_ecb_encrypt(key, data) -> bytes`; `aes_ecb_decrypt(key, data) -> bytes`; `aes_cbc_encrypt(key, iv, data) -> bytes`; `aes_cbc_decrypt(key, iv, data) -> bytes`
+- **imports:** Crypto, Crypto.Cipher, Crypto.Util.Padding, pypdf._crypt_providers._base, pypdf._utils, pypdf.errors, secrets
+
+## `.local/lib/python3.13/site-packages/pypdf/_doc_common.py`
+_(no summary)_
+- **classes:** DocumentInformation, PdfDocCommon, LazyDict
+- **functions:** `convert_to_int(d, size) -> Union[int, tuple[Any, ...]]`
+- **imports:** _encryption, _page, _page_labels, _utils, abc, collections.abc, constants, datetime, errors, filters, generic, generic._files, struct, types, typing, xmp
+
+## `.local/lib/python3.13/site-packages/pypdf/_encryption.py`
+_(no summary)_
+- **classes:** CryptFilter, AlgV4, AlgV5, PasswordType, EncryptAlgorithm, EncryptionValues, Encryption
+- **functions:** `_padding(data) -> bytes`; `_saslprep(password) -> str`
+- **imports:** _utils, enum, generic, hashlib, pypdf._crypt_providers, secrets, stringprep, struct, typing, unicodedata
+
+## `.local/lib/python3.13/site-packages/pypdf/_font.py`
+_(no summary)_
+- **classes:** FontDescriptor, CoreFontMetrics, Font
+- **imports:** __future__, _cmap, _codecs.adobe_glyphs, _utils, collections.abc, constants, dataclasses, errors, pypdf.generic, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_page.py`
+_(no summary)_
+- **classes:** Transformation, ImageFile, VirtualListImages, PageObject, _VirtualList
+- **functions:** `_get_rectangle(self, name, defaults) -> RectangleObject`; `_set_rectangle(self, name, value) -> None`; `_delete_rectangle(self, name) -> None`; `_create_rectangle_accessor(name, fallback) -> property`; `_get_fonts_walk(obj, fnt, emb) -> tuple[set[str], set[str]]`
+- **imports:** _font, _protocols, _text_extraction, _text_extraction._text_extractor, _utils, collections.abc, constants, copy, dataclasses, decimal, errors, generic, io, math, pathlib, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_page_labels.py`
+_Page labels are shown by PDF viewers as "the page number"._
+- **functions:** `number2uppercase_roman_numeral(num) -> str`; `number2lowercase_roman_numeral(number) -> str`; `number2uppercase_letter(number) -> str`; `number2lowercase_letter(number) -> str`; `get_label_from_nums(dictionary_object, index) -> str`; `index2label(reader, index) -> str`; `nums_insert(key, value, nums) -> None`; `nums_clear_range(key, page_index_to, nums) -> None`; `nums_next(key, nums) -> tuple[Optional[NumberObject], Optional[DictionaryObject]]`
+- **imports:** _protocols, _utils, collections.abc, generic, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_protocols.py`
+_Helpers for working with PDF types._
+- **classes:** PdfObjectProtocol, XmpInformationProtocol, PdfCommonDocProtocol, PdfReaderProtocol, PdfWriterProtocol
+- **imports:** _utils, abc, pathlib, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_reader.py`
+_(no summary)_
+- **classes:** PdfReader
+- **imports:** _doc_common, _encryption, _utils, collections.abc, constants, errors, generic, io, os, pathlib, re, sys, types, typing, xmp
+
+## `.local/lib/python3.13/site-packages/pypdf/_text_extraction/__init__.py`
+_Code related to text extraction._
+- **classes:** OrientationNotFoundError
+- **functions:** `set_custom_rtl(_min, _max, specials) -> tuple[int, int, list[int]]`; `mult(m, n) -> list[float]`; `orient(m) -> int`; `crlf_space_check(text, cmtm_prev, cmtm_matrix, memo_cmtm, font_resource, orientations, output, font_size, visitor_text, str_widths, spacewidth, str_height) -> tuple[str, str, list[float], list[float]]`; `get_text_operands(operands, cm_matrix, tm_matrix, font, orientations) -> tuple[str, bool]`; `get_display_str(text, cm_matrix, tm_matrix, font_resource, font, text_operands, font_size, rtl_dir, visitor_text) -> tuple[str, bool, float]`
+- **imports:** _font, generic, math, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_text_extraction/_layout_mode/__init__.py`
+_Layout mode text extraction extension for pypdf_
+- **imports:** _fixed_width_page, _font
+
+## `.local/lib/python3.13/site-packages/pypdf/_text_extraction/_layout_mode/_fixed_width_page.py`
+_Extract PDF text preserving the layout of the source PDF_
+- **classes:** BTGroup
+- **functions:** `resolve_font(fonts, name) -> Font`; `bt_group(tj_op, rendered_text, displaced_tx) -> BTGroup`; `recurse_to_target_op(ops, text_state_mgr, end_target, fonts, strip_rotated) -> tuple[list[BTGroup], list[TextStateParams]]`; `y_coordinate_groups(bt_groups, debug_path) -> dict[int, list[BTGroup]]`; `text_show_operations(ops, fonts, strip_rotated, debug_path) -> list[BTGroup]`; `fixed_char_width(bt_groups, scale_weight) -> float`; `fixed_width_page(ty_groups, char_width, space_vertically, font_height_weight) -> str`
+- **imports:** _font, _text_state_manager, _text_state_params, _utils, collections.abc, itertools, math, pathlib, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_text_extraction/_layout_mode/_text_state_manager.py`
+_manage the PDF transform stack during "layout" mode text extraction_
+- **classes:** TextStateManager
+- **imports:** _font, _text_state_params, collections, collections.abc, errors, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_text_extraction/_layout_mode/_text_state_params.py`
+_A dataclass that captures the CTM and Text State for a tj operation_
+- **classes:** TextStateParams
+- **imports:** _font, dataclasses, math, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_text_extraction/_text_extractor.py`
+_(no summary)_
+- **classes:** TextExtraction
+- **imports:** _font, generic, math, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/_utils.py`
+_Utility functions for PDF library._
+- **classes:** classproperty, File, Version
+- **functions:** `parse_iso8824_date(text) -> Optional[datetime]`; `format_iso8824_date(dt) -> str`; `_get_max_pdf_version_header(header1, header2) -> str`; `read_until_whitespace(stream, maxchars) -> bytes`; `read_non_whitespace(stream) -> bytes`; `skip_over_whitespace(stream) -> bool`; `check_if_whitespace_only(value) -> bool`; `skip_over_comment(stream) -> None`; `read_until_regex() -> bytes`; `read_block_backwards(stream, to_read) -> bytes`; `read_previous_line(stream) -> bytes`; `matrix_multiply(a, b) -> TransformationMatrixType`; `mark_location(stream) -> None`; `deprecate(msg, stacklevel) -> None`; `deprecation(msg) -> NoReturn`; `deprecate_with_replacement(old_name, new_name, removed_in) -> None`; `deprecation_with_replacement(old_name, new_name, removed_in) -> NoReturn`; `deprecate_no_replacement(name, removed_in) -> None`; `deprecation_no_replacement(name, removed_in) -> NoReturn`; `logger_error(message) -> None`; `logger_warning(message) -> None`; `rename_kwargs(func_name, kwargs, aliases, fail) -> None`; `_human_readable_bytes(bytes) -> str`
+- **imports:** dataclasses, datetime, errors, functools, io, logging, os, re, sys, typing, warnings
+
+## `.local/lib/python3.13/site-packages/pypdf/_version.py`
+_(no summary)_
+
+## `.local/lib/python3.13/site-packages/pypdf/_writer.py`
+_(no summary)_
+- **classes:** ObjectDeletionFlag, PdfWriter
+- **functions:** `_rolling_checksum(stream, blocksize) -> str`; `_pdf_objectify(obj) -> PdfObject`; `_create_outline_item(action_ref, title, color, italic, bold) -> TreeObject`
+- **imports:** _doc_common, _encryption, _page, _page_labels, _reader, _utils, collections.abc, constants, decimal, enum, errors, generic, generic._appearance_stream, hashlib, io, itertools, pagerange, pathlib, re, struct, sys, types, typing, uuid, xmp
+
+## `.local/lib/python3.13/site-packages/pypdf/annotations/__init__.py`
+_PDF specifies several annotation types which pypdf makes available here._
+- **imports:** _base, _markup_annotations, _non_markup_annotations
+
+## `.local/lib/python3.13/site-packages/pypdf/annotations/_base.py`
+_(no summary)_
+- **classes:** AnnotationDictionary
+- **imports:** abc, constants, generic, generic._data_structures
+
+## `.local/lib/python3.13/site-packages/pypdf/annotations/_markup_annotations.py`
+_(no summary)_
+- **classes:** MarkupAnnotation, Text, FreeText, Line, PolyLine, Rectangle, Highlight, Ellipse, Polygon
+- **functions:** `_get_bounding_rectangle(vertices) -> RectangleObject`
+- **imports:** _base, abc, constants, generic, generic._base, generic._rectangle, generic._utils, sys, typing, uuid
+
+## `.local/lib/python3.13/site-packages/pypdf/annotations/_non_markup_annotations.py`
+_(no summary)_
+- **classes:** Link, Popup
+- **imports:** _base, generic._base, generic._data_structures, generic._fit, generic._rectangle, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/constants.py`
+_Various constants, enums, and flags to aid readability._
+- **classes:** StrEnum, Core, TrailerKeys, CatalogAttributes, EncryptionDictAttributes, UserAccessPermissions, Resources, PagesAttributes, PageAttributes, FileSpecificationDictionaryEntries, StreamAttributes, FilterTypes, FilterTypeAbbreviations, LzwFilterParameters, CcittFaxDecodeParameters, ImageAttributes, ColorSpaces, TypArguments, TypFitArguments, GoToActionArguments, AnnotationDictionaryAttributes, InteractiveFormDictEntries, FieldDictionaryAttributes, CheckboxRadioButtonAttributes, FieldFlag, DocumentInformationAttributes, PageLayouts, GraphicsStateParameters, CatalogDictionary, OutlineFontFlag, PageLabelStyle, AnnotationFlag, ImageType, AFRelationship, BorderStyles, FontFlags
+- **imports:** enum
+
+## `.local/lib/python3.13/site-packages/pypdf/errors.py`
+_All errors/exceptions pypdf raises and all of the warnings it uses._
+- **classes:** DeprecationError, DependencyError, PyPdfError, PdfReadError, PageSizeNotDefinedError, PdfReadWarning, PdfStreamError, ParseError, FileNotDecryptedError, WrongPasswordError, EmptyFileError, EmptyImageDataError, LimitReachedError, XmpDocumentError
+
+## `.local/lib/python3.13/site-packages/pypdf/filters.py`
+_Implementation of stream filters; §7.4 Filters of the PDF 2.0 specification._
+- **classes:** FlateDecode, ASCIIHexDecode, RunLengthDecode, LZWDecode, ASCII85Decode, DCTDecode, JPXDecode, CCITTParameters, CCITTFaxDecode, JBIG2Decode
+- **functions:** `_decompress_with_limit(data) -> bytes`; `decompress(data) -> bytes`; `__create_old_class_instance(K, columns, rows) -> NoReturn`; `_deprecate_inline_image_filters(filter_name, old_name, new_name) -> None`; `decode_stream_data(stream) -> bytes`
+- **imports:** _codecs._codecs, _utils, base64, binascii, constants, dataclasses, errors, generic, math, os, pathlib, shutil, struct, subprocess, tempfile, typing, zlib
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/__init__.py`
+_Implementation of generic PDF objects (dictionary, number, string, ...)._
+- **imports:** _base, _data_structures, _files, _fit, _link, _outline, _rectangle, _utils, _viewerpref, constants
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_appearance_stream.py`
+_(no summary)_
+- **classes:** BaseStreamConfig, BaseStreamAppearance, TextAlignment, TextStreamAppearance
+- **imports:** __future__, _codecs, _codecs.core_font_metrics, _font, _utils, constants, dataclasses, enum, errors, generic, generic._base, io, re, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_base.py`
+_(no summary)_
+- **classes:** PdfObject, NullObject, BooleanObject, IndirectObject, FloatObject, NumberObject, ByteStringObject, TextStringObject, NameObject
+- **functions:** `encode_pdfdocencoding(unicode_string) -> bytes`; `is_null_or_none(x) -> TypeGuard[Union[None, NullObject, IndirectObject]]`
+- **imports:** _codecs, _protocols, _utils, binascii, codecs, collections.abc, errors, hashlib, math, re, struct, sys, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_data_structures.py`
+_(no summary)_
+- **classes:** ArrayObject, DictionaryObject, TreeObject, StreamObject, DecodedStreamObject, EncodedStreamObject, ContentStream, Field, Destination
+- **functions:** `_reset_node_tree_relationship(child_obj) -> None`; `read_object(stream, pdf, forced_encoding) -> Union[PdfObject, int, str, ContentStream]`
+- **imports:** _base, _fit, _image_inline, _protocols, _utils, collections.abc, constants, errors, io, logging, math, os, re, sys, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_files.py`
+_(no summary)_
+- **classes:** EmbeddedFile
+- **imports:** __future__, bisect, functools, pypdf._utils, pypdf.constants, pypdf.errors, pypdf.generic, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_fit.py`
+_(no summary)_
+- **classes:** Fit
+- **imports:** _base, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_image_inline.py`
+_(no summary)_
+- **functions:** `_check_end_image_marker(stream) -> bool`; `extract_inline__ascii_hex_decode(stream) -> bytes`; `extract_inline__ascii85_decode(stream) -> bytes`; `extract_inline__run_length_decode(stream) -> bytes`; `extract_inline__dct_decode(stream) -> bytes`; `extract_inline_default(stream) -> bytes`; `is_followed_by_binary_data(stream, length) -> bool`
+- **imports:** _utils, errors, io, logging, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_image_xobject.py`
+_Functions to convert an image XObject to an image_
+- **functions:** `_get_image_mode(color_space, color_components, prev_mode, depth) -> tuple[mode_str_type, bool]`; `bits2byte(data, size, bits) -> bytes`; `_image_from_bytes(mode, size, data) -> Image.Image`; `__handle_flate__indexed(color_space) -> tuple[Any, Any, Any, Any]`; `_handle_flate(size, data, mode, color_space, colors, obj_as_text) -> tuple[Image.Image, str, str, bool]`; `_handle_jpx(size, data, mode, color_space, colors) -> tuple[Image.Image, str, str, bool]`; `_apply_decode(img, x_object, lfilters, color_space, invert_color) -> Image.Image`; `_get_mode_and_invert_color(x_object, colors, color_space) -> tuple[mode_str_type, bool]`; `_xobj_to_image(x_object, pillow_parameters) -> tuple[Optional[str], bytes, Any]`
+- **imports:** _utils, constants, errors, generic, io, sys, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_link.py`
+_(no summary)_
+- **classes:** NamedReferenceLink, DirectReferenceLink
+- **functions:** `extract_links(new_page, old_page) -> list[tuple[ReferenceLink, ReferenceLink]]`; `_build_link(indirect_object, page) -> Optional[ReferenceLink]`; `_create_link(reference, source_pdf) -> Optional[ReferenceLink]`
+- **imports:** _utils, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_outline.py`
+_(no summary)_
+- **classes:** OutlineItem
+- **imports:** _base, _data_structures, _utils, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_rectangle.py`
+_(no summary)_
+- **classes:** RectangleObject
+- **imports:** _base, _data_structures, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_utils.py`
+_(no summary)_
+- **functions:** `hex_to_rgb(value) -> tuple[float, float, float]`; `read_hex_string_from_stream(stream, forced_encoding) -> Union['TextStringObject', 'ByteStringObject']`; `read_string_from_stream(stream, forced_encoding) -> Union['TextStringObject', 'ByteStringObject']`; `create_string_object(string, forced_encoding) -> Union[TextStringObject, ByteStringObject]`; `decode_pdfdocencoding(byte_array) -> str`
+- **imports:** _base, _codecs, _utils, codecs, errors, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/generic/_viewerpref.py`
+_(no summary)_
+- **classes:** ViewerPreferences
+- **imports:** _base, _data_structures, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/pagerange.py`
+_Representation and utils for ranges of PDF file pages._
+- **classes:** PageRange
+- **functions:** `parse_filename_page_ranges(args) -> list[tuple[str, PageRange]]`
+- **imports:** errors, re, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/papersizes.py`
+_Helper to get paper sizes._
+- **classes:** Dimensions, PaperSize
+- **imports:** typing
+
+## `.local/lib/python3.13/site-packages/pypdf/types.py`
+_Helpers for working with PDF types._
+- **imports:** generic._base, generic._data_structures, generic._outline, sys, typing
+
+## `.local/lib/python3.13/site-packages/pypdf/xmp.py`
+_Anything related to Extensible Metadata Platform (XMP) metadata._
+- **classes:** _XmpBuilder, XmpInformation
+- **functions:** `_identity(value) -> K`; `_converter_date(value) -> datetime.datetime`; `_format_datetime_utc(value) -> str`; `_generic_get(element, self, list_type, converter) -> Optional[list[str]]`
+- **imports:** _protocols, _utils, collections.abc, datetime, decimal, errors, generic, re, string, typing, xml.dom.expatbuilder, xml.dom.minidom, xml.dom.xmlbuilder, xml.parsers.expat
+
 ## `cognition/__init__.py`
 _cognition — Phase P4.5: "Thinking + knowing-what-it-knows"._
 - **imports:** cognition.active_inference, cognition.affect, cognition.calibration, cognition.embodiment, cognition.guardrails, cognition.identity, cognition.neuro_symbolic, cognition.reasoning, cognition.society, cognition.thinker
