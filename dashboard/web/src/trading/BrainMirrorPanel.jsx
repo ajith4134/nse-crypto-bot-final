@@ -24,6 +24,8 @@ export default function BrainMirrorPanel() {
   const [st, setSt] = useState(null)          // /api/trading/mirror payload
   const [broker, setBroker] = useState('')    // '' until brokers known
   const [frameTs, setFrameTs] = useState(0)   // cache-buster, bumped only on fresh frames
+  const [liveStream, setLive] = useState(false) // M: MJPEG live video vs frame polling
+  const [liveErr, setLiveErr] = useState(null)
   const imgRef = useRef(null)
   const alive = useRef(true)
 
@@ -85,6 +87,12 @@ export default function BrainMirrorPanel() {
           🪞 Brain Screen Mirror — watch the brain work {meta ? <Badge live={!!meta.live} /> : null}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setLive(!liveStream)} title={liveErr || 'real MJPEG video of the brain display (ffmpeg x11grab)'} style={{
+            background: T.panel2 || '#1a1f2b', color: liveStream ? '#ff5b5b' : T.muted,
+            border: `1px solid ${liveStream ? '#ff5b5b' : T.border}`, borderRadius: 8,
+            padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 800 }}>
+            {liveStream ? '⏺ LIVE VIDEO' : '▶ LIVE VIDEO'}
+          </button>
           {brokers.map((b) => (
             <button key={b} onClick={() => setBroker(b)} style={{
               background: T.panel2 || '#1a1f2b', color: b === broker ? (T.accent || '#5b9dff') : T.muted,
@@ -99,7 +107,17 @@ export default function BrainMirrorPanel() {
         Read-only mirror of the browser the brain operates (funnel screening, ⭐ watchlist hand, app-school).
         {meta && meta.url ? <> Current page: <b style={{ color: T.text }}>{(meta.title || meta.url).slice(0, 90)}</b> · frame {age}</> : ' Waiting for the brain to touch a page…'}
       </div>
-      {meta && meta.ts ? (
+      {liveStream ? (
+        // M (2026-07-11): REAL live video — one MJPEG stream of the brain's whole Xvfb
+        // display (every browser it drives), capture running only while this is open.
+        <div style={{ position: 'relative' }}>
+          <img alt="live brain display" src={`/api/trading/mirror/stream?t=${Date.now()}`}
+            onError={() => { setLiveErr('live stream unavailable — no headed display up (falls back to frames)'); setLive(false) }}
+            style={{ width: '100%', border: '1px solid #ff5b5b', borderRadius: 8, display: 'block' }} />
+          <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 800,
+            color: '#ff5b5b', background: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: '3px 8px' }}>⏺ LIVE</div>
+        </div>
+      ) : meta && meta.ts ? (
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: '2 1 480px', position: 'relative', minWidth: 320 }}>
             <img ref={imgRef} key={broker} alt={`brain browser ${broker}`}

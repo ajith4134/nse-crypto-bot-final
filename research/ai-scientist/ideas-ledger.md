@@ -219,3 +219,33 @@ E1 verified live (engine tailgate_lock exits incl. gap-through-lock at -2.9%); E
 (native tg_*/strategy_label on /status+/trades, header-scoped /status, /mlnb/* endpoints);
 E4 verified (mlnb_fills.jsonl filling with real entry/exit fills); E3 built+tested, OFF by
 default pending soak; E5 FORK.md landed. BN-U2/U3 remain proposed (owner picked A).
+
+## 2026-07-10 — DIRECTION ACCURACY PROGRAM (owner order: "correct direction every time or close"; plan research/direction-accuracy-program/PLAN.md)
+Ground truth: 1,665 closed crypto trades = 40.3% direction-correct (conf≈1.0 bucket: 29%) → systematic ANTI-signal, exploitable by inversion.
+| id | idea | type | status |
+|----|------|------|--------|
+| DA-D1 | Direction Truth Ledger — fixed-horizon direction outcomes for every decision (taken + skipped), per source×regime×horizon hit-rates w/ Wilson CI; backfill 1,665 trades | new | done 2026-07-10 — truth_ledger.py, 11,067 labels/127 buckets, panel + API live; found SHORTs 63%@4h destroyed by exits |
+| DA-D2 | Mirror Gate — invert reliably-wrong (CI<45%) direction buckets, abstain 45-55%; turns measured 29-40% buckets into 60-71% with zero new data | new | done 2026-07-10 — mirror_gate.py wired at 3 entry sites; CI-conservative, arms as buckets tighten |
+| DA-D3 | Pullback entry — require k×ATR retrace after verdict before entry (<15m holds are 34.9% correct = entries at local extremes) | replace (immediate market entry) | proposed |
+| DA-D4 | Microstructure direction features — cross-venue lead-lag gap (multi-venue pool), OFI/microprice, funding snap, multi-TF agreement | new | proposed |
+| DA-D5 | Regime-conditional direction — momentum sign only in trend regime, reversion sign in chop, abstain at transitions (BOCD/HMM exist) | replace (regime-blind decide) | proposed |
+| DA-D6 | Direction meta-labeler — lightgbm P(side correct) on D4+snapshot features, triple-barrier labels, isotonic + conformal abstention = the 80%-on-taken dial | new | proposed |
+| DA-D7 | Direction Colosseum — shadow league: every source predicts every candidate, truth-scored at horizon, live weight only after >55% CI in shadow | new | proposed |
+| DA-D8 | Validate+Size stages — pre-trade audit veto (local LLM + rules) + fractional-Kelly from calibrated P + enforced target≥2×stop (vidup1 math: 52%×3.92 R/R) | new | proposed |
+| DA-D9 | NSE call/put on the same oracle — CE/PE from calibrated verdicts, ends options no_direction starvation | new | proposed |
+| DA-W | Watchlist Study Funnel — save shortlist to app watchlist → open each symbol → eyes-read multi-TF/indicators/depth → StudyReport → oracle → API trade → remove on close | new | proposed |
+| DA-M | Live Screen Mirror — ffmpeg x11grab MJPEG stream per brain display, viewer-demand start/stop; replaces per-action JPEGs | replace (frame polling) | proposed |
+Fixed same session (pre-plan): funnel LLM-wedge (no crypto trades) + tailgate displayed-lock vs exit-line divergence (live_loop) — both verified live.
+
+## 2026-07-11 — Direction program D3-D9 + W + M ALL SHIPPED (owner "continue with d3 and all next steps")
+DA-D3 done (pullback.py arm→sweep + live_price feather fallback for UI-only mode; 8 tests; 3 executor sites).
+DA-D4 done (micro_features.py: venue_leadlag/psych_ofi/funding_extreme/mtf_agree shadow lanes; 8 tests; funnel-cycle claims).
+DA-D5 done (regime.py Kaufman-ER trend/chop/transition, 60s shared cache; 8 tests; default regime for all crypto claims + gates).
+DA-D6 done (meta_labeler.py LightGBM+isotonic, time-ordered holdout, honesty guard; 6 tests; trained on 7,676 real examples → AUC 0.509 → ADVISORY until features accrue; 6-hourly retrain; executor gate + Kelly sizing).
+DA-D7 done by composition (6+ measured claim sources per cycle; Truth panel = league table).
+DA-D8 done (regime-transition block + fractional-Kelly stake from calibrated p, proven-model-only).
+DA-D9 done (live_loop NSE/options entries record + mirror-gate; NSE regime = cross-broker label).
+DA-W done (watchlist_study.py: study set → BOTH app watchlists, StudyReport fusion, app_study claims, auto-drop; 8 tests).
+DA-M done (live_mirror.py ffmpeg x11grab MJPEG + /api/trading/mirror/stream + panel LIVE toggle w/ honest 503 fallback).
+Also fixed: DecisionMemoryPanel null-outcome crash (e.outcome?.r_multiple) that unmounted the whole Trading view.
+Deferred (ledgered): /code-review high-effort pass over the full direction diff; meta-labeler TabPFN challenger; lead_lag pip HY-estimator upgrade of venue lane; Direction panel sections for pullback/study/meta.

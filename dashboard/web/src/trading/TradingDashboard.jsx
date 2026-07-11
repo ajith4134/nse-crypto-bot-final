@@ -9,6 +9,7 @@ import PriceChart from './PriceChart.jsx'
 import OrderFlowMap from './OrderFlowMap.jsx'
 import OpenTradesPanel from './OpenTradesPanel.jsx'
 import ScorecardPanel from './ScorecardPanel.jsx'
+import DirectionTruthPanel from './DirectionTruthPanel.jsx'
 import ClosedTradesTable from './ClosedTradesTable.jsx'
 import PnlStrip from './PnlStrip.jsx'
 import PracticePanel from './PracticePanel.jsx'
@@ -154,6 +155,10 @@ export default function TradingDashboard() {
 
       <Card title="Segment Scorecard — NSE · Crypto · Prediction" hint="per-segment score: total profit (closed) + current profit (open) — same sources as the tables below">
         <ScorecardPanel scorecard={data?.scorecard} />
+      </Card>
+
+      <Card title="🎯 Direction Truth — who is actually right about direction (Pillar 27)" hint="every directional decision (taken AND skipped) labeled with what price really did at 15m/1h/4h · Wilson CIs · worst sources are Mirror-Gate invert candidates">
+        <DirectionTruthPanel />
       </Card>
 
       <Card title="Open Trades — unified (paper loop + Freqtrade + OpenAlgo)" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols · Trade Type column shows the engine`}

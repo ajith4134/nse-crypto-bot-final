@@ -72,6 +72,16 @@ def open_nse_symbols() -> list[str]:
             continue
         seen.add(sym)
         out.append(sym)
+    try:
+        # W watchlist-study (Pillar 27): study-set candidates ride in the same
+        # Brain-Open watchlist — saved while under study, auto-removed after.
+        from trading.broker_sense import watchlist_study
+        for sym in watchlist_study.study_symbols("nse"):
+            if sym and sym not in seen:
+                seen.add(sym)
+                out.append(sym)
+    except Exception:
+        pass
     return out
 
 

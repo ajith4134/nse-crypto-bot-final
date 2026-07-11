@@ -36,8 +36,14 @@ class FileMemory:
         self.index = self.root / "MEMORY.md"
         self.assoc = associative                     # AssociativeMemory | None
         if self.assoc is not None:
+            # backfill ONLY notes the store hasn't seen, via the heuristic (no-LLM) path:
+            # Note.id is a random uuid, so a naive re-add duplicates the store every boot,
+            # and each LLM-analyzed add is 3 chat calls — 161 notes wedged the funnel main
+            # thread for ~1h walking rate-limited provider chains (2026-07-10)
+            known = {n.title for n in self.assoc.notes.values()}
             for note in self.load_all():             # old facts become recallable
-                self.assoc.add(note["body"], title=note["name"])
+                if note["name"] not in known:
+                    self.assoc.add(note["body"], title=note["name"], use_llm=False)
 
     # ── write: one fact per file + index pointer (the Claude discipline) ─────────
     def write(self, name: str, description: str, body: str,

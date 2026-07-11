@@ -245,10 +245,31 @@ class BrokerSenseFunnel:
                                       deadline=t0 + budget * 0.7,
                                       hard_deadline=t0 + budget * 0.85)
         directions = {s: _vote(c) for s, c in charts.items()}
+        # D1 Truth Ledger (Pillar 27): every non-neutral verdict is a directional CLAIM —
+        # record it now (taken or not) so its fixed-horizon truth gets measured. Never raises.
+        try:
+            from trading.direction import truth_ledger
+            for s, (d, score) in directions.items():
+                if d != "neutral":
+                    truth_ledger.record(symbol=s, market=self.market,
+                                        segment=segment or "futures",
+                                        direction=d, source="funnel_mtf_vote",
+                                        confidence=score)
+            # D4/D7 shadow league: the microstructure lanes (venue lead-lag, OFI,
+            # funding extreme, multi-TF agreement) each stake their own claim on the
+            # same candidates — every lane earns a measured hit-rate. Budgeted.
+            if self.market == "crypto":
+                from trading.direction import micro_features
+                micro_features.record_claims(
+                    [s for s, (d, _) in directions.items() if d != "neutral"][:12],
+                    segment=segment or "futures", budget_s=15)
+        except Exception:
+            pass
         candidates = [s for s, (d, _) in directions.items()
                       if d != "neutral" or s in open_syms]
         rep["stages"]["look"] = {"timeframes": list(tfs), "read": len(charts),
                                  "non_neutral": len(candidates),
+                                 "cands": candidates[:24],
                                  **self.vision.stats}
 
         # 4 ── VERIFY: top-of-book (screen-mirror + API fail-safe) + risk rules IN CODE

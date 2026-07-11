@@ -1,0 +1,23 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/983d869c-ba66-4314-909e-c2a42567a7fa/e6eddd71-AQP4d0IeKwJkFuR1J9_x8_hF4Ohmrwl6zJKojSr3edTSucVfP62p_OJeVoF0KrEOizfQKi64mRzDJjKRJ_Ylo2rZEUjoEsFjgYQJurw.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/983d869c-ba66-4314-909e-c2a42567a7fa/e6eddd71-AQP4d0IeKwJkFuR1J9_x8_hF4Ohmrwl6zJKojSr3edTSucVfP62p_OJeVoF0KrEOizfQKi64mRzDJjKRJ_Ylo2rZEUjoEsFjgYQJurw.mp4",
+  "duration_s": 13.72,
+  "n_frames": 2,
+  "frames": [
+    {
+      "file": "f_0000_000.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_001.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 0,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/vidup2"
+}

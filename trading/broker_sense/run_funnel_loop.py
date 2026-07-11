@@ -178,6 +178,25 @@ def main() -> int:
                           flush=True)
             except Exception as e:
                 print(f"[watchlist:{market}] error: {e!r}", flush=True)
+            try:
+                # W watchlist-study (Pillar 27): save this cycle's candidates to the
+                # app watchlist (via the mirrors above), study each saved symbol
+                # (multi-TF chart + micro lanes + regime → StudyReport + an
+                # "app_study" Truth-Ledger claim), auto-drop when studied + gone.
+                from trading.broker_sense import watchlist_study as _ws
+                if _ws.enabled():
+                    _f = funnels.get(market)
+                    _cands = (((getattr(_f, "last", None) or {}).get("stages", {})
+                               .get("look", {}) or {}).get("cands")) or []
+                    _seg = ((getattr(_f, "last", None) or {}).get("segment")
+                            or ("futures" if market == "crypto" else "intraday"))
+                    _ws.propose(_cands, market=market, segment=_seg)
+                    _sr = _ws.study_round(sessions=funnel.sessions, market=market)
+                    if _sr.get("studied"):
+                        print(f"[study:{market}] studied={_sr['studied']} "
+                              f"claims={_sr['claims']}", flush=True)
+            except Exception as e:
+                print(f"[study:{market}] error: {e!r}", flush=True)
         try:                                          # W8: one morning briefing per IST day
             from trading.brain import briefing
             if briefing.due():
@@ -196,6 +215,19 @@ def main() -> int:
                       f"{(ls.get('learned') or {}).get('n_hypotheses')} hypotheses", flush=True)
         except Exception as e:
             print(f"[funnel-learn] error: {e!r}", flush=True)
+        try:                                          # D1 Truth Ledger (Pillar 27): resolve
+            from trading.direction import truth_ledger    # due direction claims each cycle
+            tr = truth_ledger.tick(budget_s=15)
+            if tr.get("resolved") or tr.get("expired"):
+                print(f"[direction-truth] resolved={tr['resolved']} "
+                      f"pending={tr['still_pending']} expired={tr['expired']}",
+                      flush=True)
+            from trading.direction import meta_labeler    # D6: 6-hourly retrain
+            mt = meta_labeler.maybe_train()
+            if mt:
+                print(f"[direction-meta] {mt}", flush=True)
+        except Exception as e:
+            print(f"[direction-truth] error: {e!r}", flush=True)
         time.sleep(max(2.0, _next_bar_close() - time.time()))    # saver C: bar-close trigger
 
 

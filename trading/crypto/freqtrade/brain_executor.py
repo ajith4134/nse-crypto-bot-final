@@ -239,6 +239,42 @@ class BrainExecutor:
         # ridden and gains are locked. The brain learns the trail distance from outcomes (below).
         tailgated = self._tailgate_pass(cli, allow_live=allow_live)
         exited.extend(tailgated)
+        armed_n = 0
+        # D3 pullback entries (Pillar 27): armed verdicts whose price has pulled back
+        # to us fire NOW — the entry gets the retrace as a discount instead of chasing
+        # the spike (sub-15m holds graded 34.9% direction-correct when entered at the
+        # screen-time extreme). Sweep is quote-cached + time-budgeted; never raises.
+        try:
+            from trading.direction import pullback as _pb
+            if _pb.enabled():
+                for _row in _pb.sweep(
+                        lambda s: _pb.live_price(s, self.segment or "futures"),
+                        segment=self.segment or "futures"):
+                    try:
+                        _psym = cli.tradeable_form(_row["symbol"], self.segment)
+                        if _psym is None:
+                            continue
+                        _res = cli.place_order(
+                            symbol=_psym, action="BUY",
+                            side=("long" if _row["direction"] == "LONG" else "short"),
+                            allow_live=allow_live,
+                            enter_tag=str(_row.get("source") or "pullback"),
+                            segment=self.segment)
+                        if isinstance(_res, dict) and _res.get("ok") is False:
+                            continue
+                        if isinstance(_res, dict) and _res.get("queued"):
+                            queued.append(_psym)
+                        else:
+                            entered.append(_psym)
+                        self._record_entry_meta(
+                            _psym, _row["direction"], _row.get("source"),
+                            {"pullback": {k: _row.get(k) for k in
+                                          ("ref_price", "entry_ref", "atr",
+                                           "armed_ts")}}, None, explore=True)
+                    except Exception:
+                        continue
+        except Exception:
+            pass
         syms = self.symbols()
         for i, sym in enumerate(syms):
             if deadline is not None and time.monotonic() > deadline:
@@ -261,6 +297,36 @@ class BrainExecutor:
                         _act = "LONG" if float(_pup) >= 0.5 else "SHORT"
                     else:
                         _act = "LONG"
+                    # D2 Mirror Gate (Pillar 27): correct/veto the explore direction with
+                    # the source's MEASURED accuracy (this default-LONG path graded 40%).
+                    _mg = None
+                    try:
+                        from trading.direction import mirror_gate
+                        from trading.direction.regime import classify as _rg
+                        _act, _mg = mirror_gate.apply(
+                            _act, source="explore_open_all", symbol=sym,
+                            segment=self.segment or "futures", regime=_rg(sym).get("regime"))
+                    except Exception:
+                        _mg = None
+                    if _act is None:                  # proven coin-flip → skip honestly
+                        skipped += 1
+                        continue
+                    # D3: don't chase the spike — arm the verdict; the next sweeps enter
+                    # on the k×ATR (pct fallback) retrace. Quote missing → fall through
+                    # to the immediate entry (honest degradation, never a silent drop).
+                    try:
+                        from trading.direction import pullback as _pb
+                        if _pb.enabled():
+                            _q = _pb.live_price(sym, self.segment or "futures")
+                            if _q and _pb.arm(symbol=sym,
+                                              segment=self.segment or "futures",
+                                              direction=_act,
+                                              source="explore_open_all",
+                                              ref_price=float(_q), atr=None):
+                                armed_n += 1
+                                continue
+                    except Exception:
+                        pass
                     try:
                         # Broker-app picks arrive in the app's own book (ADA/RUB, BSW/TRY —
                         # delisted quote books): route to the engine-tradeable USDT book,
@@ -284,7 +350,7 @@ class BrainExecutor:
                             # pair+time at fill), but never booked as an entry
                             queued.append(_tsym)
                             self._record_entry_meta(_tsym, _act, "explore_open_all",
-                                                    {"explore": True}, None, explore=True)
+                                                    {"explore": True, "mirror_gate": _mg}, None, explore=True)
                             continue
                         entered.append(_tsym)
                         # #13: use the FULL recorder (psych read + FinMem episode +
@@ -295,7 +361,7 @@ class BrainExecutor:
                             # the entry meta joins by TRADED pair — carry the pick's signals over
                             self.extra_signals[_tsym] = self.extra_signals[sym]
                         self._record_entry_meta(_tsym, _act, "explore_open_all",
-                                                {"explore": True}, None, explore=True)
+                                                {"explore": True, "mirror_gate": _mg}, None, explore=True)
                     except Exception:
                         skipped += 1
                     continue
@@ -345,6 +411,40 @@ class BrainExecutor:
                     else:
                         act = "LONG"                     # gainers/movers/unknown → explore long
                     tag = tag or "explore_open_all"
+                # D2 Mirror Gate (Pillar 27): every selective entry direction passes the
+                # measured per-source gate — invert the reliably-wrong, skip proven noise.
+                if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    try:
+                        from trading.direction import mirror_gate
+                        from trading.direction.regime import classify as _rg
+                        _gact, _g = mirror_gate.apply(
+                            act, source=str(tag or "unknown"), symbol=sym,
+                            segment=self.segment or "futures", regime=_rg(sym).get("regime"),
+                            confidence=brain.get("confidence"))
+                        if _g.get("action") in ("invert", "abstain"):
+                            brain = {**brain, "mirror_gate": _g}
+                        if _gact is None:
+                            skipped += 1
+                            continue
+                        act = _gact
+                        # D6 meta-labeler: calibrated P(side correct). Blocks ONLY a
+                        # proven model (holdout AUC ≥ META_MIN_AUC) and never in
+                        # explore (explore generates its training data).
+                        from trading.direction import meta_labeler as _ml
+                        _mg6 = _ml.gate(act, {
+                            "ts": time.time(), "symbol": sym, "market": "CRYPTO",
+                            "segment": self.segment or "futures",
+                            "source": str(tag or "unknown"),
+                            "confidence": brain.get("confidence"),
+                            "regime": _rg(sym).get("regime"), "taken": True})
+                        if _mg6.get("p") is not None:
+                            brain = {**brain, "meta_gate": _mg6}
+                        if not explore and not _mg6.get("allow", True):
+                            vetoes.append(sym)
+                            skipped += 1
+                            continue
+                    except Exception:
+                        pass
                 if brain.get("chosen_strategy"):
                     picks[sym] = {"strategy": brain.get("chosen_strategy"), "action": act,
                                   "final_score": brain.get("final_score"), "sharpe": brain.get("sharpe"),
@@ -389,7 +489,46 @@ class BrainExecutor:
                             vetoes.append(sym)
                             skipped += 1
                             continue
+                # D8 validate stage (Pillar 27): a regime TRANSITION is the moment
+                # stale-regime models are most wrong (SOTA notes §4) — block fresh
+                # non-explore entries there unless the source is ledger-TRUSTED.
+                if act in ("LONG", "SHORT") and sym not in open_pairs \
+                        and not explore and os.environ.get(
+                            "REGIME_TRANSITION_BLOCK", "1") in ("1", "true", "yes"):
+                    try:
+                        from trading.direction import mirror_gate as _mgm
+                        from trading.direction.regime import classify as _rgc
+                        if _rgc(sym).get("regime") == "transition":
+                            _tg = _mgm.decide(act, source=str(tag or "unknown"),
+                                              regime="transition")
+                            if not (_tg.get("ci_low") or 0) > 0.55:
+                                vetoes.append(sym)
+                                skipped += 1
+                                continue
+                    except Exception:
+                        pass
                 if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    # D3: selective entries arm too — same retrace discount, with a
+                    # real ATR from the bars the decide() call already fetched.
+                    try:
+                        from trading.direction import pullback as _pb
+                        if _pb.enabled():
+                            _atr = None
+                            try:
+                                _atr = _pb.atr_from_df(self.decider._ohlcv(sym))
+                            except Exception:
+                                _atr = None
+                            _q = _pb.live_price(sym, self.segment or "futures")
+                            if _q and _pb.arm(symbol=sym,
+                                              segment=self.segment or "futures",
+                                              direction=act,
+                                              source=str(tag or "unknown"),
+                                              ref_price=float(_q), atr=_atr,
+                                              confidence=brain.get("confidence")):
+                                armed_n += 1
+                                continue
+                    except Exception:
+                        pass
                     # same honesty as the explore path: route to the engine-tradeable book
                     # and count an entry ONLY when the engine accepted the order.
                     tsym = cli.tradeable_form(sym, self.segment)
@@ -400,7 +539,8 @@ class BrainExecutor:
                                           side=("long" if act == "LONG" else "short"),
                                           allow_live=allow_live, enter_tag=tag,
                                           segment=self.segment,
-                                          stake_amount=self._bandit_stake(cli, tag))
+                                          stake_amount=self._meta_kelly_stake(
+                                              cli, tag, brain.get("meta_gate")))
                     if isinstance(res, dict) and res.get("ok") is False:
                         skipped += 1
                         continue
@@ -422,9 +562,38 @@ class BrainExecutor:
         self._last_picks = picks
         self._last_vetoes = vetoes
         return {"entered": entered, "exited": exited, "skipped": skipped,
-                "queued": queued,
+                "queued": queued, "armed": armed_n,
                 "universe": len(syms), "picks": picks, "vetoes": vetoes,
                 "explore": explore, "deadline_deferred": deadline_deferred}
+
+    def _meta_kelly_stake(self, cli, tag: str | None, meta_gate) -> float | None:
+        """D8 sizing (Pillar 27): scale the bandit/base stake by the meta-labeler's
+        calibrated P(correct) — fractional-Kelly-inspired linear map
+        mult = clamp(1 + KELLY_SCALE·(p−0.5), 0.4, 1.8). Applies ONLY while the
+        model is PROVEN (its gate ran non-advisory); otherwise the bandit stake (or
+        engine default) stands untouched — sizing never moves on an unproven model."""
+        import os as _os
+        base = self._bandit_stake(cli, tag)
+        try:
+            g = meta_gate if isinstance(meta_gate, dict) else None
+            if not g or g.get("advisory", True) or g.get("p") is None:
+                return base
+            scale = float(_os.environ.get("KELLY_SCALE", "4") or 4)
+            mult = max(0.4, min(1.8, 1 + scale * (float(g["p"]) - 0.5)))
+            if abs(mult - 1.0) < 0.05:
+                return base
+            if base is None:                       # need an honest engine base to scale
+                now = time.monotonic()
+                cache = getattr(self, "_stake_cache", None)
+                if cache is None or now - cache[0] > 3600:
+                    eng = (cli.show_config() or {}).get("stake_amount")
+                    cache = (now, float(eng) if isinstance(eng, (int, float))
+                             and eng > 0 else None)
+                    self._stake_cache = cache
+                base = cache[1]
+            return round(base * mult, 2) if base else None
+        except Exception:
+            return base
 
     def _bandit_stake(self, cli, tag: str | None) -> float | None:
         """Champion-bandit stake scaling (invent-beyond #3): a SELECTIVE entry attributed to a
@@ -593,6 +762,25 @@ class BrainExecutor:
                 under = f"{base}/USDT:USDT"          # decide on the perp (full brain data)
                 d = self.decider.decide("CRYPTO", under, None, in_position=False)
                 act = d.get("action")
+                if act in ("LONG", "SHORT"):
+                    try:                              # D1: options side = a claim on the perp
+                        from trading.direction import truth_ledger
+                        truth_ledger.record(symbol=under, market="CRYPTO",
+                                            segment="options", direction=act,
+                                            source=str(d.get("strategy")
+                                                       or "percoin_decider"),
+                                            confidence=d.get("confidence"))
+                    except Exception:
+                        pass
+                    try:                              # D2: CE/PE side through the same gate
+                        from trading.direction import mirror_gate
+                        from trading.direction.regime import classify as _rg
+                        act, _ = mirror_gate.apply(
+                            act, source=str(d.get("strategy") or "percoin_decider"),
+                            symbol=under, segment="options", regime=_rg(under).get("regime"),
+                            confidence=d.get("confidence"))
+                    except Exception:
+                        pass
                 held = [s for s in open_pairs if s.startswith(f"{base}/")]
                 want = {"LONG": "C", "SHORT": "P"}.get(act)
                 if want is None:
@@ -946,5 +1134,14 @@ class BrainExecutor:
                 "decision_snapshot": snapshot,
                 "uq": (brain or {}).get("uq") if isinstance(brain, dict) else None,
             })
+            # D1 Truth Ledger (Pillar 27): the OPENED trade is a directional claim by its
+            # strategy — record it for fixed-horizon truth labeling (exit-independent).
+            from trading.direction import truth_ledger
+            truth_ledger.record(symbol=sym, market="CRYPTO",
+                                segment=self.segment or "futures", direction=act,
+                                source=str(tag or "unknown"),
+                                confidence=(brain or {}).get("confidence")
+                                if isinstance(brain, dict) else None,
+                                taken=True)
         except Exception:
             pass

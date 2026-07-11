@@ -34,7 +34,9 @@ def file_memory():
         def _llm(messages):
             try:
                 from core import llm
-                return llm.chat(messages)
+                # hard wall-clock budget: memory writes run inline on trading-loop
+                # threads, and an unbounded failover chain is n_providers × 45s
+                return llm.chat(messages, timeout=20, total_timeout=45)
             except Exception:
                 return None
         _STATE.mkdir(parents=True, exist_ok=True)

@@ -72,6 +72,17 @@ def open_crypto_symbols() -> dict:
                     out[sym] = {"pair": pair, "segment": seg}
         except Exception:
             continue                       # one segment down ≠ the mirror is wrong
+    try:
+        # W watchlist-study (Pillar 27): the STUDY SET rides in the same ⭐ Favorites —
+        # save candidates → study → (trade via API) → auto-removed when they leave the
+        # study set. Same write gate + budget as the open-trade mirror.
+        from trading.broker_sense import watchlist_study
+        for pair in watchlist_study.study_symbols("crypto"):
+            sym = _flat(pair)
+            if sym and sym not in out:
+                out[sym] = {"pair": pair, "segment": "study"}
+    except Exception:
+        pass
     return out
 
 

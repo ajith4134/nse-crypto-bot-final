@@ -666,7 +666,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_mirror_stream(h)`; `handle_direction_truth(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -1590,6 +1590,11 @@ _Decision-memory subsystem (trading/brain/decision_memory.py + attribution.py) a
 - **classes:** _IsolatedState, TestDecisionMemory, TestAttribution, TestFreqtradeIngestFixes
 - **imports:** datetime, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_direction_regime.py`
+_Tests for trading/direction/regime — D5 direction regime classifier._
+- **classes:** _Iso, TestClassifyCloses, TestClassifyIO
+- **imports:** math, pathlib, tempfile, time, trading.state, unittest
+
 ## `tests/test_discovery_signal.py`
 _Live discovery signal + trade-decision integration (trading/brain/discovery/signal.py)._
 - **classes:** TestLiveSignal, TestExecutorBlend
@@ -1833,6 +1838,18 @@ _Tests for trading/brain/memory_search.py — FTS5 full-text memory search (offl
 - **classes:** TestMemorySearch
 - **imports:** __future__, json, pathlib, tempfile, trading.brain, trading.state, unittest
 
+## `tests/test_meta_labeler.py`
+_Tests for trading/direction/meta_labeler — D6 direction meta-labeler._
+- **classes:** _Iso, TestMetaLabeler
+- **functions:** `_write_examples(n)`
+- **imports:** json, pathlib, random, tempfile, time, trading.state, unittest
+
+## `tests/test_micro_features.py`
+_Tests for trading/direction/micro_features — D4 microstructure direction lanes._
+- **classes:** _Iso, TestFundingExtreme, TestMtfAgree, TestRecordClaims
+- **functions:** `_feather(root, rel, col_open, closes, hours)`
+- **imports:** pathlib, tempfile, time, trading.state, unittest
+
 ## `tests/test_micro_policy.py`
 _Tests for invent-beyond #4 — distilled entry micro-policy (teacher table + student)._
 - **classes:** _Sandbox, _StubDecider, TestCheapFeatures, TestDistillAndDecide
@@ -1843,6 +1860,12 @@ _Tests for invent-beyond #4 — distilled entry micro-policy (teacher table + st
 _Tests for nodes/micro_transformer_node.py — cloned-LLM node (Phase C)._
 - **functions:** `_toy(n, seed)`; `test_tokenizer_handles_any_data()`; `test_satisfies_node_protocol_and_learns()`; `test_c_kernel_generates_with_own_weights(tmp_path)`
 - **imports:** core.node_protocol, nodes.micro_transformer_node, pytest, random
+
+## `tests/test_mirror_gate.py`
+_Tests for trading/direction/mirror_gate — D2 of the Direction Accuracy Program._
+- **classes:** _Iso, TestMirrorGate
+- **functions:** `_seed(buckets) -> None`
+- **imports:** pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_mlnb_engine_native.py`
 _Tests for the fork's brain-native layer (E-workstreams 2026-07-10):_
@@ -1958,6 +1981,11 @@ _Trader-psychology engine (order-book depth) — pure-computation tests._
 - **classes:** TestSnapshots, TestSignals, TestJournalWiring, TestDeepLob
 - **functions:** `_snap(mid, bid_boost, ask_boost, ts, levels)`; `_ring(n, bid_boost, ask_boost, seed)`
 - **imports:** collections, pathlib, random, tempfile, time, trading.brain.psychology, trading.state, unittest
+
+## `tests/test_pullback.py`
+_Tests for trading/direction/pullback — D3 pullback entries._
+- **classes:** _Iso, TestPullback
+- **imports:** pathlib, tempfile, time, trading.state, unittest
 
 ## `tests/test_regime_moe.py`
 _AI-scientist idea #7 — Regime-conditioned MoE router (learned gate over frozen experts)._
@@ -2117,6 +2145,12 @@ _Tests for trading/exits/ — four trailing-exit components over one signed engi
 - **functions:** `_first_exit(engine, path)`; `test_long_stop_trail_exits_on_drop_from_peak()`; `test_long_stop_trail_ratchets_up_only()`; `test_long_stop_no_exit_while_rising()`; `test_long_profit_trail_arms_only_after_offset()`; `test_long_profit_trail_ratchets_after_arming()`; `test_short_loss_trail_exits_on_rise_from_trough()`; `test_short_profit_trail_ratchets_down()`; `test_short_profit_arms_only_after_offset()`; `test_long_stop_trail_matches_vectorbt_tsl()`; `test_short_trail_matches_vectorbt()`; `test_atr_mode_produces_volatility_scaled_stop()`; `test_chandelier_mode_uses_pandas_ta_classic()`; `test_supertrend_mode_uses_pandas_ta_classic()`; `test_make_exit_returns_correct_wrappers()`; `test_make_exit_passes_config_through()`; `test_make_exit_rejects_unknown_purpose()`; `test_reset_re_arms_for_new_position()`; `test_status_snapshot_shape()`; `test_build_demo_trailing_snapshot()`; `test_engine_signed_core_direct_construction()`
 - **imports:** __future__, numpy, pandas, pytest, trading.exits
 
+## `tests/test_truth_ledger.py`
+_Tests for trading/direction/truth_ledger — D1 of the Direction Accuracy Program._
+- **classes:** _Iso, TestRecord, TestTickLabeling, TestWilson, TestBackfill
+- **functions:** `_write_feather(root, rel, t0, closes) -> None`
+- **imports:** json, pathlib, tempfile, time, trading.state, unittest
+
 ## `tests/test_tsfm_ensemble.py`
 _AI-scientist idea #5 — TSFM ensemble + conformal calibration._
 - **classes:** TestTSFMEnsemble, TestTimeMoENode
@@ -2162,6 +2196,11 @@ _Tests for the FREE computer-use loop (trading/brain/vision/computer_use) — of
 _Tests for the free vision engine (core.llm.vision_chat) — the brain's FREE eyes._
 - **classes:** TestImageDataUrl, TestVisionChat
 - **imports:** __future__, base64, core, os, tempfile, unittest
+
+## `tests/test_watchlist_study.py`
+_Tests for trading/broker_sense/watchlist_study — W watchlist study funnel._
+- **classes:** _FakeReader, _Iso, TestPropose, TestStudyRound, TestFuse
+- **imports:** pathlib, tempfile, time, trading.state, unittest
 
 ## `tests/test_worldmodel.py`
 _tests/test_worldmodel.py — world-model + MuZero imagination planner._
@@ -2802,6 +2841,11 @@ _trading/broker_sense/live_browser.py — an interactive HEADLESS browser stream
 - **functions:** `get_live_browser() -> LiveBrowser`
 - **imports:** __future__, queue, threading, time, trading
 
+## `trading/broker_sense/live_mirror.py`
+_trading/broker_sense/live_mirror.py — M: LIVE video screen mirror (Pillar 27 batch)._
+- **functions:** `_env(name, default) -> str`; `enabled() -> bool`; `display() -> str`; `available() -> dict`; `frames(fps)`
+- **imports:** __future__, os, subprocess, threading
+
 ## `trading/broker_sense/ocular_perception.py`
 _trading/broker_sense/ocular_perception.py — the funnel's NEW eyes (Phase-2 deep read)._
 - **classes:** OcularPerception
@@ -2884,6 +2928,11 @@ _trading/broker_sense/ui_health.py — Human-UI self-check (owner goal 2026-07-0
 _trading/broker_sense/watchlist.py — hot watchlist with TTL (saver E)._
 - **classes:** HotWatchlist
 - **imports:** __future__, time, trading
+
+## `trading/broker_sense/watchlist_study.py`
+_trading/broker_sense/watchlist_study.py — W: the watchlist study funnel (Pillar 27)._
+- **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `study_symbols(market) -> list[str]`; `propose(candidates) -> dict`; `_fuse(mtf, micro) -> tuple[str | None, float, dict]`; `study_round(sessions) -> dict`; `status() -> dict`
+- **imports:** __future__, os, time, trading
 
 ## `trading/classification_eval.py`
 _Classification evaluation artifacts (CANON-37) + confusion-structure verdicts_
@@ -3462,6 +3511,39 @@ _trading/crypto/watchlist.py — persisted crypto watchlist (T2)._
 - **classes:** CryptoWatchItem, CryptoWatchlist
 - **imports:** __future__, dataclasses, trading, trading.crypto.config
 
+## `trading/direction/__init__.py`
+_trading/direction — the Direction Accuracy Program (goal Pillar 27)._
+
+## `trading/direction/meta_labeler.py`
+_trading/direction/meta_labeler.py — D6: the direction meta-labeler (Pillar 27)._
+- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_model_path() -> Path`; `_source_prior(source, horizon) -> float`; `_featurize(ex) -> dict`; `_frame(rows)`; `train(min_examples) -> dict`; `maybe_train() -> dict | None`; `load_model() -> dict | None`; `p_correct(example) -> float | None`; `gate(direction, example) -> dict`; `status() -> dict`
+- **imports:** __future__, datetime, json, os, pathlib, time, trading
+
+## `trading/direction/micro_features.py`
+_trading/direction/micro_features.py — D4: microstructure direction features (Pillar 27)._
+- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `venue_gap(symbol) -> dict`; `funding_extreme(symbol) -> dict`; `mtf_agree(symbol, segment) -> dict`; `psych_ofi(symbol, segment) -> dict`; `snapshot(symbol, segment) -> dict`; `record_claims(symbols, segment, budget_s) -> dict`
+- **imports:** __future__, os, time
+
+## `trading/direction/mirror_gate.py`
+_trading/direction/mirror_gate.py — D2: the Mirror Gate (goal Pillar 27)._
+- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_buckets() -> dict`; `_lookup(source, regime, horizon) -> tuple[int, int, str]`; `decide(direction) -> dict`; `apply(direction) -> tuple[str | None, dict]`; `status() -> dict`
+- **imports:** __future__, os, time, trading
+
+## `trading/direction/pullback.py`
+_trading/direction/pullback.py — D3: pullback entries (goal Pillar 27)._
+- **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `_key(symbol, segment) -> str`; `live_price(symbol, segment) -> float | None`; `atr_from_df(df) -> float | None`; `arm() -> bool`; `_dist(row) -> float`; `sweep(price_fn) -> list[dict]`; `status() -> dict`
+- **imports:** __future__, os, time, trading
+
+## `trading/direction/regime.py`
+_trading/direction/regime.py — D5: the direction regime classifier (goal Pillar 27)._
+- **functions:** `_env_f(name, default) -> float`; `_er(closes) -> tuple[float | None, bool]`; `_classify_closes(closes) -> dict`; `classify(symbol, segment) -> dict`; `market_regime() -> str`
+- **imports:** __future__, os, time, trading
+
+## `trading/direction/truth_ledger.py`
+_trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._
+- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit) -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `status() -> dict`
+- **imports:** __future__, datetime, fcntl, json, math, os, pathlib, time, trading
+
 ## `trading/evidence.py`
 _trading/evidence.py — W3 evidence lane: baselines, counterfactuals, autonomy gates,_
 - **functions:** `_store() -> dict`; `_save(d) -> None`; `_norm(sig) -> dict`; `_price_of(sig) -> float | None`; `observe_cycle() -> dict`; `_feed_snapshots(d, signals, now) -> int`; `_nearest_snap(snaps, target_ts) -> float | None`; `record_data_failure(source, detail) -> None`; `baseline_stats(market, segment, window_days) -> dict`; `skip_stats(market, segment, window_days) -> dict`; `autonomy_gates(market, segment) -> dict`; `watchdogs() -> dict`; `status() -> dict`
@@ -3862,7 +3944,7 @@ _trading/squareoff.py — exchange auto-squareoff rule engine (T1 §8)._
 
 ## `trading/state.py`
 _trading/state.py — tiny JSON state persistence for the trading package._
-- **functions:** `_path(name) -> Path`; `load_json(name, default) -> Any`; `save_json(name, data) -> None`; `update_json(name, updates) -> dict`
+- **functions:** `_path(name) -> Path`; `load_json(name, default) -> Any`; `save_json(name, data) -> None`; `update_json(name, updates) -> dict`; `mutate_json(name, fn, default) -> Any`
 - **imports:** __future__, json, os, pathlib, tempfile, typing
 
 ## `trading/strategy/__init__.py`

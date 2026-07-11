@@ -65,3 +65,22 @@ def update_json(name: str, updates: dict) -> dict:
             return data
         finally:
             fcntl.flock(lf, fcntl.LOCK_UN)
+
+
+def mutate_json(name: str, fn, default: Any = None) -> Any:
+    """Apply `fn(data) -> data` to state file `name` under the same cross-process lock
+    as update_json. For read-modify-write that top-level key merging can't express —
+    e.g. INCREMENTING counters that several processes fold into (the direction truth
+    ledger's bucket aggregates). `fn` must return the object to persist."""
+    import fcntl
+
+    lock = _path(f"{name}.lock")
+    with open(lock, "w") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        try:
+            data = load_json(name, {} if default is None else default)
+            data = fn(data)
+            save_json(name, data)
+            return data
+        finally:
+            fcntl.flock(lf, fcntl.LOCK_UN)

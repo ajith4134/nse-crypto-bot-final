@@ -128,8 +128,8 @@ class AssociativeMemory:
             return None
 
     # ── A-MEM analyze_content: keywords / context / tags ─────────────────────────
-    def _analyze(self, text: str) -> dict:
-        data = _parse_json(self._chat(_ANALYZE_PROMPT, text))
+    def _analyze(self, text: str, use_llm: bool = True) -> dict:
+        data = _parse_json(self._chat(_ANALYZE_PROMPT, text)) if use_llm else None
         if data and data.get("keywords"):
             return {"keywords": [str(k).lower() for k in data.get("keywords", [])][:12],
                     "context": str(data.get("context", "General"))[:200],
@@ -141,8 +141,9 @@ class AssociativeMemory:
         return {"keywords": kws, "context": " ".join(str(text).split()[:18]), "tags": kws[:3]}
 
     # ── HippoRAG OpenIE: (subject, relation, object) triples ─────────────────────
-    def _triples(self, text: str, keywords: list[str]) -> list[tuple[str, str, str]]:
-        data = _parse_json(self._chat(_TRIPLES_PROMPT, text))
+    def _triples(self, text: str, keywords: list[str],
+                 use_llm: bool = True) -> list[tuple[str, str, str]]:
+        data = _parse_json(self._chat(_TRIPLES_PROMPT, text)) if use_llm else None
         out = []
         for t in (data or {}).get("triples", []):
             if isinstance(t, (list, tuple)) and len(t) == 3:
@@ -155,14 +156,17 @@ class AssociativeMemory:
                 for i in range(min(len(keywords), 6) - 1)]
 
     # ── write path: note + graph + A-MEM evolution ───────────────────────────────
-    def add(self, text: str, title: str = "", now: float = 0.0, meta: dict | None = None) -> dict:
-        info = self._analyze(text)
+    def add(self, text: str, title: str = "", now: float = 0.0, meta: dict | None = None,
+            use_llm: bool = True) -> dict:
+        # use_llm=False takes the heuristic path throughout — bulk/backfill ingestion
+        # (e.g. FileMemory boot) must never fan out LLM calls on the caller's thread
+        info = self._analyze(text, use_llm=use_llm)
         note = Note(content=str(text), title=title or (info["context"][:60]),
                     keywords=info["keywords"], context=info["context"],
                     tags=info["tags"], created=now)
         nid = f"note:{note.id}"
         self.graph.add_node(nid, "note", note.title[:80])
-        triples = self._triples(text, note.keywords)
+        triples = self._triples(text, note.keywords, use_llm=use_llm)
         for s, r, o in triples:
             for ent in (s, o):
                 self.graph.add_node(f"ent:{ent}", "entity", ent)
@@ -171,7 +175,7 @@ class AssociativeMemory:
         for kw in note.keywords:                       # entity index for query seeding
             self.graph.add_node(f"ent:{kw}", "entity", kw)
             self.graph.add_edge(nid, f"ent:{kw}", "about")
-        evolved = self._evolve(note)
+        evolved = self._evolve(note, use_llm=use_llm)
         self.notes[note.id] = note
         self._save()
         return {"id": note.id, "title": note.title, "keywords": note.keywords,
@@ -190,7 +194,7 @@ class AssociativeMemory:
         scored.sort(key=lambda x: -x[0])
         return scored[:k]
 
-    def _evolve(self, note: Note) -> dict:
+    def _evolve(self, note: Note, use_llm: bool = True) -> dict:
         """A-MEM memory evolution: link the new note + let it UPDATE older neighbours."""
         nbrs = self._neighbours(note, self.evolve_k)
         if not nbrs:
@@ -199,7 +203,7 @@ class AssociativeMemory:
                          for i, (_, n) in enumerate(nbrs))
         data = _parse_json(self._chat(
             _EVOLVE_PROMPT, f"NEW context={note.context}\ncontent={note.content[:400]}\n"
-            f"keywords={note.keywords}\nNEIGHBOURS:\n{desc}"))
+            f"keywords={note.keywords}\nNEIGHBOURS:\n{desc}")) if use_llm else None
         linked = updated = 0
         if data and data.get("should_evolve"):
             idxs = [i for i in data.get("suggested_connections", [])

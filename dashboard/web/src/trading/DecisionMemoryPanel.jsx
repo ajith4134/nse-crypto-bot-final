@@ -106,7 +106,7 @@ export default function DecisionMemoryPanel() {
                   ? <Badge text="pending" color={T.warn} />
                   : <span style={{ color: pnl > 0 ? T.good : T.bad, fontWeight: 700 }}>
                       {pnl > 0 ? '+' : ''}{pnl?.toFixed(4)}
-                      {e.outcome.r_multiple != null && ` (R ${Number(e.outcome.r_multiple).toFixed(2)})`}
+                      {e.outcome?.r_multiple != null && ` (R ${Number(e.outcome.r_multiple).toFixed(2)})`}
                     </span>}
                 <span style={{ color: T.muted, marginLeft: 'auto' }}>
                   imp {Number(e.importance).toFixed(0)}

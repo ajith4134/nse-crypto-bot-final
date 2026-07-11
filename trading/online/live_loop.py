@@ -1291,6 +1291,28 @@ class LiveTradeLoop:
         if uq and uq.get("abstain"):
             return {"ok": False, "abstain": True,
                     "detail": f"UQ abstain: {uq.get('abstain_reason')}"}
+        # D1/D2/D9 (Pillar 27): every NSE/options/BSE entry is a directional claim —
+        # record it for fixed-horizon truth labeling and pass it through the Mirror
+        # Gate (invert reliably-wrong sources / skip proven coin-flips). CE/PE map to
+        # the underlying's LONG/SHORT inside record(). Never raises.
+        try:
+            from trading.direction import mirror_gate as _dmg
+            _src = str((brain or {}).get("tag") or (brain or {}).get("source")
+                       or (brain or {}).get("strategy") or "live_loop")[:80]
+            _gd, _gi = _dmg.apply(direction, source=_src, symbol=symbol,
+                                  market=market.upper(), segment=seg or "equity",
+                                  confidence=(brain or {}).get("confidence"))
+            if _gd is None:
+                return {"ok": False, "abstain": True,
+                        "detail": f"mirror-gate abstain: {_src} is a proven coin-flip"}
+            direction = _gd
+            from trading.direction import truth_ledger as _dtl
+            _dtl.record(symbol=symbol, market=market.upper(),
+                        segment=seg or "equity", direction=direction, source=_src,
+                        confidence=(brain or {}).get("confidence"), taken=True,
+                        ref_price=float(price) if price else None)
+        except Exception:
+            pass
         instrument, product = self._instrument_product(market, seg)
         leverage = self._leverage_of(market, seg)
         # P4: size the trade with the PositionSizer (capital, ATR-stop, edge) — not a fixed 1.

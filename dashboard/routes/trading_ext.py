@@ -1532,6 +1532,65 @@ def handle_gate_tuning(h):
     return h._send(200, body, "application/json")
 
 
+def handle_mirror_stream(h):
+    """GET /api/trading/mirror/stream — LIVE MJPEG mirror of the brain's Xvfb display
+    (ffmpeg x11grab, viewer-demand: capture runs only while someone watches). 503 with
+    the honest reason when no headed display/ffmpeg is up — the panel then falls back
+    to the existing per-action frame polling."""
+    try:
+        from trading.broker_sense import live_mirror
+        gen = live_mirror.frames()
+        first = next(gen)                          # surface start-up errors as 503
+    except Exception as e:
+        return h._send(503, json.dumps({"available": False,
+                                        "error": str(e)[:200]}).encode(),
+                       "application/json")
+    try:
+        h.send_response(200)
+        h.send_header("Content-Type",
+                      "multipart/x-mixed-replace; boundary=mlnbframe")
+        h.send_header("Cache-Control", "no-cache")
+        h.end_headers()
+        for jpg in __import__("itertools").chain([first], gen):
+            h.wfile.write(b"--mlnbframe\r\nContent-Type: image/jpeg\r\n"
+                          b"Content-Length: " + str(len(jpg)).encode()
+                          + b"\r\n\r\n" + jpg + b"\r\n")
+            h.wfile.flush()
+    except (BrokenPipeError, ConnectionResetError, OSError):
+        pass                                       # viewer left → generator cleanup
+    finally:
+        try:
+            gen.close()
+        except Exception:
+            pass
+    return None
+
+
+def handle_direction_truth(h):
+    """GET /api/trading/direction/truth — D1 Direction Truth Ledger (goal Pillar 27).
+
+    Real measured direction accuracy per source×regime×horizon with Wilson CIs, straight
+    off direction_truth.json (state-file read, request-thread safe). ?min_n=N filters
+    thin buckets; ?full=1 returns every bucket row for the drill-down table."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.broker_sense import watchlist_study
+        from trading.direction import (meta_labeler, mirror_gate, pullback,
+                                       truth_ledger)
+        qs = parse_qs(urlparse(h.path).query)
+        out = {**truth_ledger.status(), "live": True, "demo": False,
+               "mirror": mirror_gate.status(), "meta": meta_labeler.status(),
+               "pullback": pullback.status(), "study": watchlist_study.status()}
+        if (qs.get("full") or ["0"])[0] in ("1", "true"):
+            min_n = int((qs.get("min_n") or ["10"])[0])
+            out["buckets"] = truth_ledger.hit_rates(min_n=min_n)
+        body = json.dumps(out, default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
 def handle_learning_curve(h):
     """GET /api/trading/learning_curve — is the brain IMPROVING? (owner ask 2026-07-10).
 

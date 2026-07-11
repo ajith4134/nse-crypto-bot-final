@@ -1339,6 +1339,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/gate_tuning":                # body → dashboard/routes/trading_ext.py (2026-07-10)
             from dashboard.routes import trading_ext
             return trading_ext.handle_gate_tuning(self)
+        if path == "/api/trading/direction/truth":            # D1 Truth Ledger (Pillar 27, 2026-07-10)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_direction_truth(self)
+        if path == "/api/trading/mirror/stream":              # M: LIVE MJPEG mirror (2026-07-11)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_mirror_stream(self)
         if path == "/api/trading/confidence":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_confidence(self)
