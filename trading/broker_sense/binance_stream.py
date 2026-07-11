@@ -291,6 +291,12 @@ class BinanceUniverseMirror:
         except Exception:
             pass
         try:
+            from trading.broker_sense import binance_ai_select as _ai
+            if _ai.enabled():
+                d["ai_select"] = _ai.picks()[:8]
+        except Exception:
+            pass
+        try:
             p = state._path("binance_edge") / "snapshot.json"
             p.parent.mkdir(parents=True, exist_ok=True)
             tmp = p.with_suffix(".json.tmp")

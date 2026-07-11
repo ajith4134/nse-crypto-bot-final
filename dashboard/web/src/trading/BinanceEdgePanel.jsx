@@ -59,6 +59,7 @@ export default function BinanceEdgePanel() {
   const anns = (d && Array.isArray(d.announcements)) ? d.announcements : []
   const secHot = (d && Array.isArray(d.sectors_hot)) ? d.sectors_hot : []
   const reg = (d && d.options_regime && d.options_regime.available !== false) ? d.options_regime : null
+  const aiPicks = (d && Array.isArray(d.ai_select)) ? d.ai_select : []
 
   return (
     <div style={{ background: T.panel, border: `1px solid ${T.gridline}`, borderRadius: 8,
@@ -141,6 +142,22 @@ export default function BinanceEdgePanel() {
           ))}
         </Col>
       </Row>
+
+      {aiPicks.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            🤖 Binance AI Select (its built-in recommender)
+          </span>
+          <Row gap={6}>
+            {aiPicks.map((p) => (
+              <span key={p.base} title={(p.types || []).join(', ')} style={{ fontSize: 10,
+                fontFamily: 'monospace', color: T.text, border: `1px solid ${T.good}`,
+                borderRadius: 4, padding: '1px 6px' }}>
+                #{p.best_rank} {p.base}</span>
+            ))}
+          </Row>
+        </div>
+      )}
 
       {secHot.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

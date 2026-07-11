@@ -413,6 +413,20 @@ def fuse(symbol: str, market: str = "crypto",
         except Exception:
             sectors = None
 
+    # 4e ── Binance's built-in AI Select (its own recommended-assets endpoint). Informational +
+    # a tiny discovery lean: a top-ranked AI pick gets a small long tilt (Binance surfaces it as an
+    # opportunity). Crypto only, guarded. Screener also boosts AI-picks into the candidate pool.
+    ai_select = None
+    if market == "crypto":
+        try:
+            from trading.broker_sense import binance_ai_select as _ai
+            if _ai.enabled():
+                ai_select = _ai.is_ai_selected(symbol)
+                if ai_select.get("ai_selected") and (ai_select.get("ai_rank") or 99) <= 5:
+                    confluence = _clamp(confluence + 0.05, -1.0, 1.0)
+        except Exception:
+            ai_select = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -445,7 +459,7 @@ def fuse(symbol: str, market: str = "crypto",
         "vision_dir": round(vision_dir, 4) if vision_dir is not None else None,
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
-        "sectors": sectors, "options_regime": options_regime,
+        "sectors": sectors, "options_regime": options_regime, "ai_select": ai_select,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

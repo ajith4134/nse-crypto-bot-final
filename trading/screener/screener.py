@@ -282,6 +282,14 @@ def screen_crypto_futures(source: Any, *, limit: int = 5,
             new_raw = {n["raw"] for n in _bc.new_listings()}
     except Exception:
         new_raw = set()
+    # Binance AI Select picks (its built-in recommender) → surface them as candidates too.
+    ai_bases: set = set()
+    try:
+        from trading.broker_sense import binance_ai_select as _ai
+        if _ai.enabled():
+            ai_bases = _ai.selected_bases()
+    except Exception:
+        ai_bases = set()
     out = []
     for r in rows:
         fr = funding.get(r["symbol"]) or {}
@@ -289,8 +297,11 @@ def screen_crypto_futures(source: Any, *, limit: int = 5,
         s = (0.5 * (r["quote_volume"] / vmax)
              + 0.3 * min(abs(r["pct_change"]) / 10.0, 1.0)
              + 0.2 * min(abs(frate) * 1000, 1.0))
-        if (r["symbol"].split("/")[0] + "USDT") in new_raw:      # ccxt 'X/USDT:USDT' → raw 'XUSDT'
+        _b = r["symbol"].split("/")[0]
+        if (_b + "USDT") in new_raw:                             # ccxt 'X/USDT:USDT' → raw 'XUSDT'
             s = min(1.0, s + 0.15)
+        if _b in ai_bases:                                       # Binance AI-Select pick → surface it
+            s = min(1.0, s + 0.12)
         out.append(_cand(r["symbol"], "futures", "CRYPTO", s,
                          f"futures: vol + {r['pct_change']:+.2f}% funding={frate:.4%}",
                          {"pct_change": r["pct_change"],

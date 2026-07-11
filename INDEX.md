@@ -1348,6 +1348,10 @@ _(2) Fold regime-routing into the main learned_router._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
 - **imports:** __future__, core, data.benchmarks, eval.golden, json, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, nodes.router_node, os, random, time
 
+## `scratchpad/discover_aiselect.py`
+_(no summary)_
+- **imports:** asyncio, json, playwright.async_api
+
 ## `scratchpad/qa_binance_panel.py`
 _(no summary)_
 - **imports:** pathlib, playwright.sync_api
@@ -1412,6 +1416,12 @@ _Tests for trading/strategy/autoresearch.py — the live autoresearch driver (#5
 - **classes:** _IsolatedState, TestRunCycle, TestStatus, TestUiDataSnapshot
 - **functions:** `_rows(n, base)`
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
+
+## `tests/test_binance_ai_select.py`
+_tests/test_binance_ai_select.py — Binance built-in AI Select recommendations._
+- **classes:** TestAISelect
+- **functions:** `_fake(url)`
+- **imports:** trading.broker_sense, unittest
 
 ## `tests/test_binance_catalysts.py`
 _tests/test_binance_catalysts.py — Binance-native listing catalysts._
@@ -2814,6 +2824,11 @@ _trading/broker_sense/app_school.py — the brain LEARNS to drive a broker app (
 - **classes:** AppMap, AppSchool
 - **functions:** `market_status(broker) -> dict`; `_min_quote_volume() -> float`; `_ccxt_exchange(segment)`; `get_school() -> AppSchool`
 - **imports:** __future__, datetime, os, time, trading, trading.broker_sense.brokers, zoneinfo
+
+## `trading/broker_sense/binance_ai_select.py`
+_trading/broker_sense/binance_ai_select.py — Binance's built-in "AI Select" recommendations (P3+)._
+- **functions:** `enabled() -> bool`; `_get_json(url)`; `_items(typ) -> list[dict]`; `picks() -> list[dict]`; `selected_bases() -> set`; `is_ai_selected(symbol) -> dict`; `clear_cache() -> None`
+- **imports:** __future__, json, os, threading, time, urllib.request
 
 ## `trading/broker_sense/binance_catalysts.py`
 _trading/broker_sense/binance_catalysts.py — Binance-native event catalysts (P2, compute-offload)._
