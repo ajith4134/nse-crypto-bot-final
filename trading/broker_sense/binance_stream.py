@@ -277,6 +277,14 @@ class BinanceUniverseMirror:
         except Exception:
             pass
         try:
+            from trading.broker_sense import binance_sectors as _sec
+            if _sec.enabled():
+                rot = _sec.sector_rotation()
+                d["sectors_hot"] = rot[:6]
+                d["sectors_cold"] = rot[-4:] if len(rot) > 6 else []
+        except Exception:
+            pass
+        try:
             p = state._path("binance_edge") / "snapshot.json"
             p.parent.mkdir(parents=True, exist_ok=True)
             tmp = p.with_suffix(".json.tmp")

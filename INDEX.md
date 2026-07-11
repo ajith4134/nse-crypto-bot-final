@@ -1424,6 +1424,11 @@ _tests/test_binance_orderflow.py — Binance-computed order-flow feature pack._
 - **functions:** `_fake_rest(url)`
 - **imports:** time, trading.broker_sense, trading.broker_sense.binance_stream, unittest
 
+## `tests/test_binance_sectors.py`
+_tests/test_binance_sectors.py — Binance-native sector taxonomy + rotation._
+- **classes:** TestSectors
+- **imports:** time, trading.broker_sense, trading.broker_sense.binance_stream, unittest
+
 ## `tests/test_binance_stream.py`
 _tests/test_binance_stream.py — Binance all-market in-RAM mirror._
 - **classes:** TestBinanceMirror, TestScreenerMirrorMigration
@@ -2814,6 +2819,11 @@ _trading/broker_sense/binance_catalysts.py — Binance-native event catalysts (P
 _trading/broker_sense/binance_orderflow.py — Binance-computed order-flow & positioning features._
 - **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `_get_json(url)`; `_cached(key, url)`; `_data(path, symbol)`; `_f(v)`; `_liq_pressure(symbol) -> dict`; `features(symbol) -> dict`; `signal(symbol) -> dict`; `clear_cache() -> None`
 - **imports:** __future__, json, os, threading, time, trading.broker_sense.binance_stream, urllib.parse, urllib.request
+
+## `trading/broker_sense/binance_sectors.py`
+_trading/broker_sense/binance_sectors.py — Binance-native sector taxonomy + rotation (P3)._
+- **functions:** `enabled() -> bool`; `_get_json(url)`; `_base_tags() -> dict`; `_base_of(symbol) -> str`; `tags_for(symbol) -> list[str]`; `sector_rotation() -> list[dict]`; `sector_signal(symbol) -> dict`; `clear_cache() -> None`
+- **imports:** __future__, json, os, threading, time, urllib.request
 
 ## `trading/broker_sense/binance_stream.py`
 _trading/broker_sense/binance_stream.py — Binance all-market WEBSOCKET mirror (compute-offload)._

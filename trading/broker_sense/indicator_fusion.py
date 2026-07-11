@@ -399,6 +399,20 @@ def fuse(symbol: str, market: str = "crypto",
         except Exception:
             catalyst = None
 
+    # 4d ── Binance sector rotation (Binance-classified sectors, mirror-pushed prices → sector momentum).
+    # A small ±0.08 nudge: when the symbol's sector is broadly moving, lean with it. Crypto only, guarded.
+    sectors = None
+    if market == "crypto":
+        try:
+            from trading.broker_sense import binance_sectors as _sec
+            if _sec.enabled():
+                sectors = _sec.sector_signal(symbol)
+                t = sectors.get("tilt")
+                if t is not None:
+                    confluence = _clamp(confluence + 0.08 * t, -1.0, 1.0)
+        except Exception:
+            sectors = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -417,6 +431,7 @@ def fuse(symbol: str, market: str = "crypto",
         "vision_dir": round(vision_dir, 4) if vision_dir is not None else None,
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
+        "sectors": sectors,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

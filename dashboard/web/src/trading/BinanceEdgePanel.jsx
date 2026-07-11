@@ -57,6 +57,7 @@ export default function BinanceEdgePanel() {
   const liqs = (d && Array.isArray(d.liquidations)) ? d.liquidations : []
   const newList = (d && Array.isArray(d.new_listings)) ? d.new_listings : []
   const anns = (d && Array.isArray(d.announcements)) ? d.announcements : []
+  const secHot = (d && Array.isArray(d.sectors_hot)) ? d.sectors_hot : []
 
   return (
     <div style={{ background: T.panel, border: `1px solid ${T.gridline}`, borderRadius: 8,
@@ -135,6 +136,23 @@ export default function BinanceEdgePanel() {
           ))}
         </Col>
       </Row>
+
+      {secHot.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            Sector rotation (Binance-classified)
+          </span>
+          <Row gap={6}>
+            {secHot.map((s) => {
+              const up = num(s.avg_pct_change) >= 0
+              return <span key={s.sector} style={{ fontSize: 10, fontFamily: 'monospace',
+                color: up ? T.good : T.bad, border: `1px solid ${up ? T.good : T.bad}`,
+                borderRadius: 4, padding: '1px 6px' }}
+                title={`${s.members} coins`}>{s.sector} {pct(s.avg_pct_change)}</span>
+            })}
+          </Row>
+        </div>
+      )}
     </div>
   )
 }
