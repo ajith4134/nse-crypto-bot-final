@@ -4460,7 +4460,7 @@ _trading/strategy/cpcv.py — Combinatorial Purged Cross-Validation (Pillar 20).
 
 ## `trading/strategy/direction_equation.py`
 _trading/strategy/direction_equation.py — P2 of the direction-equation quest: discover ONE_
-- **functions:** `_forward_return(close, h) -> np.ndarray`; `horizon_ic(raw, close, h) -> float`; `_equation_generators()`; `score_equation(cand, feats_oos, close_oos, horizons) -> dict | None`; `discover(ohlcv, market) -> list[dict]`; `cpcv_robustness(ohlcv, expr, kind, features) -> dict | None`; `_triple_barrier_winrate(ohlcv, expr, kind, features) -> dict | None`; `_block_ic_matrix(ohlcv, cands) -> np.ndarray | None`; `validate(ohlcv, ranked, market) -> dict`; `save_equations(market, ranked) -> None`; `load_equations(market) -> list[dict]`; `_now() -> float`; `discover_and_save(ohlcv, market) -> list[dict]`; `_ohlcv_for(symbol, market, tf, bars) -> pd.DataFrame | None`; `run_for_market(symbol, market) -> list[dict]`
+- **functions:** `features_bus(ohlcv) -> pd.DataFrame`; `_forward_return(close, h) -> np.ndarray`; `horizon_ic(raw, close, h) -> float`; `_equation_generators()`; `score_equation(cand, feats_oos, close_oos, horizons) -> dict | None`; `discover(ohlcv, market) -> list[dict]`; `cpcv_robustness(ohlcv, expr, kind, features) -> dict | None`; `_triple_barrier_winrate(ohlcv, expr, kind, features) -> dict | None`; `_block_ic_matrix(ohlcv, cands) -> np.ndarray | None`; `validate(ohlcv, ranked, market) -> dict`; `save_equations(market, ranked) -> None`; `load_equations(market) -> list[dict]`; `_now() -> float`; `discover_and_save(ohlcv, market) -> list[dict]`; `_ohlcv_for(symbol, market, tf, bars) -> pd.DataFrame | None`; `run_for_market(symbol, market) -> list[dict]`
 - **imports:** __future__, numpy, pandas, trading, trading.strategy.generators.expression, trading.strategy.guardrails
 
 ## `trading/strategy/direction_equation_deploy.py`
@@ -4579,7 +4579,7 @@ _trading/strategy/generators/stats_gate.py — generator ⑥ (part A): family-wi
 
 ## `trading/strategy/generators/symbolic.py`
 _trading/strategy/generators/symbolic.py — generator ③: symbolic regression (BOTH engines)._
-- **classes:** GplearnGenerator, PysrGenerator, OperonGenerator
+- **classes:** GplearnGenerator, PysrGenerator, OperonGenerator, SindyGenerator
 - **functions:** `_feature_matrix(feats, market)`
 - **imports:** __future__, numpy, pandas, trading.strategy.generators.base, trading.strategy.generators.expression
 

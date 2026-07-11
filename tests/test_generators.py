@@ -82,6 +82,10 @@ class TestGenerators(unittest.TestCase):
         from trading.strategy.generators.symbolic import OperonGenerator
         self._check(OperonGenerator())
 
+    def test_sindy(self):
+        from trading.strategy.generators.symbolic import SindyGenerator
+        self._check(SindyGenerator())
+
     def test_quality_diversity(self):
         from trading.strategy.generators.quality_diversity import QualityDiversityGenerator
         self._check(QualityDiversityGenerator())

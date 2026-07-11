@@ -56,6 +56,8 @@ EXT_FEATURE_NAMES: list[str] = [
     "gap", "body", "upper_wick", "lower_wick", "true_range",
     # volume profile / value area (auction)
     "vp_poc", "vp_vah", "vp_val", "vp_pos", "vp_failed_long", "vp_failed_short",
+    # order-flow proxies from OHLCV (true L2 OFI/GOFI = data-plumbing task, see COVERAGE-AUDIT)
+    "buy_press", "signed_vol", "cvd", "cvd_roll", "tick_ofi", "cvd_slope",
 ]
 
 _NEED = {"open", "high", "low", "close", "volume"}
@@ -97,8 +99,12 @@ def _supertrend(high: pd.Series, low: pd.Series, close: pd.Series, atr: pd.Serie
 def compute_features_ext(ohlcv: pd.DataFrame, *, fast: int = 10, slow: int = 30,
                          mom_n: int = 10, donchian: int = 20,
                          bb_n: int = 20, bb_k: float = 2.0,
-                         st_mult: float = 3.0) -> pd.DataFrame:
-    """OHLCV → extended causal indicator frame (NaNs from warm-up dropped at the end)."""
+                         st_mult: float = 3.0, with_vp: bool = True) -> pd.DataFrame:
+    """OHLCV → extended causal indicator frame (NaNs from warm-up dropped at the end).
+
+    `with_vp=False` skips the per-bar rolling Volume Profile (the one O(n·window) block) — used by
+    the live direction-equation path where the ~150ms VP loop is too heavy for the hot path; the
+    cheap vectorized TA columns (EMA/SAR/supertrend/VWAP/MACD/ADX/…) are always computed."""
     missing = _NEED - set(ohlcv.columns)
     if missing:
         raise ValueError(f"ohlcv missing columns: {sorted(missing)}")
@@ -205,6 +211,21 @@ def compute_features_ext(ohlcv: pd.DataFrame, *, fast: int = 10, slow: int = 30,
     df["supertrend"] = st_line
     df["supertrend_dir"] = st_dir
 
+    # ── ORDER-FLOW proxies from OHLCV (COVERAGE-AUDIT gap A(b)/B) ────────────────────────────────
+    # The research ranks order-flow #1 for direction, but true L2 OFI/GOFI needs the book feed
+    # (a data-plumbing task — see COVERAGE-AUDIT). These are the honest bar-level PROXIES computable
+    # from OHLCV so the equation has order-flow-flavoured variables now:
+    #  • buy_press — close position in the bar's range (Chaikin money-flow multiplier), the classic
+    #    "who won the bar" estimate; signed_vol/CVD build on it.
+    rng_hl = (h - l).replace(0.0, np.nan)
+    mf_mult = ((c - l) - (h - c)) / rng_hl            # ∈[-1,1]: +1 close on high, -1 on low
+    df["buy_press"] = mf_mult.fillna(0.0)
+    df["signed_vol"] = df["buy_press"] * v            # money-flow volume (signed by who won the bar)
+    df["cvd"] = df["signed_vol"].cumsum()             # cumulative volume delta (trend of pressure)
+    df["cvd_roll"] = df["signed_vol"].rolling(slow).sum()          # stationarised CVD (windowed)
+    df["tick_ofi"] = (np.sign(c.diff()).fillna(0.0) * v).rolling(fast).sum()   # tick-rule OFI proxy
+    df["cvd_slope"] = df["cvd"].diff(fast) / v.rolling(slow).mean().replace(0.0, np.nan)
+
     # candle anatomy / gap
     df["gap"] = (o - c.shift(1)) / c.shift(1)
     df["body"] = (c - o) / c
@@ -214,7 +235,8 @@ def compute_features_ext(ohlcv: pd.DataFrame, *, fast: int = 10, slow: int = 30,
     # Volume Profile / Value Area (owner's champions-chart-strategy video, 2026-07-11): rolling
     # POC/VAH/VAL + position-in-value + failed-auction reversion flags, so the strategy generator
     # can weigh the auction edge per coin. Reuses the live VP engine (one source of truth).
-    _rolling_vp(df, h, l, c, v)
+    if with_vp:
+        _rolling_vp(df, h, l, c, v)
 
     return df.dropna().reset_index(drop=True)
 

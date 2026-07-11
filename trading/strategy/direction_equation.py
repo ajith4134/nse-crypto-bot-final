@@ -31,6 +31,20 @@ DEFAULT_HORIZONS = (1, 4, 12, 24)          # bars ahead — the metric shifts wi
 _EQ_FILE = "direction_equations.json"      # persisted top-K per market (for P4 deploy)
 
 
+def features_bus(ohlcv: pd.DataFrame) -> pd.DataFrame:
+    """The equation's feature bus — the EXTENDED indicator set (EMA/SAR/supertrend/VWAP/MACD/ADX/
+    Bollinger/Keltner/Donchian/OBV/…) so the discovered equation is built from a rich variable set,
+    not the 10 base TA columns (COVERAGE-AUDIT gap A). `with_vp=False`: the per-bar rolling Volume
+    Profile is too heavy for the live deploy path — VP rides in the fusion's own lens. Falls back to
+    the base features if the extended set is unavailable."""
+    try:
+        from trading.strategy.library.features_ext import compute_features_ext
+        return compute_features_ext(ohlcv, with_vp=False)
+    except Exception:
+        from trading.strategy.features import compute_features
+        return compute_features(ohlcv)
+
+
 def _forward_return(close: pd.Series, h: int) -> np.ndarray:
     """h-bar forward return, aligned to the current bar (no look-ahead: value at t uses t→t+h)."""
     c = close.to_numpy(dtype=float)
@@ -49,9 +63,9 @@ def _equation_generators():
     """The symbolic-regression generators that produce interpretable EQUATIONS (the quest's goal).
     gplearn + Operon are fast/CPU-native; PySR is included when its Julia engine is present."""
     from trading.strategy.generators.symbolic import (GplearnGenerator, OperonGenerator,
-                                                       PysrGenerator)
+                                                       PysrGenerator, SindyGenerator)
     gens = []
-    for cls in (GplearnGenerator, OperonGenerator, PysrGenerator):
+    for cls in (GplearnGenerator, OperonGenerator, SindyGenerator, PysrGenerator):
         try:
             g = cls()
             if g.available():
@@ -100,8 +114,7 @@ def discover(ohlcv: pd.DataFrame, market: str = "crypto", *, horizons=DEFAULT_HO
 
     Generators fit on the TRAIN split; every discovered equation is scored on the untouched OOS
     tail so the ranking is honest. `min_abs_ic` drops equations weaker than a floor (0 = keep all)."""
-    from trading.strategy.features import compute_features
-    feats = compute_features(ohlcv)
+    feats = features_bus(ohlcv)                      # rich variable set (gap A)
     n = len(feats)
     if n < 120:                                      # need enough for train + OOS + max horizon
         return []
@@ -109,7 +122,8 @@ def discover(ohlcv: pd.DataFrame, market: str = "crypto", *, horizons=DEFAULT_HO
     if split < 60 or (n - split) < (max(horizons) + 30):
         return []
     train_ohlcv = ohlcv.iloc[:split]
-    feats_oos = feats.iloc[split:]
+    train_feats = feats.iloc[:split].reset_index(drop=True)   # discover over the SAME rich bus
+    feats_oos = feats.iloc[split:].reset_index(drop=True)
     close_oos = feats_oos["close"] if "close" in feats_oos.columns else None
     if close_oos is None:
         return []
@@ -117,7 +131,8 @@ def discover(ohlcv: pd.DataFrame, market: str = "crypto", *, horizons=DEFAULT_HO
     cands = []
     for g in (generators if generators is not None else _equation_generators()):
         try:
-            cands.extend(g.generate(train_ohlcv, market, budget=budget, seed=seed) or [])
+            cands.extend(g.generate(train_ohlcv, market, features=train_feats,
+                                    budget=budget, seed=seed) or [])
         except Exception:
             continue
 
@@ -143,8 +158,7 @@ def cpcv_robustness(ohlcv: pd.DataFrame, expr: str, kind: str, features: list, *
     mean IC + sign-consistency across paths. Passes only if the edge is meaningful AND stable in
     SIGN across folds (a flip-flopping IC is noise, not a direction equation). None if it can't run."""
     from trading.strategy import cpcv
-    from trading.strategy.features import compute_features
-    feats = compute_features(ohlcv)
+    feats = features_bus(ohlcv)
     if "close" not in feats.columns or len(feats) < n_groups * 2:
         return None
     close = feats["close"]
@@ -201,8 +215,7 @@ def _triple_barrier_winrate(ohlcv: pd.DataFrame, expr: str, kind: str, features:
 def _block_ic_matrix(ohlcv: pd.DataFrame, cands: list[dict], *, n_blocks: int = 8) -> np.ndarray | None:
     """(n_candidates, n_blocks) matrix of each equation's Rank-IC (at its own best horizon) per
     contiguous time block — the input to guardrails.pbo_cscv for selection-overfit (PBO)."""
-    from trading.strategy.features import compute_features
-    feats = compute_features(ohlcv)
+    feats = features_bus(ohlcv)
     if "close" not in feats.columns or len(feats) < n_blocks * 4 or len(cands) < 2:
         return None
     close = feats["close"]

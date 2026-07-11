@@ -68,8 +68,8 @@ def predict(rows, market: str = "crypto", *, symbol: str = "", segment: str = "f
     if df is None:
         return None
     try:
-        from trading.strategy.features import compute_features
-        feats = compute_features(df)
+        from trading.strategy.direction_equation import features_bus
+        feats = features_bus(df)
     except Exception:
         return None
     score = _equation_score(feats, eqs)

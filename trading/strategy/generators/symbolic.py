@@ -25,13 +25,19 @@ from trading.strategy.generators.expression import ExpressionStrategy
 _GPLEARN_FUNCS = ("add", "sub", "mul", "div", "sqrt", "log", "abs", "neg", "inv", "max", "min")
 
 
+_NON_FEATURE = {"open", "high", "low", "close", "volume", "ts", "time", "date", "timestamp"}
+
+
 def _feature_matrix(feats: pd.DataFrame, market: str):
     """Ordered feature list (X0..Xn) + a clean numeric matrix + next-bar return target.
 
-    Features come from market_features(market) ∩ available columns, so X{i} indexing lines up
-    with what ExpressionStrategy will bind at signal time. Rows with no forward return dropped."""
-    from trading.strategy.operators import market_features
-    flist = [f for f in market_features(market) if f in feats.columns]
+    The variable set = the numeric NON-OHLCV columns of the PASSED feature frame (so a caller that
+    hands a rich frame — order-flow + Volume-Profile + extended TA, e.g. the direction-equation
+    orchestrator — gets those variables, while the base foundry frame yields the base set). X{i}
+    indexing lines up with what ExpressionStrategy binds at signal time. No-forward-return rows dropped."""
+    import pandas as _pd
+    flist = [c for c in feats.columns
+             if c not in _NON_FEATURE and _pd.api.types.is_numeric_dtype(feats[c])]
     if len(flist) < 2:
         return None, None, None, None
     X = feats[flist].to_numpy(dtype=float)
@@ -209,4 +215,70 @@ class OperonGenerator(StrategyGenerator):
                     provenance={"generation": 0, "parents": [], "mutations": ["operon"]}))
         except Exception:
             return []
+        return out
+
+
+class SindyGenerator(StrategyGenerator):
+    """SINDy (pysindy) — sparse identification: sparse polynomial regression of next-bar return on
+    the feature bus → a compact interpretable equation (COVERAGE-AUDIT gap D; a named quest engine).
+
+    Uses pysindy's PolynomialLibrary(degree 2) + STLSQ sparse optimizer directly (the supervised
+    y=f(X) path, not the ODE wrapper), at a few sparsity thresholds → complexity-diverse equations,
+    each exported as an ExpressionStrategy(sympy). Set SINDY_GEN=0 to skip."""
+
+    name = "symbolic_sindy"
+
+    def available(self) -> bool:
+        import os
+        if os.environ.get("SINDY_GEN", "1") not in ("1", "true", "TRUE", "yes", "on"):
+            return False
+        try:
+            import pysindy  # noqa: F401
+            return True
+        except Exception:
+            return False
+
+    def generate(self, ohlcv, market, *, features=None, budget=12, seed=0, **kw):
+        feats = features if features is not None else __import__(
+            "trading.strategy.features", fromlist=["compute_features"]).compute_features(ohlcv)
+        flist, X, y, _ = _feature_matrix(feats, market)
+        if flist is None:
+            return []
+        try:
+            import pysindy as ps
+            # degree 2 only when the variable set is small (else the polynomial library explodes);
+            # linear sparse regression over the rich bus otherwise.
+            degree = 2 if len(flist) <= 12 else 1
+            lib = ps.PolynomialLibrary(degree=degree, include_bias=False)
+            theta = np.asarray(lib.fit_transform(X), dtype=float)
+            names = lib.get_feature_names(input_features=[f"x{i}" for i in range(len(flist))])
+            # standardize columns + target so STLSQ thresholds are SCALE-FREE (forward return is
+            # ~1e-2 → absolute thresholds would zero everything); map coefs back to raw space after.
+            col_std = theta.std(axis=0)
+            col_std[col_std == 0] = 1.0
+            y_arr = np.asarray(y, dtype=float)
+            y_std = float(y_arr.std()) or 1.0
+            theta_n = theta / col_std
+        except Exception:
+            return []
+        out = []
+        thresholds = [0.03, 0.06, 0.12, 0.2][:max(1, min(int(budget), 4))]
+        for ti, thr in enumerate(thresholds):
+            try:
+                opt = ps.STLSQ(threshold=thr)
+                opt.fit(theta_n, (y_arr / y_std).reshape(-1, 1))
+                coef = np.asarray(opt.coef_, dtype=float).ravel() * y_std / col_std   # → raw space
+            except Exception:
+                continue
+            terms = []
+            for j in range(min(len(coef), len(names))):
+                if abs(coef[j]) > 1e-9:
+                    term = names[j].replace("^", "**").replace(" ", "*")   # "x0 x1"→x0*x1, "x0^2"→x0**2
+                    terms.append(f"({coef[j]:.6g})*{term}")
+            if not terms:
+                continue
+            out.append(ExpressionStrategy(
+                market=market, features=list(flist), expr=" + ".join(terms), kind="sympy",
+                id=f"sindy_{market.lower()}_{seed}_{ti}",
+                provenance={"generation": 0, "parents": [], "mutations": ["sindy"]}))
         return out
