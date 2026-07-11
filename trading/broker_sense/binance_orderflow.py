@@ -101,11 +101,14 @@ def _liq_pressure(symbol: str) -> dict:
     }
 
 
-def features(symbol: str) -> dict:
+def features(symbol: str, *, cheap: bool = False) -> dict:
     """Binance-computed order-flow/positioning features for one shortlisted symbol.
 
     Every value is read (mirror or cached REST), never locally derived. Missing/stale → None,
-    with `source` provenance. Cheap: mirror reads are RAM; REST is TTL-cached to Binance's cadence."""
+    with `source` provenance. Mirror reads are RAM; REST is TTL-cached to Binance's cadence.
+    `cheap=True` (WIDE-universe pass): mirror-only (funding + liquidations) — SKIPS the per-symbol
+    /futures/data REST (long-short/taker/OI) so a 600-symbol pass stays fast and never trips
+    Binance's 1000/5min data-endpoint rate limit."""
     sym = _norm(symbol)
     out: dict = {"symbol": sym, "source": "binance", "ts": time.time()}
     if not enabled():
@@ -123,6 +126,9 @@ def features(symbol: str) -> dict:
 
     # 2) liquidation pressure (mirror, push)
     out.update(_liq_pressure(sym))
+
+    if cheap:                                     # mirror-only: skip the /futures/data REST below
+        return out
 
     # 3) crowd positioning — global account long/short (retail; contrarian at extremes)
     g = _data("globalLongShortAccountRatio", sym)
@@ -156,12 +162,13 @@ def features(symbol: str) -> dict:
     return out
 
 
-def signal(symbol: str) -> dict:
+def signal(symbol: str, *, cheap: bool = False) -> dict:
     """A compact, brain-friendly read of the order-flow pack: a directional tilt in [-1,1] plus
     the raw features. Tilt is a transparent blend — the brain's ML decides how to weight it.
+    `cheap=True` = mirror-only (no per-symbol REST) for the wide-universe pass.
 
     Convention: +1 = flow/positioning leans LONG-favourable, -1 = SHORT-favourable."""
-    f = features(symbol)
+    f = features(symbol, cheap=cheap)
     votes: list[float] = []
     # aggressor flow: taker buy/sell ratio > 1 → buyers lifting → long tilt
     if f.get("taker_buy_sell_ratio") is not None:

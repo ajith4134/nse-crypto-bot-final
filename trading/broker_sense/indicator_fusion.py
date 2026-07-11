@@ -24,6 +24,8 @@ fabricated number.
 """
 from __future__ import annotations
 
+import os
+
 import math
 import time
 
@@ -380,7 +382,10 @@ def fuse(symbol: str, market: str = "crypto",
         try:
             from trading.broker_sense import binance_orderflow as _of
             if _of.enabled():
-                order_flow = _of.signal(symbol)
+                # WIDE/unlimited pass → mirror-only order-flow (no per-symbol /futures/data REST),
+                # so a 600-symbol screen stays fast and never trips Binance's 1000/5min rate limit.
+                _cheap = os.getenv("CRYPTO_UNLIMITED_OPENS", "1") not in ("0", "false", "off")
+                order_flow = _of.signal(symbol, cheap=_cheap)
                 t = order_flow.get("tilt")
                 if t is not None:
                     confluence = _clamp(confluence + 0.12 * t, -1.0, 1.0)

@@ -2940,7 +2940,7 @@ _trading/broker_sense/human_handoff.py — mid-session human-CAPTCHA handoff._
 ## `trading/broker_sense/indicator_fusion.py`
 _trading/broker_sense/indicator_fusion.py — ultra-advanced multi-timeframe indicator fusion._
 - **functions:** `_ohlc(rows)`; `_sma(vals, n) -> float`; `_ema_series(vals, n) -> list[float]`; `_true_ranges(h, l, c) -> list[float]`; `_wilder(vals, n) -> float`; `_atr(h, l, c, n) -> float`; `_adx(h, l, c, n) -> tuple[float, float, float]`; `_supertrend(h, l, c, n, mult) -> tuple[int, float]`; `_parabolic_sar(h, l, c, af0, af_max) -> tuple[int, float]`; `_macd(c) -> tuple[float, float, float]`; `_bollinger(c, n, k) -> tuple[float, float, float]`; `_stoch_rsi(c, n) -> float`; `indicators_from_ohlcv(rows) -> dict`; `_fetch(sym, market, tf, bars) -> list | None`; `_meta_label(confluence, direction, market, symbol) -> dict`; `_barriers(direction, price, atr, k_stop, k_tp, time_bars) -> dict`; `fuse(symbol, market, timeframes, vision) -> dict`
-- **imports:** __future__, math, time, trading.broker_sense, trading.broker_sense.fast_candles
+- **imports:** __future__, math, os, time, trading.broker_sense, trading.broker_sense.fast_candles
 
 ## `trading/broker_sense/interception.py`
 _trading/broker_sense/interception.py — the brain's peripheral nerve: capture the broker_

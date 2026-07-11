@@ -246,15 +246,17 @@ class BrokerSenseFunnel:
         # BRAIN-DECIDES (owner 2026-07-11): in unlimited mode feed the FULL liquid universe (from the
         # WS mirror — RAM, ~0 CPU) to the executor and remove the shortlist cap, so the brain can open
         # as many as its score gate passes (300+ possible), never bounded by an artificial shortlist.
-        if _unlimited_opens() and self.market == "crypto":
+        if _unlimited_opens():
             try:
-                from trading.broker_sense import binance_stream as _bs
-                uni = [r["symbol"] for r in
-                       _bs.get_mirror().futures_rows(min_quote_volume=_unlimited_min_qv())]
+                # SEGMENT-CORRECT full universe: use THIS segment's own tradeable whitelist (626
+                # futures / 420 spot / NSE equity), so every selected segment gets its whole
+                # universe — never futures symbols leaking into the spot cycle. The executor also
+                # evaluates this same whitelist; injecting it here enriches it with fused app_signals.
+                uni = list(self.executor(segment).client().whitelist(segment=segment) or [])
                 if uni:
                     hot = list(dict.fromkeys(list(hot) + uni))
                     for s in uni:
-                        by_sym.setdefault(s, {"symbol": s, "lane": "mirror-universe"})
+                        by_sym.setdefault(s, {"symbol": s, "lane": "universe"})
                     shortlist_n = len(hot)               # no cap — the brain's min_score decides
             except Exception:
                 pass
@@ -449,10 +451,15 @@ class BrokerSenseFunnel:
             ex = self.executor(segment)
             ex._symbols = sorted(set(tradeable) | open_syms)   # shortlist-only universe
             ex.extra_signals = app_signals                     # → decision_snapshot.app_signals
-            # Unlimited mode: give the executor a generous wall-clock so it can evaluate + OPEN the
-            # whole universe in one pass (not cut off at the small screening budget).
-            exec_budget = max(budget, _unlimited_budget()) if _unlimited_opens() else budget
-            res = ex.run_once(allow_live=allow_live, deadline=t0 + exec_budget)
+            # Unlimited mode: the executor gets a FRESH wall-clock budget measured from NOW (not
+            # t0), so a slow wide LOOK/fusion stage can never starve it — it always has time to
+            # evaluate + OPEN across the whole universe. (2026-07-11: entered=[] because the
+            # 281-symbol LOOK ate the t0+300 budget before execute ran.)
+            if _unlimited_opens():
+                exec_deadline = time.monotonic() + _unlimited_budget()
+            else:
+                exec_deadline = t0 + budget
+            res = ex.run_once(allow_live=allow_live, deadline=exec_deadline)
             rep["stages"]["execute"] = {"entered": res.get("entered"),
                                         "exited": res.get("exited"),
                                         "skipped": res.get("skipped"),
