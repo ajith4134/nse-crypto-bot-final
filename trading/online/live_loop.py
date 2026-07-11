@@ -1086,6 +1086,23 @@ class LiveTradeLoop:
                             ot["tailgate_captured_pct"] = round(_ppct, 4)
                 except Exception:
                     pass
+                # D-EXIT (Pillar 27): cut when the CALIBRATED direction read has flipped
+                # against the open position — the tailgate only manages winners, so a
+                # trade that went underwater has no directional stop. Crypto-native lanes;
+                # shadow by default (records a "dir_exit" claim + advisory, no forced exit
+                # unless DIR_EXIT=trade). Runs alongside the tailgate as a trail source.
+                if not trail_exit and market.upper() == "CRYPTO":
+                    try:
+                        from trading.direction import dir_exit
+                        _de = dir_exit.evaluate(
+                            symbol=symbol, direction=ot["direction"], market="CRYPTO",
+                            segment=(seg or "futures"), ref_price=price,
+                            trade_id=str(ot.get("trade_id") or key))
+                        if _de.get("exit"):
+                            trail_exit = "dir-exit"
+                            ot["dir_exit_reason"] = _de.get("reason")
+                    except Exception:
+                        pass
             decision = self._decide(market, symbol, price, in_position=in_pos)
             action = decision.get("action", "FLAT")
             size = float(decision.get("size", 1.0))

@@ -1590,6 +1590,12 @@ _Decision-memory subsystem (trading/brain/decision_memory.py + attribution.py) a
 - **classes:** _IsolatedState, TestDecisionMemory, TestAttribution, TestFreqtradeIngestFixes
 - **imports:** datetime, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_dir_exit.py`
+_Tests for trading/direction/dir_exit — the directional EXIT oracle (Pillar 27)._
+- **classes:** _Iso, TestRead, TestEvaluate
+- **functions:** `_seed(buckets) -> None`; `_snap(votes)`
+- **imports:** json, os, pathlib, tempfile, trading.state, unittest
+
 ## `tests/test_direction_regime.py`
 _Tests for trading/direction/regime — D5 direction regime classifier._
 - **classes:** _Iso, TestClassifyCloses, TestClassifyIO
@@ -3518,6 +3524,11 @@ _trading/crypto/watchlist.py — persisted crypto watchlist (T2)._
 
 ## `trading/direction/__init__.py`
 _trading/direction — the Direction Accuracy Program (goal Pillar 27)._
+
+## `trading/direction/dir_exit.py`
+_trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 27)._
+- **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
+- **imports:** __future__, os
 
 ## `trading/direction/meta_labeler.py`
 _trading/direction/meta_labeler.py — D6: the direction meta-labeler (Pillar 27)._

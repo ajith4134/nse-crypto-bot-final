@@ -1101,6 +1101,30 @@ class BrainExecutor:
                                          f"(peak {peak_pct:.2f}%)", salience=0.6)
                     except Exception:
                         pass
+                    continue                          # already exiting → skip dir-exit
+                # D-EXIT (Pillar 27): the tailgate only manages WINNERS (arms on +profit).
+                # A trade that went straight underwater never arms it and just bleeds while
+                # its direction thesis is dead. The Truth Ledger proved this leak (entry
+                # direction 54-69% right at 1h, ~33% by exit). Cut when the CALIBRATED
+                # direction read has flipped against the position. Shadow by default —
+                # records a "dir_exit" claim + advisory, acts only under DIR_EXIT=trade.
+                try:
+                    from trading.direction import dir_exit
+                    de = dir_exit.evaluate(
+                        symbol=pair, direction=("SHORT" if t.get("is_short") else "LONG"),
+                        market="CRYPTO", segment=self.segment or "futures",
+                        ref_price=_num(t.get("current_rate")) or _num(t.get("open_rate")) or None,
+                        trade_id=tid)
+                    if de.get("exit"):
+                        cli.close_pair(pair, segment=self.segment)
+                        exited.append(pair)
+                        pt.clear_lock(tid)
+                        from trading.brain import mind_events
+                        mind_events.emit("trade_debit",
+                                         f"Direction-exit cut {pair}: {de.get('reason')}",
+                                         salience=0.55)
+                except Exception:
+                    pass
             # PRUNE stale locks (2026-07-10): clear_lock only fires on tailgate exits, so
             # trades closed any other way (stop, strategy, manual) left their entries behind
             # forever — 166 entries vs 19 open, with pre-fix mixed-unit values still being
