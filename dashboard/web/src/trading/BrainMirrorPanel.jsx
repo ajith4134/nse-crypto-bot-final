@@ -3,12 +3,77 @@
 // the brain is on right now, a marker where it last clicked, and a live feed of its actions
 // (open / click / type / read / order-guard blocks). Watching never steers the hand — the
 // interactive login browser is the separate LiveBrowserPanel above.
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { T } from './theme.js'
 
 const API = '/api/trading/mirror'
 
 const ACT_ICON = { open: '🌐', click: '🖱️', type: '⌨️', press: '⏎', read: '👁️', perceive: '👁️' }
+
+// M fix (2026-07-11): Chromium does NOT render multipart/x-mixed-replace <img>
+// streams delivered over HTTP/2 — and every public tunnel (cloudflare/ngrok) speaks
+// h2 to the browser, so the naive <img src=stream> stayed naturalWidth=0 forever.
+// fetch() streaming works fine over h2: parse the MJPEG bytes ourselves (JPEG
+// SOI ff d8 → EOI ff d9) and paint each frame via a blob URL.
+function indexOfSeq(buf, a, b, from) {
+  for (let i = from || 0; i < buf.length - 1; i++) {
+    if (buf[i] === a && buf[i + 1] === b) return i
+  }
+  return -1
+}
+
+function LiveStreamView({ onFail }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const ctrl = new AbortController()
+    let dead = false
+    let lastUrl = null
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/trading/mirror/stream?t=${Date.now()}`, { signal: ctrl.signal })
+        if (!res.ok || !res.body) {
+          let msg = `live stream unavailable (HTTP ${res.status})`
+          try { msg = (await res.json()).error || msg } catch { /* non-JSON body */ }
+          if (!dead) onFail(msg)
+          return
+        }
+        const reader = res.body.getReader()
+        let buf = new Uint8Array(0)
+        while (!dead) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const nb = new Uint8Array(buf.length + value.length)
+          nb.set(buf); nb.set(value, buf.length); buf = nb
+          let start = indexOfSeq(buf, 0xff, 0xd8)
+          let end = start >= 0 ? indexOfSeq(buf, 0xff, 0xd9, start + 2) : -1
+          let painted = -1
+          while (start >= 0 && end >= 0) {          // paint the newest complete frame
+            painted = end
+            const jpg = buf.slice(start, end + 2)
+            if (ref.current) {
+              const u = URL.createObjectURL(new Blob([jpg], { type: 'image/jpeg' }))
+              ref.current.src = u
+              if (lastUrl) URL.revokeObjectURL(lastUrl)
+              lastUrl = u
+            }
+            start = indexOfSeq(buf, 0xff, 0xd8, end + 2)
+            end = start >= 0 ? indexOfSeq(buf, 0xff, 0xd9, start + 2) : -1
+          }
+          if (painted >= 0) buf = buf.slice(painted + 2)
+          if (buf.length > 8_000_000) buf = new Uint8Array(0)   // runaway guard
+        }
+        if (!dead) onFail('live stream ended — brain display went away (falls back to frames)')
+      } catch {
+        if (!dead) onFail('live stream unavailable — no headed display up (falls back to frames)')
+      }
+    })()
+    return () => { dead = true; ctrl.abort(); if (lastUrl) URL.revokeObjectURL(lastUrl) }
+  }, [onFail])
+  return (
+    <img ref={ref} alt="live brain display"
+      style={{ width: '100%', minHeight: 200, border: '1px solid #ff5b5b', borderRadius: 8, display: 'block' }} />
+  )
+}
 
 function Badge({ live }) {
   const c = live ? (T.good || '#3ecf8e') : (T.muted || '#8a93a6')
@@ -26,6 +91,9 @@ export default function BrainMirrorPanel() {
   const [frameTs, setFrameTs] = useState(0)   // cache-buster, bumped only on fresh frames
   const [liveStream, setLive] = useState(false) // M: MJPEG live video vs frame polling
   const [liveErr, setLiveErr] = useState(null)
+  // stable callback: an inline lambda would re-mount LiveStreamView (and reconnect
+  // the stream) on every 2.5s poll re-render
+  const onLiveFail = useCallback((msg) => { setLiveErr(msg); setLive(false) }, [])
   const imgRef = useRef(null)
   const alive = useRef(true)
 
@@ -110,10 +178,9 @@ export default function BrainMirrorPanel() {
       {liveStream ? (
         // M (2026-07-11): REAL live video — one MJPEG stream of the brain's whole Xvfb
         // display (every browser it drives), capture running only while this is open.
+        // Parsed client-side (LiveStreamView) because h2 tunnels break native MJPEG <img>.
         <div style={{ position: 'relative' }}>
-          <img alt="live brain display" src={`/api/trading/mirror/stream?t=${Date.now()}`}
-            onError={() => { setLiveErr('live stream unavailable — no headed display up (falls back to frames)'); setLive(false) }}
-            style={{ width: '100%', border: '1px solid #ff5b5b', borderRadius: 8, display: 'block' }} />
+          <LiveStreamView onFail={onLiveFail} />
           <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 800,
             color: '#ff5b5b', background: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: '3px 8px' }}>⏺ LIVE</div>
         </div>
