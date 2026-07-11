@@ -222,13 +222,26 @@ class ChartVision:
             out[sym][tf] = res
             self.cache[f"{sym}|{tf}"]["result"] = {k: res[k] for k in
                                                    ("p_up", "direction", "source")}
-            if (self.on_app_shot is not None and chart_source.startswith("screenshot:")
-                    and sym not in self._shot_seen):           # one real-pixel read per symbol
+            if chart_source.startswith("screenshot:") and sym not in self._shot_seen:
+                pixels = None
                 try:
-                    self.on_app_shot(sym, tf, open(path, "rb").read())
+                    pixels = open(path, "rb").read()
+                except OSError:
+                    pixels = None
+                if pixels is not None:
+                    # Lane C: YOLOv8 pattern detection runs on the REAL app screenshot (its
+                    # best-fit input; sub-second CPU) → cached per symbol for indicator_fusion.
+                    try:
+                        from trading.broker_sense import chart_yolo
+                        chart_yolo.detect_and_cache(sym, path, tf=tf, market=market)
+                    except Exception:
+                        pass
+                    if self.on_app_shot is not None:            # one real-pixel VLM read per symbol
+                        try:
+                            self.on_app_shot(sym, tf, pixels)
+                        except Exception:
+                            pass
                     self._shot_seen.add(sym)
-                except Exception:
-                    pass
             try:                                               # owner's step 7: delete
                 os.remove(path)
                 self.stats["deleted"] += 1

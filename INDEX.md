@@ -1806,6 +1806,12 @@ _Tests for trading/broker_sense/chart_vlm.py — Lane B VLM chart reader._
 - **classes:** TestParse, TestNorm, TestReadChart, TestNode
 - **imports:** __future__, trading.broker_sense, unittest
 
+## `tests/test_chart_yolo.py`
+_Tests for trading/broker_sense/chart_yolo.py — Lane C YOLOv8 pattern detection._
+- **classes:** _Boxes, _Arr, _Result, TestDetect, TestCache, TestNode
+- **functions:** `_fake_model(cls, conf)`
+- **imports:** __future__, pathlib, tempfile, time, trading, trading.broker_sense, unittest
+
 ## `tests/test_chat.py`
 _P4.1 acceptance tests: the brain-chat plumbing is well-formed and degrades gracefully._
 - **classes:** TestChat
@@ -1938,6 +1944,12 @@ _Tests for trading/direction/dir_exit — the directional EXIT oracle (Pillar 27
 - **classes:** _Iso, TestRead, TestEvaluate
 - **functions:** `_seed(buckets) -> None`; `_snap(votes)`
 - **imports:** json, os, pathlib, tempfile, trading.state, unittest
+
+## `tests/test_direction_equation.py`
+_Tests for trading/strategy/direction_equation.py — P2 Rank-IC equation orchestrator._
+- **classes:** TestForwardReturn, TestScoreEquation, TestDiscover, TestPersist
+- **functions:** `_trending_ohlcv(n, seed)`
+- **imports:** __future__, numpy, pandas, pathlib, tempfile, trading, trading.strategy, trading.strategy.generators.expression, unittest
 
 ## `tests/test_direction_regime.py`
 _Tests for trading/direction/regime — D5 direction regime classifier._
@@ -3201,6 +3213,12 @@ _trading/broker_sense/chart_vlm.py — Lane B of the vision cascade: read the ch
 - **functions:** `_parse(raw) -> dict | None`; `_norm(obj) -> dict`; `read_chart(images, symbol, tf) -> dict | None`; `register_chart_vlm_node() -> ChartVLMNode`
 - **imports:** __future__, core.node_protocol, json, re
 
+## `trading/broker_sense/chart_yolo.py`
+_trading/broker_sense/chart_yolo.py — Lane C of the vision cascade: YOLOv8 chart-pattern detection._
+- **classes:** ChartYoloNode
+- **functions:** `available() -> bool`; `_model()`; `detect(image) -> dict | None`; `detect_and_cache(symbol, image) -> dict | None`; `cached(symbol) -> dict | None`; `register_chart_yolo_node() -> ChartYoloNode`
+- **imports:** __future__, core.node_protocol, math, os
+
 ## `trading/broker_sense/cnn_direction.py`
 _trading/broker_sense/cnn_direction.py — candle-IMAGE → direction (savers B, F)._
 - **classes:** CandleDirectionModel, CandleVisionNode
@@ -4433,6 +4451,11 @@ _trading/strategy/control.py — feature gate for the evolution/mutation engine.
 _trading/strategy/cpcv.py — Combinatorial Purged Cross-Validation (Pillar 20)._
 - **functions:** `_group_bounds(n_rows, n_groups) -> list[tuple[int, int]]`; `_purge_train(train, test_blocks, embargo) -> list[tuple[int, int]]`; `combinatorial_purged_folds(n_rows) -> list[dict]`; `n_paths(n_groups, k_test) -> int`
 - **imports:** __future__, itertools, numpy
+
+## `trading/strategy/direction_equation.py`
+_trading/strategy/direction_equation.py — P2 of the direction-equation quest: discover ONE_
+- **functions:** `_forward_return(close, h) -> np.ndarray`; `horizon_ic(raw, close, h) -> float`; `_equation_generators()`; `score_equation(cand, feats_oos, close_oos, horizons) -> dict | None`; `discover(ohlcv, market) -> list[dict]`; `save_equations(market, ranked) -> None`; `load_equations(market) -> list[dict]`; `_now() -> float`; `discover_and_save(ohlcv, market) -> list[dict]`; `_ohlcv_for(symbol, market, tf, bars) -> pd.DataFrame | None`; `run_for_market(symbol, market) -> list[dict]`
+- **imports:** __future__, numpy, pandas, trading, trading.strategy.generators.expression, trading.strategy.guardrails
 
 ## `trading/strategy/evolve.py`
 _trading/strategy/evolve.py — DEAP NSGA-II evolution loop (T8.3)._

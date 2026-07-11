@@ -40,6 +40,12 @@ projects below are the perception/automation **upgrade layers** it adapts.
 - **omniparser/** — [OmniParser](https://github.com/microsoft/OmniParser). Screenshot→structured-
   UI parsing. Its model is **GPU-only**, so it is a documented **upgrade slot** for the pixel-OCR
   perception layer; the CPU path uses PaddleOCR + the DOM/API read instead.
+- **ChartScanAI/** — [ChartScanAI](https://github.com/Omar-Karimov/ChartScanAI) @ 58f7120. YOLOv8
+  detector trained to spot Buy/Sell pattern regions on candlestick charts (`weights/custom_yolov8.pt`,
+  50MB, classes {Buy, Sell}). Powers **Lane C** of the vision cascade (trading/broker_sense/chart_yolo.py)
+  — CPU sub-second inference via the pip-installed `ultralytics`. Trained on real chart screenshots, so
+  it detects on the eyes' broker-app captures (conf≈0.10), not our synthetic renders. The weights live
+  here locally (not committed — 50MB blob); a fresh checkout without them → chart_yolo degrades honestly.
 
 **GPU-only upgrade slots (not vendored as runnable here, CPU-first project):** UI-TARS,
 Florence-2, SAM2, GroundingDINO — the vision-language perception models from the chat. The

@@ -456,6 +456,18 @@ def fuse(symbol: str, market: str = "crypto",
     except Exception:
         vp_profile = None
 
+    # 4g ── Lane C: YOLOv8 chart-pattern detection (vendor/ChartScanAI), cached from the eyes' REAL
+    # app screenshot (chart_vision). A bounded ±0.10 tilt — an independent pattern lens, distinct
+    # from the CNN (Lane A) + VLM (Lane B). Only contributes when a fresh real-screenshot read exists.
+    yolo = None
+    try:
+        from trading.broker_sense import chart_yolo
+        yolo = chart_yolo.cached(symbol)
+        if yolo and yolo.get("score") is not None:
+            confluence = _clamp(confluence + 0.10 * float(yolo["score"]), -1.0, 1.0)
+    except Exception:
+        yolo = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -500,7 +512,7 @@ def fuse(symbol: str, market: str = "crypto",
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
         "sectors": sectors, "options_regime": options_regime, "ai_select": ai_select,
-        "volume_profile": vp_profile,
+        "volume_profile": vp_profile, "chart_yolo": yolo,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

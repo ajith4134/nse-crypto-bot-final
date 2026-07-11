@@ -74,6 +74,18 @@ forks (mlfinpy/RiskLabAI) fail to build numba on Py3.13 — NOT needed: the repo
 
 ### Build order (checkpoints)
 1. ✅ LLM vision chain repaired (core/llm.py) — Lane B depends on it. 2. ✅ Lane B chart_vlm.py.
-3. ⬜ GAP-1: capture Binance chart WITH indicators (extend chart_vision). 4. ⬜ Lane C ChartScanAI vendor.
-5. ⬜ Fuse A+B+C in indicator_fusion → P1 feature bus. 6. ⬜ P2 wire Operon/pysr+alphagen (Rank-IC).
+3. ⬜ GAP-1: capture Binance chart WITH indicators (extend chart_vision). 4. ✅ Lane C ChartScanAI (chart_yolo.py).
+5. ✅ Fuse A+B+C in indicator_fusion (VLM lens + YOLO ±0.10 tilt). 6. ✅ P2 Operon + **Rank-IC orchestrator**.
 7. ⬜ P3 triple-barrier + metalabel + cpcv/timeseriescv OOS gate. 8. ⬜ P4 Mirror-Gate deploy + Truth Ledger.
+
+## P2 DONE (2026-07-11) — trading/strategy/direction_equation.py
+`discover(ohlcv, market)` fans the feature bus through the symbolic-regression generators
+(gplearn + Operon + PySR) on a TRAIN split, then scores every discovered equation on the untouched
+OOS tail by **horizon-conditioned Rank-IC** (Spearman vs 1/4/12/24-bar forward return, reusing
+guardrails.information_coefficient). Keeps top-K by |OOS IC|, records the best horizon + an `invert`
+flag (negative IC = invertible anti-signal, per the 40%-accuracy finding), persists per market
+(`direction_equations.json`) for P4. `run_for_market(symbol, market)` fetches real OHLCV + runs it;
+`python -m trading.strategy.direction_equation` discovers for the majors. Verified: OOS IC≈0.22 on a
+learnable synthetic signal, invert-flag correct. 7 tests. NEXT: P3 wires cpcv.py/metalabel.py +
+timeseriescv as the OOS gate (only equations that beat coin-flip under purged-CPCV ship); P4 deploys
+the surviving equation as the direction driver via the Mirror Gate + continuous Truth-Ledger scoring.

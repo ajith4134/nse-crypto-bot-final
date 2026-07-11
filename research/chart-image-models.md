@@ -32,6 +32,13 @@ which use pics or charts to give value, using only the Binance account UI."
 | PeerJ/PMC 2025 CNN (Japanese candlesticks) | peerj cs-2719 | Recent CNN on candlestick patterns | img → class | 4 | reference/paper (code thin) |
 | Vision Transformer (custom) | various | ViT fine-tuned on chart images | img → class | 6 | VLM covers this zero-shot; revisit only if we train |
 
+## STATUS — 3-lane cascade BUILT (2026-07-11)
+- **Lane A** (CNN): cnn_direction.py — kept. **Lane B** (VLM): chart_vlm.py — built; free cloud + permanent
+  local qwen2.5-vl:7b (research/local-vision-vlm.md). **Lane C** (YOLO): chart_yolo.py — built from
+  vendored ChartScanAI (custom_yolov8.pt, classes {Buy,Sell}); runs on the eyes' REAL app screenshots
+  (conf≈0.10; nothing on synthetic renders — trained on real charts), cached per symbol, fused into
+  indicator_fusion as a bounded ±0.10 tilt. All three emit a scalar → the direction signal / equation.
+
 ## Recommendation — STITCH a 3-lane vision cascade (all emit a scalar → equation feature)
 1. **Lane A (fast): existing CNN** — first-pass p_up on every (symbol, TF) screenshot (kept).
 2. **Lane B (deep): VLM chart reader** — `vision_chat` on the **Binance-UI chart WITH
