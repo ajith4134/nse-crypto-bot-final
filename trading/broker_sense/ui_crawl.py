@@ -115,12 +115,22 @@ def crawl_once(sessions, symbols: list[str], *, deadline: float | None = None,
     if not todo:
         report["skipped"] = len(symbols)
         return report
+    # HARD CAP (2026-07-11): the crawl is a budget-tail nicety — since the compute-offload reads
+    # data via Binance's API/websocket, it must NEVER dominate the cycle. Cap its total wall-clock
+    # and bound per-page nav, so slow/hung pages can't overrun the cycle and starve the executor
+    # (root cause of 15-25min cycles → few entries across the 400+ universe).
+    nav_ms = int(os.environ.get("UI_CRAWL_NAV_MS", "12000"))
+    max_s = float(os.environ.get("UI_CRAWL_MAX_S", "25"))
+    eff_deadline = time.monotonic() + max_s
+    if deadline is not None:
+        eff_deadline = min(eff_deadline, deadline)
+    per_page_budget = _DWELL_S + nav_ms / 1000.0 + 4.0        # nav + dwell + TF-click headroom
     for sym in todo:
-        if deadline is not None and time.monotonic() > deadline:
-            report["errors"].append("deadline before finishing crawl")
+        if time.monotonic() + per_page_budget > eff_deadline:  # would overrun → stop cleanly
+            report["errors"].append("deadline: skipped remaining to protect the cycle")
             break
         try:
-            pg = sessions.page(broker, _page_url(broker, sym))
+            pg = sessions.page(broker, _page_url(broker, sym), timeout_ms=nav_ms)
             if pg is None:
                 report["errors"].append(f"{sym}: no {broker} page/session")
                 _mark_visited(sym, False)

@@ -2929,7 +2929,7 @@ _trading/broker_sense/fast_candles.py — direction from OHLCV DATA, not chart s
 ## `trading/broker_sense/funnel.py`
 _trading/broker_sense/funnel.py — the cascade orchestrator (savers B + I: every cycle_
 - **classes:** BrokerSenseFunnel
-- **functions:** `_budget_s() -> float`; `_fast_book(symbol, market) -> dict`; `_fast_candles() -> bool`; `_login_brokers(market) -> list[str]`; `_vote(chart) -> tuple[str, float]`
+- **functions:** `_budget_s() -> float`; `_unlimited_opens() -> bool`; `_unlimited_budget() -> float`; `_unlimited_min_qv() -> float`; `_fast_book(symbol, market) -> dict`; `_fast_candles() -> bool`; `_login_brokers(market) -> list[str]`; `_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, os, time, trading, trading.broker_sense, trading.broker_sense.app_explorer, trading.broker_sense.book_monitor, trading.broker_sense.exec_adapter, trading.broker_sense.ocular_perception, trading.broker_sense.screeners, trading.broker_sense.watchlist
 
 ## `trading/broker_sense/human_handoff.py`

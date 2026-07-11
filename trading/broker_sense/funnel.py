@@ -64,6 +64,29 @@ def _budget_s() -> float:
         return 60.0
 
 
+def _unlimited_opens() -> bool:
+    """Brain-decides mode (owner 2026-07-11): NO artificial cap on how many trades open at once.
+    The compute-offload made wide screening cheap (Binance WS mirror = RAM), so we feed the whole
+    liquid universe to the executor and let the brain's score gate — not a shortlist — decide."""
+    return os.environ.get("CRYPTO_UNLIMITED_OPENS", "1") in ("1", "true", "TRUE", "yes", "on")
+
+
+def _unlimited_budget() -> float:
+    try:
+        return float(os.environ.get("CRYPTO_UNLIMITED_BUDGET_S", "300") or 300)
+    except ValueError:
+        return 300.0
+
+
+def _unlimited_min_qv() -> float:
+    """Liquidity floor for the wide universe (skip illiquid dust — not an artificial cap, a
+    tradeability guard). Default 3M USDT 24h quote-volume."""
+    try:
+        return float(os.environ.get("CRYPTO_UNLIMITED_MIN_QV", "3000000") or 3_000_000)
+    except ValueError:
+        return 3_000_000.0
+
+
 def _fast_book(symbol: str, market: str) -> dict:
     """Top-of-book the FAST way (ccxt via data_failsafe), no browser OCR. Adds spread_pct so the
     funnel's in-code spread risk rule still applies. Honest empty dict on any miss."""
@@ -219,12 +242,28 @@ class BrokerSenseFunnel:
                 pass
         hot = self.watch.hot()
         by_sym = {r["symbol"]: r for r in rows}
+        shortlist_n = self.shortlist_n
+        # BRAIN-DECIDES (owner 2026-07-11): in unlimited mode feed the FULL liquid universe (from the
+        # WS mirror — RAM, ~0 CPU) to the executor and remove the shortlist cap, so the brain can open
+        # as many as its score gate passes (300+ possible), never bounded by an artificial shortlist.
+        if _unlimited_opens() and self.market == "crypto":
+            try:
+                from trading.broker_sense import binance_stream as _bs
+                uni = [r["symbol"] for r in
+                       _bs.get_mirror().futures_rows(min_quote_volume=_unlimited_min_qv())]
+                if uni:
+                    hot = list(dict.fromkeys(list(hot) + uni))
+                    for s in uni:
+                        by_sym.setdefault(s, {"symbol": s, "lane": "mirror-universe"})
+                    shortlist_n = len(hot)               # no cap — the brain's min_score decides
+            except Exception:
+                pass
         # Open positions ride FREE (2026-07-07 throughput fix): pinning them INTO the
         # shortlist made 3-5 open trades consume nearly all of the floor-4 slots,
         # leaving ~0-1 NEW candidates per cycle — the real reason "max trades
         # unlimited" still opened almost nothing. shortlist_n now budgets NEW symbols
         # only; opens are appended on top (they still need the eyes for exits).
-        new_hot = [s for s in hot if s not in open_syms][: self.shortlist_n]
+        new_hot = [s for s in hot if s not in open_syms][: shortlist_n]
         picks = [by_sym.get(s, {"symbol": s, "lane": "tradingview"})
                  for s in new_hot]
         picks += [by_sym.get(s, {"symbol": s, "lane": "open-position"})
@@ -410,7 +449,10 @@ class BrokerSenseFunnel:
             ex = self.executor(segment)
             ex._symbols = sorted(set(tradeable) | open_syms)   # shortlist-only universe
             ex.extra_signals = app_signals                     # → decision_snapshot.app_signals
-            res = ex.run_once(allow_live=allow_live, deadline=t0 + budget)
+            # Unlimited mode: give the executor a generous wall-clock so it can evaluate + OPEN the
+            # whole universe in one pass (not cut off at the small screening budget).
+            exec_budget = max(budget, _unlimited_budget()) if _unlimited_opens() else budget
+            res = ex.run_once(allow_live=allow_live, deadline=t0 + exec_budget)
             rep["stages"]["execute"] = {"entered": res.get("entered"),
                                         "exited": res.get("exited"),
                                         "skipped": res.get("skipped"),
