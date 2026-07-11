@@ -295,3 +295,10 @@ catalysts · P3 sector rotation · P4 options IV/skew regime · Binance Edge das
 Brain reads funding/movers/order-flow/long-short/liquidations/catalysts/sectors/options-regime
 ALL from Binance (local CPU reserved for ML). Deferred (no free source): AI Select (UI-only),
 Token Unlock (DefiLlama paywalled). ~9 commits, ~100 new tests.
+
+## 2026-07-11 · AI Select — SHIPPED (was deferred). Real endpoint discovered via UI interception:
+GET bapi/apex/v1/friendly/apex/web/opportunity/recommended-assets?type=<sentiment|technical>
+binance_ai_select.py reads Binance's built-in recommender directly (reliable, not DOM scrape) →
+fusion ai_select block + screener +0.12 discovery boost + snapshot/panel. Only Token Unlock remains
+deferred (DefiLlama paywalled). Verified: the new fusion signals (order_flow/sectors/catalyst/
+options/ai_select) are USED — they move confluence (Δ measured) AND land in real journaled trades.
