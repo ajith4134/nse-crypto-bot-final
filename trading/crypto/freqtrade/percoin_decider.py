@@ -55,6 +55,7 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         self._net = None            # lazily-built TradeOutcomeNet (cached by closed-trade count)
         self._net_count = -1
         self._net_ts = float("-inf")   # last closed-trades fetch (TTL below)
+        self._bw_cache: dict = {}   # (symbol, direction) → (mono_ts, (mult, info))
 
     # ── brain confidence (global skill learned from the closed journal) ──────────
     _NET_TTL_S = 120.0     # closed trades change slowly; a fresher net isn't worth an HTTP storm
@@ -118,13 +119,28 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         net = self._brain_net()
         if net is None or not getattr(net, "trained", False):
             return 1.0, {"engine": getattr(net, "engine", "none"), "p_win": None}
+        # PREDICTION TTL cache (2026-07-11): with the TabPFN engine, ONE predict_one is a
+        # full transformer forward pass on CPU — uncached, one pass per underlying per
+        # cycle held the funnel's main thread for 30+ min (options tournament), freezing
+        # the hand/crawl/study/next-cycles behind it. The weight only moves when the net
+        # retrains, so BRAIN_WEIGHT_TTL_S (default 900) staleness is honest.
+        key = (symbol, direction)
+        now = time.monotonic()
+        ttl = float(os.environ.get("BRAIN_WEIGHT_TTL_S", "900") or 900)
+        hit = self._bw_cache.get(key)
+        if hit is not None and now - hit[0] < ttl:
+            return hit[1]
         try:
             row = {"symbol": symbol, "direction": direction, "instrument_type": "PERP",
                    "entry_price": last_price, "current_price": last_price, "leverage": 1.0}
             p = net.predict_one(row).get("p_win")
             if p is None:
-                return 1.0, {"engine": net.engine, "p_win": None}
-            return float(0.5 + max(0.0, min(1.0, p))), {"engine": net.engine, "p_win": round(p, 4)}
+                out = (1.0, {"engine": net.engine, "p_win": None})
+            else:
+                out = (float(0.5 + max(0.0, min(1.0, p))),
+                       {"engine": net.engine, "p_win": round(p, 4)})
+            self._bw_cache[key] = (now, out)
+            return out
         except Exception:
             return 1.0, {"engine": getattr(net, "engine", "none"), "p_win": None}
 

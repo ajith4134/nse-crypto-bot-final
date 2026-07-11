@@ -249,7 +249,7 @@ class BrainExecutor:
         deferred to the next cycle (reported as `deadline_deferred`) — a caller with a
         wall-clock budget (the Broker-Sense funnel) is never wedged by per-symbol cost."""
         if self.segment == "options":
-            return self._run_options_cycle(allow_live=allow_live)
+            return self._run_options_cycle(allow_live=allow_live, deadline=deadline)
         if self.segment == "prediction":
             return self._run_prediction_cycle(allow_live=allow_live)
         cli = self.client()
@@ -777,7 +777,8 @@ class BrainExecutor:
         except Exception:
             return False
 
-    def _run_options_cycle(self, *, allow_live: bool = False) -> dict:
+    def _run_options_cycle(self, *, allow_live: bool = False,
+                           deadline: float | None = None) -> dict:
         cli = self.client()
         opts = [o for o in (self._parse_option(s) for s in self.symbols()) if o]
         open_pairs = set(cli.open_pairs(segment="options"))
@@ -792,7 +793,14 @@ class BrainExecutor:
             skipped += 1
             reasons[why] = reasons.get(why, 0) + 1
         picks: dict = {}
-        for base in sorted({o["base"] for o in opts}):
+        bases = sorted({o["base"] for o in opts})
+        for i, base in enumerate(bases):
+            # honest time box (2026-07-11): decide() per underlying can be model-heavy
+            # (a TabPFN pass held this loop 30+ min, freezing the whole funnel process);
+            # like the futures path, undecided bases DEFER to the next cycle, never wedge.
+            if deadline is not None and time.monotonic() > deadline:
+                reasons["deadline_deferred"] = len(bases) - i
+                break
             try:
                 under = f"{base}/USDT:USDT"          # decide on the perp (full brain data)
                 d = self.decider.decide("CRYPTO", under, None, in_position=False)

@@ -165,7 +165,13 @@ def main() -> int:
                         extra = [s for s in extra if s in active]
                     for seg in extra:
                         try:
-                            res = funnel.executor(seg).run_once(allow_live=allow_live)
+                            # honest time box (2026-07-11): a model-heavy decide() in the
+                            # options driver once held this loop 30+ min — extra segments
+                            # get the same budget as a funnel cycle; the rest defers.
+                            _bud = float(os.environ.get("BROKER_SENSE_BUDGET", "120") or 120)
+                            res = funnel.executor(seg).run_once(
+                                allow_live=allow_live,
+                                deadline=time.monotonic() + _bud)
                             # ALWAYS log (2026-07-10): silent all-skipped cycles previously
                             # looked identical to the driver being dead — 4.5h of "options
                             # opens nothing" was invisible because only non-empty cycles
