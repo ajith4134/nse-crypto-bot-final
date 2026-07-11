@@ -1321,6 +1321,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/handoff":                    # Human-CAPTCHA handoff state
             from dashboard.routes import trading_ext
             return trading_ext.handle_handoff(self)
+        if path == "/api/trading/binance":                    # Binance compute-offload edge (state-file)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_binance_edge(self)
         if path == "/api/brain/evolve":                       # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1b)
             from dashboard.routes import brain_ext
             return brain_ext.handle_evolve(self)

@@ -2163,6 +2163,26 @@ def handle_mirror(h):
     return h._send(200, body, "application/json")
 
 
+def handle_binance_edge(h):
+    """GET /api/trading/binance — the Binance compute-offload edge (mirror status, top movers,
+    funding extremes, liquidations, listing catalysts). STATE-FILE-ONLY read (hard rule: no mirror
+    socket / heavy import in the request thread) — the funnel process writes the snapshot every ~10s."""
+    import os as _os
+
+    from trading import state
+    p = _os.path.join(str(state.STATE_DIR), "binance_edge", "snapshot.json")
+    try:
+        if _os.path.exists(p):
+            with open(p, "rb") as f:
+                return h._send(200, f.read(), "application/json")
+    except Exception as e:
+        return h._send(200, json.dumps({"available": False, "error": f"{type(e).__name__}: {e}"}).encode(),
+                       "application/json")
+    return h._send(200, json.dumps({"available": False,
+                   "note": "mirror snapshot not written yet — start the crypto funnel (BINANCE_STREAM=1)"}
+                   ).encode(), "application/json")
+
+
 def handle_handoff(h):
     """GET /api/trading/handoff — human-CAPTCHA handoff state (which brokers are paused on a
     security challenge, VNC health, noVNC path). Pure state-file read; safe in a request thread.

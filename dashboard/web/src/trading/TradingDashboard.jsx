@@ -40,6 +40,7 @@ import XRayPanel from './XRayPanel.jsx'
 import LiveBrowserPanel from './LiveBrowserPanel.jsx'
 import BrainMirrorPanel from './BrainMirrorPanel.jsx'
 import HumanHandoffPanel from './HumanHandoffPanel.jsx'
+import BinanceEdgePanel from './BinanceEdgePanel.jsx'
 import AppSchoolPanel from './AppSchoolPanel.jsx'
 import BrokerFeaturesPanel from './BrokerFeaturesPanel.jsx'
 import SegmentFocusPanel from './SegmentFocusPanel.jsx'
@@ -277,6 +278,10 @@ export default function TradingDashboard() {
 
       <Card title="Live browser — connect your broker account" hint="a real browser streamed here so YOU solve the login captcha/OTP that automation can't · your clicks+typing drive the page · Save session → the brain reads your account headless after">
         <LiveBrowserPanel broker="binance" />
+      </Card>
+
+      <Card title="Binance Edge — compute offloaded to Binance" hint="data the brain now READS from Binance instead of computing locally (frees CPU for ML) · all-market websocket mirror (funding/movers/liquidations pushed to RAM) · funding extremes · live listing catalysts · state-file-only route the funnel refreshes ~10s">
+        <BinanceEdgePanel />
       </Card>
 
       <Card title="Human Handoff — solve the broker's CAPTCHA" hint="when a brain browser hits a human-only security check (Binance slide puzzle / image CAPTCHA) it PAUSES that browser and hands you interactive control · Take control → drag the slider yourself → automation auto-resumes the instant it clears · also pings Telegram">

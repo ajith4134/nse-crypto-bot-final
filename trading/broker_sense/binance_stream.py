@@ -31,6 +31,8 @@ import threading
 import time
 from collections import deque
 
+from trading import state
+
 # Binance restructured futures WS routing to a dedicated /market/ PUBLIC entry point (2025+):
 # the old /ws/ and /stream?streams= paths now connect but deliver NO frames. Verified live
 # 2026-07-11: /market/stream?streams=... delivers; the others time out. markPrice@arr@1s = 1s cadence.
@@ -125,12 +127,16 @@ class BinanceUniverseMirror:
                                               open_timeout=15, max_queue=1024) as ws:
                     self._connected = True
                     backoff = 1.0
+                    last_snap = 0.0
                     while self._running:
                         raw = await asyncio.wait_for(ws.recv(), timeout=60)
                         try:
                             self._apply_frame(json.loads(raw))
                         except Exception:
                             continue
+                        if time.time() - last_snap >= 10.0:      # dashboard snapshot every ~10s
+                            last_snap = time.time()
+                            self.write_snapshot()
             except Exception:
                 self._connected = False
                 self._reconnects += 1
@@ -240,6 +246,44 @@ class BinanceUniverseMirror:
     def is_stale(self, symbol: str) -> bool:
         v = self.funding(symbol) or self.ticker(symbol)
         return (not v) or (time.time() - (v.get("ts") or 0.0) > _STALE_AFTER_S)
+
+    def snapshot_dict(self) -> dict:
+        """A compact dashboard-ready view of the whole edge (pure RAM). Written to a state file by
+        the funnel process so the dashboard route can read it WITHOUT opening a socket (hard rule)."""
+        with self._lock:
+            marks = [{"symbol": s, "funding_rate": v.get("funding_rate"), "mark": v.get("mark"),
+                      "next_funding_ts": v.get("next_funding_ts")}
+                     for s, v in self._mark.items() if v.get("funding_rate") is not None]
+        funding_hi = sorted(marks, key=lambda m: -(m.get("funding_rate") or 0))[:8]
+        funding_lo = sorted(marks, key=lambda m: (m.get("funding_rate") or 0))[:8]
+        return {
+            "status": self.status(),
+            "top_volume": self.movers(15, by="quote_volume"),
+            "top_gainers": self.movers(10, by="pct_change"),
+            "funding_high": funding_hi, "funding_low": funding_lo,
+            "liquidations": self.recent_liquidations(n=25),
+            "ts": time.time(),
+        }
+
+    def write_snapshot(self) -> None:
+        """Dump snapshot_dict (+ catalysts) to the state file. Best-effort; never raises."""
+        d = self.snapshot_dict()
+        try:
+            from trading.broker_sense import binance_catalysts as bc
+            if bc.enabled():
+                d["new_listings"] = bc.new_listings()[:10]
+                d["announcements"] = [{"title": a.get("title"), "symbols": a.get("symbols")}
+                                      for a in bc.announcements(n=8)][:8]
+        except Exception:
+            pass
+        try:
+            p = state._path("binance_edge") / "snapshot.json"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(d, default=str))
+            tmp.replace(p)
+        except Exception:
+            pass
 
     def status(self) -> dict:
         with self._lock:
