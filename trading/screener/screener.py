@@ -273,6 +273,15 @@ def screen_crypto_futures(source: Any, *, limit: int = 5,
         rows = [r for r in rows if abs(r.get("pct_change") or 0.0) >= float(mp)]
     rows = rows[: max(limit * 3, limit)]
     vmax = max((r["quote_volume"] for r in rows), default=1.0) or 1.0
+    # new-listing catalyst (Binance-native): fresh perps pump on listing flow — boost their
+    # discovery so they surface as candidates. Bounded +0.15; one cheap state-file read.
+    new_raw: set = set()
+    try:
+        from trading.broker_sense import binance_catalysts as _bc
+        if _bc.enabled():
+            new_raw = {n["raw"] for n in _bc.new_listings()}
+    except Exception:
+        new_raw = set()
     out = []
     for r in rows:
         fr = funding.get(r["symbol"]) or {}
@@ -280,6 +289,8 @@ def screen_crypto_futures(source: Any, *, limit: int = 5,
         s = (0.5 * (r["quote_volume"] / vmax)
              + 0.3 * min(abs(r["pct_change"]) / 10.0, 1.0)
              + 0.2 * min(abs(frate) * 1000, 1.0))
+        if (r["symbol"].split("/")[0] + "USDT") in new_raw:      # ccxt 'X/USDT:USDT' → raw 'XUSDT'
+            s = min(1.0, s + 0.15)
         out.append(_cand(r["symbol"], "futures", "CRYPTO", s,
                          f"futures: vol + {r['pct_change']:+.2f}% funding={frate:.4%}",
                          {"pct_change": r["pct_change"],

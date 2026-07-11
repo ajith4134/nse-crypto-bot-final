@@ -387,6 +387,18 @@ def fuse(symbol: str, market: str = "crypto",
         except Exception:
             order_flow = None
 
+    # 4c ── Binance-native event catalyst (new/upcoming listing). Informational — a listing is not
+    # inherently long/short, so it does NOT nudge direction; it rides in the snapshot for the brain
+    # to size/prioritise on, and the screener boosts discovery of fresh listings separately.
+    catalyst = None
+    if market == "crypto":
+        try:
+            from trading.broker_sense import binance_catalysts as _bc
+            if _bc.enabled():
+                catalyst = _bc.catalyst(symbol)
+        except Exception:
+            catalyst = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -404,7 +416,7 @@ def fuse(symbol: str, market: str = "crypto",
         "regime": regime, "veto": veto, "vision_agree": vision_agree,
         "vision_dir": round(vision_dir, 4) if vision_dir is not None else None,
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
-        "barriers": barriers, "meta": meta, "order_flow": order_flow,
+        "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

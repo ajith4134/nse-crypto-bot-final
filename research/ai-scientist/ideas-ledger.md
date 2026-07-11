@@ -281,3 +281,10 @@ narrow · Tier1 shortlist API · Tier2 liq websocket) → indicator_fusion/decis
 - P3: AI Select + movers + native Screener + sector rotation as candidate sources.
 - P4: options IV/skew/max-pain + Square sentiment.
 Status: awaiting owner approval on phase(s) to build.
+
+## 2026-07-11 · P2 catalysts — SHIPPED (listings) + Token-Unlock DEFERRED
+Binance-native listing catalysts shipped: binance_catalysts.py (free announcements API catalogId 48
++ mirror universe-diff for just-listed perps) → fuse() `catalyst` block + screener new-listing
+discovery boost (+0.15). Token-Unlock catalyst DEFERRED: DefiLlama emissions API now paywalled
+(402), no free Binance endpoint — zero-cost-first forbids a pay item. Do NOT fabricate. Revisit
+when a free unlock source is found (Binance bapi token-unlock path, or a free mirror of the data).

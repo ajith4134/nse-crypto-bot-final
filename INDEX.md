@@ -1409,6 +1409,11 @@ _Tests for trading/strategy/autoresearch.py — the live autoresearch driver (#5
 - **functions:** `_rows(n, base)`
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_binance_catalysts.py`
+_tests/test_binance_catalysts.py — Binance-native listing catalysts._
+- **classes:** TestCatalysts
+- **imports:** pathlib, tempfile, time, trading.broker_sense, trading.broker_sense.binance_stream, unittest
+
 ## `tests/test_binance_orderflow.py`
 _tests/test_binance_orderflow.py — Binance-computed order-flow feature pack._
 - **classes:** TestOrderFlow
@@ -2795,6 +2800,11 @@ _trading/broker_sense/app_school.py — the brain LEARNS to drive a broker app (
 - **classes:** AppMap, AppSchool
 - **functions:** `market_status(broker) -> dict`; `_min_quote_volume() -> float`; `_ccxt_exchange(segment)`; `get_school() -> AppSchool`
 - **imports:** __future__, datetime, os, time, trading, trading.broker_sense.brokers, zoneinfo
+
+## `trading/broker_sense/binance_catalysts.py`
+_trading/broker_sense/binance_catalysts.py — Binance-native event catalysts (P2, compute-offload)._
+- **functions:** `enabled() -> bool`; `_get_json(url)`; `_articles(cat, n)`; `announcements(cat, n) -> list[dict]`; `_extract_symbols(title) -> list[str]`; `_seen_path()`; `_load_seen() -> dict`; `_save_seen(seen) -> None`; `refresh_new_listings() -> dict`; `new_listings(max_age_s) -> list[dict]`; `catalyst(symbol) -> dict`
+- **imports:** __future__, json, os, re, time, trading, urllib.request
 
 ## `trading/broker_sense/binance_orderflow.py`
 _trading/broker_sense/binance_orderflow.py — Binance-computed order-flow & positioning features._
