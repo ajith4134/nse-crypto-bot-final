@@ -87,6 +87,35 @@ class TestDiscover(unittest.TestCase):
         self.assertEqual(de.discover(_trending_ohlcv(n=80), "crypto"), [])
 
 
+class TestCpcvGate(unittest.TestCase):
+    def setUp(self):
+        self.ohlcv = _trending_ohlcv(n=800)
+
+    def test_cpcv_robustness_shape(self):
+        flist = ["rsi", "macd_hist"]
+        rob = de.cpcv_robustness(self.ohlcv, "rsi", "sympy", flist, horizon=1)
+        self.assertIsNotNone(rob)
+        self.assertIn("cpcv_mean_ic", rob)
+        self.assertIn("sign_consistency", rob)
+        self.assertIsInstance(rob["passed"], bool)
+        self.assertGreaterEqual(rob["n_paths"], 2)
+
+    def test_validate_survivors_and_pbo(self):
+        ranked = de.discover(self.ohlcv, "crypto_futures", budget=6, seed=3, top_k=5)
+        rep = de.validate(self.ohlcv, ranked, "crypto_futures", persist=False)
+        self.assertEqual(rep["n_candidates"], len(ranked))
+        self.assertLessEqual(rep["n_survivors"], rep["n_candidates"])
+        for s in rep["survivors"]:                      # every survivor is CPCV-robust
+            self.assertTrue(s["cpcv"]["passed"])
+        if rep["pbo"] is not None:
+            self.assertGreaterEqual(rep["pbo"], 0.0)
+            self.assertLessEqual(rep["pbo"], 1.0)
+
+    def test_gate_degrades_on_short_series(self):
+        self.assertIsNone(de.cpcv_robustness(_trending_ohlcv(n=40), "rsi", "sympy",
+                                             ["rsi"], horizon=1))
+
+
 class TestPersist(unittest.TestCase):
     def setUp(self):
         self._orig = state.STATE_DIR

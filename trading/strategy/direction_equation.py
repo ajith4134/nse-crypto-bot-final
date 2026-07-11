@@ -135,6 +135,120 @@ def discover(ohlcv: pd.DataFrame, market: str = "crypto", *, horizons=DEFAULT_HO
     return scored[:top_k]
 
 
+# ── P3: purged-CPCV OOS gate (only equations that beat coin-flip out-of-sample survive) ──────
+def cpcv_robustness(ohlcv: pd.DataFrame, expr: str, kind: str, features: list, *, horizon: int,
+                    n_groups: int = 6, k_test: int = 2, ic_floor: float = 0.03,
+                    min_sign: float = 0.6) -> dict | None:
+    """Purged-combinatorial-CV robustness of one equation: OOS Rank-IC on every purged path, then
+    mean IC + sign-consistency across paths. Passes only if the edge is meaningful AND stable in
+    SIGN across folds (a flip-flopping IC is noise, not a direction equation). None if it can't run."""
+    from trading.strategy import cpcv
+    from trading.strategy.features import compute_features
+    feats = compute_features(ohlcv)
+    if "close" not in feats.columns or len(feats) < n_groups * 2:
+        return None
+    close = feats["close"]
+    try:
+        raw = np.asarray(eval_expression(expr, kind, feats, features), dtype=float)
+    except Exception:
+        return None
+    fwd = _forward_return(close, horizon)
+    n = len(feats)
+    try:
+        paths = cpcv.combinatorial_purged_folds(n, n_groups=n_groups, k_test=k_test)
+    except ValueError:
+        return None
+    path_ics = []
+    for p in paths:
+        idx = np.concatenate([np.arange(s, min(e, n)) for (s, e) in p["test"]]) if p["test"] else np.array([], int)
+        if len(idx) < 10:
+            continue
+        ic = information_coefficient(raw[idx], fwd[idx])
+        if np.isfinite(ic):
+            path_ics.append(ic)
+    if len(path_ics) < 2:
+        return None
+    mean_ic = float(np.mean(path_ics))
+    sign = 1.0 if mean_ic >= 0 else -1.0
+    sign_consistency = float(np.mean([1.0 if (x >= 0) == (sign >= 0) else 0.0 for x in path_ics]))
+    passed = abs(mean_ic) >= ic_floor and sign_consistency >= min_sign
+    return {"cpcv_mean_ic": round(mean_ic, 4), "sign_consistency": round(sign_consistency, 3),
+            "n_paths": len(path_ics), "horizon": horizon, "passed": passed}
+
+
+def _triple_barrier_winrate(ohlcv: pd.DataFrame, expr: str, kind: str, features: list,
+                            *, invert: bool = False) -> dict | None:
+    """Barrier-based directional accuracy: run the equation's (deploy-oriented) signal through
+    triple-barrier labels → fraction of firings that hit the profit barrier first. Realistic
+    'beats coin-flip?' check (>0.5 = edge). None on failure/no firings."""
+    try:
+        from trading.strategy.features import compute_features
+        from trading.strategy.generators.expression import ExpressionStrategy
+        from trading.strategy.metalabel import triple_barrier_labels
+        feats = compute_features(ohlcv)
+        sig = ExpressionStrategy(market="", features=list(features), expr=expr, kind=kind).signal(feats)
+        if invert:
+            sig = -sig                                # deploy the inverted anti-signal
+        labels = triple_barrier_labels(ohlcv, sig)
+        if labels is None or len(labels) == 0:
+            return None
+        wins = float((labels["label"] == 1).mean())
+        return {"win_rate": round(wins, 4), "n_firings": int(len(labels))}
+    except Exception:
+        return None
+
+
+def _block_ic_matrix(ohlcv: pd.DataFrame, cands: list[dict], *, n_blocks: int = 8) -> np.ndarray | None:
+    """(n_candidates, n_blocks) matrix of each equation's Rank-IC (at its own best horizon) per
+    contiguous time block — the input to guardrails.pbo_cscv for selection-overfit (PBO)."""
+    from trading.strategy.features import compute_features
+    feats = compute_features(ohlcv)
+    if "close" not in feats.columns or len(feats) < n_blocks * 4 or len(cands) < 2:
+        return None
+    close = feats["close"]
+    n = len(feats)
+    bnds = [(int(i * n / n_blocks), int((i + 1) * n / n_blocks)) for i in range(n_blocks)]
+    rows = []
+    for c in cands:
+        try:
+            raw = np.asarray(eval_expression(c["expr"], c["kind"], feats, c["features"]), dtype=float)
+            fwd = _forward_return(close, int(c.get("best_horizon", 1)))
+            rows.append([information_coefficient(raw[s:e], fwd[s:e]) for (s, e) in bnds])
+        except Exception:
+            rows.append([0.0] * n_blocks)
+    return np.asarray(rows, dtype=float)
+
+
+def validate(ohlcv: pd.DataFrame, ranked: list[dict], market: str = "crypto", *,
+             persist: bool = True) -> dict:
+    """P3 gate: run every P2 equation through purged-CPCV robustness + triple-barrier win-rate,
+    and compute the SET's PBO (selection overfit). Survivors = CPCV-robust equations. Persists the
+    validated survivors (replacing the raw top-K) for the P4 deploy. Returns the full report."""
+    from trading.strategy.guardrails import pbo_cscv
+    survivors = []
+    for eq in ranked:
+        rob = cpcv_robustness(ohlcv, eq["expr"], eq["kind"], eq["features"],
+                              horizon=int(eq.get("best_horizon", 1)))
+        tb = _triple_barrier_winrate(ohlcv, eq["expr"], eq["kind"], eq["features"],
+                                     invert=bool(eq.get("invert")))
+        rec = {**eq, "cpcv": rob, "triple_barrier": tb}
+        if rob and rob["passed"]:
+            survivors.append(rec)
+    pbo = None
+    try:
+        M = _block_ic_matrix(ohlcv, ranked)
+        if M is not None:
+            pbo = round(pbo_cscv(np.abs(M))["pbo"], 4)   # |IC| perf → is the IS-best OOS-best?
+    except Exception:
+        pbo = None
+    survivors.sort(key=lambda s: abs(s.get("cpcv", {}).get("cpcv_mean_ic", 0.0)), reverse=True)
+    report = {"market": market, "n_candidates": len(ranked), "n_survivors": len(survivors),
+              "pbo": pbo, "survivors": survivors, "ts": _now()}
+    if persist and survivors:
+        save_equations(market, survivors)            # deploy reads the CPCV-validated set
+    return report
+
+
 def save_equations(market: str, ranked: list[dict]) -> None:
     """Persist the top-K equations for a market (P4 deploy reads these)."""
     store = state.load_json(_EQ_FILE, {}) or {}
@@ -183,7 +297,11 @@ def run_for_market(symbol: str, market: str = "crypto", *, tf: str = "15m", bars
         df = _ohlcv_for(symbol, market, tf, bars)
         if df is None:
             return []
-        return discover_and_save(df, market, **kw)
+        ranked = discover(df, market, **kw)           # P2: discover + OOS Rank-IC rank
+        if not ranked:
+            return []
+        rep = validate(df, ranked, market)            # P3: purged-CPCV gate → persist survivors
+        return rep.get("survivors", [])
     except Exception:
         return []
 

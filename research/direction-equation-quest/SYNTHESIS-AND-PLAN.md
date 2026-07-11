@@ -76,7 +76,7 @@ forks (mlfinpy/RiskLabAI) fail to build numba on Py3.13 — NOT needed: the repo
 1. ✅ LLM vision chain repaired (core/llm.py) — Lane B depends on it. 2. ✅ Lane B chart_vlm.py.
 3. ⬜ GAP-1: capture Binance chart WITH indicators (extend chart_vision). 4. ✅ Lane C ChartScanAI (chart_yolo.py).
 5. ✅ Fuse A+B+C in indicator_fusion (VLM lens + YOLO ±0.10 tilt). 6. ✅ P2 Operon + **Rank-IC orchestrator**.
-7. ⬜ P3 triple-barrier + metalabel + cpcv/timeseriescv OOS gate. 8. ⬜ P4 Mirror-Gate deploy + Truth Ledger.
+7. ✅ P3 **purged-CPCV OOS gate** (cpcv + triple-barrier + PBO). 8. ⬜ P4 Mirror-Gate deploy + Truth Ledger.
 
 ## P2 DONE (2026-07-11) — trading/strategy/direction_equation.py
 `discover(ohlcv, market)` fans the feature bus through the symbolic-regression generators
