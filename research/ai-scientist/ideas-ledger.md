@@ -249,3 +249,23 @@ DA-W done (watchlist_study.py: study set → BOTH app watchlists, StudyReport fu
 DA-M done (live_mirror.py ffmpeg x11grab MJPEG + /api/trading/mirror/stream + panel LIVE toggle w/ honest 503 fallback).
 Also fixed: DecisionMemoryPanel null-outcome crash (e.outcome?.r_multiple) that unmounted the whole Trading view.
 Deferred (ledgered): /code-review high-effort pass over the full direction diff; meta-labeler TabPFN challenger; lead_lag pip HY-estimator upgrade of venue lane; Direction panel sections for pullback/study/meta.
+
+## 2026-07-11 — Reflex fast lane (signal→order in seconds) [proposed]
+Grounded in TODAY's measured bottlenecks (py-spy on live funnel): cycle time is
+network I/O (broker feature reads, candle fetches, budgeted LLM lanes) + model
+compute (TabPFN, now TTL-cached) — NOT Python loops. A compiled-language rewrite
+would not move latency; RAM (24/31GB used) is a stability lever, not a speed one.
+Design (extends existing modules, no net-new subsystems):
+- R1 Verdict cache: DirectionOracle verdict per shortlist symbol (mirror gate +
+  regime + meta-p + pullback distance) PRECOMPUTED each cycle into state
+  (direction_verdicts.json) — the slow thinking happens off the hot path.
+- R2 Tick trigger: the pullback-sweeper thread (already ticking 45s) upgraded to a
+  websocket bookTicker listener (reuse multi-venue pool / freqtrade ws) → on tick
+  crossing an armed retrace or a fresh verdict threshold → place order via the
+  existing sweep_pullbacks path. Signal→order target: <5s.
+- R3 CPU-solo auto: pause SIGSTOP-able batch jobs (cpu-solo skill logic) whenever
+  R2 fires a burst, resume after — decision latency protected from batch load.
+- R4 (optional, Pillar 9) numba-jit the retrace/ATR check if profiling ever shows
+  it hot (unlikely — it's ~microseconds today).
+Effort: R1+R2 ~1 day; risk: low (paper-first, reuses order path + levers).
+Pillar: 27 (Direction Supremacy) + 9 (hot paths). STATUS: proposed, awaiting owner.

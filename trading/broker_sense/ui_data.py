@@ -56,16 +56,82 @@ def enabled() -> bool:
         return False
 
 
+def _fresh_shortlist_cov(shortlist: list[str], fresh_s: float) -> float | None:
+    """Fraction of the shortlist with at least one capture YOUNGER than fresh_s.
+    Presence alone lied (2026-07-07 flip: 'coverage 1.0' from days-old captures,
+    hit_rate 0.0) — freshness is what serving a quote actually needs."""
+    if not shortlist:
+        return None
+    now = time.time()
+
+    def _flat(s):
+        import re as _re
+        return _re.sub(r"[/:]", "", s.upper()).replace("USDTUSDT", "USDT")
+    fresh_syms = {sym for (sym, _tf), row in _STORE.items()
+                  if now - float(row.get("ts") or 0) < fresh_s}
+    covered = sum(1 for s in shortlist
+                  if _flat(s) in fresh_syms or _norm_symbol(s) in fresh_syms)
+    return covered / max(1, len(shortlist))
+
+
 def maybe_auto_flip(shortlist: list[str] | None = None,
                     min_hit_rate: float = 0.8, min_symbols: int = 8) -> dict:
-    """THE GOVERNOR (owner's order): once the eyes' capture coverage is warm enough —
-    served hit-rate ≥ min_hit_rate with ≥ min_symbols indexed, and (when given) most of
-    the active shortlist covered — flip UI-only mode ON durably (state flag), announce
-    it (mind-events) and record it in the rule ledger. Idempotent; never flips OFF
-    automatically (turning the API path back on is the owner's call)."""
+    """THE GOVERNOR (owner's order: 'you flip it yourself without forgetting') — now
+    TWO-WAY (2026-07-11): flips UI-only ON when the eyes can FRESHLY feed the active
+    shortlist, and flips it back OFF when serving quality collapses (stale captures
+    starved quotes/fusion/pullback refs for 4 days after the 07-07 flip). Hysteresis:
+    UI_ONLY_BAD_CHECKS consecutive bad cycles before flipping off. Levers:
+    UI_ONLY_FRESH_S (900), UI_ONLY_MIN_FRESH (0.5), UI_ONLY_BAD_CHECKS (3),
+    UI_ONLY_GOVERNOR_TWO_WAY=0 restores the old one-way behavior."""
     mode = state.load_json("ui_only_mode.json", {})
+    fresh_s = float(os.environ.get("UI_ONLY_FRESH_S", "900") or 900)
+    _hydrate_from_snapshot()
+    fresh_cov = _fresh_shortlist_cov(shortlist or [], fresh_s)
     if mode.get("enabled"):
-        return {"enabled": True, "already": True}
+        two_way = os.environ.get("UI_ONLY_GOVERNOR_TWO_WAY", "1") in (
+            "1", "true", "TRUE", "yes", "on")
+        min_fresh = float(os.environ.get("UI_ONLY_MIN_FRESH", "0.5") or 0.5)
+        if not two_way or fresh_cov is None:
+            return {"enabled": True, "already": True, "fresh_coverage": fresh_cov}
+        if fresh_cov >= min_fresh:
+            if mode.get("bad_checks"):
+                mode["bad_checks"] = 0
+                state.save_json("ui_only_mode.json", mode)
+            return {"enabled": True, "already": True, "fresh_coverage": fresh_cov}
+        bad = int(mode.get("bad_checks") or 0) + 1
+        need = int(float(os.environ.get("UI_ONLY_BAD_CHECKS", "3") or 3))
+        if bad < need:
+            mode["bad_checks"] = bad
+            state.save_json("ui_only_mode.json", mode)
+            return {"enabled": True, "already": True, "fresh_coverage": fresh_cov,
+                    "bad_checks": bad}
+        state.save_json("ui_only_mode.json",
+                        {"enabled": False, "flipped_off_ts": time.time(),
+                         "off_evidence": {"fresh_coverage": fresh_cov,
+                                          "bad_checks": bad},
+                         "flipped_ts": mode.get("flipped_ts")})
+        try:
+            from trading.brain import surface
+            surface.record_change("ui-data-governor", knob="data.ui_only.mode",
+                                  old=True, new=False,
+                                  evidence={"fresh_coverage": fresh_cov,
+                                            "bad_checks": bad},
+                                  reason="eyes' fresh coverage collapsed — flipping "
+                                         "API paths back on until captures recover "
+                                         "(owner's standing order, two-way)")
+        except Exception:
+            pass
+        try:
+            from trading.brain import mind_events
+            mind_events.emit("data-mode",
+                             f"UI-ONLY DATA MODE FLIPPED OFF (self-correction): only "
+                             f"{fresh_cov:.0%} of the shortlist had a fresh capture "
+                             f"for {bad} straight cycles — API data is back on while "
+                             f"the eyes re-warm; will flip on again at 80% fresh.",
+                             salience=0.95)
+        except Exception:
+            pass
+        return {"enabled": False, "flipped_off": True, "fresh_coverage": fresh_cov}
     cov = coverage()
     hr = cov.get("hit_rate")
     n = cov.get("symbols", 0)
@@ -79,18 +145,22 @@ def maybe_auto_flip(shortlist: list[str] | None = None,
                       _norm_symbol(s) in have)
         short_cov = covered / max(1, len(shortlist))
     # Primary criterion = SHORTLIST COVERAGE (can the eyes feed the symbols we actually
-    # trade?). hit_rate is only meaningful AFTER the flip (pre-flip almost nothing reads
+    # trade?) — and it must be FRESH coverage (the 07-07 flip proved presence lies).
+    # hit_rate is only meaningful AFTER the flip (pre-flip almost nothing reads
     # ui_ohlcv, so it sits near 0 forever — original hit-rate gate could never fire).
     if short_cov is not None:
         need_n = min(min_symbols, max(3, len(shortlist)))   # small shortlists still flip
-        ready = short_cov >= 0.8 and n >= need_n
-        needs = f"shortlist>=80% (now {short_cov:.0%}), symbols>={need_n} (now {n})"
+        ready = (short_cov >= 0.8 and n >= need_n
+                 and fresh_cov is not None and fresh_cov >= 0.8)
+        needs = (f"shortlist>=80% (now {short_cov:.0%}), symbols>={need_n} (now {n}), "
+                 f"fresh>=80% (now {(fresh_cov or 0):.0%})")
     else:
         ready = hr is not None and hr >= min_hit_rate and n >= min_symbols
         needs = f"hit_rate>={min_hit_rate}, symbols>={min_symbols}"
     if not ready:
         return {"enabled": False, "hit_rate": hr, "symbols": n,
-                "shortlist_coverage": short_cov, "needs": needs}
+                "shortlist_coverage": short_cov, "fresh_coverage": fresh_cov,
+                "needs": needs}
     state.save_json("ui_only_mode.json",
                     {"enabled": True, "flipped_ts": time.time(),
                      "evidence": {"hit_rate": hr, "symbols": n,

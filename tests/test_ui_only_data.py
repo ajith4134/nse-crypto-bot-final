@@ -149,3 +149,61 @@ class TestCrawlUrlNormalization(unittest.TestCase):
         from trading.broker_sense.ui_crawl import _binance_url
         self.assertIn("/trade/ETHUSDT?", _binance_url("ETH/USDT"))
         self.assertIn("/futures/ETHUSDT", _binance_url("ETH/USDT:USDT"))
+
+
+class TestGovernorFlipBack(unittest.TestCase):
+    """Two-way governor (2026-07-11): stale eyes must flip UI-only OFF again."""
+
+    def setUp(self):
+        self._t = tempfile.TemporaryDirectory()
+        import trading.state as state
+        self._o = state.STATE_DIR
+        state.STATE_DIR = __import__("pathlib").Path(self._t.name)
+        from trading.broker_sense import ui_data
+        ui_data._STORE.clear()
+        self.ud = ui_data
+
+    def tearDown(self):
+        import trading.state as state
+        state.STATE_DIR = self._o
+        self._t.cleanup()
+
+    def _enable(self):
+        from trading import state
+        state.save_json("ui_only_mode.json", {"enabled": True, "flipped_ts": time.time()})
+
+    def test_stale_coverage_flips_off_after_hysteresis(self):
+        self._enable()
+        # store holds ONLY days-old captures for the shortlist symbol
+        self.ud._STORE[("ETHUSDT", "15m")] = {"ts": time.time() - 86400,
+                                              "broker": "binance", "rows": []}
+        for i in range(2):                       # two bad checks: still on (hysteresis)
+            r = self.ud.maybe_auto_flip(["ETH/USDT:USDT"])
+            self.assertTrue(r["enabled"])
+        r = self.ud.maybe_auto_flip(["ETH/USDT:USDT"])   # third strike → off
+        self.assertFalse(r["enabled"])
+        self.assertTrue(r.get("flipped_off"))
+        self.assertFalse(self.ud.enabled())
+
+    def test_fresh_coverage_stays_on_and_resets_strikes(self):
+        self._enable()
+        self.ud._STORE[("ETHUSDT", "15m")] = {"ts": time.time() - 86400,
+                                              "broker": "binance", "rows": []}
+        self.ud.maybe_auto_flip(["ETH/USDT:USDT"])       # strike 1
+        self.ud._STORE[("ETHUSDT", "15m")]["ts"] = time.time()   # capture refreshed
+        r = self.ud.maybe_auto_flip(["ETH/USDT:USDT"])
+        self.assertTrue(r["enabled"])
+        from trading import state
+        self.assertEqual(state.load_json("ui_only_mode.json", {}).get("bad_checks", 0), 0)
+
+    def test_kill_switch_keeps_one_way(self):
+        import os
+        self._enable()
+        self.ud._STORE[("ETHUSDT", "15m")] = {"ts": time.time() - 86400,
+                                              "broker": "binance", "rows": []}
+        os.environ["UI_ONLY_GOVERNOR_TWO_WAY"] = "0"
+        try:
+            for _ in range(5):
+                self.assertTrue(self.ud.maybe_auto_flip(["ETH/USDT:USDT"])["enabled"])
+        finally:
+            os.environ.pop("UI_ONLY_GOVERNOR_TWO_WAY")
