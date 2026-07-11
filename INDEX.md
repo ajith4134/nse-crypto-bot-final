@@ -1844,6 +1844,12 @@ _Tests for trading/brain/memory_search.py — FTS5 full-text memory search (offl
 - **classes:** TestMemorySearch
 - **imports:** __future__, json, pathlib, tempfile, trading.brain, trading.state, unittest
 
+## `tests/test_meta_challenger.py`
+_Tests for trading/direction/meta_challenger — the TabPFN duel for the D6 meta-labeler._
+- **classes:** _Iso, TestMetaChallenger
+- **functions:** `_seed_train(n, sep)`
+- **imports:** json, pathlib, tempfile, trading.state, unittest
+
 ## `tests/test_meta_labeler.py`
 _Tests for trading/direction/meta_labeler — D6 direction meta-labeler._
 - **classes:** _Iso, TestMetaLabeler
@@ -3529,6 +3535,11 @@ _trading/direction — the Direction Accuracy Program (goal Pillar 27)._
 _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str | None`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
 - **imports:** __future__, os
+
+## `trading/direction/meta_challenger.py`
+_trading/direction/meta_challenger.py — TabPFN challenger for the D6 meta-labeler._
+- **functions:** `_env_f(name, default) -> float`; `_load_rows(max_rows) -> list[dict]`; `_encoded(rows)`; `_holdout_scores(fit_predict, X, y, cut) -> dict`; `_lgbm_fit_predict(cat_idx)`; `_tabpfn_fit_predict(cat_idx)`; `challenge(max_rows) -> dict`; `maybe_challenge() -> dict | None`; `status() -> dict`
+- **imports:** __future__, json, os, pathlib, time, trading
 
 ## `trading/direction/meta_labeler.py`
 _trading/direction/meta_labeler.py — D6: the direction meta-labeler (Pillar 27)._
