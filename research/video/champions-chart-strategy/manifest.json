@@ -1,0 +1,48 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/cf8b26e8-5335-4ce8-b7c6-c4490de63c0a/a52857c5-World_CHAMPIONS_Use_THIS_StrategyComment__CHART__to_never_pay_for_education_again.Verified.Aud",
+  "video_file": "/home/karan18190164/.claude/uploads/cf8b26e8-5335-4ce8-b7c6-c4490de63c0a/a52857c5-World_CHAMPIONS_Use_THIS_StrategyComment__CHART__to_never_pay_for_education_again.Verified.Aud",
+  "duration_s": 60.18,
+  "n_frames": 7,
+  "frames": [
+    {
+      "file": "f_0000_000.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_001.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0020_002.jpg",
+      "t": 20.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0030_003.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0040_004.jpg",
+      "t": 40.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0050_005.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_006.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 21,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/champions-chart-strategy"
+}

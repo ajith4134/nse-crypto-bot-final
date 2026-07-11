@@ -147,3 +147,66 @@ class PysrGenerator(StrategyGenerator):
         except Exception:
             return []
         return out
+
+
+class OperonGenerator(StrategyGenerator):
+    """Operon (pyoperon) — C++ genetic symbolic regression → ExpressionStrategy candidates.
+
+    The direction-equation quest's named third engine (research/direction-equation-quest): Operon
+    beats neural SR on NOISY real financial data and is CPU-native + fast (no Julia warm-up, unlike
+    PySR). It fits factor = f(features) → next-bar return, then exports each Pareto-front expression
+    (infix, Operon's 1-indexed `X1..Xn` remapped to our evaluator's 0-indexed `x0..xn`) as an
+    ExpressionStrategy for the SHARED CPCV+DSR+PBO gate. Set OPERON_GEN=0 to skip."""
+
+    name = "symbolic_operon"
+
+    def available(self) -> bool:
+        import os
+        if os.environ.get("OPERON_GEN", "1") not in ("1", "true", "TRUE", "yes", "on"):
+            return False
+        try:
+            import pyoperon  # noqa: F401
+            return True
+        except Exception:
+            return False
+
+    def generate(self, ohlcv, market, *, features=None, budget=12, seed=0, **kw):
+        import re
+        feats = features if features is not None else __import__(
+            "trading.strategy.features", fromlist=["compute_features"]).compute_features(ohlcv)
+        flist, X, y, _ = _feature_matrix(feats, market)
+        if flist is None:
+            return []
+        try:
+            from pyoperon.sklearn import SymbolicRegressor
+            model = SymbolicRegressor(
+                allowed_symbols="add,sub,mul,div,constant,variable",
+                generations=max(5, min(int(budget), 20)), population_size=200,
+                max_length=20, offspring_generator="basic", n_threads=2)
+            model.fit(X, y)
+            front = list(model.pareto_front_ or [])
+        except Exception:
+            return []
+
+        def _mapvars(expr: str) -> str:               # Operon X1..Xn (1-indexed) → evaluator x0..xn
+            return re.sub(r"\bX(\d+)\b", lambda m: f"x{int(m.group(1)) - 1}", expr)
+
+        def _mse(el) -> float:
+            try:
+                return float(str(el.get("mean_squared_error")))
+            except (TypeError, ValueError):
+                return 1e18
+
+        out = []
+        try:
+            for i, el in enumerate(sorted(front, key=_mse)[:budget]):   # best (lowest MSE) first
+                expr = _mapvars(str(el.get("model") or "").strip())
+                if not expr:
+                    continue
+                out.append(ExpressionStrategy(
+                    market=market, features=list(flist), expr=expr, kind="sympy",
+                    id=f"operon_{market.lower()}_{seed}_{i}",
+                    provenance={"generation": 0, "parents": [], "mutations": ["operon"]}))
+        except Exception:
+            return []
+        return out

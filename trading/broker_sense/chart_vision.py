@@ -114,27 +114,45 @@ class ChartVision:
         return None
 
     def _render_api(self, symbol: str, market: str, tf: str) -> tuple[str, str] | None:
-        """Rule-4 fallback: draw the same 24 candles locally from API data."""
+        """Rule-4 fallback: draw the same 24 plain candles locally from API data (the shape
+        the CNN was trained on). Delegates to chart_render.plain (single source of truth)."""
+        from trading.broker_sense import chart_render
         rows = data_failsafe.ohlcv(symbol, market, timeframe=tf, limit=BARS)
-        if not rows:
+        path = chart_render.plain(rows, symbol, tf)
+        if path is None:
             return None
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(figsize=(2.4, 2.4), dpi=100)
-        for i, r in enumerate(rows[-BARS:]):
-            o, h, l, c = float(r[1]), float(r[2]), float(r[3]), float(r[4])
-            up = c >= o
-            ax.plot([i, i], [l, h], lw=0.7, color="0.4")
-            ax.add_patch(plt.Rectangle((i - 0.33, min(o, c)), 0.66, abs(c - o) or 1e-9,
-                                       color=("white" if up else "black"), ec="0.2", lw=0.4))
-        ax.set_axis_off()
-        fig.tight_layout(pad=0)
-        path = str(_shot_dir() / f"{symbol.split('/')[0]}_{tf}_r{int(time.time())}.png")
-        fig.savefig(path, facecolor="0.75")
-        plt.close(fig)
         self.stats["rendered"] += 1
         return path, "render:api"
+
+    def _vision_escalate(self, symbol: str, market: str, tf: str) -> dict | None:
+        """Saver B, deep lane: render a Binance-style chart WITH built-in indicators (MA/BB/
+        volume/RSI/MACD) and let the free VLM read the direction off the PICTURE (owner's
+        2026-07-11 req). Returns a chart_vlm result or None (caller falls back to text). The
+        annotated png is deleted immediately (owner's step 7)."""
+        from trading.broker_sense import chart_render, chart_vlm, volume_profile
+        rows = data_failsafe.ohlcv(symbol, market, timeframe=tf, limit=chart_render.ANNOT_BARS)
+        path = chart_render.annotated(rows, symbol, tf)
+        if path is None:
+            return None
+        ctx = None                                        # ground the VLM with the measured VP levels
+        try:
+            vpf = volume_profile.features(rows, market)
+            if vpf.get("available"):
+                fa = vpf["failed_auction"]
+                ctx = (f"POC={vpf['poc']} VAH={vpf['vah']} VAL={vpf['val']} zone={vpf['zone']} "
+                       f"migration={vpf['migration']['bias']} "
+                       f"failed_auction={fa['signal']}({fa['detail']})")
+        except Exception:
+            ctx = None
+        try:
+            res = chart_vlm.read_chart(path, symbol, tf, context=ctx)
+        finally:
+            try:
+                os.remove(path)
+                self.stats["deleted"] += 1
+            except OSError:
+                pass
+        return res
 
     # ── the per-cycle batch read ────────────────────────────────────────────────
     def read(self, picks: list[dict], market: str,
@@ -193,10 +211,13 @@ class ChartVision:
         for (sym, tf, path, chart_source), res in zip(jobs, results):
             if res.get("escalate") and llm_quota > 0 and \
                     (deadline is None or time.monotonic() < deadline):
-                esc = llm_escalate(sym, tf, data_failsafe.ohlcv(sym, market, tf, 8) or [])
+                # deep lane FIRST: read the indicator-annotated chart with the VLM (reads the
+                # picture + indicators, owner's req); fall back to the text OHLCV summary.
+                esc = self._vision_escalate(sym, market, tf) or \
+                    llm_escalate(sym, tf, data_failsafe.ohlcv(sym, market, tf, 8) or [])
                 llm_quota -= 1
                 if esc:
-                    res = {**esc, "escalated_from": "cnn"}
+                    res = {**res, **esc, "escalated_from": "cnn"}
             res["chart_source"] = chart_source
             out[sym][tf] = res
             self.cache[f"{sym}|{tf}"]["result"] = {k: res[k] for k in

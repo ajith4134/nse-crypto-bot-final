@@ -27,24 +27,32 @@ from config import settings
 # next provider on ANY error (rate limit / quota / timeout / model-not-found), so a
 # throttled or exhausted key never blocks the brain — it just falls through. (Ranked from
 # a 2026-07-02 live health-check: Groq 0.21s and SambaNova 1.3s were the fastest working.)
+# Order = failover chain, re-ranked from a 2026-07-11 live isolation health-check
+# (scratchpad/verify_llm_creds.py): CONFIRMED-OK providers first (groq/cerebras/mistral/
+# alibaba answered), then valid-but-rate-limited free tiers (sambanova/gemini/openrouter —
+# the governor cools these), then the currently-BROKEN ones LAST so they never delay the
+# healthy chain: deepseek/deepinfra = free credit exhausted (HTTP 402), fireworks = model
+# 404 (serverless id retired), zai = auth fail (key expired), nvidia_nim = 90s+ hangs.
+# They stay in the chain (keys may be topped-up / rotated later) but only as last resort.
 PROVIDERS = [
     ("GROQ_API_KEY", "groq/llama-3.3-70b-versatile", "GROQ_API_KEY", None),
     # llama-3.3-70b was RETIRED by Cerebras (deprecated 2026-02-16 → 100% NotFoundError,
     # 3.8k dead calls by 2026-07-10); gpt-oss-120b is their current production model
     # (~3,000 tok/s, on the free tier) per inference-docs.cerebras.ai/models/overview.
     ("CEREBRAS_API_KEY", "cerebras/gpt-oss-120b", "CEREBRAS_API_KEY", None),
+    ("MISTRAL_API_KEY", "mistral/mistral-large-latest", "MISTRAL_API_KEY", None),
+    # OpenAI-compatible endpoints (litellm 'openai/<model>' + api_base + api_key):
+    ("ALIBABA_API_KEY", "openai/qwen-plus", None,
+     "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
     ("SAMBANOVA_API_KEY", "sambanova/Meta-Llama-3.3-70B-Instruct", "SAMBANOVA_API_KEY", None),
     ("GOOGLE_AISTUDIO_API_KEY", "gemini/gemini-2.0-flash", "GEMINI_API_KEY", None),
     ("OPENROUTER_API_KEY", "openrouter/meta-llama/llama-3.3-70b-instruct:free", "OPENROUTER_API_KEY", None),
-    ("DEEPSEEK_API_KEY", "deepseek/deepseek-chat", "DEEPSEEK_API_KEY", None),
-    ("DEEPINFRA_API_KEY", "deepinfra/meta-llama/Llama-3.3-70B-Instruct", "DEEPINFRA_API_KEY", None),
-    ("FIREWORKS_API_KEY", "fireworks_ai/accounts/fireworks/models/llama-v3p3-70b-instruct", "FIREWORKS_AI_API_KEY", None),
-    ("MISTRAL_API_KEY", "mistral/mistral-large-latest", "MISTRAL_API_KEY", None),
-    ("NVIDIA_API_KEY", "nvidia_nim/meta/llama-3.3-70b-instruct", "NVIDIA_NIM_API_KEY", None),
-    # OpenAI-compatible endpoints (litellm 'openai/<model>' + api_base + api_key):
-    ("ZAI_API_KEY", "openai/glm-4-flash", None, "https://api.z.ai/api/paas/v4"),
-    ("ALIBABA_API_KEY", "openai/qwen-plus", None,
-     "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+    # ── currently broken (2026-07-11) — kept as last-resort, may recover ──
+    ("DEEPSEEK_API_KEY", "deepseek/deepseek-chat", "DEEPSEEK_API_KEY", None),          # 402 no balance
+    ("DEEPINFRA_API_KEY", "deepinfra/meta-llama/Llama-3.3-70B-Instruct", "DEEPINFRA_API_KEY", None),  # 402
+    ("FIREWORKS_API_KEY", "fireworks_ai/accounts/fireworks/models/llama-v3p3-70b-instruct", "FIREWORKS_AI_API_KEY", None),  # 404 id retired
+    ("ZAI_API_KEY", "openai/glm-4-flash", None, "https://api.z.ai/api/paas/v4"),        # auth fail
+    ("NVIDIA_API_KEY", "nvidia_nim/meta/llama-3.3-70b-instruct", "NVIDIA_NIM_API_KEY", None),  # 90s hangs → last
 ]
 
 # Vision-capable free/low-cost providers — the brain's "eyes". Same tuple shape as
@@ -53,17 +61,21 @@ PROVIDERS = [
 # multimodal tiers first (Gemini 2.0 Flash is the fastest reliable free vision model), then
 # Groq/OpenRouter/Qwen-VL/Fireworks as failover. `vision_chat()` walks this order and drops
 # to the next on ANY error, so a throttled or 404'd vision model never blocks perception.
+# 2026-07-11: the two OpenRouter free vision ids (qwen2.5-vl-72b, llama-3.2-11b-vision) were
+# RETIRED → hard 404; replaced with current free image-input models confirmed live via
+# openrouter.ai/api/v1/models (input_modalities includes "image"): google/gemma-4-31b-it and
+# nvidia/nemotron-nano-12b-v2-vl. fireworks vision id also 404 → demoted last (may recover).
 VISION_PROVIDERS = [
     ("GOOGLE_AISTUDIO_API_KEY", "gemini/gemini-2.0-flash", "GEMINI_API_KEY", None),
     ("GROQ_API_KEY", "groq/meta-llama/llama-4-scout-17b-16e-instruct", "GROQ_API_KEY", None),
-    ("OPENROUTER_API_KEY", "openrouter/qwen/qwen2.5-vl-72b-instruct:free", "OPENROUTER_API_KEY", None),
-    ("OPENROUTER_API_KEY", "openrouter/meta-llama/llama-3.2-11b-vision-instruct:free",
+    ("OPENROUTER_API_KEY", "openrouter/google/gemma-4-31b-it:free", "OPENROUTER_API_KEY", None),
+    ("OPENROUTER_API_KEY", "openrouter/nvidia/nemotron-nano-12b-v2-vl:free",
      "OPENROUTER_API_KEY", None),
-    ("FIREWORKS_API_KEY",
-     "fireworks_ai/accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
-     "FIREWORKS_AI_API_KEY", None),
     ("ALIBABA_API_KEY", "openai/qwen-vl-max", None,
      "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+    ("FIREWORKS_API_KEY",                                          # 404 id retired → last resort
+     "fireworks_ai/accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
+     "FIREWORKS_AI_API_KEY", None),
 ]
 
 
@@ -71,11 +83,15 @@ class NoLLMConfigured(RuntimeError):
     """Raised/handled when no cloud key and no local LLM are configured."""
 
 
-def _candidates(providers=PROVIDERS, *, allow_local: bool = True) -> list[tuple[str, dict]]:
+def _candidates(providers=PROVIDERS, *, allow_local: bool = True,
+                local_model: str | None = None) -> list[tuple[str, dict]]:
     """Ordered (model, extra_kwargs) list of usable providers — cloud first, local last.
 
     `providers` selects the chain (text PROVIDERS by default, or VISION_PROVIDERS for the
-    eyes). `allow_local` appends the Ollama/llama.cpp fallback (only sensible for text)."""
+    eyes). `allow_local` appends the self-hosted Ollama/llama.cpp backstop (now for VISION too,
+    2026-07-11 — a permanent, rate-limit-FREE local VLM so perception never depends on a
+    throttled free cloud tier). `local_model` overrides the local model name (vision uses the
+    Ollama vision model, e.g. granite3.2-vision, instead of the text one)."""
     # Each candidate is (litellm model id, extra kwargs, provider label). The label is the
     # dashboard/telemetry identity: for OpenAI-compatible providers it comes from the config
     # key so ZAI/Alibaba/local don't all collapse to "openai" (see _label_from_key).
@@ -90,11 +106,20 @@ def _candidates(providers=PROVIDERS, *, allow_local: bool = True) -> list[tuple[
                     os.environ[env] = val
                 out.append((model, {}, provider_name(model)))
     base = settings.get("LOCAL_LLM_BASE_URL")
-    if allow_local and base:                  # Ollama / llama.cpp OpenAI-compatible fallback
-        model = "openai/" + (os.getenv("LOCAL_LLM_MODEL") or "llama3")
+    if allow_local and base:                  # Ollama / llama.cpp OpenAI-compatible backstop
+        model = "openai/" + (local_model or os.getenv("LOCAL_LLM_MODEL") or "llama3")
         out.append((model, {"api_base": base, "api_key": os.getenv("LOCAL_LLM_API_KEY", "ollama")},
                     "local"))
     return out
+
+
+def _local_vision_model() -> str:
+    """Ollama vision model name for the permanent local eyes. Benchmarked 2026-07-11 on our
+    indicator+VP charts (research/local-vision-vlm.md): qwen2.5-vl:7b beat granite-3.2-vision-2b
+    on BOTH quality (clean committed JSON vs verbose/truncated) and wall-clock (130s vs 196s),
+    so it is the default; granite remains an installed lighter fallback. ~130s/read on CPU →
+    used by the async vision worker + as the no-throttle backstop, never the live 30s path."""
+    return os.getenv("LOCAL_VISION_MODEL", "qwen2.5vl:7b")
 
 
 def active_model() -> tuple[str, dict] | None:
@@ -201,6 +226,8 @@ def chat(messages: list[dict], max_tokens: int = 600, temperature: float = 0.4,
     response cache (see the governor block above; LLM_GOVERNOR=0 disables)."""
     import litellm
     litellm.drop_params = True                # ignore params a given provider doesn't support
+    litellm.num_retries = 0                    # our chain IS the retry; kill litellm's internal
+    litellm.request_timeout = 45               # 3x-retry storm (nvidia 30s→91s hang, 2026-07-11)
     cands = _candidates()
     if not cands:
         raise NoLLMConfigured("no LLM provider configured")
@@ -261,8 +288,9 @@ def _image_data_url(img, mime: str = "image/png") -> str:
 
 
 def vision_available() -> bool:
-    """True if at least one vision-capable provider key is present (free eyes online)."""
-    return bool(_candidates(VISION_PROVIDERS, allow_local=False))
+    """True if at least one vision provider is usable — a cloud vision key OR the self-hosted
+    local VLM backstop (so 'eyes online' no longer depends on a throttled free cloud tier)."""
+    return bool(_candidates(VISION_PROVIDERS, allow_local=True, local_model=_local_vision_model()))
 
 
 def vision_chat(prompt: str, images, *, system: str | None = None, max_tokens: int = 700,
@@ -279,7 +307,10 @@ def vision_chat(prompt: str, images, *, system: str | None = None, max_tokens: i
     Raises NoLLMConfigured if no vision key is present so callers degrade honestly."""
     import litellm
     litellm.drop_params = True
-    cands = _candidates(VISION_PROVIDERS, allow_local=False)
+    litellm.num_retries = 0
+    # allow_local=True → append the self-hosted Ollama VLM (granite3.2-vision) as the permanent
+    # rate-limit-free backstop AFTER the fast free-cloud tiers (2026-07-11, research/local-vision-vlm.md).
+    cands = _candidates(VISION_PROVIDERS, allow_local=True, local_model=_local_vision_model())
     if not cands:
         raise NoLLMConfigured("no vision-capable LLM provider configured")
     if not isinstance(images, (list, tuple)):
@@ -321,9 +352,10 @@ def vision_chat(prompt: str, images, *, system: str | None = None, max_tokens: i
 
 
 def vision_order() -> list[str]:
-    """Vision provider names in failover priority order (only those with a key present)."""
+    """Vision provider names in failover priority order (cloud tiers + the local VLM backstop)."""
     return [t[2] if len(t) > 2 else provider_name(t[0])
-            for t in _candidates(VISION_PROVIDERS, allow_local=False)]
+            for t in _candidates(VISION_PROVIDERS, allow_local=True,
+                                 local_model=_local_vision_model())]
 
 
 def _telemetry(_fn, provider, ok, latency_ms, err):
@@ -346,6 +378,7 @@ def chat_stream(messages: list[dict], max_tokens: int = 600, temperature: float 
     provider fails BEFORE emitting any token (mid-stream failure just stops cleanly)."""
     import litellm
     litellm.drop_params = True
+    litellm.num_retries = 0
     cands = _candidates()
     if not cands:
         raise NoLLMConfigured("no LLM provider configured")

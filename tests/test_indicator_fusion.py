@@ -83,6 +83,14 @@ class TestMetaLabel(unittest.TestCase):
 
 
 class TestFuse(unittest.TestCase):
+    def setUp(self):
+        # isolate from the async deep-vision cache (vision_worker) — these tests validate the
+        # numeric confluence + explicitly-passed vision, not whatever a live read cached.
+        from trading.broker_sense import vision_worker
+        self._dv = mock.patch.object(vision_worker, "deep_vision", return_value=None)
+        self._dv.start()
+        self.addCleanup(self._dv.stop)
+
     def _patch_fetch(self, trend):
         return mock.patch.object(IF, "_fetch",
                                  side_effect=lambda sym, mkt, tf, bars=IF._BARS: _series(trend))

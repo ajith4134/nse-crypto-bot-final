@@ -54,6 +54,19 @@ def _accumulation(f):
                          f["close"] > f["ema_slow"], index=f.index)
 
 
+def _vp_failed_auction(f):
+    # Owner's champions-chart-strategy: price closed outside the value area then back inside →
+    # failed auction → reversion INTO value. Long exits at VAH (target), short exits at VAL.
+    return stateful_band(f["vp_failed_long"] > 0.5, f["close"] >= f["vp_vah"],
+                         f["vp_failed_short"] > 0.5, f["close"] <= f["vp_val"], index=f.index)
+
+
+def _vp_value_position(f):
+    # Auction acceptance: hold long while price is accepted ABOVE the POC (pos>0), short below —
+    # a value-migration trend-follow complementing the reversion strategy above.
+    return long_short(f["vp_pos"] > 0.15, f["vp_pos"] < -0.15, f.index)
+
+
 def _mk(name, family, logic, signal, oss, tf="intraday–swing", **params):
     return LibraryStrategy(name=name, category="order_flow", family=family, logic=logic,
                            segments=_SEGS, timeframe=tf, signal=signal, oss_source=oss,
@@ -79,4 +92,13 @@ STRATEGIES = [
     _mk("flow_accumulation", "accumulation",
         "Rising OBV above the slow EMA = accumulation (Wyckoff-style) long.",
         _accumulation, "accumulation/distribution"),
+    _mk("flow_vp_failed_auction", "volume_profile",
+        "Volume-Profile failed auction: price closes back inside the Value Area after poking "
+        "out → reversion (long from below VAL / short from above VAH), target the opposite edge.",
+        _vp_failed_auction, "market-profile auction theory (owner champions-chart video)",
+        tf="intraday–swing", window=96),
+    _mk("flow_vp_value_position", "volume_profile",
+        "Value-area acceptance: hold long while price is accepted above the POC, short below "
+        "(value migration trend-follow).",
+        _vp_value_position, "market-profile value migration", tf="intraday–swing"),
 ]

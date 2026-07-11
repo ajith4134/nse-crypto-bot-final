@@ -356,6 +356,12 @@ def fuse(symbol: str, market: str = "crypto",
         key=lambda r: sum(1 for d in avail.values() if d["regime"] == r))
 
     # 4 ── vision fuse (independent lens). vision p_up∈[0,1] → [-1,1]; blend 65% numeric / 35% vision
+    if vision is None:                             # no live read passed → use the async deep VLM read
+        try:                                       # (vision_worker: full qwen7b chart read, cached)
+            from trading.broker_sense import vision_worker
+            vision = vision_worker.deep_vision(symbol, timeframes=timeframes)
+        except Exception:
+            vision = None
     vision_dir = None
     if vision:
         vs = [(_TF_WEIGHT.get(tf, 1.0), (v.get("p_up", 0.5) - 0.5) * 2.0)
@@ -432,6 +438,24 @@ def fuse(symbol: str, market: str = "crypto",
         except Exception:
             ai_select = None
 
+    # 4f ── Volume Profile / Value Area lens (owner's champions-chart-strategy video, 2026-07-11).
+    # EVERY segment (not crypto-only): daily-session value area + migration + failed-auction +
+    # absorption → a bounded ±0.15 tilt (failed-auction reversion is a strong, evidence-based edge,
+    # so it earns a slightly larger budget than sector/ai; still can't dominate the TA confluence).
+    # One dedicated fetch on a stable TF (needs ~200 bars for daily sessions); guarded, never raises.
+    vp_profile = None
+    try:
+        from trading.broker_sense import volume_profile as _vp
+        vp_tf = next((t for t in ("15m", "1h", "5m") if t in timeframes), next(iter(avail)))
+        vp_rows = _fetch(symbol, market, vp_tf, bars=240)
+        if vp_rows:
+            vp_profile = _vp.features(vp_rows, market)
+            t = vp_profile.get("tilt") if vp_profile.get("available") else None
+            if t is not None:
+                confluence = _clamp(confluence + 0.15 * t, -1.0, 1.0)
+    except Exception:
+        vp_profile = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -439,6 +463,17 @@ def fuse(symbol: str, market: str = "crypto",
     trig_tf = next((tf for tf in _TRIGGER_TFS if tf in avail), next(iter(avail)))
     trig = avail[trig_tf]
     barriers = _barriers(direction, trig.get("close"), trig.get("atr", 0.0))
+    # 6b ── VP after-entry management (owner's video): when a failed-auction drove this side, define
+    # risk by STRUCTURE — target the value-area edge, stop beyond the swing — instead of a fixed ATR
+    # multiple. Keeps the ATR plan as fallback; rides in the snapshot either way.
+    try:
+        fa = (vp_profile or {}).get("failed_auction", {}) if vp_profile else {}
+        if vp_rows and direction != "neutral" and fa.get("signal") == direction:
+            plan = _vp.order_plan(vp_rows, direction, market)
+            if plan and plan.get("rr") and plan["rr"] >= 1.0:
+                barriers = {**barriers, **plan, "time_bars": barriers.get("time_bars")}
+    except Exception:
+        pass
 
     # 5 ── meta-label (act / size)
     meta = _meta_label(confluence, direction, market, symbol)
@@ -465,6 +500,7 @@ def fuse(symbol: str, market: str = "crypto",
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
         "sectors": sectors, "options_regime": options_regime, "ai_select": ai_select,
+        "volume_profile": vp_profile,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

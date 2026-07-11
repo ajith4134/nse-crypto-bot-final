@@ -873,7 +873,7 @@ _Optuna-backed hyperparameter optimization (Tier-2/3 infra, group H of the model
 ## `core/llm.py`
 _core/llm.py — P4.1 cloud-LLM access (the brain's "mouth"), reuse-first via LiteLLM._
 - **classes:** NoLLMConfigured
-- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `_label_from_key(key) -> str`; `_governor_on() -> bool`; `_cache_ttl() -> float`; `_cache_key(messages, max_tokens, temperature) -> str`; `_cache_get(key) -> str | None`; `_cache_put(key, text) -> None`; `_skippable(prov) -> bool`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
+- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `_local_vision_model() -> str`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `_label_from_key(key) -> str`; `_governor_on() -> bool`; `_cache_ttl() -> float`; `_cache_key(messages, max_tokens, temperature) -> str`; `_cache_get(key) -> str | None`; `_cache_put(key, text) -> None`; `_skippable(prov) -> bool`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
 - **imports:** __future__, base64, config, hashlib, json, os, threading, time
 
 ## `core/llm_telemetry.py`
@@ -1637,6 +1637,11 @@ _Restart the crypto funnel loop with its EXACT current env (captured from /proc)
 - **functions:** `find_pid()`
 - **imports:** os, signal, subprocess, sys, time
 
+## `scratchpad/verify_llm_creds.py`
+_Verify each configured cloud LLM credential in isolation via the core/llm.py chain._
+- **functions:** `_err_class(e) -> str`; `probe(cands, kind)`
+- **imports:** core, json, litellm, os, sys, time
+
 ## `tests/__init__.py`
 _Test package init._
 - **imports:** os
@@ -1789,6 +1794,17 @@ _Tests for invent-beyond #3 — regime-contextual champion bandit allocator + it
 _W5 champion lineage + leak tripwire tests — isolated STATE_DIR._
 - **classes:** ChampionLineageTest
 - **imports:** pathlib, tempfile, unittest
+
+## `tests/test_chart_render.py`
+_Tests for trading/broker_sense/chart_render.py + chart_vision vision-escalation wiring._
+- **classes:** TestPlain, TestAnnotated, TestVisionEscalate
+- **functions:** `_rows(n)`
+- **imports:** __future__, math, os, trading.broker_sense, unittest
+
+## `tests/test_chart_vlm.py`
+_Tests for trading/broker_sense/chart_vlm.py — Lane B VLM chart reader._
+- **classes:** TestParse, TestNorm, TestReadChart, TestNode
+- **imports:** __future__, trading.broker_sense, unittest
 
 ## `tests/test_chat.py`
 _P4.1 acceptance tests: the brain-chat plumbing is well-formed and degrades gracefully._
@@ -2549,8 +2565,20 @@ _Tests for the FREE computer-use loop (trading/brain/vision/computer_use) — of
 
 ## `tests/test_vision_engine.py`
 _Tests for the free vision engine (core.llm.vision_chat) — the brain's FREE eyes._
-- **classes:** TestImageDataUrl, TestVisionChat
+- **classes:** TestImageDataUrl, TestVisionChat, TestLocalVisionBackstop
 - **imports:** __future__, base64, core, os, tempfile, unittest
+
+## `tests/test_vision_worker.py`
+_Tests for trading/broker_sense/vision_worker.py — async deep chart-vision worker._
+- **classes:** VWTest
+- **functions:** `_rows(bar_ts)`
+- **imports:** __future__, os, tempfile, time, trading, trading.broker_sense, unittest
+
+## `tests/test_volume_profile.py`
+_Tests for trading/broker_sense/volume_profile.py — VP / Value-Area engine._
+- **classes:** TestProfile, TestSessionKey, TestMigration, TestFailedAuction, TestAbsorption, TestOrderPlan, TestFeatures
+- **functions:** `_bar(ts, o, h, l, c, v)`; `_flat_at(price, n, vol, ts0, step)`
+- **imports:** __future__, trading.broker_sense, unittest
 
 ## `tests/test_watchlist_study.py`
 _Tests for trading/broker_sense/watchlist_study — W watchlist study funnel._
@@ -3156,11 +3184,22 @@ _trading/broker_sense/brokers.py — broker-app registry + ROLE ENFORCEMENT in c
 - **functions:** `_overrides() -> dict`; `set_real_nse_broker(name) -> dict`; `real_broker(market) -> str | None`; `screening_brokers(market) -> list[BrokerApp]`; `assert_can_execute(name, market) -> None`; `status() -> dict`
 - **imports:** __future__, dataclasses, trading
 
+## `trading/broker_sense/chart_render.py`
+_trading/broker_sense/chart_render.py — draw candle charts locally, two flavors._
+- **functions:** `_shot_dir()`; `_out(symbol, tf, tag) -> str`; `plain(rows, symbol, tf, out_path) -> str | None`; `_frame(rows)`; `annotated(rows, symbol, tf, out_path) -> str | None`; `_overlay_volume_profile(ax, rows) -> None`
+- **imports:** __future__, os, time, trading
+
 ## `trading/broker_sense/chart_vision.py`
 _trading/broker_sense/chart_vision.py — screenshot the candles, read them, delete them._
 - **classes:** ChartVision
 - **functions:** `_shot_dir()`; `wipe() -> int`; `_tv_symbol(symbol, market) -> str`
 - **imports:** __future__, hashlib, os, time, trading, trading.broker_sense, trading.broker_sense.brokers
+
+## `trading/broker_sense/chart_vlm.py`
+_trading/broker_sense/chart_vlm.py — Lane B of the vision cascade: read the chart IMAGE_
+- **classes:** ChartVLMNode
+- **functions:** `_parse(raw) -> dict | None`; `_norm(obj) -> dict`; `read_chart(images, symbol, tf) -> dict | None`; `register_chart_vlm_node() -> ChartVLMNode`
+- **imports:** __future__, core.node_protocol, json, re
 
 ## `trading/broker_sense/cnn_direction.py`
 _trading/broker_sense/cnn_direction.py — candle-IMAGE → direction (savers B, F)._
@@ -3314,6 +3353,16 @@ _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)
 _trading/broker_sense/ui_health.py — Human-UI self-check (owner goal 2026-07-07, #10)._
 - **functions:** `_has_session(broker) -> bool`; `_eyes_fresh(broker, max_age_s) -> dict`; `_crawl_recent(max_age_s) -> dict`; `_hand_available() -> dict`; `check() -> dict`
 - **imports:** __future__, time, trading
+
+## `trading/broker_sense/vision_worker.py`
+_trading/broker_sense/vision_worker.py — async deep chart-vision worker (the brain's patient eyes)._
+- **functions:** `_cache() -> dict`; `_save(cache) -> None`; `cached_read(symbol, tf) -> dict | None`; `deep_vision(symbol, timeframes) -> dict | None`; `read_symbol(symbol, market, timeframes) -> dict`; `_target_symbols(limit) -> list[tuple[str, str]]`; `run_once(limit) -> dict`; `loop(interval, limit) -> None`
+- **imports:** __future__, os, time, trading
+
+## `trading/broker_sense/volume_profile.py`
+_trading/broker_sense/volume_profile.py — Volume Profile / Value Area engine._
+- **functions:** `_ms(ts) -> int`; `session_key(ts, market) -> int`; `volume_profile(rows, bins) -> dict`; `session_profiles(rows, market, max_sessions) -> list[dict]`; `value_migration(rows, market) -> dict`; `_vol_trend(vols) -> float`; `absorption(rows, lookback) -> dict`; `failed_auction(rows, market) -> dict`; `order_plan(rows, direction, market, swing) -> dict | None`; `features(rows, market) -> dict`
+- **imports:** __future__
 
 ## `trading/broker_sense/watchlist.py`
 _trading/broker_sense/watchlist.py — hot watchlist with TTL (saver E)._
@@ -4496,7 +4545,7 @@ _trading/strategy/generators/stats_gate.py — generator ⑥ (part A): family-wi
 
 ## `trading/strategy/generators/symbolic.py`
 _trading/strategy/generators/symbolic.py — generator ③: symbolic regression (BOTH engines)._
-- **classes:** GplearnGenerator, PysrGenerator
+- **classes:** GplearnGenerator, PysrGenerator, OperonGenerator
 - **functions:** `_feature_matrix(feats, market)`
 - **imports:** __future__, numpy, pandas, trading.strategy.generators.base, trading.strategy.generators.expression
 
@@ -4637,7 +4686,7 @@ _catalog/volatility.py — realized-volatility regime family (executable on OHLC
 
 ## `trading/strategy/library/catalog/volume_flow.py`
 _catalog/volume_flow.py — volume / money-flow family (executable on OHLCV+volume)._
-- **functions:** `_obv_trend(f)`; `_adosc(f)`; `_volume_breakout(f)`; `_rvol_shock(f)`; `_vwap_trend(f)`; `_mfi_trend(f)`; `_accumulation(f)`; `_mk(name, family, logic, signal, oss, tf)`
+- **functions:** `_obv_trend(f)`; `_adosc(f)`; `_volume_breakout(f)`; `_rvol_shock(f)`; `_vwap_trend(f)`; `_mfi_trend(f)`; `_accumulation(f)`; `_vp_failed_auction(f)`; `_vp_value_position(f)`; `_mk(name, family, logic, signal, oss, tf)`
 - **imports:** __future__, pandas, trading.strategy.library.base
 
 ## `trading/strategy/library/created.py`
@@ -4682,7 +4731,7 @@ _trading/strategy/library/evaluators.py — backtest evaluators for data-backed 
 
 ## `trading/strategy/library/features_ext.py`
 _trading/strategy/library/features_ext.py — extended causal indicator frame (TA-Lib)._
-- **functions:** `_supertrend(high, low, close, atr, mult) -> tuple[pd.Series, pd.Series]`; `compute_features_ext(ohlcv) -> pd.DataFrame`; `_pandas_fallback(df, o, h, l, c, v, fast, slow, mom_n, bb_n, bb_k)`
+- **functions:** `_supertrend(high, low, close, atr, mult) -> tuple[pd.Series, pd.Series]`; `compute_features_ext(ohlcv) -> pd.DataFrame`; `_rolling_vp(df, h, l, c, v, window) -> None`; `_pandas_fallback(df, o, h, l, c, v, fast, slow, mom_n, bb_n, bb_k)`
 - **imports:** __future__, numpy, pandas
 
 ## `trading/strategy/library/marketdata.py`

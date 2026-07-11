@@ -54,6 +54,8 @@ EXT_FEATURE_NAMES: list[str] = [
     "psar", "psar_dist", "supertrend", "supertrend_dir",
     # candle anatomy / gaps
     "gap", "body", "upper_wick", "lower_wick", "true_range",
+    # volume profile / value area (auction)
+    "vp_poc", "vp_vah", "vp_val", "vp_pos", "vp_failed_long", "vp_failed_short",
 ]
 
 _NEED = {"open", "high", "low", "close", "volume"}
@@ -209,7 +211,38 @@ def compute_features_ext(ohlcv: pd.DataFrame, *, fast: int = 10, slow: int = 30,
     df["upper_wick"] = (h - np.maximum(o, c)) / c
     df["lower_wick"] = (np.minimum(o, c) - l) / c
 
+    # Volume Profile / Value Area (owner's champions-chart-strategy video, 2026-07-11): rolling
+    # POC/VAH/VAL + position-in-value + failed-auction reversion flags, so the strategy generator
+    # can weigh the auction edge per coin. Reuses the live VP engine (one source of truth).
+    _rolling_vp(df, h, l, c, v)
+
     return df.dropna().reset_index(drop=True)
+
+
+def _rolling_vp(df: pd.DataFrame, h, l, c, v, window: int = 96) -> None:
+    """Fill vp_* columns from a trailing-window Volume Profile per bar (reuses
+    trading.broker_sense.volume_profile). No look-ahead: bar i uses bars (i-window, i]."""
+    from trading.broker_sense import volume_profile as _vp
+    n = len(df)
+    H, L, C, V = (h.to_numpy("float64"), l.to_numpy("float64"),
+                  c.to_numpy("float64"), v.to_numpy("float64"))
+    poc = np.full(n, np.nan); vah = np.full(n, np.nan); val = np.full(n, np.nan)
+    pos = np.full(n, np.nan); fl = np.zeros(n); fs = np.zeros(n)
+    for i in range(window, n):
+        rows = [[0, 0.0, H[j], L[j], C[j], V[j]] for j in range(i - window + 1, i + 1)]
+        p = _vp.volume_profile(rows)
+        if not p.get("available"):
+            continue
+        poc[i], vah[i], val[i] = p["poc"], p["vah"], p["val"]
+        span = (p["vah"] - p["val"]) or p["bin_size"] or 1.0
+        pos[i] = (C[i] - p["poc"]) / span
+        inside = p["val"] <= C[i] <= p["vah"]
+        if C[i - 1] < p["val"] and inside:
+            fl[i] = 1.0
+        elif C[i - 1] > p["vah"] and inside:
+            fs[i] = 1.0
+    df["vp_poc"], df["vp_vah"], df["vp_val"] = poc, vah, val
+    df["vp_pos"], df["vp_failed_long"], df["vp_failed_short"] = pos, fl, fs
 
 
 def _pandas_fallback(df, o, h, l, c, v, fast, slow, mom_n, bb_n, bb_k):  # pragma: no cover

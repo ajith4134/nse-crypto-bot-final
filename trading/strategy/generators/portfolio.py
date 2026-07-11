@@ -40,11 +40,13 @@ def default_generators() -> list:
         factories.append(LLMMutationGenerator)
     except Exception:
         pass
-    # ③ symbolic regression (both gplearn + PySR — each is its own generator)
+    # ③ symbolic regression (gplearn + PySR + Operon — each is its own generator)
     try:
-        from trading.strategy.generators.symbolic import GplearnGenerator, PysrGenerator
+        from trading.strategy.generators.symbolic import (GplearnGenerator, PysrGenerator,
+                                                          OperonGenerator)
         factories.append(GplearnGenerator)
         factories.append(PysrGenerator)
+        factories.append(OperonGenerator)      # C++ GP-SR, best on noisy real data (direction-eq quest)
     except Exception:
         pass
     # ④ quality-diversity archive (pyribs MAP-Elites/MOME)

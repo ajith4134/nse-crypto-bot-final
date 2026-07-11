@@ -47,6 +47,13 @@ class TestImageDataUrl(unittest.TestCase):
 
 
 class TestVisionChat(unittest.TestCase):
+    def setUp(self):
+        # isolate from the governor's SHARED cross-process cooldown/pacing state (llm_telemetry),
+        # which a live vision_worker can populate — these tests validate raw provider failover.
+        self._sk = mock.patch.object(llm, "_skippable", return_value=False)
+        self._sk.start()
+        self.addCleanup(self._sk.stop)
+
     def _fake_completion(self, reply="TOP GAINER: SUMICHEM +43%"):
         def _c(model, messages, **kw):
             self._seen = {"model": model, "messages": messages, "kw": kw}
@@ -126,6 +133,30 @@ class TestVisionChat(unittest.TestCase):
             self.assertEqual(llm.vision_order(), ["gemini", "groq"])
         with mock.patch.object(llm, "_candidates", return_value=[]):
             self.assertFalse(llm.vision_available())
+
+
+class TestLocalVisionBackstop(unittest.TestCase):
+    """The permanent self-hosted VLM backstop (2026-07-11): with NO cloud vision keys but a
+    local base configured, the vision chain still has the Ollama granite model as its tail — so
+    perception never depends on a throttled free cloud tier."""
+
+    def test_local_vlm_appended_when_no_cloud_keys(self):
+        def _settings_get(k, *a):
+            return "http://localhost:11434/v1" if k == "LOCAL_LLM_BASE_URL" else None
+        with mock.patch.object(llm.settings, "get", side_effect=_settings_get):
+            cands = llm._candidates(llm.VISION_PROVIDERS, allow_local=True,
+                                    local_model="granite3.2-vision")
+        self.assertTrue(cands)                                  # not empty despite no cloud keys
+        model, extra, label = cands[-1]
+        self.assertEqual(label, "local")
+        self.assertIn("granite3.2-vision", model)
+        self.assertEqual(extra["api_base"], "http://localhost:11434/v1")
+
+    def test_no_local_when_base_absent(self):
+        with mock.patch.object(llm.settings, "get", return_value=None):
+            cands = llm._candidates(llm.VISION_PROVIDERS, allow_local=True,
+                                    local_model="granite3.2-vision")
+        self.assertEqual(cands, [])                             # honest degrade, no base configured
 
 
 if __name__ == "__main__":

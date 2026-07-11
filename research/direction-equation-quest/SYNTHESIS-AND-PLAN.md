@@ -51,3 +51,29 @@ meanrev/TA sources are, hence 47%).
   gate; only equations that beat coin-flip OOS ship.
 - **P4 Deploy + self-improve:** discovered equation drives direction (horizon-conditioned) via the Mirror
   Gate; continuous Truth-Ledger measurement; periodic re-evolution. Reliability bar = OOS > 55%, robust.
+
+## APPROVED 2026-07-11 (owner: full P1→P4, phase-by-phase, no re-ask between phases)
+Owner added requirement: feed **multi-TF candlestick charts WITH Binance's built-in indicators,
+screenshotted from our real Binance web UI**, into image/chart ML/DL models → value into the equation.
+Research: research/chart-image-models.md. Deps installed (ask-to-install approved): pyoperon 0.6.1,
+pysr 1.5.10 (Julia auto-provisions), timeseriescv 0.2. mlfinlab is OFF PyPI (went commercial) and its OSS
+forks (mlfinpy/RiskLabAI) fail to build numba on Py3.13 — NOT needed: the repo already has the LdP stack.
+
+### Reuse map (already built — this is wire+upgrade, not from-scratch)
+- Chart images: `chart_vision.py` already captures 1m/5m/15m/1h/4h/1d + TradingView/render fallback + dedup;
+  `cnn_direction.py` = trained CNN p_up (Lane A). GAP: charts are PLAIN (no indicators); escalation is TEXT.
+- Equation/validation: `strategy/cpcv.py` (purged CPCV), `strategy/metalabel.py`, `generators/symbolic.py`,
+  `generators/alpha_mining.py` (alphagen), `generators/stats_gate.py`, `strategy/evolve.py` (DEAP).
+- Order flow: `binance_orderflow.py`, `psychology.py` (OBI/OFI/microprice); Truth Ledger; Mirror Gate.
+
+### Vision cascade for req#2 — 3 lanes, each emits a scalar → feature bus (research/chart-image-models.md)
+- Lane A (fast): existing CNN p_up. KEEP.
+- **Lane B (deep): `chart_vlm.py` — BUILT + 14 tests 2026-07-11.** Free VLM (repaired vision chain) reads the
+  indicator-annotated chart → `{direction, score∈[-1,1], p_up, patterns, indicators, rationale}`; honest degrade.
+- Lane C (patterns): ChartScanAI YOLOv8 (to vendor) → bullish/bearish confidence scalar.
+
+### Build order (checkpoints)
+1. ✅ LLM vision chain repaired (core/llm.py) — Lane B depends on it. 2. ✅ Lane B chart_vlm.py.
+3. ⬜ GAP-1: capture Binance chart WITH indicators (extend chart_vision). 4. ⬜ Lane C ChartScanAI vendor.
+5. ⬜ Fuse A+B+C in indicator_fusion → P1 feature bus. 6. ⬜ P2 wire Operon/pysr+alphagen (Rank-IC).
+7. ⬜ P3 triple-barrier + metalabel + cpcv/timeseriescv OOS gate. 8. ⬜ P4 Mirror-Gate deploy + Truth Ledger.

@@ -78,6 +78,10 @@ class TestGenerators(unittest.TestCase):
         from trading.strategy.generators.symbolic import GplearnGenerator
         self._check(GplearnGenerator())
 
+    def test_operon(self):
+        from trading.strategy.generators.symbolic import OperonGenerator
+        self._check(OperonGenerator())
+
     def test_quality_diversity(self):
         from trading.strategy.generators.quality_diversity import QualityDiversityGenerator
         self._check(QualityDiversityGenerator())
