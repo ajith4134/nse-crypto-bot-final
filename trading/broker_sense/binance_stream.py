@@ -285,6 +285,12 @@ class BinanceUniverseMirror:
         except Exception:
             pass
         try:
+            from trading.broker_sense import binance_options as _opt
+            if _opt.enabled():
+                d["options_regime"] = _opt.regime()
+        except Exception:
+            pass
+        try:
             p = state._path("binance_edge") / "snapshot.json"
             p.parent.mkdir(parents=True, exist_ok=True)
             tmp = p.with_suffix(".json.tmp")

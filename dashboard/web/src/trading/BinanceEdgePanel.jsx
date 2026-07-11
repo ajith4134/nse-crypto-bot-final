@@ -58,6 +58,7 @@ export default function BinanceEdgePanel() {
   const newList = (d && Array.isArray(d.new_listings)) ? d.new_listings : []
   const anns = (d && Array.isArray(d.announcements)) ? d.announcements : []
   const secHot = (d && Array.isArray(d.sectors_hot)) ? d.sectors_hot : []
+  const reg = (d && d.options_regime && d.options_regime.available !== false) ? d.options_regime : null
 
   return (
     <div style={{ background: T.panel, border: `1px solid ${T.gridline}`, borderRadius: 8,
@@ -69,6 +70,10 @@ export default function BinanceEdgePanel() {
           {num(st.symbols_ticker) ?? 0} tick · {num(st.symbols_mark) ?? 0} mark
           {st.last_msg_age_s != null ? ` · ${st.last_msg_age_s}s ago` : ''}
         </span>
+        {reg && reg.label && (
+          <Chip text={`regime: ${reg.label}${num(reg.btc && reg.btc.atm_iv) != null ? ` · BTC IV ${(reg.btc.atm_iv * 100).toFixed(0)}%` : ''}`}
+            color={reg.label === 'risk-off' ? T.bad : reg.label === 'risk-on' ? T.good : T.warn} />
+        )}
       </Row>
 
       {err && <div style={{ color: T.bad, fontSize: 11 }}>error: {err}</div>}

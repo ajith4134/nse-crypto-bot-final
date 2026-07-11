@@ -424,6 +424,20 @@ def fuse(symbol: str, market: str = "crypto",
     # 5 ── meta-label (act / size)
     meta = _meta_label(confluence, direction, market, symbol)
 
+    # 5b ── options IV/skew market regime (Binance-computed; market-wide, direction-neutral). Rides in
+    # the snapshot as context AND trims size in a risk-off (high-IV + put-skew) tape. Cached ~120s.
+    options_regime = None
+    if market == "crypto":
+        try:
+            from trading.broker_sense import binance_options as _opt
+            if _opt.enabled():
+                options_regime = _opt.regime()
+                ro = options_regime.get("risk_off")
+                if ro is not None and ro > 0.5:              # defensive sizing when vol/fear is bid up
+                    meta = {**meta, "size_mult": round(meta.get("size_mult", 1.0) * (1 - 0.3 * (ro - 0.5) / 0.5), 3)}
+        except Exception:
+            options_regime = None
+
     return {
         "symbol": symbol, "available": True, "source": "indicator_fusion",
         "direction": direction, "p_up": p_up, "confluence": round(confluence, 4),
@@ -431,7 +445,7 @@ def fuse(symbol: str, market: str = "crypto",
         "vision_dir": round(vision_dir, 4) if vision_dir is not None else None,
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
-        "sectors": sectors,
+        "sectors": sectors, "options_regime": options_regime,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],

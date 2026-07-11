@@ -1418,6 +1418,11 @@ _tests/test_binance_catalysts.py — Binance-native listing catalysts._
 - **classes:** TestCatalysts
 - **imports:** pathlib, tempfile, time, trading.broker_sense, trading.broker_sense.binance_stream, unittest
 
+## `tests/test_binance_options.py`
+_tests/test_binance_options.py — Binance options IV/skew regime gauge._
+- **classes:** TestOptions
+- **imports:** trading.broker_sense, unittest
+
 ## `tests/test_binance_orderflow.py`
 _tests/test_binance_orderflow.py — Binance-computed order-flow feature pack._
 - **classes:** TestOrderFlow
@@ -2814,6 +2819,11 @@ _trading/broker_sense/app_school.py — the brain LEARNS to drive a broker app (
 _trading/broker_sense/binance_catalysts.py — Binance-native event catalysts (P2, compute-offload)._
 - **functions:** `enabled() -> bool`; `_get_json(url)`; `_articles(cat, n)`; `announcements(cat, n) -> list[dict]`; `_extract_symbols(title) -> list[str]`; `_seen_path()`; `_load_seen() -> dict`; `_save_seen(seen) -> None`; `refresh_new_listings() -> dict`; `new_listings(max_age_s) -> list[dict]`; `catalyst(symbol) -> dict`
 - **imports:** __future__, json, os, re, time, trading, urllib.request
+
+## `trading/broker_sense/binance_options.py`
+_trading/broker_sense/binance_options.py — Binance options IV/skew regime gauge (P4)._
+- **functions:** `enabled() -> bool`; `_get_json(url)`; `_mark()`; `_f(v)`; `_parse(sym)`; `iv_summary(underlying) -> dict`; `regime() -> dict`; `clear_cache() -> None`
+- **imports:** __future__, json, os, threading, time, urllib.request
 
 ## `trading/broker_sense/binance_orderflow.py`
 _trading/broker_sense/binance_orderflow.py — Binance-computed order-flow & positioning features._
