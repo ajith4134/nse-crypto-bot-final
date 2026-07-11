@@ -180,8 +180,10 @@ def main() -> int:
                 try:
                     extra = [s for s in enabled_segments()
                              if s in ("options", "prediction")]
-                    if active is not None:
-                        extra = [s for s in extra if s in active]
+                    # fail-CLOSED (2026-07-11): the optional drivers used to run UNGATED when
+                    # active_segments couldn't be read (active=None → filter skipped), so options
+                    # opened while toggled off. If the gate is unreadable, drive nothing optional.
+                    extra = [s for s in extra if s in active] if active is not None else []
                     for seg in extra:
                         try:
                             # honest time box (2026-07-11): a model-heavy decide() in the

@@ -2266,6 +2266,17 @@ _Tests for the multi-segment Freqtrade fork (vendor/freqtrade) + its glue._
 - **classes:** TestSegmentIsolation, TestOptionRank, TestSegmentConfigFanout
 - **imports:** datetime, os, unittest
 
+## `tests/test_nav_brain.py`
+_Tests for trading/broker_sense/nav_brain.py — Planner-Actor-Validator navigation loop._
+- **classes:** _Fake, TestGate, TestStuckAndValidate, TestNavigate
+- **functions:** `_nav(fake, act, segs)`
+- **imports:** __future__, trading.broker_sense.nav_brain, unittest
+
+## `tests/test_nav_segment_gate.py`
+_Tests for the navigation segment-gate fix (2026-07-11) — the brain must NOT navigate to / drive_
+- **classes:** SegmentGateTest
+- **imports:** __future__, pathlib, tempfile, trading, unittest
+
 ## `tests/test_news_ingest.py`
 _tests/test_news_ingest.py — free-RSS → symbol-linked brain news memory (2026-07-10)._
 - **functions:** `_fetcher(url, limit)`; `_seed_journal(tmp_path)`; `test_ingest_links_symbols_and_dedupes(monkeypatch, tmp_path)`; `test_items_for_symbol_lookup(monkeypatch, tmp_path)`; `test_min_gap_rate_limit(monkeypatch, tmp_path)`; `test_dead_feed_never_kills_cycle(monkeypatch, tmp_path)`
@@ -3299,6 +3310,12 @@ _trading/broker_sense/live_browser.py — an interactive HEADLESS browser stream
 _trading/broker_sense/live_mirror.py — M: LIVE video screen mirror (Pillar 27 batch)._
 - **functions:** `_env(name, default) -> str`; `enabled() -> bool`; `display() -> str`; `available() -> dict`; `frames(fps)`
 - **imports:** __future__, os, subprocess, threading
+
+## `trading/broker_sense/nav_brain.py`
+_trading/broker_sense/nav_brain.py — intelligent Binance-UI navigation (Planner-Actor-Validator)._
+- **classes:** NavBrain
+- **functions:** `from_human_ui(humanui) -> 'NavBrain'`
+- **imports:** __future__, hashlib, json, re
 
 ## `trading/broker_sense/ocular_perception.py`
 _trading/broker_sense/ocular_perception.py — the funnel's NEW eyes (Phase-2 deep read)._

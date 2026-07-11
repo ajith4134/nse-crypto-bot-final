@@ -413,6 +413,21 @@ def handle_online_control(h):
             controls.set_segments(market, data.get("segments") or data.get("value") or [])
         elif action == "toggle_segment":      # flip one trade-type on/off
             controls.toggle_segment(market, data.get("segment") or data.get("value") or "")
+        # SYNC boss (2026-07-11): controls writes the online-state registry, but the whole brain
+        # (funnel/news/research) gates on boss.active_segments — an UNSYNCED boss defaulted every
+        # segment ON, so turning options OFF here never reached the gate → the funnel kept opening
+        # the off segment. Mirror the toggle into boss so its active list matches the dashboard.
+        if action in ("segments", "toggle_segment"):
+            try:
+                from trading.brain import boss as _boss
+                sel = [str(s).lower() for s in
+                       (((controls.status().get("markets") or {}).get(str(market).upper()) or {})
+                        .get("segments") or [])]
+                valid = [str(s).lower() for s in _boss.all_segments(market)]
+                _boss.set_segments(market, enable=sel or None,
+                                   disable=[s for s in valid if s not in sel] or None)
+            except Exception:
+                pass
         # CRYPTO segment changes also reconfigure the multi-segment Freqtrade engine
         # (vendor/freqtrade fork): persist CRYPTO_SEGMENTS + rewrite config + restart.
         if str(market).upper() == "CRYPTO" and action in ("segments", "toggle_segment"):
