@@ -56,8 +56,10 @@ def mode() -> str:
     return "shadow"
 
 
-def _horizon() -> str:
-    return os.environ.get("DIR_EXIT_HORIZON", "1h")
+def _horizon() -> str | None:
+    """Single-horizon override for the calibration read; None → let the Mirror Gate
+    pool its clean horizons (the honest default — tighter, stable-error CIs)."""
+    return os.environ.get("DIR_EXIT_HORIZON") or None
 
 
 def read(symbol: str, market: str = "CRYPTO", segment: str = "futures", *,
@@ -200,6 +202,6 @@ def evaluate(*, symbol: str, direction: str, market: str = "CRYPTO",
 
 def status() -> dict:
     """Dashboard/inspection snapshot: current mode + thresholds."""
-    return {"mode": mode(), "horizon": _horizon(),
+    return {"mode": mode(), "horizon": _horizon() or "pooled",
             "strength_bar": _env_f("DIR_EXIT_STRENGTH", 0.6),
             "min_n": int(_env_f("MIRROR_MIN_N", 30))}

@@ -80,6 +80,29 @@ class TestMirrorGate(_Iso):
         self.assertEqual(row["source"], "mirror:stochrsi")        # flip earns its own record
         self.assertEqual(row["direction"], "SHORT")
 
+    def test_pools_clean_horizons_to_catch_stable_anti_signal(self):
+        # meanrev-like: below chance at EVERY clean horizon, none clearing the invert
+        # bar alone, but pooled the CI tightens under 0.45 → invert. "exit" is ignored.
+        _seed({"meanrev|any|15m": {"n": 113, "correct": 35},          # 31%
+               "meanrev|any|1h": {"n": 113, "correct": 43},           # 38% (CI too wide alone)
+               "meanrev|any|4h": {"n": 110, "correct": 46},           # 42%
+               "meanrev|any|exit": {"n": 138, "correct": 33}})        # polluted — must be dropped
+        g = self.mg.decide("LONG", source="meanrev", regime="any")
+        self.assertEqual(g["action"], "invert")
+        self.assertEqual(g["direction"], "SHORT")
+        self.assertGreater(g["n"], 300)                               # pooled 15m+1h+4h, not exit
+        self.assertLess(g["n"], 400)                                  # exit's 138 excluded
+
+    def test_horizon_specific_error_is_left_alone(self):
+        # 30% at 1h but ~50% elsewhere → error NOT stable → pooled CI clears the bar → pass.
+        _seed({"unstable|any|15m": {"n": 100, "correct": 50},
+               "unstable|any|1h": {"n": 60, "correct": 18},           # 30% at 1h only
+               "unstable|any|4h": {"n": 100, "correct": 52}})
+        self.assertEqual(self.mg.decide("LONG", source="unstable")["action"], "pass")
+        # but a caller pinning the 1h horizon still sees the single-horizon inversion
+        g1 = self.mg.decide("LONG", source="unstable", horizon="1h")
+        self.assertEqual(g1["action"], "invert")
+
     def test_status_lists_actions(self):
         _seed({"bad|any|1h": {"n": 200, "correct": 60},
                "good|any|1h": {"n": 200, "correct": 130}})

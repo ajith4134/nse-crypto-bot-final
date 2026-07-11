@@ -3527,7 +3527,7 @@ _trading/direction — the Direction Accuracy Program (goal Pillar 27)._
 
 ## `trading/direction/dir_exit.py`
 _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
+- **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str | None`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
 - **imports:** __future__, os
 
 ## `trading/direction/meta_labeler.py`
@@ -3542,7 +3542,7 @@ _trading/direction/micro_features.py — D4: microstructure direction features (
 
 ## `trading/direction/mirror_gate.py`
 _trading/direction/mirror_gate.py — D2: the Mirror Gate (goal Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_buckets() -> dict`; `_lookup(source, regime, horizon) -> tuple[int, int, str]`; `decide(direction) -> dict`; `apply(direction) -> tuple[str | None, dict]`; `status() -> dict`
+- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_buckets() -> dict`; `_horizons() -> list[str]`; `_lookup(source, regime, horizons) -> tuple[int, int, str]`; `decide(direction) -> dict`; `apply(direction) -> tuple[str | None, dict]`; `status() -> dict`
 - **imports:** __future__, os, time, trading
 
 ## `trading/direction/pullback.py`

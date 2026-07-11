@@ -20,9 +20,18 @@ Inverted decisions are re-recorded in the Truth Ledger under source "mirror:<sou
 so the flipped signal must EARN its own measured track record — the gate never grades
 its own homework.
 
+The judgement pools ALL the clean fixed horizons (15m+1h+4h by default), never the
+exit-path-polluted "exit" label. Pooling is what makes the "errors must be STABLE"
+test real: a source only wrong at one horizon (e.g. funnel_mtf_vote, 30% at 1h but
+~50% at 15m/4h) sees its combined CI widen back over the bar and is left alone, while
+a source wrong at EVERY horizon (meanrev_stochrsi: 31/38/42%) pools to a tight
+sub-chance CI and is confidently inverted. More evidence → tighter interval → the
+gate acts only on stable, horizon-agnostic anti-signals.
+
 Levers: MIRROR_GATE=0 disables (pass-through), MIRROR_MIN_N (default 30),
-MIRROR_INVERT_CI (0.45), MIRROR_TRUST_CI (0.55), MIRROR_HORIZON (1h — the gate judges
-sources on fixed-horizon truth, never the exit-path-polluted "exit" labels).
+MIRROR_INVERT_CI (0.45), MIRROR_TRUST_CI (0.55), MIRROR_HORIZONS (default "15m,1h,4h",
+the clean set the gate pools; "exit" is always dropped). MIRROR_HORIZON stays as a
+back-compat single-horizon override for callers that pass an explicit horizon.
 """
 from __future__ import annotations
 
@@ -64,22 +73,38 @@ def _buckets() -> dict:
     return out
 
 
-def _lookup(source: str, regime: str | None, horizon: str) -> tuple[int, int, str]:
-    """(n, correct, bucket_used). Exact regime bucket first; else the source's counts
-    summed across regimes at that horizon (more evidence beats finer conditioning
-    until the per-regime bucket has its own n)."""
+def _horizons() -> list[str]:
+    """The clean fixed horizons the gate pools — "exit" is never one of them (its
+    labels are polluted by exit timing, not the entry direction being judged)."""
+    raw = os.environ.get("MIRROR_HORIZONS", "15m,1h,4h")
+    hs = [h.strip() for h in raw.split(",") if h.strip() and h.strip() != "exit"]
+    return hs or ["1h"]
+
+
+def _lookup(source: str, regime: str | None, horizons: list[str]) -> tuple[int, int, str]:
+    """(n, correct, bucket_used) POOLED across the given clean horizons. Exact regime
+    (summed over the horizons) first; else the source summed across regimes AND horizons
+    — more evidence beats finer conditioning until the per-regime bucket has its own n."""
     src = _buckets().get(source) or {}
-    exact = (src.get(regime or "") or {}).get(horizon)
     min_n = int(_env_f("MIRROR_MIN_N", 30))
-    if exact and exact["n"] >= min_n:
-        return exact["n"], exact["correct"], f"{source}|{regime}|{horizon}"
-    n = c = 0
-    for reg_map in src.values():
-        b = reg_map.get(horizon)
+    tag = "+".join(horizons)
+    reg_map = src.get(regime or "") or {}
+    en = ec = 0
+    for hz in horizons:
+        b = reg_map.get(hz)
         if b:
-            n += b["n"]
-            c += b["correct"]
-    return n, c, f"{source}|*|{horizon}"
+            en += b["n"]
+            ec += b["correct"]
+    if en >= min_n:
+        return en, ec, f"{source}|{regime}|{tag}"
+    n = c = 0
+    for rm in src.values():
+        for hz in horizons:
+            b = rm.get(hz)
+            if b:
+                n += b["n"]
+                c += b["correct"]
+    return n, c, f"{source}|*|{tag}"
 
 
 def decide(direction: str, *, source: str, regime: str | None = None,
@@ -98,8 +123,11 @@ def decide(direction: str, *, source: str, regime: str | None = None,
             out["action"] = "off"
             return out
         from trading.direction.truth_ledger import _wilson
-        hz = horizon or os.environ.get("MIRROR_HORIZON", "1h")
-        n, c, bucket = _lookup(str(source), regime, hz)
+        # explicit horizon (or the MIRROR_HORIZON back-compat override) → judge that
+        # single horizon; otherwise POOL the clean fixed horizons for a tighter interval.
+        single = horizon or os.environ.get("MIRROR_HORIZON")
+        horizons = [single] if single else _horizons()
+        n, c, bucket = _lookup(str(source), regime, horizons)
         out["bucket"] = bucket
         out["n"] = n
         min_n = int(_env_f("MIRROR_MIN_N", 30))
@@ -144,15 +172,18 @@ def status() -> dict:
     min_n = int(_env_f("MIRROR_MIN_N", 30))
     invert_ci = _env_f("MIRROR_INVERT_CI", 0.45)
     trust_ci = _env_f("MIRROR_TRUST_CI", 0.55)
-    hz = os.environ.get("MIRROR_HORIZON", "1h")
+    single = os.environ.get("MIRROR_HORIZON")
+    horizons = [single] if single else _horizons()
+    hz = "+".join(horizons)
     acts = []
     for source, regs in _buckets().items():
         n = c = 0
         for reg_map in regs.values():
-            b = reg_map.get(hz)
-            if b:
-                n += b["n"]
-                c += b["correct"]
+            for h in horizons:
+                b = reg_map.get(h)
+                if b:
+                    n += b["n"]
+                    c += b["correct"]
         if n < min_n:
             continue
         rate, lo, hi = _wilson(c, n)
