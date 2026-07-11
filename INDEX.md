@@ -1624,6 +1624,10 @@ _(2) Fold regime-routing into the main learned_router._
 _(no summary)_
 - **imports:** asyncio, json, playwright.async_api
 
+## `scratchpad/nav_restart.py`
+_(no summary)_
+- **imports:** os, signal, subprocess, sys, time
+
 ## `scratchpad/qa_binance_panel.py`
 _(no summary)_
 - **imports:** pathlib, playwright.sync_api

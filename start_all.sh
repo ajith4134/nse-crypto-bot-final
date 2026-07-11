@@ -64,6 +64,9 @@ export BROKER_SENSE_BUDGET="${BROKER_SENSE_BUDGET:-120}"   # longer scan/cycle u
 # funnels back to headless (live stream "unavailable", NSE eyes blind). Costs ~1.5GB
 # per chromium; set 0 to fall back to headless.
 export BROKER_SENSE_HEADED="${BROKER_SENSE_HEADED:-1}"
+# NAV_BRAIN=1 (2026-07-11, verified live): route the funnel's Binance browsing through the
+# intelligent Planner-Actor-Validator loop (nav_brain) — purposeful, segment-gated, self-correcting.
+export NAV_BRAIN="${NAV_BRAIN:-1}"
 export BRAIN_WARM_ALL_PAIRS="${BRAIN_WARM_ALL_PAIRS:-1}"   # keep every pair's candles warm in RAM
 # EXPLORE OPEN-ALL (owner 2026-07-06): until the brain has learned, PAPER-open EVERY candidate the
 # pickers surface (direction from the symbol's app data, vetoes advisory) so the journal fills with
@@ -116,7 +119,7 @@ BROKER_SENSE_BUDGET=$BROKER_SENSE_BUDGET BRAIN_WARM_ALL_PAIRS=$BRAIN_WARM_ALL_PA
 BRAIN_EXPLORE_OPEN_ALL=$BRAIN_EXPLORE_OPEN_ALL BRAIN_EXPLORE_GRADUATE_N=$BRAIN_EXPLORE_GRADUATE_N \
 BRAIN_EXPLORE_GRADUATE_ACC=$BRAIN_EXPLORE_GRADUATE_ACC BRAIN_EXPLORE_GRADUATE_WINDOW=$BRAIN_EXPLORE_GRADUATE_WINDOW \
 BROKER_SENSE_EXPLORE_WIDE_N=$BROKER_SENSE_EXPLORE_WIDE_N BROKER_WATCHLIST_WRITE=$BROKER_WATCHLIST_WRITE \
-BROKER_SENSE_HEADED=$BROKER_SENSE_HEADED"; }
+BROKER_SENSE_HEADED=$BROKER_SENSE_HEADED NAV_BRAIN=$NAV_BRAIN"; }
 pgrep -f "run_funnel_loop crypto" >/dev/null || \
   env $(_bs_env) \
   setsid .venv/bin/python -m trading.broker_sense.run_funnel_loop crypto >>logs/funnel_crypto.log 2>&1 </dev/null &

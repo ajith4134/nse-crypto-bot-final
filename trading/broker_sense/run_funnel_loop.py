@@ -157,6 +157,30 @@ def main() -> int:
                 segments = ["equity"]
             if active is not None:
                 segments = [s for s in segments if s in active]
+            # NAV_BRAIN=1 (2026-07-11): route the live browsing through the intelligent
+            # Planner-Actor-Validator loop — navigate the Binance UI purposefully to the ACTIVE
+            # segments (never an off one), self-correcting when stuck, instead of the dumb loop.
+            # Guarded + bounded; a nav error never touches the trading cycle.
+            if market == "crypto" and os.environ.get("NAV_BRAIN", "0") == "1":
+                try:
+                    from trading.broker_sense.nav_brain import from_human_ui
+                    from trading.brain.vision.human_ui import HumanUI
+                    _pg = sessions.page("binance")
+                    if _pg is not None:
+                        try:
+                            _nb = from_human_ui(HumanUI(_pg), market="crypto")
+                            _r = _nb.navigate("open and view the enabled crypto trading segments")
+                            print(f"[nav_brain:crypto] {time.strftime('%H:%M:%S')} "
+                                  f"steps={_r['steps']} replans={_r['replans']} "
+                                  f"completed={_r['completed']} allowed={_r['allowed_segments']}",
+                                  flush=True)
+                        finally:
+                            try:
+                                _pg.close()                # sessions.page() opens a NEW tab → close it
+                            except Exception:
+                                pass
+                except Exception as _e:
+                    print(f"[nav_brain:crypto] error: {_e!r}", flush=True)
             for seg in segments:
                 try:
                     rep = funnel.run_cycle(segment=seg, allow_live=allow_live)
