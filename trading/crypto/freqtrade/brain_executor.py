@@ -199,13 +199,13 @@ class BrainExecutor:
             return []  # dynamic universes only — no meaningful hardcoded fallback
         return ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
 
-    def sweep_pullbacks(self, cli=None, *, allow_live: bool = False) -> dict:
+    def sweep_pullbacks(self, cli=None, *, allow_live: bool = False,
+                        price_fn=None) -> dict:
         """D3: enter every armed pullback entry whose retrace has arrived. Called from
-        run_once AND every PULLBACK_SWEEP_SEC by the funnel loop's fast sweeper thread
-        (a 0.15-0.5×ATR retrace is often gone within minutes — waiting for the next
-        20-40min cycle expired 7/8 armed entries on 2026-07-11). pullback.sweep pops
-        triggered rows under the state-file lock, so a row fires exactly once no
-        matter how many sweepers race. Never raises."""
+        run_once, the polling sweeper, AND the Reflex lane (websocket ticks — R2), which
+        passes its own tick-fresh price_fn. pullback.sweep pops triggered rows under
+        the state-file lock, so a row fires exactly once no matter how many sweepers
+        race. Never raises."""
         rep: dict = {"entered": [], "queued": []}
         try:
             from trading.direction import pullback as _pb
@@ -213,7 +213,7 @@ class BrainExecutor:
                 return rep
             cli = cli or self.client()
             for _row in _pb.sweep(
-                    lambda s: _pb.live_price(s, self.segment or "futures"),
+                    price_fn or (lambda s: _pb.live_price(s, self.segment or "futures")),
                     segment=self.segment or "futures"):
                 try:
                     _psym = cli.tradeable_form(_row["symbol"], self.segment)

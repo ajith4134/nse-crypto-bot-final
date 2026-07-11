@@ -209,6 +209,7 @@ def status() -> dict:
                    key=lambda r: -float(r.get("armed_ts") or 0))
     return {"enabled": enabled(), "n_armed": len(armed), "armed": armed[:40],
             "stats": data.get("stats") or {},
+            "reflex": state.load_json("reflex_lane.json", {}) or {"enabled": False},
             "levers": {"PULLBACK_ATR": _env_f("PULLBACK_ATR", 0.5),
                        "PULLBACK_PCT": _env_f("PULLBACK_PCT", 0.15),
                        "PULLBACK_TTL_MIN": _env_f("PULLBACK_TTL_MIN", 45),

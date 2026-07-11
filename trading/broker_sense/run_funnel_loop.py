@@ -70,6 +70,16 @@ def main() -> int:
 
         def _pullback_sweeper(funnel):
             from trading.direction import pullback as _pb
+            # R2 REFLEX LANE (owner-approved 2026-07-11): Binance bookTicker ticks
+            # fire armed entries in SECONDS. reflex.run blocks for the funnel's
+            # lifetime and returns only when REFLEX_LANE=0 or the websocket stack
+            # is unavailable — the polling loop below stays as the honest fallback.
+            try:
+                from trading.direction import reflex as _rx
+                _rx.run(funnel.executor, allow_live=allow_live)
+                print("[reflex] lane off — polling fallback active", flush=True)
+            except Exception as e:
+                print(f"[reflex] lane failed ({e!r}) — polling fallback", flush=True)
             while True:
                 try:
                     sec = float(os.environ.get("PULLBACK_SWEEP_SEC", "45") or 45)

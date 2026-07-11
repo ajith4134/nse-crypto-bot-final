@@ -1987,6 +1987,11 @@ _Tests for trading/direction/pullback — D3 pullback entries._
 - **classes:** _Iso, TestPullback
 - **imports:** pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_reflex.py`
+_Tests for trading/direction/reflex — R2 Reflex fast lane (tick → order)._
+- **classes:** _Iso, TestCrossed, TestVenueMapping, TestTickToOrder
+- **imports:** pathlib, tempfile, trading.state, unittest
+
 ## `tests/test_regime_moe.py`
 _AI-scientist idea #7 — Regime-conditioned MoE router (learned gate over frozen experts)._
 - **classes:** TestRegimeMoE
@@ -3533,6 +3538,12 @@ _trading/direction/mirror_gate.py — D2: the Mirror Gate (goal Pillar 27)._
 _trading/direction/pullback.py — D3: pullback entries (goal Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `_key(symbol, segment) -> str`; `live_price(symbol, segment) -> float | None`; `atr_from_df(df) -> float | None`; `atr_from_feather(symbol, segment, tf) -> float | None`; `arm() -> bool`; `_dist(row) -> float`; `sweep(price_fn) -> list[dict]`; `status() -> dict`
 - **imports:** __future__, os, time, trading
+
+## `trading/direction/reflex.py`
+_trading/direction/reflex.py — R2: the Reflex fast lane (Pillars 27 + 9)._
+- **classes:** _Stats
+- **functions:** `enabled() -> bool`; `_env_f(name, default) -> float`; `_venue_sym(row) -> tuple[str, str]`; `crossed(row, mid) -> str | None`; `_armed_maps() -> tuple[dict, dict]`; `run(executor_for) -> None`
+- **imports:** __future__, json, os, time, trading
 
 ## `trading/direction/regime.py`
 _trading/direction/regime.py — D5: the direction regime classifier (goal Pillar 27)._
