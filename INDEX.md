@@ -1951,6 +1951,12 @@ _Tests for trading/strategy/direction_equation.py — P2 Rank-IC equation orches
 - **functions:** `_trending_ohlcv(n, seed)`
 - **imports:** __future__, numpy, pandas, pathlib, tempfile, trading, trading.strategy, trading.strategy.generators.expression, unittest
 
+## `tests/test_direction_equation_deploy.py`
+_Tests for trading/strategy/direction_equation_deploy.py — P4 live deploy._
+- **classes:** DeployTest
+- **functions:** `_rows(n, seed)`
+- **imports:** __future__, numpy, pandas, pathlib, tempfile, trading, trading.strategy, unittest
+
 ## `tests/test_direction_regime.py`
 _Tests for trading/direction/regime — D5 direction regime classifier._
 - **classes:** _Iso, TestClassifyCloses, TestClassifyIO
@@ -4456,6 +4462,11 @@ _trading/strategy/cpcv.py — Combinatorial Purged Cross-Validation (Pillar 20).
 _trading/strategy/direction_equation.py — P2 of the direction-equation quest: discover ONE_
 - **functions:** `_forward_return(close, h) -> np.ndarray`; `horizon_ic(raw, close, h) -> float`; `_equation_generators()`; `score_equation(cand, feats_oos, close_oos, horizons) -> dict | None`; `discover(ohlcv, market) -> list[dict]`; `cpcv_robustness(ohlcv, expr, kind, features) -> dict | None`; `_triple_barrier_winrate(ohlcv, expr, kind, features) -> dict | None`; `_block_ic_matrix(ohlcv, cands) -> np.ndarray | None`; `validate(ohlcv, ranked, market) -> dict`; `save_equations(market, ranked) -> None`; `load_equations(market) -> list[dict]`; `_now() -> float`; `discover_and_save(ohlcv, market) -> list[dict]`; `_ohlcv_for(symbol, market, tf, bars) -> pd.DataFrame | None`; `run_for_market(symbol, market) -> list[dict]`
 - **imports:** __future__, numpy, pandas, trading, trading.strategy.generators.expression, trading.strategy.guardrails
+
+## `trading/strategy/direction_equation_deploy.py`
+_trading/strategy/direction_equation_deploy.py — P4 of the direction-equation quest: deploy the_
+- **functions:** `_rows_to_df(rows) -> pd.DataFrame | None`; `_equation_score(feats, eqs, top_k) -> float | None`; `predict(rows, market) -> dict | None`; `equation_tilt(rows, market) -> dict | None`; `reevolve_all(symbols) -> dict`
+- **imports:** __future__, numpy, pandas, trading.strategy.direction_equation, trading.strategy.generators.expression
 
 ## `trading/strategy/evolve.py`
 _trading/strategy/evolve.py — DEAP NSGA-II evolution loop (T8.3)._

@@ -76,7 +76,19 @@ forks (mlfinpy/RiskLabAI) fail to build numba on Py3.13 — NOT needed: the repo
 1. ✅ LLM vision chain repaired (core/llm.py) — Lane B depends on it. 2. ✅ Lane B chart_vlm.py.
 3. ⬜ GAP-1: capture Binance chart WITH indicators (extend chart_vision). 4. ✅ Lane C ChartScanAI (chart_yolo.py).
 5. ✅ Fuse A+B+C in indicator_fusion (VLM lens + YOLO ±0.10 tilt). 6. ✅ P2 Operon + **Rank-IC orchestrator**.
-7. ✅ P3 **purged-CPCV OOS gate** (cpcv + triple-barrier + PBO). 8. ⬜ P4 Mirror-Gate deploy + Truth Ledger.
+7. ✅ P3 **purged-CPCV OOS gate** (cpcv + triple-barrier + PBO). 8. ✅ P4 **Mirror-Gate deploy + Truth Ledger**.
+
+## P4 DONE — QUEST CHAIN COMPLETE (2026-07-11) — trading/strategy/direction_equation_deploy.py
+`predict(rows, market, symbol)` loads the P3-validated survivors, evaluates them live (causal-z,
+invert-aware, CPCV-IC-weighted ensemble → bounded score∈[-1,1]), RECORDS the call to the Truth
+Ledger (source "direction_equation", deduped per bar) so its live per-regime/horizon accuracy is
+measured, and passes it through the **Mirror Gate** (self-inverts if the ledger shows it became an
+anti-signal). `equation_tilt()` folds the gated call into indicator_fusion.fuse() as a bounded
+±0.15 lens (snapshot key `direction_equation`). `reevolve_all()` + `python -m
+trading.strategy.direction_equation_deploy` periodically re-discover→re-validate (keep-best,
+mutate-rest). Verified full chain discover→validate→persist→live predict (short, h=24, gated).
+Reliability now MEASURED continuously by the Truth Ledger, not claimed. Next (ops): schedule the
+re-evolution daemon + let the Truth Ledger accumulate live accuracy before raising the ±0.15 weight.
 
 ## P2 DONE (2026-07-11) — trading/strategy/direction_equation.py
 `discover(ohlcv, market)` fans the feature bus through the symbolic-regression generators

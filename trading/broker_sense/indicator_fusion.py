@@ -468,6 +468,20 @@ def fuse(symbol: str, market: str = "crypto",
     except Exception:
         yolo = None
 
+    # 4h ── the DISCOVERED DIRECTION EQUATION (quest P4): the CPCV-validated symbolic-regression
+    # equation, evaluated live, Mirror-Gated (self-inverts if the Truth Ledger says it's become an
+    # anti-signal) → a bounded ±0.15 tilt. Only contributes once an equation has been discovered +
+    # validated for this market (direction_equations.json); otherwise silent. Reuses the vp_rows fetch.
+    direction_eq = None
+    try:
+        if vp_rows:
+            from trading.strategy import direction_equation_deploy as _deq
+            direction_eq = _deq.equation_tilt(vp_rows, market, symbol=symbol, regime=regime)
+            if direction_eq and direction_eq.get("tilt") is not None:
+                confluence = _clamp(confluence + 0.15 * float(direction_eq["tilt"]), -1.0, 1.0)
+    except Exception:
+        direction_eq = None
+
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
@@ -512,7 +526,7 @@ def fuse(symbol: str, market: str = "crypto",
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
         "sectors": sectors, "options_regime": options_regime, "ai_select": ai_select,
-        "volume_profile": vp_profile, "chart_yolo": yolo,
+        "volume_profile": vp_profile, "chart_yolo": yolo, "direction_equation": direction_eq,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
                          "adx": d["adx"]["adx"], "supertrend": d["supertrend"]["dir"],
