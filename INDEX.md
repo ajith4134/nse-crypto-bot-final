@@ -1352,6 +1352,11 @@ _(2) Fold regime-routing into the main learned_router._
 _Targeted render QA: does the Human Handoff panel land in the Trading view?_
 - **imports:** os, pathlib, playwright.sync_api, sys
 
+## `scratchpad/relaunch_funnel.py`
+_Restart the crypto funnel loop with its EXACT current env (captured from /proc), so the_
+- **functions:** `find_pid()`
+- **imports:** os, signal, subprocess, sys, time
+
 ## `tests/__init__.py`
 _Test package init._
 - **imports:** os
@@ -1388,6 +1393,11 @@ _Tests for memory/associative.py — HippoRAG PPR recall + A-MEM evolution (offl
 - **functions:** `_seed(mem)`; `test_add_links_related_notes()`; `test_recall_is_associative_multihop()`; `test_persistence_across_instances(tmp_path)`; `test_llm_path_used_when_available()`
 - **imports:** json, memory.associative
 
+## `tests/test_attribution_fast_path.py`
+_tests/test_attribution_fast_path.py — the hot-path attribution must be cheap._
+- **classes:** _CountingNet, TestAttributionFastPath
+- **imports:** trading.brain, unittest
+
 ## `tests/test_autoload.py`
 _Node auto-loader (nodes/autoload.py) — pkgutil sweep recovers built-but-unpooled families._
 - **classes:** TestAutoload
@@ -1398,6 +1408,12 @@ _Tests for trading/strategy/autoresearch.py — the live autoresearch driver (#5
 - **classes:** _IsolatedState, TestRunCycle, TestStatus, TestUiDataSnapshot
 - **functions:** `_rows(n, base)`
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
+
+## `tests/test_binance_stream.py`
+_tests/test_binance_stream.py — Binance all-market in-RAM mirror._
+- **classes:** TestBinanceMirror
+- **functions:** `_mark_frame(rows)`; `_ticker_frame(rows)`; `_liq_frame(sym, side, qty, price, ts_ms)`
+- **imports:** time, trading.broker_sense.binance_stream, unittest
 
 ## `tests/test_boss_command.py`
 _Boss command engine (trading/brain/boss.py) + mind-event bus (mind_events.py) + R&D drive_
@@ -2773,6 +2789,12 @@ _trading/broker_sense/app_school.py — the brain LEARNS to drive a broker app (
 - **classes:** AppMap, AppSchool
 - **functions:** `market_status(broker) -> dict`; `_min_quote_volume() -> float`; `_ccxt_exchange(segment)`; `get_school() -> AppSchool`
 - **imports:** __future__, datetime, os, time, trading, trading.broker_sense.brokers, zoneinfo
+
+## `trading/broker_sense/binance_stream.py`
+_trading/broker_sense/binance_stream.py — Binance all-market WEBSOCKET mirror (compute-offload)._
+- **classes:** BinanceUniverseMirror
+- **functions:** `enabled() -> bool`; `_f(v)`; `_i(v)`; `get_mirror() -> BinanceUniverseMirror`
+- **imports:** __future__, asyncio, collections, json, os, threading, time
 
 ## `trading/broker_sense/binance_watchlist.py`
 _trading/broker_sense/binance_watchlist.py — mirror OPEN crypto trades into the REAL_

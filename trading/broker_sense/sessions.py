@@ -211,7 +211,15 @@ class SessionManager:
 
     # stealth args: a headed profile that doesn't advertise automation renders like a human's
     _CHROMIUM_ARGS = ["--no-sandbox", "--disable-dev-shm-usage",
-                      "--disable-blink-features=AutomationControlled"]
+                      "--disable-blink-features=AutomationControlled",
+                      # Kill the native prompts/banners the brain otherwise wastes a vision
+                      # glance() on (2026-07-11 slow-nav): the Binance "Show notifications"
+                      # permission bubble and the "Restore pages? Chromium didn't shut down
+                      # correctly" crash-restore banner. Auto-deny every permission prompt so
+                      # no site can pop one over the page and stall navigation.
+                      "--disable-notifications",
+                      "--deny-permission-prompts",
+                      "--hide-crash-restore-bubble"]
 
     # ── plumbing ────────────────────────────────────────────────────────────────
     def _log(self, kind: str, broker: str, msg: str) -> None:

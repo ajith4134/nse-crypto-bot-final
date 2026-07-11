@@ -43,10 +43,20 @@ def explain_trade(trade: dict, closed_rows: list[dict], *, fast: bool = False) -
     x = trade_feature_row(trade)
     if not net.trained:
         return {"engine": "untrained", "p_win": None, "top": []}
+    if fast:
+        # HOT PATH (loop tick / reflex fast lane / brain-executor cycle): the occlusion
+        # fallback below makes ~len(x)+2 net._proba calls PER entry. That was cheap with the
+        # old lightweight outcome net, but TRADE_NET_ENGINE=tabpfn (2026-07-10) makes each
+        # _proba a full TabPFN transformer forward over the ~200-row context — ~44 heavy torch
+        # inferences per tick-fired entry, which saturated every CPU core and FROZE the headed
+        # browser (2026-07-11). The fast path returns ONLY p_win (a single net call); the full
+        # SHAP/occlusion feature attribution is resolved off the hot path (fast=False, at close).
+        try:
+            return {"engine": "fast-pwin", "p_win": round(float(net._proba(x)), 4), "top": []}
+        except Exception:
+            return {"engine": "fast-skip", "p_win": None, "top": []}
     bg = _background(closed_rows)
     try:
-        if fast:
-            raise RuntimeError("fast path → occlusion (42 net calls, no SHAP sampling)")
         import numpy as np
         import shap
 
