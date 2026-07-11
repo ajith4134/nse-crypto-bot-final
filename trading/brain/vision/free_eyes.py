@@ -44,6 +44,21 @@ def _ocr_pool():
     return _OCR_POOL
 
 
+def _ocr_safe(shot) -> list:
+    """Run OCR with a HARD wall-clock cap. The bare .result() here had NO timeout, so a wedged
+    OCR engine blocked the caller (the funnel's browser hand → whole trade loop) forever
+    (2026-07-11 mirror-freeze). On timeout/failure we degrade to DOM-only controls — never wedge."""
+    import os as _os
+    try:
+        t = float(_os.getenv("FREE_EYES_OCR_TIMEOUT", "12") or 12)
+    except ValueError:
+        t = 12.0
+    try:
+        return _ocr_pool().submit(_ocr_read, shot).result(timeout=t)
+    except Exception:                             # TimeoutError | OCR error → honest empty read
+        return []
+
+
 def _ocr_engine():
     """Lazily build a local OCR engine. RapidOCR (ONNX, fast) → PaddleOCR fallback → None."""
     global _OCR, _OCR_KIND
@@ -202,13 +217,13 @@ class FreeEyes:
             if cached.ocr or not want_ocr:
                 return cached
             if cached.shot:                       # OCR-upgrade the cached shot: no re-walk
-                cached.ocr.extend(_ocr_pool().submit(_ocr_read, cached.shot).result())
+                cached.ocr.extend(_ocr_safe(cached.shot))
                 return cached
         from trading.brain.vision.ocular_cortex import _extract_from_page
         controls, shot = _extract_from_page(self.page, want_shot=True)
         ocr = []
         if want_ocr and shot:
-            ocr = _ocr_pool().submit(_ocr_read, shot).result()   # overlaps across pages
+            ocr = _ocr_safe(shot)                 # overlaps across pages; HARD-bounded (never wedges)
         net = {}
         try:
             if self._recorder is not None:

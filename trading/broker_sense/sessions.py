@@ -310,9 +310,29 @@ class SessionManager:
             get_recorder().attach(pg, broker)  # the first data calls are recorded (read-only)
         except Exception:
             pass
+        target = url or app.home_url
         try:
-            pg.goto(url or app.home_url, timeout=timeout_ms, wait_until="domcontentloaded")
+            pg.goto(target, timeout=timeout_ms, wait_until="domcontentloaded")
         except Exception:                    # slow page past deadline → give what rendered
+            pass
+        # SELF-HEAL (2026-07-11 mirror-freeze): a wedged renderer leaves the page stuck on
+        # about:blank — the brain then browses a dead tab forever. If nav didn't land, drop this
+        # page and retry ONCE with a fresh one; if it still won't load, return it blank (the funnel
+        # degrades to API paths rather than wedging on a dead browser).
+        try:
+            if (pg.url or "about:blank").startswith("about:blank") and not target.startswith("about:"):
+                pg.close()
+                pg = ctx.new_page()
+                try:
+                    from trading.broker_sense.interception import get_recorder
+                    get_recorder().attach(pg, broker)
+                except Exception:
+                    pass
+                try:
+                    pg.goto(target, timeout=timeout_ms, wait_until="domcontentloaded")
+                except Exception:
+                    pass
+        except Exception:
             pass
         pg.wait_for_timeout(2000)
         if _looks_like_login(pg):

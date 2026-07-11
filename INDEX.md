@@ -1755,6 +1755,11 @@ _Tests for the FREE eyes' deterministic matcher + OCR-row parsing (pure, no brow
 - **classes:** TestMatcher, TestOcrRow, TestGlanceText
 - **imports:** trading.brain.vision.free_eyes, unittest
 
+## `tests/test_free_eyes_ocr_timeout.py`
+_tests/test_free_eyes_ocr_timeout.py — the OCR read must never block the caller forever._
+- **classes:** TestOCRTimeout
+- **imports:** os, time, trading.brain.vision, unittest
+
 ## `tests/test_futures_options_symbols.py`
 _Regression: NSE futures/options screeners must emit BROKER-TRADABLE symbols._
 - **classes:** _FakeClient
@@ -2778,7 +2783,7 @@ _trading/brain/vision/fast_nav.py — FAST + ACCURATE navigation planner (2026-0
 ## `trading/brain/vision/free_eyes.py`
 _trading/brain/vision/free_eyes.py — the brain's FREE, 24/7, never-rate-limited eyes._
 - **classes:** Glance, FreeEyes
-- **functions:** `_ocr_pool()`; `_ocr_engine()`; `_ocr_read(png_bytes) -> list[dict]`; `_ocr_row(box, txt) -> Optional[dict]`; `_norm(s) -> str`; `_tok_hit(tok, pool) -> bool`; `_score_match(target, label) -> float`
+- **functions:** `_ocr_pool()`; `_ocr_safe(shot) -> list`; `_ocr_engine()`; `_ocr_read(png_bytes) -> list[dict]`; `_ocr_row(box, txt) -> Optional[dict]`; `_norm(s) -> str`; `_tok_hit(tok, pool) -> bool`; `_score_match(target, label) -> float`
 - **imports:** __future__, dataclasses, re, time, typing
 
 ## `trading/brain/vision/grounded_eyes.py`
