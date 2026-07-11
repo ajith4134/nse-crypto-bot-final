@@ -81,6 +81,42 @@ class TestBinanceMirror(unittest.TestCase):
             self.m._apply_frame(junk)            # must not raise
         self.assertEqual(self.m.status()["symbols_ticker"], 0)
 
+    def test_futures_rows_raw_to_ccxt_conversion(self):
+        self.m._apply_frame(_ticker_frame([
+            ("BTCUSDT", "64000", "1.2", "65000", "63000", "5000000000", 900000),
+            ("1000PEPEUSDT", "0.01", "3.0", "0.011", "0.009", "300000000", 120000),
+            ("BTCUSDC", "64000", "1.0", "65000", "63000", "1000000", 5000),   # non-USDT → skipped
+        ]))
+        self.m._apply_frame(_mark_frame([("BTCUSDT", "64000", "0.0001", 1)]))
+        rows = {r["raw"]: r for r in self.m.futures_rows()}
+        self.assertEqual(rows["BTCUSDT"]["symbol"], "BTC/USDT:USDT")
+        self.assertEqual(rows["1000PEPEUSDT"]["symbol"], "1000PEPE/USDT:USDT")
+        self.assertEqual(rows["BTCUSDT"]["funding_rate"], 0.0001)
+        self.assertNotIn("BTCUSDC", rows)        # non-USDT perp skipped for now
+
+
+class TestScreenerMirrorMigration(unittest.TestCase):
+    """screen_crypto_futures sources the universe from the mirror when warm (not ccxt)."""
+
+    def test_screens_from_mirror_when_warm(self):
+        from trading.broker_sense.binance_stream import get_mirror
+        from trading.screener.screener import screen_crypto_futures
+        m = get_mirror()
+        with m._lock:
+            m._ticker.update({
+                "BTCUSDT": {"last": 64000.0, "pct_change": 1.2, "high": 65000.0, "low": 63000.0,
+                            "quote_volume": 5e9, "count": 9, "ts": time.time()},
+                "ETHUSDT": {"last": 3500.0, "pct_change": 5.5, "high": 3600.0, "low": 3300.0,
+                            "quote_volume": 2e9, "count": 4, "ts": time.time()},
+            })
+            m._mark["BTCUSDT"] = {"mark": 64000.0, "funding_rate": 0.0001,
+                                  "next_funding_ts": 1, "ts": time.time()}
+        cands = screen_crypto_futures(source=None, limit=5)   # source=None → ccxt path would crash
+        self.assertTrue(cands)
+        syms = {c["symbol"] for c in cands}
+        self.assertTrue({"BTC/USDT:USDT", "ETH/USDT:USDT"} & syms)
+        self.assertTrue(all(c["metrics"]["source"] == "binance-mirror" for c in cands))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -203,6 +203,32 @@ class BinanceUniverseMirror:
         rows.sort(key=keyf, reverse=True)
         return rows[: max(0, int(n))]
 
+    def futures_rows(self, *, min_quote_volume: float = 0.0) -> list[dict]:
+        """USDⓈ-M perp rows in the screener's shape, from RAM — the Tier-0 universe scan on
+        Binance's OWN pushed numbers (replaces a per-cycle ccxt fetch_tickers of ~400 symbols).
+
+        Each row: {symbol (ccxt 'BASE/USDT:USDT'), raw, pct_change, quote_volume, funding_rate}.
+        Only USDT-quoted perps (the vast majority); anything mis-converted is harmlessly rejected
+        downstream by the executor's tradeability guard. Empty when the mirror is cold → caller
+        falls back to ccxt."""
+        out: list[dict] = []
+        with self._lock:
+            tick = dict(self._ticker)
+            mark = dict(self._mark)
+        for s, t in tick.items():
+            if not s.endswith("USDT"):
+                continue                          # skip USDC/BUSD perps for now (minor share)
+            qv = t.get("quote_volume") or 0.0
+            if qv < min_quote_volume:
+                continue
+            base = s[:-4]
+            out.append({
+                "symbol": f"{base}/USDT:USDT", "raw": s,
+                "pct_change": t.get("pct_change"), "quote_volume": qv,
+                "funding_rate": (mark.get(s) or {}).get("funding_rate"),
+            })
+        return out
+
     def recent_liquidations(self, symbol: str | None = None, n: int = 50) -> list[dict]:
         with self._lock:
             liqs = list(self._liqs)

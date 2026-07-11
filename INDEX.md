@@ -1417,7 +1417,7 @@ _tests/test_binance_orderflow.py — Binance-computed order-flow feature pack._
 
 ## `tests/test_binance_stream.py`
 _tests/test_binance_stream.py — Binance all-market in-RAM mirror._
-- **classes:** TestBinanceMirror
+- **classes:** TestBinanceMirror, TestScreenerMirrorMigration
 - **functions:** `_mark_frame(rows)`; `_ticker_frame(rows)`; `_liq_frame(sym, side, qty, price, ts_ms)`
 - **imports:** time, trading.broker_sense.binance_stream, unittest
 
@@ -3979,7 +3979,7 @@ _Prediction-market screener — scans ALL live event markets and ranks them for 
 _trading/screener/screener.py — per-segment ranked screeners (the live-loop entry)._
 - **classes:** Screener
 - **functions:** `_cand(symbol, segment, market, score, reason, metrics, source) -> dict`; `screen_nse_movers(source, segment) -> list[dict]`; `screen_nse_fno(source) -> list[dict]`; `screen_nse_options(source) -> list[dict]`; `_ticker_rows(tickers, markets, want) -> list[dict]`; `screen_crypto_spot(source) -> list[dict]`; `screen_crypto_futures(source) -> list[dict]`; `screen_crypto_options(source) -> list[dict]`; `build_demo_screener() -> Screener`
-- **imports:** __future__, trading.screener, trading.screener.stubs, typing
+- **imports:** __future__, os, trading.screener, trading.screener.stubs, typing
 
 ## `trading/screener/sources.py`
 _trading/screener/sources.py — INJECTABLE, offline-safe market-data sources._

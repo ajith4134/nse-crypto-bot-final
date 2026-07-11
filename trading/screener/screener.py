@@ -17,6 +17,7 @@ Standalone composables (used by Screener, callable directly in tests):
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from trading.screener import filters as F
@@ -233,15 +234,36 @@ def screen_crypto_spot(source: Any, *, limit: int = 5,
 
 def screen_crypto_futures(source: Any, *, limit: int = 5,
                           filters: dict | None = None) -> list[dict]:
-    """Rank USDⓢ-M perps by volume/%change and tilt by funding rate."""
+    """Rank USDⓢ-M perps by volume/%change and tilt by funding rate.
+
+    Universe scan is MIGRATED to the Binance all-market websocket mirror (RAM, Binance-pushed) when
+    warm — no per-cycle ccxt fetch_tickers of ~400 symbols; the brain's CPU stays free for ML. Falls
+    back to ccxt REST when the mirror is cold (honest degrade). Kill switch: BINANCE_MIRROR_UNIVERSE=0.
+    """
     filters = filters or {}
-    try:
-        tickers = source.tickers("futures")
-        funding = source.funding_rates("futures")
-    except Exception:
-        tickers, funding = {}, {}
-    rows = _ticker_rows(tickers)
-    rows = [r for r in rows if ":" in r["symbol"] or r["symbol"].endswith("USDT")]
+    src_tag, funding = "ccxt", {}
+    rows: list[dict] = []
+    if os.getenv("BINANCE_MIRROR_UNIVERSE", "1").strip().lower() not in ("0", "false", "off"):
+        try:
+            from trading.broker_sense import binance_stream as _bs
+            m = _bs.get_mirror()
+            if _bs.enabled() and not m.is_stale("BTCUSDT"):     # mirror warm → scan from RAM
+                mrows = m.futures_rows()
+                if mrows:
+                    rows = [{"symbol": r["symbol"], "pct_change": r.get("pct_change"),
+                             "quote_volume": r.get("quote_volume")} for r in mrows]
+                    funding = {r["symbol"]: {"fundingRate": r.get("funding_rate")} for r in mrows}
+                    src_tag = "binance-mirror"
+        except Exception:
+            rows = []
+    if not rows:                                                 # cold mirror → ccxt REST fallback
+        try:
+            tickers = source.tickers("futures")
+            funding = source.funding_rates("futures")
+        except Exception:
+            tickers, funding = {}, {}
+        rows = _ticker_rows(tickers)
+        rows = [r for r in rows if ":" in r["symbol"] or r["symbol"].endswith("USDT")]
     if not rows:
         return []
     rows = F.volume_filter(rows, key="quote_volume",
@@ -261,7 +283,7 @@ def screen_crypto_futures(source: Any, *, limit: int = 5,
         out.append(_cand(r["symbol"], "futures", "CRYPTO", s,
                          f"futures: vol + {r['pct_change']:+.2f}% funding={frate:.4%}",
                          {"pct_change": r["pct_change"],
-                          "quote_volume": r["quote_volume"], "funding": frate}, "ccxt"))
+                          "quote_volume": r["quote_volume"], "funding": frate}, src_tag))
     out.sort(key=lambda c: c["score"], reverse=True)
     return out[:limit]
 

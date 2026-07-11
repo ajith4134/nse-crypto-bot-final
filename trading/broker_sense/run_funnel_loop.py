@@ -60,6 +60,15 @@ def main() -> int:
         funnels["nse"] = BrokerSenseFunnel("nse", sessions)
     learn = BrainLearningCycle()
     if "crypto" in funnels:
+        # Binance compute-offload (2026-07-11): start the all-market WS in-RAM mirror so the
+        # universe scan + order-flow read off Binance's PUSHED data (RAM, ~0 CPU) instead of a
+        # per-cycle ccxt fetch of ~400 tickers. Kill switch: BINANCE_STREAM=0. Best-effort.
+        try:
+            from trading.broker_sense.binance_stream import get_mirror
+            get_mirror().start()
+            print("[binance-mirror] all-market WS mirror started", flush=True)
+        except Exception as e:
+            print(f"[binance-mirror] start skipped: {e!r}", flush=True)
         # D3 FAST SWEEPER (2026-07-11): armed pullback entries wait for a retrace that
         # lives on second-scale, but funnel cycles are 20-40min when budgets overrun —
         # sampling the price once per cycle expired 7/8 armed entries without a single
