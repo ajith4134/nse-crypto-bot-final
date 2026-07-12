@@ -160,6 +160,7 @@ class BrokerSenseFunnel:
         self._executor = executor                     # crypto: injected override (tests)
         self._executors: dict = {}                    # crypto: BrainExecutor per segment (lazy)
         self._strat_lib = None                        # cached full-library decider (lazy)
+        self._strat_cache: dict = {}                  # (symbol, 5m-bar) → strategy-lens memo
         self.cycle_n = 0
         st = state.load_json(_STATUS_FILE, {})
         self.shortlist_n = int(st.get(f"{market}_shortlist_n", 12))
@@ -628,7 +629,19 @@ class BrokerSenseFunnel:
         """Run the FULL institutional strategy library ensemble on `symbol` (owner: use ALL
         strategy features on trade-open). Every active strategy votes on the symbol's
         UI-captured candles; the net becomes a stackable directional lens. Cached decider;
-        honest {available:False} when data/strategies are absent (never a fake number)."""
+        honest {available:False} when data/strategies are absent (never a fake number).
+
+        PER-5m-BAR MEMO (2026-07-12 perf): the 239-strategy ensemble is bar-stable, so running
+        it every cycle × every shortlist symbol blew the cycle budget to 303s (starving the tab
+        pool → no coverage → governor never flips). Memoized on the symbol's 5m bar so it runs
+        ONCE per bar per symbol; the rest of the cycles within that bar reuse it. STRATEGY_LENS_MEMO=0
+        disables."""
+        _memo = os.environ.get("STRATEGY_LENS_MEMO", "1") in ("1", "true", "TRUE", "yes")
+        ck = (symbol, int(time.time() // 300))       # (symbol, 5m-bar epoch)
+        if _memo:
+            hit = self._strat_cache.get(ck)
+            if hit is not None:
+                return hit
         try:
             if self._strat_lib is None:
                 from trading.crypto.freqtrade.brain_executor import LibraryBrainDecider
@@ -638,15 +651,21 @@ class BrokerSenseFunnel:
             longs, shorts = int(b.get("longs") or 0), int(b.get("shorts") or 0)
             n = longs + shorts
             if n == 0:
-                return {"available": False, "reason": b.get("reason", "no strategy votes")}
-            net = longs - shorts
-            direction = "long" if net > 0 else "short" if net < 0 else "neutral"
-            # p_up: fraction of votes that were long, mapped around 0.5 → [0,1]
-            p_up = round(0.5 + 0.5 * (net / n), 4)
-            return {"available": True, "direction": direction, "p_up": p_up,
-                    "confluence": round(abs(net) / n, 4), "longs": longs, "shorts": shorts,
-                    "net": net, "n_strategies": n, "top": b.get("top", []),
-                    "action": d.get("action")}
+                res = {"available": False, "reason": b.get("reason", "no strategy votes")}
+            else:
+                net = longs - shorts
+                direction = "long" if net > 0 else "short" if net < 0 else "neutral"
+                # p_up: fraction of votes that were long, mapped around 0.5 → [0,1]
+                p_up = round(0.5 + 0.5 * (net / n), 4)
+                res = {"available": True, "direction": direction, "p_up": p_up,
+                       "confluence": round(abs(net) / n, 4), "longs": longs, "shorts": shorts,
+                       "net": net, "n_strategies": n, "top": b.get("top", []),
+                       "action": d.get("action")}
+            if _memo:
+                if len(self._strat_cache) > 4000:    # bounded — clear rather than grow unbounded
+                    self._strat_cache.clear()
+                self._strat_cache[ck] = res
+            return res
         except Exception as e:
             return {"available": False, "error": str(e)[:120]}
 
