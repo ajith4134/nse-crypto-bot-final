@@ -193,6 +193,36 @@ def is_human_challenge(pg) -> bool:
         return False
 
 
+# broker → a plausible real-user locale + timezone, so the browser's Intl/timezone
+# fingerprint matches the account region instead of the VM's UTC (a weak but free tell).
+# Binance = global (India account here → Asia/Kolkata); Upstox/Angel One = India.
+_BROKER_LOCALE = {
+    "binance": ("en-IN", "Asia/Kolkata"),
+    "upstox": ("en-IN", "Asia/Kolkata"),
+    "angelone": ("en-IN", "Asia/Kolkata"),
+}
+
+
+def _context_fp(broker: str) -> dict:
+    """Locale + timezone kwargs for new_context/launch_persistent_context — makes the
+    browser's regional fingerprint consistent (VM defaults to UTC, a bot smell)."""
+    loc, tz = _BROKER_LOCALE.get(broker, ("en-US", "UTC"))
+    import os as _os
+    if _os.getenv("BROKER_STEALTH", "1").strip().lower() in ("0", "false", "off"):
+        return {}
+    return {"locale": loc, "timezone_id": tz}
+
+
+def _apply_stealth(ctx) -> None:
+    """Inject the anti-fingerprint init script (WebGL/plugins/webdriver/chrome patches)
+    into a context so every page looks like a human's browser. Best-effort."""
+    try:
+        from trading.broker_sense import stealth
+        stealth.apply(ctx)
+    except Exception:
+        pass
+
+
 def _challenge_present(pg) -> bool:
     """True if the page shows a human-only challenge (image CAPTCHA, puzzle, bot check). Kept
     specific: a page with a promo carousel or the word 'verification' is NOT a challenge."""
@@ -436,7 +466,8 @@ class SessionManager:
                     self._pw = sync_playwright().start()         # storage_state context instead of
                 ctx = self._pw.chromium.launch_persistent_context(   # crashing the whole cycle
                     str(prof), headless=self.headless, viewport={"width": 1600, "height": 1000},
-                    args=self._CHROMIUM_ARGS)
+                    args=self._CHROMIUM_ARGS, **_context_fp(broker))
+                _apply_stealth(ctx)
                 self._contexts[broker] = ctx
                 return ctx
             except Exception:
@@ -444,10 +475,11 @@ class SessionManager:
                           f"{broker} profile is in use by another process — using saved cookies")
         b = self._ensure_browser()
         sp = _sess_path(broker)
-        kw = {"viewport": {"width": 1600, "height": 1000}}
+        kw = {"viewport": {"width": 1600, "height": 1000}, **_context_fp(broker)}
         if sp.exists():
             kw["storage_state"] = str(sp)
         ctx = b.new_context(**kw)
+        _apply_stealth(ctx)
         self._contexts[broker] = ctx
         return ctx
 

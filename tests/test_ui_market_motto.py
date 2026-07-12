@@ -379,3 +379,37 @@ class GateTest(_Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StealthTest(unittest.TestCase):
+    """THE MOTTO anti-CAPTCHA (2026-07-12): the browser must not fingerprint as a VM/bot,
+    or Binance throws a 'Security Verification' puzzle that stalls the web-nav data path."""
+
+    def test_script_patches_the_known_tells(self):
+        from trading.broker_sense import stealth
+        s = stealth._script()
+        for needle in ("navigator,'webdriver'", "window.chrome", "navigator,'plugins'",
+                       "37445", "37446", "navigator,'languages'"):
+            self.assertIn(needle, s, needle)
+
+    def test_apply_injects_and_respects_kill_switch(self):
+        from trading.broker_sense import stealth
+        calls = []
+
+        class _Ctx:
+            def add_init_script(self, s): calls.append(s)
+        with mock.patch.dict(os.environ, {"BROKER_STEALTH": "1"}):
+            self.assertTrue(stealth.apply(_Ctx()))
+            self.assertEqual(len(calls), 1)
+        with mock.patch.dict(os.environ, {"BROKER_STEALTH": "0"}):
+            self.assertFalse(stealth.apply(_Ctx()))
+            self.assertEqual(len(calls), 1)                 # unchanged — disabled
+
+    def test_context_fp_regionalizes_by_broker(self):
+        from trading.broker_sense import sessions
+        with mock.patch.dict(os.environ, {"BROKER_STEALTH": "1"}):
+            fp = sessions._context_fp("binance")
+            self.assertEqual(fp.get("timezone_id"), "Asia/Kolkata")
+            self.assertEqual(fp.get("locale"), "en-IN")
+        with mock.patch.dict(os.environ, {"BROKER_STEALTH": "0"}):
+            self.assertEqual(sessions._context_fp("binance"), {})
