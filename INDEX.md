@@ -3310,6 +3310,11 @@ _trading/broker_sense/cnn_direction.py — candle-IMAGE → direction (savers B,
 - **functions:** `_build_net()`; `get_model() -> CandleDirectionModel`; `llm_escalate(symbol, tf, candles) -> dict | None`; `register_candle_vision_node() -> CandleVisionNode`
 - **imports:** __future__, core.node_protocol, numpy, os
 
+## `trading/broker_sense/coingecko_feed.py`
+_trading/broker_sense/coingecko_feed.py — the BULK multi-bar candle door (owner 2026-07-12)._
+- **functions:** `enabled() -> bool`; `_pages() -> int`; `_sym_to_binance(sym) -> str`; `_sparkline_to_1h_rows(prices) -> list | None`; `refresh(sessions) -> dict`; `status() -> dict`
+- **imports:** __future__, os, time, trading
+
 ## `trading/broker_sense/curiosity.py`
 _trading/broker_sense/curiosity.py — curiosity-driven feature discovery on app screens_
 - **functions:** `_registry()`; `_field_stats() -> dict`; `curiosity(name, stats) -> dict`; `rank() -> list[dict]`; `harvest(max_accept) -> dict`; `status() -> dict`

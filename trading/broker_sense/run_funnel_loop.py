@@ -159,6 +159,7 @@ def main() -> int:
     # the mirror, and is called at EVERY natural break in the cycle so streaming stays
     # continuous. Owner-thread only (Playwright is thread-bound); crypto only. Near-free.
     _last_stream = [0.0]
+    _last_cg = [0.0]                                  # CoinGecko bulk-candle refresh throttle
 
     def _stream_tick(*, force: bool = False) -> None:
         if "crypto" not in funnels:
@@ -371,6 +372,21 @@ def main() -> int:
                                      or None) if _lead else None
         except Exception:
             pass
+        # COINGECKO BULK-CANDLE DOOR (owner 2026-07-12): the only web source of BULK multi-bar
+        # candles — 168 hourly points × up to 500 coins per refresh → the candle door gains a broad
+        # HOURLY series for hundreds of symbols so far MORE become direction-readable + tradeable
+        # (Binance web gives only 1 bar/symbol in bulk). Owner-thread (browser); slow cadence
+        # (COINGECKO_REFRESH_S, default 1800s — the sparkline only updates every ~6h). Crypto only.
+        if "crypto" in funnels and time.time() - _last_cg[0] >= float(
+                os.environ.get("COINGECKO_REFRESH_S", "1800") or 1800):
+            _last_cg[0] = time.time()
+            try:
+                from trading.broker_sense import coingecko_feed as _cg
+                _cgr = _cg.refresh(sessions, deadline=time.monotonic() + 30.0)
+                print(f"[coingecko] bulk-candle door: fed={_cgr.get('fed')} "
+                      f"pages={_cgr.get('pages')} err={_cgr.get('errors')}", flush=True)
+            except Exception as _e:
+                print(f"[coingecko] error: {_e!r}", flush=True)
         try:                                          # D1 Truth Ledger (Pillar 27): resolve due
             from trading.direction import truth_ledger    # claims each cycle — cheap (15s budget),
             tr = truth_ledger.tick(budget_s=15)           # stays inline so labels stay fresh
