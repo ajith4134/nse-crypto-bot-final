@@ -59,6 +59,40 @@ def cached_read(symbol: str, tf: str, *, max_age: float = _MAX_AGE) -> dict | No
     return None
 
 
+# candlestick/auction patterns that signal a turn AGAINST an open position (motto-native exit)
+_REVERSAL_PATTERNS = ("exhaust", "reversal", "shooting star", "evening star", "morning star",
+                      "engulf", "doji", "double top", "double bottom", "head and shoulders",
+                      "failed auction", "climax", "blow-off", "divergence", "rejection")
+
+
+def vision_exit_signal(symbol: str, side: str, *, max_age: float = _MAX_AGE) -> dict:
+    """VISION-READ EXIT (idea ③, motto-native): the local qwen2.5-vl already reads each open
+    symbol's REAL app chart into a cached deep read; this asks whether that read now argues to
+    CLOSE a `side` (LONG/SHORT) position — either the vision direction has flipped against it
+    (with confidence), or it named a reversal/exhaustion pattern. CPU = the brain's eyes reading
+    the web chart. Returns {exit, reason, confidence}; exit=False when no fresh read (honest).
+    Uses the funnel's primary TF read; never raises."""
+    s = (side or "").upper()
+    want_up = s in ("LONG", "BUY", "UP")
+    for tf in (_DEFAULT_TFS[0], "5m", "15m", "1h"):
+        r = cached_read(symbol, tf, max_age=max_age)
+        if not r:
+            continue
+        vdir = str(r.get("direction") or "").lower()
+        conf = float(r.get("confidence") or r.get("p_up") or 0.5)
+        pats = " ".join(str(p).lower() for p in (r.get("patterns") or []))
+        flipped = (want_up and vdir == "short") or (not want_up and vdir == "long")
+        reversal = any(k in pats for k in _REVERSAL_PATTERNS)
+        if (flipped and conf >= float(__import__("os").environ.get("VISION_EXIT_CONF", "0.6") or 0.6)) \
+                or reversal:
+            why = "vision flipped" if flipped else "reversal pattern"
+            return {"exit": True, "reason": f"{why} on {tf} (dir={vdir} conf={conf:.2f} "
+                                            f"patterns={(r.get('patterns') or [])[:2]})",
+                    "confidence": round(conf, 3), "tf": tf}
+        return {"exit": False, "reason": "vision agrees / no reversal", "tf": tf}
+    return {"exit": False, "reason": "no fresh vision read"}
+
+
 def deep_vision(symbol: str, timeframes=_DEFAULT_TFS, *, max_age: float = _MAX_AGE) -> dict | None:
     """{tf: {p_up, direction, source}} for indicator_fusion.fuse()'s `vision` arg — only the TFs
     with a fresh cached deep read. None when nothing fresh (fuse then uses its own vision/CNN)."""

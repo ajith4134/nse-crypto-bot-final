@@ -3491,7 +3491,7 @@ _trading/broker_sense/upstox_feed.py — decode the Upstox web app's protobuf WS
 
 ## `trading/broker_sense/vision_worker.py`
 _trading/broker_sense/vision_worker.py — async deep chart-vision worker (the brain's patient eyes)._
-- **functions:** `_cache() -> dict`; `_save(cache) -> None`; `_phash(path) -> str | None`; `cached_read(symbol, tf) -> dict | None`; `deep_vision(symbol, timeframes) -> dict | None`; `read_symbol(symbol, market, timeframes) -> dict`; `_target_symbols(limit) -> list[tuple[str, str]]`; `run_once(limit) -> dict`; `loop(interval, limit) -> None`
+- **functions:** `_cache() -> dict`; `_save(cache) -> None`; `_phash(path) -> str | None`; `cached_read(symbol, tf) -> dict | None`; `vision_exit_signal(symbol, side) -> dict`; `deep_vision(symbol, timeframes) -> dict | None`; `read_symbol(symbol, market, timeframes) -> dict`; `_target_symbols(limit) -> list[tuple[str, str]]`; `run_once(limit) -> dict`; `loop(interval, limit) -> None`
 - **imports:** __future__, os, time, trading
 
 ## `trading/broker_sense/volume_profile.py`

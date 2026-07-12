@@ -1302,6 +1302,31 @@ class BrainExecutor:
                         mind_events.emit("trade_debit",
                                          f"Direction-exit cut {pair}: {de.get('reason')}",
                                          salience=0.55)
+                        continue
+                except Exception:
+                    pass
+                # VISION-READ EXIT (idea ③, motto-native): the local VLM's read of the REAL app
+                # chart argues to close (flipped against us / reversal pattern). Respects the
+                # min-hold so it can't cut a just-opened trade. Shadow by default (logs an
+                # advisory); VISION_EXIT=trade acts. CPU = the brain's eyes reading the web chart.
+                try:
+                    if not self._too_young_to_exit(cli, pair):
+                        from trading.broker_sense import vision_worker as _vw
+                        vx = _vw.vision_exit_signal(
+                            pair, "SHORT" if t.get("is_short") else "LONG")
+                        if vx.get("exit"):
+                            from trading.brain import mind_events
+                            if os.environ.get("VISION_EXIT", "shadow") == "trade":
+                                cli.close_pair(pair, segment=self.segment)
+                                exited.append(pair)
+                                pt.clear_lock(tid)
+                                mind_events.emit("trade_debit",
+                                                 f"Vision-exit cut {pair}: {vx.get('reason')}",
+                                                 salience=0.55)
+                            else:
+                                mind_events.emit("vision_exit_shadow",
+                                                 f"Vision-exit (shadow) would cut {pair}: "
+                                                 f"{vx.get('reason')}", salience=0.35)
                 except Exception:
                     pass
             # PRUNE stale locks (2026-07-10): clear_lock only fires on tailgate exits, so
