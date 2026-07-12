@@ -119,6 +119,26 @@ class BrainLearningCycle:
         except Exception:
             pass
 
+        # 0d) DIRECTION EQUATION re-discovery (owner 2026-07-12: the equation built from long
+        #     research over multi-TF candles + real order-flow got FORGOTTEN — nothing kept it
+        #     deployed). Re-discover + save on a slow cadence so fuse()'s direction_equation lens
+        #     always has fresh validated equations. Interval-gated separately (heavy: CPCV +
+        #     symbolic search), off the hot path. DIRECTION_EQUATION_REEVOLVE=0 disables.
+        try:
+            import os as _os
+            if _os.environ.get("DIRECTION_EQUATION_REEVOLVE", "1") not in ("0", "false", "off"):
+                every = float(_os.environ.get("DIRECTION_EQUATION_REEVOLVE_SEC", "21600") or 21600)
+                _now = time.monotonic()
+                if _now - getattr(self, "_last_deq", 0.0) >= every:
+                    self._last_deq = _now
+                    from trading.strategy import direction_equation_deploy as _dep
+                    _syms = tuple((s.split(":")[0], "crypto") for s in (symbols or [])[:4]) \
+                        or (("BTC/USDT", "crypto"), ("ETH/USDT", "crypto"),
+                            ("SOL/USDT", "crypto"))
+                    summary["direction_equation"] = _dep.reevolve_all(symbols=_syms, tf="15m")
+        except Exception as e:
+            summary["direction_equation"] = {"error": f"{type(e).__name__}: {e}"[:120]}
+
         # 1) LEARN — hypothesis ledger over real outcomes
         try:
             summary["learned"] = self.ledger().run_cycle(trades)
