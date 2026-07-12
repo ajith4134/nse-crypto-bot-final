@@ -477,12 +477,15 @@ class BrainExecutor:
                         # proven model (holdout AUC ≥ META_MIN_AUC) and never in
                         # explore (explore generates its training data).
                         from trading.direction import meta_labeler as _ml
+                        _fz6 = (getattr(self, "extra_signals", {}) or {}).get(
+                            sym, {}).get("indicator_fusion")
                         _mg6 = _ml.gate(act, {
                             "ts": time.time(), "symbol": sym, "market": "CRYPTO",
                             "segment": self.segment or "futures",
                             "source": str(tag or "unknown"),
                             "confidence": brain.get("confidence"),
-                            "regime": _rg(sym).get("regime"), "taken": True})
+                            "regime": _rg(sym).get("regime"), "taken": True,
+                            "features": _ml.lens_features(_fz6)})   # M1 stacking lens features
                         if _mg6.get("p") is not None:
                             brain = {**brain, "meta_gate": _mg6}
                         if not explore and not _mg6.get("allow", True):

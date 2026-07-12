@@ -35,7 +35,49 @@ from trading import state
 _TRAIN = "direction_truth_train.jsonl"
 _MODEL = "direction_meta.pkl"
 _CATS = ("source", "regime", "segment", "market", "horizon")
-_NUMS = ("confidence", "dir_long", "taken", "hour", "dow", "source_prior")
+# LENS features (M1, 2026-07-12): the D6 meta-labeler becomes a STACKING meta-learner — it now
+# also consumes every indicator_fusion lens output (order-flow / volume-profile / YOLO / the
+# discovered direction-equation / on-chain / sectors / vision / confluence). One calibrated model
+# learns how much to trust each lens PER regime/source from realized outcomes, replacing CORTEX's
+# fixed hierarchical gate (which underperformed naive baseline). Zero-filled for pre-M1 examples
+# and any decision where a lens was unavailable, so the model degrades gracefully as data accrues.
+_LENS_NUMS = ("f_confluence", "f_p_up", "f_orderflow", "f_sectors", "f_ai", "f_vp",
+              "f_yolo", "f_direq", "f_onchain", "f_vision")
+_NUMS = ("confidence", "dir_long", "taken", "hour", "dow", "source_prior") + _LENS_NUMS
+
+
+def lens_features(fusion: dict | None) -> dict:
+    """Flatten an indicator_fusion.fuse() output into the meta-learner's numeric lens features
+    (0.0 when a lens is unavailable, p_up→0.5). ONE code path shared by train-time (truth_ledger
+    record) and predict-time (executor gate) so there is no train/serve skew. Pure — takes a plain
+    dict, imports nothing (avoids the indicator_fusion↔direction cycle)."""
+    fz = fusion or {}
+
+    def _n(v, d=0.0):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return d
+
+    of = fz.get("order_flow") or {}
+    sec = fz.get("sectors") or {}
+    vp = fz.get("volume_profile") or {}
+    yolo = fz.get("chart_yolo") or {}
+    deq = fz.get("direction_equation") or {}
+    onc = fz.get("onchain") or {}
+    ai = fz.get("ai_select") or {}
+    return {
+        "f_confluence": _n(fz.get("confluence")),
+        "f_p_up": _n(fz.get("p_up"), 0.5),
+        "f_orderflow": _n(of.get("tilt")),
+        "f_sectors": _n(sec.get("tilt")),
+        "f_ai": 1.0 if ai.get("ai_selected") else 0.0,
+        "f_vp": _n(vp.get("tilt")) if vp.get("available") else 0.0,
+        "f_yolo": _n(yolo.get("score")),
+        "f_direq": _n(deq.get("tilt")) if deq else 0.0,
+        "f_onchain": _n(onc.get("composite")) if onc.get("available") else 0.0,
+        "f_vision": _n(fz.get("vision_dir")),
+    }
 
 
 def _env_f(name: str, default: float) -> float:
@@ -79,7 +121,7 @@ def _featurize(ex: dict) -> dict:
     dt = datetime.fromtimestamp(ts, tz=timezone.utc)
     conf = ex.get("confidence")
     hz = str(ex.get("horizon") or os.environ.get("META_HORIZON", "1h"))
-    return {"source": str(ex.get("source") or "unknown"),
+    feat = {"source": str(ex.get("source") or "unknown"),
             "regime": str(ex.get("regime") or "unknown"),
             "segment": str(ex.get("segment") or "futures"),
             "market": str(ex.get("market") or "CRYPTO"),
@@ -89,6 +131,15 @@ def _featurize(ex: dict) -> dict:
             "taken": 1.0 if ex.get("taken") else 0.0,
             "hour": float(dt.hour), "dow": float(dt.weekday()),
             "source_prior": _source_prior(str(ex.get("source") or "unknown"), hz)}
+    # STACKING lens features (M1): read the flat lens dict stored on the example (train) or passed
+    # by the executor (predict); 0.0-fill anything missing so old examples still train cleanly.
+    lf = ex.get("features") or {}
+    for k in _LENS_NUMS:
+        try:
+            feat[k] = float(lf.get(k, 0.0) or 0.0)
+        except (TypeError, ValueError):
+            feat[k] = 0.0
+    return feat
 
 
 def _frame(rows: list[dict]):

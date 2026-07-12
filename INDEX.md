@@ -2246,6 +2246,11 @@ _Tests for trading/direction/meta_labeler — D6 direction meta-labeler._
 - **functions:** `_write_examples(n)`
 - **imports:** json, pathlib, random, tempfile, trading.state, unittest
 
+## `tests/test_meta_stacking.py`
+_M1 (2026-07-12): the D6 meta-labeler is a STACKING meta-learner over indicator_fusion lens_
+- **classes:** TestMetaStackingFeatures
+- **imports:** json, os, tempfile, trading, unittest
+
 ## `tests/test_micro_features.py`
 _Tests for trading/direction/micro_features — D4 microstructure direction lanes._
 - **classes:** _Iso, TestFundingExtreme, TestMtfAgree, TestRecordClaims
@@ -4047,7 +4052,7 @@ _trading/direction/meta_challenger.py — TabPFN challenger for the D6 meta-labe
 
 ## `trading/direction/meta_labeler.py`
 _trading/direction/meta_labeler.py — D6: the direction meta-labeler (Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_model_path() -> Path`; `_source_prior(source, horizon) -> float`; `_featurize(ex) -> dict`; `_frame(rows)`; `train(min_examples) -> dict`; `maybe_train() -> dict | None`; `load_model() -> dict | None`; `p_correct(example) -> float | None`; `gate(direction, example) -> dict`; `status() -> dict`
+- **functions:** `lens_features(fusion) -> dict`; `_env_f(name, default) -> float`; `_enabled() -> bool`; `_model_path() -> Path`; `_source_prior(source, horizon) -> float`; `_featurize(ex) -> dict`; `_frame(rows)`; `train(min_examples) -> dict`; `maybe_train() -> dict | None`; `load_model() -> dict | None`; `p_correct(example) -> float | None`; `gate(direction, example) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, json, os, pathlib, time, trading
 
 ## `trading/direction/micro_features.py`

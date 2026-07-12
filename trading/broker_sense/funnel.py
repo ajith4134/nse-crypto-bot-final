@@ -347,9 +347,11 @@ class BrokerSenseFunnel:
                     if _fz.get("available") and _fz.get("direction") in ("long", "short"):
                         try:
                             from trading.direction import truth_ledger as _tl
+                            from trading.direction import meta_labeler as _ml0
                             _tl.record(symbol=s, market=self.market, segment=segment or "futures",
                                        direction=_fz["direction"], source="indicator_fusion",
-                                       confidence=_fz.get("p_up"))
+                                       confidence=_fz.get("p_up"),
+                                       features=_ml0.lens_features(_fz))   # M1 stacking signal
                         except Exception:
                             pass
                 except Exception as e:

@@ -70,7 +70,7 @@ def _pending_path() -> Path:
 def record(*, symbol: str, market: str, segment: str, direction: str, source: str,
            confidence: float | None = None, regime: str | None = None,
            ts: float | None = None, taken: bool = False, trade_id: str | None = None,
-           ref_price: float | None = None) -> bool:
+           ref_price: float | None = None, features: dict | None = None) -> bool:
     """Append one directional decision for later truth-labeling.
 
     `direction` LONG/SHORT (call/put callers map CE→LONG, PE→SHORT on the underlying);
@@ -108,6 +108,8 @@ def record(*, symbol: str, market: str, segment: str, direction: str, source: st
                "regime": str(regime), "taken": bool(taken),
                "trade_id": str(trade_id) if trade_id else None,
                "ref_price": float(ref_price) if ref_price else None}
+        if features:                                   # M1 stacking lens features (flat numeric)
+            row["features"] = {k: features[k] for k in features if features[k] is not None}
         line = json.dumps(row, separators=(",", ":")) + "\n"
         p = _pending_path()
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -221,6 +223,7 @@ def _append_train(folds) -> None:
                  "direction": row.get("direction"), "source": row.get("source"),
                  "confidence": row.get("confidence"), "regime": row.get("regime"),
                  "taken": bool(row.get("taken")), "horizon": hz,
+                 "features": row.get("features"),          # M1 stacking lens features
                  "correct": bool(ok), "method": method},
                 separators=(",", ":")))
         fd = os.open(p, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
