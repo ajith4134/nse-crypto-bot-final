@@ -179,6 +179,13 @@ class TabPool:
                                    "tf": primary_tf if landed else "?",
                                    "rot_i": 0, "opened_ts": time.time(),
                                    "last_snap": 0.0}
+                # DEEP MULTI-TF CAPTURE (owner 2026-07-12): on each freshly-opened symbol,
+                # click through EVERY timeframe so the app fires its kline fetch for each TF —
+                # hundreds of candles per TF land in ui_data. This is what lifts the candle door
+                # from ~10 symbols to hundreds: every symbol the rolling pool visits gets full
+                # multi-TF candle coverage before its tab recycles. Bounded by the ensure deadline.
+                swept = self._sweep_tfs(pg, deadline=deadline)
+                rep.setdefault("swept", []).append(f"{sym}:{swept}tf")
                 rep["opened"].append(sym)
                 opened += 1
             except Exception as e:
@@ -239,6 +246,29 @@ class TabPool:
                          for s, t in sorted(self._tabs.items())]
         self._persist(rep)
         return rep
+
+    def _sweep_tfs(self, pg, *, deadline: float | None = None) -> int:
+        """Click through EVERY configured timeframe on a chart page so the app fetches each TF's
+        klines (hundreds of candles) → interception → ui_data. Returns how many TFs it captured.
+        Dwells briefly on each TF so the XHR/WS fires + is processed, then returns to the primary
+        so the tab's live stream stays on the funnel's trade TF. Bounded; never raises."""
+        tfs = _rotation_tfs()
+        primary = tfs[0]
+        got = 0
+        for tf in tfs:
+            if deadline is not None and time.monotonic() > deadline:
+                break
+            try:
+                if self._click_tf(pg, tf):
+                    pg.wait_for_timeout(700)      # let the kline fetch fire + interception capture
+                    got += 1
+            except Exception:
+                continue
+        try:                                       # leave the tab on the primary streaming TF
+            self._click_tf(pg, primary)
+        except Exception:
+            pass
+        return got
 
     def _click_tf(self, pg, tf: str) -> bool:
         """Flip the chart's interval tab like a human — read-only navigation (the only
