@@ -18,9 +18,16 @@ if [ "${CRYPTO_ENGINE:-freqtrade}" = "freqtrade" ] && ! pgrep -f "freqtrade trad
   setsid bash trading/crypto/freqtrade/start.sh >logs/freqtrade.log 2>&1 </dev/null &
 fi
 
-echo "[3/7] Candle updater (FreqUI charts on all timeframes)"
-pgrep -f "freqtrade.candle_updater" >/dev/null || \
-  setsid .venv/bin/python -m trading.crypto.freqtrade.candle_updater >logs/candle_updater.log 2>&1 </dev/null &
+echo "[3/7] Candle updater — DISABLED 2026-07-12 (owner: remove its API load)"
+# candle_updater ran `freqtrade download-data` over ~300 pairs × 6 TFs × 120d in a loop —
+# a HUGE Binance REST burst that was a top -1003/418 IP-ban contributor and pure anti-motto
+# (data must come from web-navigation, not API polling). It only fed FreqUI's "candles
+# updating" freshness badge, NOT the brain's trade candles (those come from the UI-only
+# doors / multi-venue pool). Removed. Set CANDLE_UPDATER=1 to re-enable if ever needed.
+if [ "${CANDLE_UPDATER:-0}" = "1" ]; then
+  pgrep -f "freqtrade.candle_updater" >/dev/null || \
+    setsid .venv/bin/python -m trading.crypto.freqtrade.candle_updater >logs/candle_updater.log 2>&1 </dev/null &
+fi
 
 echo "[4/7] Brain loop (this is what actually opens crypto trades)"
 # CORTEX shadow mode: log the cortex signal beside the live decider every bar
