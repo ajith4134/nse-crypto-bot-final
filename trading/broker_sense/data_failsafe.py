@@ -164,6 +164,20 @@ def ohlcv(symbol: str, market: str, timeframe: str = "5m", limit: int = 24) -> l
                 return df[cols].values.tolist()
         except Exception:
             pass
+        # MULTI-VENUE POOL (2026-07-12): ban-proof the funnel's OHLCV — round-robin
+        # binance/bybit/okx/kucoin with per-venue 418/429/-1003 cooldown, so a Binance IP ban
+        # fails over instead of starving the read. This module used to hit ccxt.binance() DIRECT
+        # (bypassing the pool) — a top contributor to the recurring 418s. MULTI_VENUE_POOL=0 reverts.
+        try:
+            from trading.crypto import exchange_pool as _xp
+            if _xp.pool_enabled():
+                mkt = "swap" if ":" in symbol else "spot"
+                rows = _xp.get_pool(mkt, "USDT", preferred="binance").ohlcv(
+                    symbol, timeframe=timeframe, limit=limit)
+                if rows:
+                    return rows
+        except Exception:
+            pass
         try:
             return _ccxt_ex().fetch_ohlcv(_base(symbol), timeframe=timeframe, limit=limit)
         except Exception:

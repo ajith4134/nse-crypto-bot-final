@@ -57,7 +57,10 @@ class TestRead(unittest.TestCase):
         self.assertEqual(out["BTC/USDT:USDT"]["5m"]["direction"], "long")
 
     def test_read_missing_ohlcv_is_unavailable(self):
-        with mock.patch("trading.broker_sense.data_failsafe.ohlcv", return_value=None):
+        # isolate the added multi-venue-pool data path (2026-07-12) so this exercises the
+        # data_failsafe fallback exactly as before; also bypass the per-bar memo.
+        with mock.patch("trading.crypto.exchange_pool.pool_enabled", return_value=False), \
+                mock.patch("trading.broker_sense.fast_candles._ohlcv_fast", return_value=None):
             out = fc.read([{"symbol": "X/USDT"}], "crypto", timeframes=("5m",))
         self.assertEqual(out["X/USDT"]["5m"]["source"], "unavailable")
 

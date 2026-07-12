@@ -88,6 +88,18 @@ def _ohlcv_fast(sym: str, market: str, tf: str) -> list | None:
     """Candles the FAST way: ccxt fetch_ohlcv on the cached exchange (~200ms) — skips the slow
     Freqtrade-REST-first path in data_failsafe. Falls back to data_failsafe only if ccxt fails."""
     if market == "crypto":
+        # MULTI-VENUE POOL first (2026-07-12): ban-proof round-robin over binance/bybit/okx/kucoin
+        # instead of hitting Binance-direct every call (a top 418 contributor). MULTI_VENUE_POOL=0
+        # reverts to the direct ccxt path below.
+        try:
+            from trading.crypto import exchange_pool as _xp
+            if _xp.pool_enabled():
+                rows = _xp.get_pool("swap" if ":" in sym else "spot", "USDT",
+                                    preferred="binance").ohlcv(sym, timeframe=tf, limit=_BARS)
+                if rows:
+                    return rows
+        except Exception:
+            pass
         try:
             from trading.broker_sense.app_school import _ccxt_exchange
             ex = _ccxt_exchange("futures" if ":" in sym else "spot")
