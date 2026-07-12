@@ -228,6 +228,7 @@ class BrokerSenseFunnel:
             except Exception:
                 pass
         rep["stages"]["screen"] = {"preset": preset, "surfaced": len(rows), "fused": fused_n}
+        _ts_screen_end = time.monotonic()     # PERF: SCREEN stage boundary (screen = this - t0)
 
         # 2 ── HEAT: watchlist TTL bound + pin open positions
         for r in rows:
@@ -316,6 +317,11 @@ class BrokerSenseFunnel:
         # 4 ── VERIFY: top-of-book (screen-mirror + API fail-safe) + risk rules IN CODE
         app_signals: dict = {}
         tradeable = []
+        # PERF INSTRUMENTATION (2026-07-12): per-sub-call wall-time so the cycle log shows WHERE
+        # the VERIFY seconds go (book vs checklist vs fusion vs ocular vs preview) instead of one
+        # opaque total. Near-zero overhead; always on. Read by the run_cycle timing summary below.
+        _vt = {"book": 0.0, "checklist": 0.0, "fusion": 0.0, "ocular": 0.0, "preview": 0.0}
+        _ts_look_end = time.monotonic()
         # EXPLORE OPEN-ALL (owner 2026-07-06): in paper, until the brain has learned, let EVERY
         # candidate through the VERIFY cull (spread/liq become advisory, still recorded) so the
         # executor can open them all — the risk rules re-arm automatically once it graduates.
@@ -324,12 +330,16 @@ class BrokerSenseFunnel:
         for s in candidates:
             if time.monotonic() - t0 > budget * 0.85:          # saver I: finish > perfect
                 break
+            _tb = time.monotonic()
             if _fast_candles():                    # fast API order book (ccxt), no browser OCR
                 book = _fast_book(s, self.market)
             else:
                 book = self.book.top_of_book(s, self.market, by_sym.get(s, {}).get("lane", ""))
+            _vt["book"] += time.monotonic() - _tb
+            _tc = time.monotonic()
             sig = human_checklist(s, self.market, self.sessions,
                                   chart=charts.get(s), book=book)
+            _vt["checklist"] += time.monotonic() - _tc
             sig["screener"] = {k: by_sym.get(s, {}).get(k) for k in
                                ("lane", "preset", "change", "volume")}
             sig["vote"] = {"direction": directions[s][0], "p_up": round(directions[s][1], 4)}
@@ -340,7 +350,9 @@ class BrokerSenseFunnel:
                     and time.monotonic() - t0 < budget * 0.88:
                 try:
                     from trading.broker_sense import indicator_fusion as _if
+                    _tf0 = time.monotonic()
                     sig["indicator_fusion"] = _if.fuse(s, self.market, vision=charts.get(s))
+                    _vt["fusion"] += time.monotonic() - _tf0
                     # measure fusion as a directional SOURCE so the mirror gate can weight/invert
                     # it by its real hit-rate (wired 2026-07-12; the executor now trades on it).
                     _fz = sig["indicator_fusion"]
@@ -356,12 +368,14 @@ class BrokerSenseFunnel:
                             pass
                 except Exception as e:
                     sig["indicator_fusion"] = {"available": False, "error": str(e)[:120]}
+            _to = time.monotonic()
             try:                              # NEW eyes: fused Ocular Cortex perception per
                 sig["ocular"] = self.ocular.enrich(   # candidate → learning columns + memory
                     s, lane=by_sym.get(s, {}).get("lane", ""), chart=charts.get(s),
                     book=book, deadline=t0 + budget * 0.9)
             except Exception as e:
                 sig["ocular"] = {"error": str(e)[:120]}
+            _vt["ocular"] += time.monotonic() - _to
             # ORDER-PREVIEW gate (owner idea): read the BROKER'S OWN pre-trade risk math
             # (margin / liquidation price / impact) from its order ticket — READ, never submit —
             # and attach it so the executor sizes with the broker's numbers. Budget-bounded.
@@ -370,7 +384,9 @@ class BrokerSenseFunnel:
                 try:
                     from trading.broker_sense import broker_features as bfeat
                     bkr = "binance" if self.market == "crypto" else "upstox"
+                    _tp = time.monotonic()
                     sig["order_preview"] = bfeat.order_preview(bkr, s, self.sessions)
+                    _vt["preview"] += time.monotonic() - _tp
                 except Exception:
                     pass
             app_signals[s] = sig
@@ -387,8 +403,19 @@ class BrokerSenseFunnel:
                     liq_ok = True
             if _explore or ((s in open_syms or sp is None or sp <= _MAX_SPREAD_PCT) and liq_ok):
                 tradeable.append(s)
+        _verify_s = time.monotonic() - _ts_look_end
         rep["stages"]["verify"] = {"checked": len(app_signals), "tradeable": len(tradeable),
                                    **self.book.stats}
+        # PERF: stage + VERIFY sub-call breakdown (seconds), so a slow cycle names its own hog.
+        rep["stages"]["timing_s"] = {
+            "screen": round(_ts_screen_end - t0, 1),
+            "look": round(_ts_look_end - _ts_screen_end, 1),
+            "verify": round(_verify_s, 1),
+            "verify_by": {k: round(v, 1) for k, v in _vt.items() if v >= 0.05},
+        }
+        print(f"[funnel-timing:{self.market}:{segment}] screen={rep['stages']['timing_s']['screen']}s "
+              f"look={rep['stages']['timing_s']['look']}s verify={rep['stages']['timing_s']['verify']}s "
+              f"verify_by={rep['stages']['timing_s']['verify_by']} checked={len(app_signals)}", flush=True)
 
         # 4a ── EXPLORE-WIDE lane (owner 2026-07-07: "max trades is unlimited — why so few
         # opening?"): in paper explore, every OTHER screened candidate the broker pickers
