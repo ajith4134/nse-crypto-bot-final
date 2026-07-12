@@ -314,6 +314,7 @@ def main() -> int:
                             print(f"[funnel:crypto:{seg}] cycle error: {e!r}", flush=True)
                 except Exception as e:
                     print(f"[funnel:crypto:extra-segments] error: {e!r}", flush=True)
+            _stream_tick()                            # pump before watchlist/study block
             try:
                 # BRAIN-OPEN mirror, IN-PROCESS (owner 2026-07-07 — the durable home the
                 # start_all.sh note promised): this funnel OWNS its broker's chromium
@@ -351,6 +352,7 @@ def main() -> int:
                               f"claims={_sr['claims']}", flush=True)
             except Exception as e:
                 print(f"[study:{market}] error: {e!r}", flush=True)
+            _stream_tick(force=True)                  # pump + snapshot after the study block
         try:                                          # W8: one morning briefing per IST day
             from trading.brain import briefing
             if briefing.due():
