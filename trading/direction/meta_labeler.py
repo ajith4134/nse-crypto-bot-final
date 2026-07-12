@@ -101,6 +101,28 @@ def cortex_features(sig: dict | None) -> dict:
             "f_cortex_conf": _n(s.get("confidence"))}
 
 
+def strategy_features(sl: dict | None) -> dict:
+    """The full STRATEGY-LIBRARY ensemble (239 institutional strategies) as stacking features
+    (owner 2026-07-12: 'use ALL the strategy features when opening a trade'). Distinct s_* keys so
+    they never collide with the fusion f_* lens. side from the net vote; strength = fraction of
+    strategies agreeing; 0-filled (p_up 0.5) when the lens is unavailable. Pure — shared by the
+    meta-gate predict path and the entry truth-claim so the library becomes a live decision INPUT,
+    not only a trained side-signal."""
+    s = sl or {}
+
+    def _n(v, d=0.0):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return d
+
+    if not s.get("available"):
+        return {"s_side": 0.0, "s_p_up": 0.5, "s_strength": 0.0}
+    d = str(s.get("direction") or "").lower()
+    return {"s_side": 1.0 if d == "long" else -1.0 if d == "short" else 0.0,
+            "s_p_up": _n(s.get("p_up"), 0.5), "s_strength": _n(s.get("confluence"))}
+
+
 def _env_f(name: str, default: float) -> float:
     try:
         return float(os.environ.get(name, "") or default)

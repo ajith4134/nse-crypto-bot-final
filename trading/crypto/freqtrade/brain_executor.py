@@ -1112,9 +1112,12 @@ class BrainExecutor:
         train/serve skew — the model sees the same features it learns from. Never raises."""
         try:
             from trading.direction import meta_labeler as _mlx
-            fz = (getattr(self, "extra_signals", {}) or {}).get(sym, {}).get("indicator_fusion")
+            esig = (getattr(self, "extra_signals", {}) or {}).get(sym, {})
+            fz = esig.get("indicator_fusion")
             cx = (getattr(self, "_cortex_sigs", {}) or {}).get(sym)
-            return {**_mlx.lens_features(fz), **_mlx.cortex_features(cx)}
+            sl = esig.get("strategy_library")           # the 239-strategy ensemble lens
+            return {**_mlx.lens_features(fz), **_mlx.cortex_features(cx),
+                    **_mlx.strategy_features(sl)}
         except Exception:
             return {}
 
