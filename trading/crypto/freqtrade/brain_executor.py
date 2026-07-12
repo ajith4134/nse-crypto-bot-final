@@ -176,6 +176,20 @@ class BrainExecutor:
             return 0
         return max(0, v)          # 0 = no limit (all whitelisted pairs)
 
+    def _armable(self, sym: str) -> bool:
+        """Safety guard (2026-07-12): only arm a pullback for a symbol that's in THIS segment's
+        tradeable whitelist, so a symbol that isn't executable can't waste an arming slot on an
+        entry that can never open. (Note: NVDA/CRCL/BZ/CL etc. ARE real Binance perps and pass —
+        the 2026-07-12 no-open incident was a wedged engine, not leaked symbols.) Per-cycle cached
+        set; falls open (returns True) if the whitelist can't be read, so it never over-blocks."""
+        try:
+            wl = getattr(self, "_arm_wl", None)
+            if wl is None:
+                wl = self._arm_wl = set(self.symbols() or [])
+            return (not wl) or (sym in wl)
+        except Exception:
+            return True
+
     def symbols(self) -> list:
         """Default universe = Freqtrade's OWN whitelisted pairs, in the bot's native format
         (futures perps come back as 'BTC/USDT:USDT' — the exact string /forceenter expects).
@@ -218,6 +232,11 @@ class BrainExecutor:
                 try:
                     _psym = cli.tradeable_form(_row["symbol"], self.segment)
                     if _psym is None:
+                        # HONEST DROP LOG (2026-07-12): a triggered pullback that never opens used to
+                        # vanish here silently — this is where non-tradeable/leaked symbols (e.g. the
+                        # NVDA/CRCL/BZ/CL account-path junk) die. Now it's visible.
+                        print(f"[pullback-drop:{self.segment}] {_row['symbol']} "
+                              f"src={_row.get('source')} reason=not_tradeable", flush=True)
                         continue
                     _res = cli.place_order(
                         symbol=_psym, action="BUY",
@@ -226,6 +245,9 @@ class BrainExecutor:
                         enter_tag=str(_row.get("source") or "pullback"),
                         segment=self.segment)
                     if isinstance(_res, dict) and _res.get("ok") is False:
+                        print(f"[pullback-drop:{self.segment}] {_psym} src={_row.get('source')} "
+                              f"reason=refused:{(_res.get('reason') or _res.get('error') or _res)!s:.80}",
+                              flush=True)
                         continue
                     if isinstance(_res, dict) and _res.get("queued"):
                         rep["queued"].append(_psym)
@@ -252,6 +274,7 @@ class BrainExecutor:
             return self._run_options_cycle(allow_live=allow_live, deadline=deadline)
         if self.segment == "prediction":
             return self._run_prediction_cycle(allow_live=allow_live)
+        self._arm_wl = None                    # per-cycle fresh tradeable set for _armable (B-fix)
         cli = self.client()
         try:
             open_pairs = set(cli.open_pairs(segment=self.segment))
@@ -352,7 +375,7 @@ class BrainExecutor:
                                 _bk = _sig.get("book") or {}
                                 if _bk.get("bid") and _bk.get("ask"):
                                     _q = (float(_bk["bid"]) + float(_bk["ask"])) / 2
-                            if _q and _pb.arm(symbol=sym,
+                            if _q and self._armable(sym) and _pb.arm(symbol=sym,
                                               segment=self.segment or "futures",
                                               direction=_act,
                                               source="explore_open_all",
@@ -576,7 +599,7 @@ class BrainExecutor:
                             except Exception:
                                 _atr = None
                             _q = _pb.live_price(sym, self.segment or "futures")
-                            if _q and _pb.arm(symbol=sym,
+                            if _q and self._armable(sym) and _pb.arm(symbol=sym,
                                               segment=self.segment or "futures",
                                               direction=act,
                                               source=str(tag or "unknown"),
