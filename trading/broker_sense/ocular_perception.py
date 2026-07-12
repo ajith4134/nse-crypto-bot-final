@@ -39,13 +39,44 @@ class OcularPerception:
             from trading.brain.vision.ocular_cortex import get_cortex
             cortex = get_cortex()
         self.cortex = cortex
-        self._frames: dict[str, object] = {}          # symbol -> last PerceptualFrame
+        self._frames: dict[str, object] = {}          # symbol -> last PerceptualFrame (this cycle)
+        # PER-5m-BAR VISION MEMO (2026-07-12): cortex.perceive (browser vision) is the funnel
+        # VERIFY hog measured live at ~0.85s/candidate. The frame is bar-stable, but reset_cycle
+        # cleared _frames EVERY cycle → the same symbol was re-perceived on each of the 3-4 cycles
+        # per bar. This bar-scoped cache reuses a symbol's frame across cycles within its bar so
+        # perceive runs once/bar — while enrich() still mines its learning columns every call
+        # (side effects preserved). OCULAR_MEMO=0 disables.
+        self._bar_frames: dict = {}                   # (symbol, bar_epoch) -> PerceptualFrame
         self._vision_used = 0
         self.stats = {"perceived": 0, "vision_reads": 0, "novel": 0, "columns_from_book": 0}
 
     def reset_cycle(self) -> None:
         self._vision_used = 0
-        self._frames.clear()
+        self._frames.clear()                          # this-cycle frames only; bar cache persists
+
+    def _bar_frame(self, symbol: str):
+        """Return this symbol's frame if it was perceived earlier in the CURRENT bar, else None.
+        OCULAR_MEMO=0 disables; OCULAR_MEMO_BAR_S sets the bar seconds (default 300 = 5m)."""
+        if os.environ.get("OCULAR_MEMO", "1") not in ("1", "true", "TRUE", "yes", "on"):
+            return None
+        try:
+            bar = int(os.environ.get("OCULAR_MEMO_BAR_S", "300"))
+        except Exception:
+            bar = 300
+        return self._bar_frames.get((symbol, int(time.time() // max(1, bar))))
+
+    def _store_bar_frame(self, symbol: str, frame) -> None:
+        if os.environ.get("OCULAR_MEMO", "1") not in ("1", "true", "TRUE", "yes", "on"):
+            return
+        try:
+            bar = int(os.environ.get("OCULAR_MEMO_BAR_S", "300"))
+        except Exception:
+            bar = 300
+        epoch = int(time.time() // max(1, bar))
+        # drop stale-bar entries so the cache can't grow unbounded across bars
+        if len(self._bar_frames) > 4000:
+            self._bar_frames = {k: v for k, v in self._bar_frames.items() if k[1] == epoch}
+        self._bar_frames[(symbol, epoch)] = frame
 
     # ── the app-chart vision sink (fed by ChartVision before it deletes a screenshot) ──
     def on_app_shot(self, symbol: str, tf: str, png_bytes: bytes) -> None:
@@ -91,8 +122,11 @@ class OcularPerception:
         # reuse the vision frame from on_app_shot if we already saw this symbol this cycle
         frame = self._frames.get(symbol)
         if frame is None:
-            frame = self.cortex.perceive(broker, "symbol", api_ref=api_ref,
-                                         url=f"symbol:{symbol}")
+            frame = self._bar_frame(symbol)            # reuse a frame perceived earlier THIS bar
+            if frame is None:
+                frame = self.cortex.perceive(broker, "symbol", api_ref=api_ref,
+                                             url=f"symbol:{symbol}")
+                self._store_bar_frame(symbol, frame)
             self._frames[symbol] = frame
         verdict = self.cortex.last_verdict()
         if verdict.get("novel"):
