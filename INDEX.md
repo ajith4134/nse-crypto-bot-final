@@ -1076,6 +1076,14 @@ _ctypes wrapper for native hot kernels, with pure-Python fallback._
 - **functions:** `_flat(rows)`; `logreg_train(Xs, y, lr, epochs)`; `mlp_train(Xs, y, H, lr, epochs, seed)`; `sqdists(X, q) -> list[float]`; `prepare(X)`; `sqdists_prepared(prepared, q) -> list[float]`
 - **imports:** __future__, ctypes, math, os, random
 
+## `native/rolling_vp/__init__.py`
+_(no summary)_
+
+## `native/rolling_vp/rolling_vp.py`
+_native/rolling_vp — numba-JIT rolling Volume Profile kernel (Pillar 9 hot path)._
+- **functions:** `_kernel(H, L, C, V, window, nb)`; `rolling_vp(H, L, C, V, window)`
+- **imports:** __future__, numpy
+
 ## `nodes/__init__.py`
 _(no summary)_
 
@@ -2448,6 +2456,11 @@ _AI-scientist idea #8 — RL execution agent (SB3-PPO order slicing beats TWAP).
 _Acceptance test (hardening): the router-grown brain must beat the naive_
 - **classes:** TestRobust
 - **imports:** __future__, run_robust, unittest
+
+## `tests/test_rolling_vp_fast.py`
+_Hot-path regression (2026-07-12): the numba rolling-Volume-Profile kernel (native/rolling_vp)_
+- **classes:** TestRollingVPFast
+- **imports:** numpy, pandas, unittest
 
 ## `tests/test_scorecard.py`
 _Regression tests for the segment scorecard's (market, segment) derivation_

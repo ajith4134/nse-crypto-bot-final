@@ -243,7 +243,25 @@ def compute_features_ext(ohlcv: pd.DataFrame, *, fast: int = 10, slow: int = 30,
 
 def _rolling_vp(df: pd.DataFrame, h, l, c, v, window: int = 96) -> None:
     """Fill vp_* columns from a trailing-window Volume Profile per bar (reuses
-    trading.broker_sense.volume_profile). No look-ahead: bar i uses bars (i-window, i]."""
+    trading.broker_sense.volume_profile). No look-ahead: bar i uses bars (i-window, i].
+
+    FAST PATH (Pillar 9, 2026-07-12): a numba-JIT kernel (native/rolling_vp) computes the identical
+    columns ~1200× faster than this per-bar Python loop — this was the ~1.25s/symbol funnel EXECUTE
+    hotspot. The pure-Python body below stays as the fallback (numba absent) AND the correctness
+    oracle (tests/test_rolling_vp_fast asserts kernel == oracle on random inputs)."""
+    try:
+        from native.rolling_vp.rolling_vp import HAVE_NUMBA
+        from native.rolling_vp.rolling_vp import rolling_vp as _rvp_fast
+        if HAVE_NUMBA:
+            res = _rvp_fast(h.to_numpy("float64"), l.to_numpy("float64"),
+                            c.to_numpy("float64"), v.to_numpy("float64"), window)
+            if res is not None:
+                poc, vah, val, pos, fl, fs = res
+                df["vp_poc"], df["vp_vah"], df["vp_val"] = poc, vah, val
+                df["vp_pos"], df["vp_failed_long"], df["vp_failed_short"] = pos, fl, fs
+                return
+    except Exception:
+        pass                                        # any issue → pure-Python oracle below
     from trading.broker_sense import volume_profile as _vp
     n = len(df)
     H, L, C, V = (h.to_numpy("float64"), l.to_numpy("float64"),
