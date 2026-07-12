@@ -77,13 +77,27 @@ def refresh(sessions, *, broker: str = "binance", deadline: float | None = None)
     if not enabled():
         rep["errors"].append("disabled (COINGECKO_FEED=0)")
         return rep
+    # Open a RAW page in the broker's browser context — NOT sessions.page(), which runs the
+    # broker LOGIN flow (it mis-detected coingecko.com's search box as a login form and hung on
+    # fill(), 2026-07-12). CoinGecko needs no login; we just need the browser's origin to fetch.
+    pg = None
     try:
-        pg = sessions.page(broker, "https://www.coingecko.com/", timeout_ms=20000)
-        if pg is None:
-            rep["errors"].append("no browser page (owner-thread/login?)")
+        if not sessions._own_thread():
+            rep["errors"].append("not owner thread")
             return rep
+        ctx = sessions.context(broker)
+        pg = ctx.new_page()
+        try:
+            pg.goto("https://www.coingecko.com/", timeout=20000, wait_until="domcontentloaded")
+        except Exception:
+            pass                                       # a partial load is fine — we fetch via JS
     except Exception as e:
         rep["errors"].append(f"page: {type(e).__name__}: {str(e)[:60]}")
+        if pg is not None:
+            try:
+                pg.close()
+            except Exception:
+                pass
         return rep
     from trading.broker_sense import ui_data
     try:
@@ -124,6 +138,11 @@ def refresh(sessions, *, broker: str = "binance", deadline: float | None = None)
                                          "pages": rep["pages"], "errors": rep["errors"][-3:]})
     except Exception as e:
         rep["errors"].append(f"{type(e).__name__}: {str(e)[:80]}")
+    finally:
+        try:
+            pg.close()                                 # it's a scratch tab — never leave it open
+        except Exception:
+            pass
     return rep
 
 
