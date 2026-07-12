@@ -4189,8 +4189,8 @@ _trading/execution/profit_booking.py — partial profit-booking ladder (T3 §6).
 
 ## `trading/execution/profit_tailgate.py`
 _trading/execution/profit_tailgate.py — adaptive trailing take-profit ("profit tailgating")._
-- **functions:** `_key(market, segment, regime) -> str`; `_store() -> dict`; `learned_distance(market, segment, regime) -> float`; `locked_profit(market, segment) -> dict`; `clear_lock(trade_id) -> None`; `should_exit(market, segment, profit_pct, peak_profit_pct) -> tuple`; `learn(market, segment) -> None`; `status() -> dict`
-- **imports:** __future__, trading
+- **functions:** `_key(market, segment, regime) -> str`; `_store() -> dict`; `learned_distance(market, segment, regime) -> float`; `_arm_for(atr_pct) -> float`; `_regime_dist_mult(regime) -> float`; `locked_profit(market, segment) -> dict`; `clear_lock(trade_id) -> None`; `should_exit(market, segment, profit_pct, peak_profit_pct) -> tuple`; `learn(market, segment) -> None`; `status() -> dict`
+- **imports:** __future__, os, trading
 
 ## `trading/execution/rl_exec_env.py`
 _AI-scientist idea #8 — order-execution environment (gymnasium) for the RL slicing agent._

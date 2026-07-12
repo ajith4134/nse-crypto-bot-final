@@ -14,6 +14,8 @@ layer acts on; it never places an order itself.
 """
 from __future__ import annotations
 
+import os
+
 from trading import state
 
 _FILE = "profit_tailgate.json"
@@ -46,13 +48,40 @@ def learned_distance(market: str, segment: str, regime: str = "") -> float:
     return _DEFAULT_DIST.get((segment or "").lower(), 0.30)
 
 
+def _arm_for(atr_pct: float | None) -> float:
+    """ATR/VOL-SCALED arm (idea ①, owner 2026-07-12): a fixed 3% arm is wrong for both a
+    0.5%/day coin and a 20%/day one. Scale the arm by the symbol's ATR% vs a reference so a
+    high-vol coin only arms after a bigger move and a calm coin arms sooner. Bounded 0.3×–3×.
+    Levers: TAILGATE_REF_ATR_PCT (1.5), TAILGATE_ARM_ATR_MIN/MAX."""
+    base = _MIN_ARM_PROFIT
+    if atr_pct is None or atr_pct <= 0:
+        return base
+    ref = float(os.environ.get("TAILGATE_REF_ATR_PCT", "1.5") or 1.5)
+    lo = float(os.environ.get("TAILGATE_ARM_ATR_MIN", "0.3") or 0.3)
+    hi = float(os.environ.get("TAILGATE_ARM_ATR_MAX", "3.0") or 3.0)
+    return base * max(lo, min(hi, atr_pct / ref))
+
+
+def _regime_dist_mult(regime: str) -> float:
+    """REGIME-AWARE trail (idea ②): in a TREND, give back MORE before exiting (ride the winner);
+    in CHOP/mean-revert, give back LESS (grab the gain). Multiplies the learned trail distance."""
+    r = (regime or "").lower()
+    if any(k in r for k in ("trend", "up", "down", "bull", "bear", "momentum")):
+        return float(os.environ.get("TAILGATE_TREND_MULT", "1.4") or 1.4)
+    if any(k in r for k in ("chop", "range", "mean", "revert", "sideways", "neutral")):
+        return float(os.environ.get("TAILGATE_CHOP_MULT", "0.6") or 0.6)
+    return 1.0
+
+
 def locked_profit(market: str, segment: str, *, trade_id: str, profit_pct: float,
-                  peak_profit_pct: float, regime: str = "") -> dict:
+                  peak_profit_pct: float, regime: str = "", atr_pct: float | None = None) -> dict:
     """The RATCHET (owner's spec): as profit climbs, the LOCKED profit floor moves UP with it and
     NEVER down — locking in an ever-higher guaranteed gain. Returns the current locked value + the
     exit decision. `tailgate_locked_profit_pct` = what the trades table shows. Persists per trade so
-    the lock only increases across polls."""
-    dist = learned_distance(market, segment, regime)
+    the lock only increases across polls. `atr_pct`/`regime` scale the arm + trail (ideas ①/②)."""
+    arm = _arm_for(atr_pct)
+    dist = min(0.9, max(0.05, learned_distance(market, segment, regime)
+                        * _regime_dist_mult(regime)))
     locks = state.load_json(_LOCK_FILE, {})
     rec = locks.get(trade_id) or {}
     prev = float(rec.get("locked", 0.0))
@@ -62,7 +91,7 @@ def locked_profit(market: str, segment: str, *, trade_id: str, profit_pct: float
     peak = max(prev_peak, peak_profit_pct) if peak_profit_pct is not None else prev_peak
     exit_now, reason = False, "riding"
     locked = prev
-    if peak >= _MIN_ARM_PROFIT:
+    if peak >= arm:
         floor = peak * (1.0 - dist)                # the tailgate floor for the current peak
         locked = max(prev, floor)                  # RATCHET UP only — never give back a locked gain
         # exit at/below the lock REGARDLESS of sign: if profit gapped through the lock into

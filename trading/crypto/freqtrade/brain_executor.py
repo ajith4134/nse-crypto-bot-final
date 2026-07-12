@@ -1124,6 +1124,25 @@ class BrainExecutor:
         except Exception:
             return None
 
+    def _exit_context(self, pair: str) -> tuple:
+        """(atr_pct, regime) for `pair` from its entry decision snapshot — fusion.barriers.atr as
+        a % of entry price + fusion.regime. Cheap (reads the cached sidecar); ('',None) on miss."""
+        try:
+            from trading.crypto.freqtrade import entry_meta
+            for seg in (self.segment or "futures", "futures", "spot"):
+                row = entry_meta.lookup(pair, seg)
+                if not row:
+                    continue
+                ds = ((row or {}).get("meta") or {}).get("decision_snapshot") or {}
+                fz = (ds.get("app_signals") or {}).get("indicator_fusion") or {}
+                bar = fz.get("barriers") or {}
+                atr, entry = bar.get("atr"), bar.get("entry")
+                atr_pct = (float(atr) / float(entry) * 100.0) if (atr and entry) else None
+                return atr_pct, fz.get("regime") or ""
+        except Exception:
+            pass
+        return None, ""
+
     def _too_young_to_exit(self, cli, sym: str) -> bool:
         """True if the open trade `sym` is younger than EXIT_MIN_HOLD_S (default 600s) — so a
         noisy same-cycle ensemble flip can't force-exit a just-opened trade before its thesis
@@ -1241,8 +1260,13 @@ class BrainExecutor:
                                 else (mx - op) / op) * lev * 100.0
                     peak_pct = max(peak_pct, profit_pct or 0.0)
                 tid = str(t.get("trade_id") or pair)
+                # ATR% + regime for the scaled arm/trail (ideas ①/②) — read from the trade's
+                # OWN entry decision snapshot (fusion.barriers.atr + fusion.regime), so no
+                # per-poll recompute. Best-effort; None → the tailgate uses its fixed defaults.
+                _atr_pct, _regime = self._exit_context(pair)
                 dec = pt.locked_profit("crypto", self.segment or "futures", trade_id=tid,
-                                       profit_pct=profit_pct, peak_profit_pct=peak_pct)
+                                       profit_pct=profit_pct, peak_profit_pct=peak_pct,
+                                       regime=_regime, atr_pct=_atr_pct)
                 if dec.get("exit"):
                     try:
                         cli.close_pair(pair, segment=self.segment)
