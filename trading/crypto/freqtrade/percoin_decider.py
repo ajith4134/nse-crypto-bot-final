@@ -94,6 +94,18 @@ class PerCoinBrainDecider(LibraryBrainDecider):
             if len(native) == self._net_count and self._net is not None:
                 self._net_cost_s = time.monotonic() - t0     # count unchanged → skip the mapping
                 return self._net
+            # RE-FIT THROTTLE (2026-07-12 wedge fix): the outcome net is a 1000+-row OOF
+            # cross-val fit — MINUTES on the cycle thread. It re-fit on EVERY closed-trade count
+            # change, so a burst of opens/closes re-fit it nearly every decision → the funnel
+            # wedged 39 min mid-fit (py-spy: _fit_oof). Re-fit at most every OUTCOME_NET_REFIT_S
+            # (default 900s); between fits the cached net serves (slightly stale labels are fine
+            # for a per-coin prior). A warm net older than that but with a changed count still
+            # waits for the window. First fit (cold, _net is None) always runs.
+            import os as _os
+            _refit_s = float(_os.environ.get("OUTCOME_NET_REFIT_S", "900") or 900)
+            if self._net is not None and (t0 - getattr(self, "_net_last_fit", 0.0)) < _refit_s:
+                self._net_cost_s = time.monotonic() - t0     # throttled → keep the warm net
+                return self._net
             rows = []
             for ft in native:
                 # broker_ctx=False: live ticker context is wrong-by-construction for
@@ -104,8 +116,14 @@ class PerCoinBrainDecider(LibraryBrainDecider):
                     r["net_pnl"] = float(pnl)
                     r["net_pnl_crypto"] = float(pnl)
                 rows.append(r)
+            # cap the fit rows so a single re-fit stays fast (the OOF cross-val cost grows with
+            # row count; the most-recent N trades carry the current regime). OUTCOME_NET_MAX_ROWS.
+            _maxrows = int(_os.environ.get("OUTCOME_NET_MAX_ROWS", "800") or 800)
+            if _maxrows > 0 and len(rows) > _maxrows:
+                rows = rows[-_maxrows:]
             self._net = get_outcome_net(rows)
-            self._net_count = len(rows)
+            self._net_count = len(native)                    # gate on the native count we saw
+            self._net_last_fit = t0
             self._net_cost_s = time.monotonic() - t0
             return self._net
         except Exception:
