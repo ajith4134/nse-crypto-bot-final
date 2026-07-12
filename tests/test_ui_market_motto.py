@@ -444,3 +444,35 @@ class StreamPumpTest(_Base):
         with mock.patch("trading.broker_sense.sessions.login_in_progress",
                         return_value=True):
             self.assertEqual(pool.pump(), 0)          # never touches browser mid-login
+
+
+class RollingTabTest(_Base):
+    def test_rolling_window_sweeps_universe_keeps_pins(self):
+        from trading.broker_sense import tab_pool
+
+        class _Pg:
+            def __init__(s): s._c = False
+            def is_closed(s): return s._c
+            def close(s): s._c = True
+            def locator(s, x):
+                class L:
+                    def all(s2): return []
+                return L()
+            def wait_for_timeout(s, ms): pass
+            def screenshot(s, **k): return b"\xff\xd8\xff"
+
+        class _S:
+            def page(s, b, u=None, timeout_ms=0): return _Pg()
+        pool = tab_pool.TabPool(_S(), "binance")
+        universe = [f"C{i}/USDT:USDT" for i in range(12)]
+        with mock.patch.dict(os.environ, {"UI_TAB_ROLLING": "1", "UI_TAB_POOL_N": "4",
+                                          "UI_TAB_OPEN_PER_CALL": "4", "UI_TAB_SNAP_S": "0"}):
+            seen = set()
+            for _ in range(6):
+                pool.ensure(universe, pins={"C0/USDT:USDT"})
+                seen |= set(pool._tabs)
+            self.assertEqual(len(seen), 12)                 # every symbol covered over the sweep
+            self.assertIn("C0USDT", pool._tabs)             # pinned open trade never rolls off
+            # roll() advances the window using the remembered shortlist
+            r = pool.roll()
+            self.assertTrue(r.get("rolled"))

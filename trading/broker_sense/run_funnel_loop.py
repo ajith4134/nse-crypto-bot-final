@@ -174,6 +174,9 @@ def main() -> int:
             if force or time.time() - _last_stream[0] >= snap_s:
                 _last_stream[0] = time.time()
                 pool.refresh(deadline=time.monotonic() + 6.0)   # snapshot + heal (mirror)
+                # ADVANCE the rolling window (recycle tabs across the whole shortlist) so
+                # UI-data coverage sweeps every traded symbol between cycles → governor flips.
+                pool.roll(deadline=time.monotonic() + 8.0)
                 try:
                     if sessions.guard_all_pages("binance"):     # CAPTCHA watchdog on all tabs
                         print("[handoff] challenge on an idle tab — take-control raised",

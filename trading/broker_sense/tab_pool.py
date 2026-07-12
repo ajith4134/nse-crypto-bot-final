@@ -87,7 +87,8 @@ class TabPool:
         self._rot_cursor = 0               # which tab rotates its TF this call (staggered)
 
     # ── reconcile with the shortlist ─────────────────────────────────────────
-    def ensure(self, symbols: list[str], *, deadline: float | None = None) -> dict:
+    def ensure(self, symbols: list[str], *, deadline: float | None = None,
+               pins: set | None = None) -> dict:
         rep = {"broker": self.broker, "parked": [], "opened": [], "closed": [],
                "rotated": None, "snaps": 0, "errors": []}
         if not enabled():
@@ -105,7 +106,32 @@ class TabPool:
         def _over() -> bool:
             return deadline is not None and time.monotonic() > deadline
 
-        targets = [s for s in symbols if s][: _pool_n()]
+        allsyms = [s for s in symbols if s]
+        self._last_symbols = allsyms                 # remembered so roll() can advance between cycles
+        self._last_pins = set(pins or set())
+        rolling = os.environ.get("UI_TAB_ROLLING", "1") in ("1", "true", "TRUE", "yes")
+        if rolling and len(allsyms) > _pool_n():
+            # ROLLING COVERAGE (owner 2026-07-12: "make the parked tabs unlimited — close old
+            # tabs and open the next"): instead of parking the SAME top-N forever, slide a window
+            # of N tabs across the WHOLE shortlist/universe each call. The prune step below closes
+            # tabs whose symbol left this window and the open step opens the window's new symbols,
+            # so every symbol gets a fresh web-capture within one full sweep — driving UI-data
+            # coverage to ≥80% (the governor's flip threshold) across ALL traded symbols, not just
+            # a fixed handful. Open trades still get PERMANENT coverage (pinned into every window).
+            n = _pool_n()
+            pinset = pins or set()
+            pinned = [s for s in allsyms if s in pinset][:n]          # open trades never roll off
+            roam = [s for s in allsyms if s not in pinned]
+            room = max(1, n - len(pinned))
+            if roam:
+                self._roll_cursor = getattr(self, "_roll_cursor", 0) % len(roam)
+                window = [roam[(self._roll_cursor + i) % len(roam)] for i in range(min(room, len(roam)))]
+                self._roll_cursor = (self._roll_cursor + room) % len(roam)
+            else:
+                window = []
+            targets = pinned + window
+        else:
+            targets = allsyms[: _pool_n()]
         want = {_flat(s): s for s in targets}
 
         # 1) prune: dead pages + symbols that left the shortlist
@@ -292,6 +318,19 @@ class TabPool:
         except Exception:
             pass
         return True
+
+    def roll(self, *, deadline: float | None = None) -> dict:
+        """Advance the rolling window ONE step between cycles (owner: recycle tabs to cover the
+        whole universe). Re-runs ensure() with the remembered shortlist so the cursor moves,
+        closing the oldest roaming tabs and opening the next symbols — driven from the inter-cycle
+        stream tick so a full sweep completes in minutes, not once-per-cycle. No-op if ensure()
+        hasn't run yet or rolling is off."""
+        syms = getattr(self, "_last_symbols", None)
+        if not syms or os.environ.get("UI_TAB_ROLLING", "1") not in ("1", "true", "TRUE", "yes"):
+            return {"rolled": False}
+        r = self.ensure(syms, deadline=deadline, pins=getattr(self, "_last_pins", set()))
+        r["rolled"] = True
+        return r
 
     def pump(self, *, budget_s: float = 1.5) -> int:
         """CHEAP owner-thread tick: process each parked tab's QUEUED WebSocket frames so
