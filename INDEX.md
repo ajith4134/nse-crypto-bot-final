@@ -1721,6 +1721,11 @@ _tests/test_binance_catalysts.py — Binance-native listing catalysts._
 - **classes:** TestCatalysts
 - **imports:** pathlib, tempfile, time, trading.broker_sense, trading.broker_sense.binance_stream, unittest
 
+## `tests/test_binance_depth.py`
+_WS-mirror order-book depth (2026-07-12): the binance_stream mirror now streams 20-level partial_
+- **classes:** TestBinanceDepthMirror
+- **imports:** time, trading.broker_sense, unittest
+
 ## `tests/test_binance_options.py`
 _tests/test_binance_options.py — Binance options IV/skew regime gauge._
 - **classes:** TestOptions
@@ -3239,7 +3244,7 @@ _trading/broker_sense/binance_sectors.py — Binance-native sector taxonomy + ro
 ## `trading/broker_sense/binance_stream.py`
 _trading/broker_sense/binance_stream.py — Binance all-market WEBSOCKET mirror (compute-offload)._
 - **classes:** BinanceUniverseMirror
-- **functions:** `enabled() -> bool`; `_f(v)`; `_i(v)`; `get_mirror() -> BinanceUniverseMirror`
+- **functions:** `depth_enabled() -> bool`; `enabled() -> bool`; `_f(v)`; `_i(v)`; `get_mirror() -> BinanceUniverseMirror`
 - **imports:** __future__, asyncio, collections, json, os, threading, time, trading
 
 ## `trading/broker_sense/binance_watchlist.py`

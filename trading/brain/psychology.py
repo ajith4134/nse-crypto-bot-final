@@ -573,6 +573,18 @@ class TraderPsychology:
             if market.upper() == "NSE":
                 payload = self._nse_client().depth(symbol, exchange=exchange or "NSE")
                 return BookSnapshot.from_openalgo(payload)
+            # COMPUTE-OFFLOAD (2026-07-12): read 20-level depth from the binance WS in-RAM mirror
+            # (pushed, ~0 CPU) instead of a ~300ms REST fetch_order_book per symbol — this was the
+            # funnel EXECUTE hotspot. Falls back to REST when the symbol isn't in the mirror's
+            # top-N depth watch or the frame is stale. Futures only (the mirror is USDⓈ-M).
+            if (segment or "futures").lower() in ("futures", "swap", ""):
+                try:
+                    from trading.broker_sense.binance_stream import get_mirror
+                    mb = get_mirror().book(symbol)
+                    if mb:
+                        return BookSnapshot.from_ccxt(mb)
+                except Exception:
+                    pass
             mtype = _CRYPTO_MARKET_TYPE.get((segment or "futures").lower(), "swap")
             ob = self._crypto_client(mtype).order_book(symbol, limit=50)
             return BookSnapshot.from_ccxt(ob)

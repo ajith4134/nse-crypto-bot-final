@@ -40,6 +40,17 @@ _WS_URL = ("wss://fstream.binance.com/market/stream?streams="
            "!markPrice@arr@1s/!ticker@arr/!forceOrder@arr")
 _STALE_AFTER_S = 15.0            # a push field older than this is flagged stale (streams tick ~1–3s)
 _MAX_LIQS = 500
+# DEPTH mirror (2026-07-12): per-symbol 20-level partial book for the top-N movers, pushed at 500ms,
+# so psychology (OBI/microprice/walls) reads depth from RAM instead of a ~300ms REST fetch_order_book
+# per symbol × the shortlist (the funnel EXECUTE hotspot). Bounded: N streams in one connection,
+# symbol set refreshed by reconnect. All-market full depth is a firehose, so we scope to the movers.
+_DEPTH_HOST = "wss://fstream.binance.com/stream?streams="
+_DEPTH_N = int(os.getenv("BINANCE_DEPTH_N", "120") or 120)      # streams per connection (cap)
+_DEPTH_REFRESH_S = float(os.getenv("BINANCE_DEPTH_REFRESH_S", "300") or 300)   # re-pick movers
+
+
+def depth_enabled() -> bool:
+    return enabled() and os.getenv("BINANCE_STREAM_DEPTH", "1").strip().lower() not in ("0", "false", "off")
 
 
 def enabled() -> bool:
@@ -52,11 +63,16 @@ class BinanceUniverseMirror:
     def __init__(self):
         self._mark: dict[str, dict] = {}        # symbol -> {mark, funding_rate, next_funding_ts, ts}
         self._ticker: dict[str, dict] = {}       # symbol -> {last, pct_change, high, low, quote_volume, count, ts}
+        self._book: dict[str, dict] = {}         # symbol -> {bids:[[p,q]], asks:[[p,q]], ts} (20-lvl depth)
         self._liqs: deque = deque(maxlen=_MAX_LIQS)   # recent liquidation events (all symbols)
         self._lock = threading.RLock()
         self._thread: threading.Thread | None = None
+        self._depth_thread: threading.Thread | None = None
         self._running = False
         self._connected = False
+        self._depth_connected = False
+        self._depth_watch: list[str] = []        # the top-N symbols we currently stream depth for
+        self._depth_last_msg_ts = 0.0
         self._reconnects = 0
         self._last_msg_ts = 0.0
         self._started_ts = 0.0
@@ -108,6 +124,25 @@ class BinanceUniverseMirror:
         except Exception:
             pass
 
+    def _apply_depth_frame(self, msg: dict) -> None:
+        """Apply one <sym>@depth20 combined-stream frame → in-RAM 20-level book. Never raises."""
+        try:
+            stream = msg.get("stream", "")
+            data = msg.get("data") or {}
+            if "@depth" not in stream:
+                return
+            s = (data.get("s") or stream.split("@", 1)[0]).upper()
+            bids = [[float(p), float(q)] for p, q in (data.get("b") or []) if float(q) > 0]
+            asks = [[float(p), float(q)] for p, q in (data.get("a") or []) if float(q) > 0]
+            if not bids or not asks:
+                return
+            now = time.time()
+            self._depth_last_msg_ts = now
+            with self._lock:
+                self._book[s] = {"bids": bids, "asks": asks, "ts": now}
+        except Exception:
+            pass
+
     # ── background stream thread ─────────────────────────────────────────────
     def _run(self) -> None:
         try:
@@ -144,6 +179,47 @@ class BinanceUniverseMirror:
                 backoff *= 2                     # exponential backoff on reconnect
         self._connected = False
 
+    def _run_depth(self) -> None:
+        try:
+            asyncio.run(self._depth_stream_loop())
+        except Exception:
+            self._depth_connected = False
+
+    async def _depth_stream_loop(self) -> None:
+        """Stream 20-level partial book for the top-N movers; reconnect every _DEPTH_REFRESH_S to
+        re-pick the set as the universe rotates. One connection, N streams — bounded, no firehose."""
+        try:
+            import websockets
+        except Exception:
+            return
+        backoff = 1.0
+        while self._running:
+            # wait until the ticker mirror has enough universe to rank movers
+            syms = [r["symbol"] for r in self.movers(_DEPTH_N, by="quote_volume")]
+            if not syms:
+                await asyncio.sleep(2.0)
+                continue
+            self._depth_watch = syms
+            url = _DEPTH_HOST + "/".join(f"{s.lower()}@depth20@500ms" for s in syms)
+            deadline = time.time() + _DEPTH_REFRESH_S
+            try:
+                async with websockets.connect(url, ping_interval=20, ping_timeout=20,
+                                              open_timeout=15, max_queue=2048) as ws:
+                    self._depth_connected = True
+                    backoff = 1.0
+                    while self._running and time.time() < deadline:
+                        raw = await asyncio.wait_for(ws.recv(), timeout=60)
+                        try:
+                            self._apply_depth_frame(json.loads(raw))
+                        except Exception:
+                            continue
+            except Exception:
+                self._depth_connected = False
+                self._reconnects += 1
+                await asyncio.sleep(min(backoff, 30.0))
+                backoff *= 2
+        self._depth_connected = False
+
     def start(self) -> "BinanceUniverseMirror":
         if not enabled() or self._running:
             return self
@@ -152,6 +228,10 @@ class BinanceUniverseMirror:
         self._backfill_rest()                    # immediate data so the first read isn't empty
         self._thread = threading.Thread(target=self._run, daemon=True, name="binance-mirror")
         self._thread.start()
+        if depth_enabled():                      # separate connection: 20-level depth for movers
+            self._depth_thread = threading.Thread(target=self._run_depth, daemon=True,
+                                                  name="binance-mirror-depth")
+            self._depth_thread.start()
         return self
 
     def stop(self) -> None:
@@ -191,6 +271,17 @@ class BinanceUniverseMirror:
         with self._lock:
             v = self._ticker.get(symbol.upper())
             return dict(v) if v else None
+
+    def book(self, symbol: str, *, max_age_s: float = 5.0) -> dict | None:
+        """Fresh 20-level order book {bids, asks, ts} from the depth stream, or None if not
+        watched / stale (caller then falls back to REST). Symbol may carry a :USDT settle suffix."""
+        s = symbol.split(":")[0].replace("/", "").upper()
+        with self._lock:
+            v = self._book.get(s)
+            if v and (time.time() - v["ts"]) <= max_age_s:
+                return {"bids": [list(x) for x in v["bids"]],
+                        "asks": [list(x) for x in v["asks"]], "ts": v["ts"]}
+        return None
 
     def movers(self, n: int = 30, *, by: str = "quote_volume", min_quote_volume: float = 0.0) -> list[dict]:
         """Tier-0 universe narrowing on Binance's OWN numbers — the shortlist the brain deep-dives.
@@ -307,12 +398,17 @@ class BinanceUniverseMirror:
 
     def status(self) -> dict:
         with self._lock:
-            n_mark, n_tick, n_liq = len(self._mark), len(self._ticker), len(self._liqs)
+            n_mark, n_tick, n_liq, n_book = (len(self._mark), len(self._ticker),
+                                             len(self._liqs), len(self._book))
         age = time.time() - self._last_msg_ts if self._last_msg_ts else None
+        dage = time.time() - self._depth_last_msg_ts if self._depth_last_msg_ts else None
         return {
             "enabled": enabled(), "running": self._running, "connected": self._connected,
             "reconnects": self._reconnects, "symbols_mark": n_mark, "symbols_ticker": n_tick,
             "liquidations_buffered": n_liq,
+            "depth_enabled": depth_enabled(), "depth_connected": self._depth_connected,
+            "symbols_book": n_book, "depth_watch": len(self._depth_watch),
+            "depth_age_s": round(dage, 1) if dage is not None else None,
             "last_msg_age_s": round(age, 1) if age is not None else None,
             "stale": age is None or age > _STALE_AFTER_S,
             "uptime_s": round(time.time() - self._started_ts, 1) if self._started_ts else 0.0,
