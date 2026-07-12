@@ -154,6 +154,15 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
             # is what pro/HFT desks use to run huge position counts on one connection. Near-zero
             # REST weight → max_open_trades can be unlimited safely.
             "enable_ws": True,
+            # ccxt RATE LIMITER (2026-07-12 root-fix for the recurring -1003/418 IP ban): even
+            # with enable_ws, reload_markets/load_markets + VolumePairList's volume queries are
+            # REST calls, and with NO limiter ccxt burst-fired them past Binance's request cap →
+            # IP ban → market-load fails → NO dry-run order can open → zero trades (futures too,
+            # they share the banned connection). enableRateLimit makes ccxt SELF-SPACE requests so
+            # it never trips 418; adjustForTimeDifference avoids -1021 timestamp rejects.
+            "ccxt_config": {"enableRateLimit": True,
+                            "options": {"adjustForTimeDifference": True}},
+            "ccxt_async_config": {"enableRateLimit": True},
             # VolumePairList populates the whitelist dynamically; seed kept for the very first
             # refresh. Blacklist stablecoin↔stable pairs + leveraged tokens (noise, not "symbols").
             "pair_whitelist": _pairs(cfg),
@@ -167,7 +176,10 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # all) → VolatilityFilter keeps the volatile ones. Refreshed live, so FreqUI always lists
         # the current best symbols for the active segment; trades can open on any of them.
         "pairlists": [
-            {"method": "VolumePairList", "number_assets": 1000, "sort_key": "quoteVolume",
+            # 1000 → 250 (2026-07-12): 1000 assets meant candle+volume fetches for the whole
+            # Binance USDT board every refresh — a top 418 contributor. 250 still covers every
+            # liquid perp the brain would trade; with the rate limiter above, load stays safe.
+            {"method": "VolumePairList", "number_assets": 250, "sort_key": "quoteVolume",
              "refresh_period": 1800},
             {"method": "VolatilityFilter", "lookback_days": 10, "min_volatility": 0.02,
              "max_volatility": 1.0, "refresh_period": 86400},
