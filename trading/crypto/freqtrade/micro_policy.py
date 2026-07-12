@@ -94,7 +94,11 @@ class MicroPolicy:
         self.table = table                        # {"coins": {sym: {...}}, "trained": {...}}
 
     # live fast path — returns None to say "fall back to the full decider" (honest abstain)
-    def decide(self, symbol: str, df, *, in_position: bool) -> Optional[dict]:
+    def decide(self, symbol: str, df=None, *, in_position: bool, df_fn=None) -> Optional[dict]:
+        """`df_fn` (optional): a zero-arg callable that RETURNS the coin's OHLCV df, invoked only
+        if the student is actually consulted. Unknown/stale coins (→ teacher) and gated-out coins
+        (sit out) never need bars, so passing df_fn instead of a pre-fetched df skips the per-coin
+        network fetch for the ~60% of coins that sit out — the W2 fix for the serial OHLCV cost."""
         coin = (self.table.get("coins") or {}).get(symbol)
         if not coin or time.time() - coin.get("ts", 0) > _TTL_S:
             return None                                            # unknown/stale → teacher
@@ -109,6 +113,11 @@ class MicroPolicy:
             if in_position:
                 return {"action": "EXIT", "size": 1.0, "tag": coin["winner"], "_brain": meta}
             return {"action": "FLAT", "size": 1.0, "tag": coin["winner"], "_brain": meta}
+        if df is None and df_fn is not None:      # gates passed → NOW we need bars (lazy fetch)
+            try:
+                df = df_fn()
+            except Exception:
+                return None
         if df is None or len(df) < 50:
             return None
         try:

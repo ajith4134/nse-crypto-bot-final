@@ -410,7 +410,11 @@ class BrainExecutor:
                     from trading.crypto.freqtrade.micro_policy import get_micro
                     _mp = get_micro()
                     if _mp is not None:
-                        d = _mp.decide(sym, self.decider._ohlcv(sym),
+                        # LAZY OHLCV (W2 perf, 2026-07-12): pass a fetch callable, not a
+                        # pre-fetched df — the ~60% of coins the tournament gated OUT return
+                        # their verdict from the table alone and never trigger the per-coin
+                        # network fetch, cutting the serial OHLCV cost of the scan.
+                        d = _mp.decide(sym, df_fn=lambda s=sym: self.decider._ohlcv(s),
                                        in_position=(sym in open_pairs))
                 except Exception:
                     d = None
