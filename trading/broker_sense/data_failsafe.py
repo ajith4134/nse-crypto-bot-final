@@ -62,11 +62,21 @@ def _cached(kind: str, symbol: str, fn):
     return val
 
 
+_EX_CACHE = None
+
+
 def _ccxt_ex():
-    import ccxt
-    ex = ccxt.binance({"timeout": _CCXT_TIMEOUT_MS, "enableRateLimit": True,
-                       "options": {"defaultType": "swap"}})
-    return ex
+    # CACHE the ccxt instance: a fresh ccxt.binance() loads all markets on its first fetch
+    # (~1.6s HTTP), and this was created ANEW on every call — so every quote/ohlcv/top_of_book paid
+    # the market-load, making live_price ~2s and the executor's per-symbol loop ~5min over the
+    # universe (deadline-deferred most symbols → entered=[]). Reused warm instance ≈ 158ms (2026-07-12).
+    # Matches app_school._ccxt_exchange, already shared across the fast_candles thread pool.
+    global _EX_CACHE
+    if _EX_CACHE is None:
+        import ccxt
+        _EX_CACHE = ccxt.binance({"timeout": _CCXT_TIMEOUT_MS, "enableRateLimit": True,
+                                  "options": {"defaultType": "swap"}})
+    return _EX_CACHE
 
 
 def _base(symbol: str) -> str:

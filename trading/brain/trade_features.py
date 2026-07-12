@@ -285,7 +285,16 @@ class TradeOutcomeNet:
         TRADE_NET_ENGINE=tabpfn promotes the TabPFN-v2 challenger (only after it wins
         the OOF duel — trading/brain/challenger.py; never switched silently)."""
         import os as _os
-        if _os.getenv("TRADE_NET_ENGINE", "").strip().lower() == "tabpfn":
+        # HOT-PATH GUARD (2026-07-12): TabPFN is a transformer whose CPU inference costs ~7s per
+        # predict (6 in-context forward passes). The live per-symbol decider calls this in a loop
+        # over the whole universe → cycles blew to ~1000s and NO trades opened (deadline-deferred).
+        # Keep TabPFN for the OFFLINE challenger/attribution (they build it directly), but the LIVE
+        # TradeOutcomeNet uses the fast gated-MoE/logreg engine (cached → ~ms) unless explicitly
+        # allowed with TRADE_NET_TABPFN_LIVE=1. money-lens: a system that can't finish a cycle and
+        # open a trade earns nothing — completing beats a marginally-more-accurate 7s model.
+        _want_tabpfn = _os.getenv("TRADE_NET_ENGINE", "").strip().lower() == "tabpfn"
+        _tabpfn_live = _os.getenv("TRADE_NET_TABPFN_LIVE", "0").strip().lower() in ("1", "true", "yes", "on")
+        if _want_tabpfn and _tabpfn_live:
             try:
                 from tabpfn import TabPFNClassifier
                 _os.environ.setdefault("TABPFN_ALLOW_CPU_LARGE_DATASET", "1")
