@@ -3332,8 +3332,8 @@ _trading/broker_sense/exec_adapter.py — APIs are used ONLY here (owner's step 
 
 ## `trading/broker_sense/fast_candles.py`
 _trading/broker_sense/fast_candles.py — direction from OHLCV DATA, not chart screenshots._
-- **functions:** `_ema(vals, n) -> float`; `_rsi(closes, n) -> float`; `_clamp(x, lo, hi) -> float`; `direction_from_ohlcv(rows) -> dict`; `_ohlcv_fast(sym, market, tf) -> list | None`; `read(picks, market, timeframes, deadline) -> dict[str, dict[str, dict]]`
-- **imports:** __future__, time, trading.broker_sense
+- **functions:** `_ema(vals, n) -> float`; `_rsi(closes, n) -> float`; `_clamp(x, lo, hi) -> float`; `direction_from_ohlcv(rows) -> dict`; `_tf_seconds(tf) -> int`; `_ohlcv_fast(sym, market, tf) -> list | None`; `read(picks, market, timeframes, deadline) -> dict[str, dict[str, dict]]`
+- **imports:** __future__, os, time, trading.broker_sense
 
 ## `trading/broker_sense/funnel.py`
 _trading/broker_sense/funnel.py — the cascade orchestrator (savers B + I: every cycle_
@@ -3348,7 +3348,7 @@ _trading/broker_sense/human_handoff.py — mid-session human-CAPTCHA handoff._
 
 ## `trading/broker_sense/indicator_fusion.py`
 _trading/broker_sense/indicator_fusion.py — ultra-advanced multi-timeframe indicator fusion._
-- **functions:** `_ohlc(rows)`; `_sma(vals, n) -> float`; `_ema_series(vals, n) -> list[float]`; `_true_ranges(h, l, c) -> list[float]`; `_wilder(vals, n) -> float`; `_atr(h, l, c, n) -> float`; `_adx(h, l, c, n) -> tuple[float, float, float]`; `_supertrend(h, l, c, n, mult) -> tuple[int, float]`; `_parabolic_sar(h, l, c, af0, af_max) -> tuple[int, float]`; `_macd(c) -> tuple[float, float, float]`; `_bollinger(c, n, k) -> tuple[float, float, float]`; `_stoch_rsi(c, n) -> float`; `indicators_from_ohlcv(rows) -> dict`; `_fetch(sym, market, tf, bars) -> list | None`; `_meta_label(confluence, direction, market, symbol) -> dict`; `_barriers(direction, price, atr, k_stop, k_tp, time_bars) -> dict`; `_onchain_cached(ttl) -> dict | None`; `fuse(symbol, market, timeframes, vision) -> dict`
+- **functions:** `_ohlc(rows)`; `_sma(vals, n) -> float`; `_ema_series(vals, n) -> list[float]`; `_true_ranges(h, l, c) -> list[float]`; `_wilder(vals, n) -> float`; `_atr(h, l, c, n) -> float`; `_adx(h, l, c, n) -> tuple[float, float, float]`; `_supertrend(h, l, c, n, mult) -> tuple[int, float]`; `_parabolic_sar(h, l, c, af0, af_max) -> tuple[int, float]`; `_macd(c) -> tuple[float, float, float]`; `_bollinger(c, n, k) -> tuple[float, float, float]`; `_stoch_rsi(c, n) -> float`; `indicators_from_ohlcv(rows) -> dict`; `_fetch(sym, market, tf, bars) -> list | None`; `_meta_label(confluence, direction, market, symbol) -> dict`; `_barriers(direction, price, atr, k_stop, k_tp, time_bars) -> dict`; `_onchain_cached(ttl) -> dict | None`; `_vision_sig(vision) -> tuple`; `fuse(symbol, market, timeframes, vision) -> dict`; `_fuse_uncached(symbol, market, timeframes, vision) -> dict`
 - **imports:** __future__, math, os, time, trading.broker_sense, trading.broker_sense.fast_candles
 
 ## `trading/broker_sense/interception.py`

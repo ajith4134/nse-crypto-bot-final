@@ -68,11 +68,11 @@ export BROKER_SENSE_HEADED="${BROKER_SENSE_HEADED:-1}"
 # intelligent Planner-Actor-Validator loop (nav_brain) — purposeful, segment-gated, self-correcting.
 export NAV_BRAIN="${NAV_BRAIN:-1}"
 export BRAIN_WARM_ALL_PAIRS="${BRAIN_WARM_ALL_PAIRS:-1}"   # keep every pair's candles warm in RAM
-# EXPLORE OPEN-ALL (owner 2026-07-06): until the brain has learned, PAPER-open EVERY candidate the
-# pickers surface (direction from the symbol's app data, vetoes advisory) so the journal fills with
-# richly-labelled trades to learn from. Auto-graduates to the selective gate at GRADUATE_N closed
-# trades. PAPER ONLY (never fires when allow_live). Set BRAIN_EXPLORE_OPEN_ALL=0 to disable.
-export BRAIN_EXPLORE_OPEN_ALL="${BRAIN_EXPLORE_OPEN_ALL:-1}"
+# EXPLORE OPEN-ALL: PAPER-open EVERY candidate blindly (direction from app data, vetoes advisory) to
+# fill the journal. OWNER TURNED THIS OFF 2026-07-12: the brain now SELECTS trades with the full
+# 239-strategy library tournament (percoin_decider) + the safety gates — strategy-driven, higher-
+# conviction entries instead of blind explore. Set BRAIN_EXPLORE_OPEN_ALL=1 to re-enable exploration.
+export BRAIN_EXPLORE_OPEN_ALL="${BRAIN_EXPLORE_OPEN_ALL:-0}"
 # GRADUATION SIGNAL (owner 2026-07-06): graduate on the brain CONSISTENTLY PICKING PROFITABLE /
 # CORRECT-DIRECTION trades, NOT a raw trade COUNT (thousands of trades exist yet a big count proves
 # no skill). ACC = rolling win-rate the brain must hold over the last WINDOW closed trades before it

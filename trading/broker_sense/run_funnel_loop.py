@@ -59,6 +59,30 @@ def main() -> int:
     if "nse" in want_set and do_nse:
         funnels["nse"] = BrokerSenseFunnel("nse", sessions)
     learn = BrainLearningCycle()
+    # OFF-HOT-PATH LEARNING (2026-07-12): the foundry (backtest/OOS scoring) + DEAP evolution +
+    # meta-labeler retrain are CPU-heavy and used to run INLINE in the funnel loop — py-spy caught
+    # strategy/generators+backtest+fitness in the MainThread, blocking per-symbol entries. Run them
+    # on a dedicated daemon thread (interval-gated by maybe_run itself, browser-free by design) so
+    # the entry cycle NEVER waits on evolution. The main loop just feeds it the latest entered syms.
+    import threading as _threading
+    _learn_ctx: dict = {"symbols": None}
+
+    def _learn_worker():
+        from trading.direction import meta_labeler as _ml
+        while True:
+            try:
+                ls = learn.maybe_run(symbols=_learn_ctx.get("symbols"))
+                if ls:
+                    print(f"[funnel-learn] cycle ran (off-thread): "
+                          f"{(ls.get('learned') or {}).get('n_hypotheses')} hypotheses", flush=True)
+                mt = _ml.maybe_train()               # D6 6-hourly retrain (also off the hot path)
+                if mt:
+                    print(f"[direction-meta] {mt}", flush=True)
+            except Exception as e:
+                print(f"[funnel-learn] error: {e!r}", flush=True)
+            time.sleep(float(os.environ.get("FUNNEL_LEARN_POLL_S", "30") or 30))
+
+    _threading.Thread(target=_learn_worker, daemon=True, name="funnel-learn").start()
     if "crypto" in funnels:
         # Binance compute-offload (2026-07-11): start the all-market WS in-RAM mirror so the
         # universe scan + order-flow read off Binance's PUSHED data (RAM, ~0 CPU) instead of a
@@ -299,27 +323,20 @@ def main() -> int:
                       f"({len(b.get('sections') or {})} sections)", flush=True)
         except Exception as e:
             print(f"[briefing] error: {e!r}", flush=True)
-        try:                                          # the closed learning loop, unchanged
+        try:                                          # feed the OFF-THREAD learner its symbols
             _lead = funnels.get("crypto") or funnels.get("nse")
-            ls = learn.maybe_run(symbols=list(((_lead.last if _lead else {}).get("stages", {})
-                                               .get("execute", {}) or {}).get("entered")
-                                              or []) or None) if _lead else None
-            if ls:
-                print(f"[funnel-learn] cycle ran: "
-                      f"{(ls.get('learned') or {}).get('n_hypotheses')} hypotheses", flush=True)
-        except Exception as e:
-            print(f"[funnel-learn] error: {e!r}", flush=True)
-        try:                                          # D1 Truth Ledger (Pillar 27): resolve
-            from trading.direction import truth_ledger    # due direction claims each cycle
-            tr = truth_ledger.tick(budget_s=15)
+            _learn_ctx["symbols"] = (list(((_lead.last if _lead else {}).get("stages", {})
+                                           .get("execute", {}) or {}).get("entered") or [])
+                                     or None) if _lead else None
+        except Exception:
+            pass
+        try:                                          # D1 Truth Ledger (Pillar 27): resolve due
+            from trading.direction import truth_ledger    # claims each cycle — cheap (15s budget),
+            tr = truth_ledger.tick(budget_s=15)           # stays inline so labels stay fresh
             if tr.get("resolved") or tr.get("expired"):
                 print(f"[direction-truth] resolved={tr['resolved']} "
                       f"pending={tr['still_pending']} expired={tr['expired']}",
                       flush=True)
-            from trading.direction import meta_labeler    # D6: 6-hourly retrain
-            mt = meta_labeler.maybe_train()
-            if mt:
-                print(f"[direction-meta] {mt}", flush=True)
         except Exception as e:
             print(f"[direction-truth] error: {e!r}", flush=True)
         # saver C: sleep to the next bar close — but poll every ~2s so that when the operator
