@@ -22,7 +22,10 @@ _LOCK_FILE = "profit_tailgate_locks.json"       # per-open-trade ratcheting lock
 # defaults before the brain has learned (sensible trailing distances by segment volatility)
 _DEFAULT_DIST = {"futures": 0.30, "spot": 0.30, "options": 0.40, "prediction": 0.50,
                  "equity": 0.25, "commodities": 0.30}
-_MIN_ARM_PROFIT = 0.5          # only arm the tailgate once the trade is up ≥ this % (else noise)
+# Only ARM the tailgate (start locking + trailing the peak) once the trade is up ≥ this %.
+# Owner 2026-07-12: raised 0.5 → 3.0 — don't lock/trail until the trade clears +3% profit, so
+# small noise wiggles below 3% never start the ratchet. Override via TAILGATE_ARM_PROFIT_PCT.
+_MIN_ARM_PROFIT = float(__import__("os").environ.get("TAILGATE_ARM_PROFIT_PCT", "3.0") or 3.0)
 
 
 def _key(market: str, segment: str, regime: str = "") -> str:
