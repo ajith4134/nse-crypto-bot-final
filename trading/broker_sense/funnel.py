@@ -311,8 +311,25 @@ class BrokerSenseFunnel:
             pass
         candidates = [s for s, (d, _) in directions.items()
                       if d != "neutral" or s in open_syms]
+        non_neutral_n = len(candidates)
+        # TOP-K VERIFY BOUND (owner 2026-07-12): the deep VERIFY lenses (fusion + the 239-strategy
+        # lens + ocular) ran on EVERY non-neutral candidate (~100/cycle) → 305s cycles that starved
+        # the tab pool → coverage never reached the governor's flip threshold. Rank by LOOK
+        # direction STRENGTH (|p_up-0.5|) and deep-verify only the top-K most-promising + every OPEN
+        # trade (never dropped — they need their exit signal). The rest are screened but not
+        # deep-lensed this cycle. VERIFY_TOPK tunes the cap; 0 = unbounded (old behaviour).
+        try:
+            topk = int(os.environ.get("VERIFY_TOPK", "30") or 30)
+        except ValueError:
+            topk = 30
+        if topk > 0 and len(candidates) > topk:
+            _opens = [s for s in candidates if s in open_syms]
+            _rest = sorted((s for s in candidates if s not in open_syms),
+                           key=lambda s: -abs(float(directions[s][1]) - 0.5))
+            candidates = _opens + _rest[: max(0, topk - len(_opens))]
         rep["stages"]["look"] = {"timeframes": list(tfs), "read": len(charts),
-                                 "non_neutral": len(candidates),
+                                 "non_neutral": non_neutral_n,
+                                 "deep_verified": len(candidates),
                                  "cands": candidates[:24],
                                  **self.vision.stats}
 
