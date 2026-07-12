@@ -56,6 +56,13 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         self._net_count = -1
         self._net_ts = float("-inf")   # last closed-trades fetch (TTL below)
         self._bw_cache: dict = {}   # (symbol, direction) → (mono_ts, (mult, info))
+        # PER-5m-BAR MEMO (2026-07-12 perf fix): tournament() is the expensive part
+        # (~142 strategies × backtest + TabPFN, ~7.5s/symbol) and is DETERMINISTIC within a
+        # candle bar — but funnel cycles run every ~1–2 min while bars close every 5 min, so
+        # 3–4 consecutive cycles recompute the identical ranking. Cache it by (symbol, bar
+        # epoch): repeat-in-bar cycles drop from ~7.5s/sym to ~0. Measured 86% of decide() is
+        # cacheable per bar. Kill-switch: SCAN_MEMO=0.  (see research/perf/hardware-saturation-audit-20260712.md)
+        self._tourn_cache: dict = {}   # symbol -> (bar_epoch, result)
 
     # ── brain confidence (global skill learned from the closed journal) ──────────
     _NET_TTL_S = 120.0     # closed trades change slowly; a fresher net isn't worth an HTTP storm
@@ -172,8 +179,34 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         return {"sharpe": round(sharpe, 4), "win_rate": win_rate,
                 "n_active": n_active, "cum_return": round(float(np.sum(series)), 6)}
 
+    @staticmethod
+    def _tf_seconds(tf: str) -> int:
+        """'5m'->300, '15m'->900, '1h'->3600, '1d'->86400. Defaults to 300 on any miss."""
+        try:
+            n, unit = int(tf[:-1]), tf[-1].lower()
+            return n * {"m": 60, "h": 3600, "d": 86400}.get(unit, 60)
+        except Exception:
+            return 300
+
     # ── the full 153-strategy tournament for one coin (the EXPENSIVE part) ────────
     def tournament(self, symbol: str) -> dict:
+        """Per-5m-bar-memoized wrapper over the expensive tournament. Within one candle bar the
+        ranking is deterministic, so repeat calls (consecutive funnel cycles) reuse the result
+        instead of recomputing ~142 strategies. SCAN_MEMO=0 disables. Errors are never cached
+        (so a transient no-bars miss retries next cycle)."""
+        import os
+        if os.environ.get("SCAN_MEMO", "1") not in ("1", "true", "TRUE", "yes", "on"):
+            return self._tournament_uncached(symbol)
+        epoch = int(time.time() // self._tf_seconds(getattr(self, "_tf", "5m")))
+        hit = self._tourn_cache.get(symbol)
+        if hit is not None and hit[0] == epoch:
+            return hit[1]
+        result = self._tournament_uncached(symbol)
+        if not result.get("error"):
+            self._tourn_cache[symbol] = (epoch, result)
+        return result
+
+    def _tournament_uncached(self, symbol: str) -> dict:
         """Rank every executable strategy on `symbol`'s live bars — backtest × brain — and
         apply the deflated-Sharpe anti-overfit gate. This is the expensive teacher the
         distilled micro-policy (invent-beyond #4) compresses; decide() consumes it live.

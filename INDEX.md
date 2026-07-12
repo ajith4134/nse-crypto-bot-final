@@ -3574,7 +3574,7 @@ _trading/crypto/freqtrade/launch.py — generate the config and print the launch
 ## `trading/crypto/freqtrade/micro_policy.py`
 _trading/crypto/freqtrade/micro_policy.py — distilled entry micro-policy (invent-beyond #4)._
 - **classes:** MicroPolicy
-- **functions:** `cheap_features(close, high, low, volume) -> np.ndarray`; `_feats_from_df(df) -> np.ndarray`; `get_micro() -> Optional[MicroPolicy]`; `invalidate() -> None`; `distill_once(decider, symbols) -> dict`; `status() -> dict`
+- **functions:** `cheap_features(close, high, low, volume) -> np.ndarray`; `_feats_from_df(df) -> np.ndarray`; `get_micro() -> Optional[MicroPolicy]`; `invalidate() -> None`; `_distill_one(symbol)`; `_distill_workers() -> int`; `_is_option_symbol(s) -> bool`; `_resolve_universe() -> list`; `_ccxt_universe(limit) -> list`; `distill_once(decider, symbols) -> dict`; `status() -> dict`
 - **imports:** __future__, numpy, os, time, trading, typing
 
 ## `trading/crypto/freqtrade/ml_decider.py`

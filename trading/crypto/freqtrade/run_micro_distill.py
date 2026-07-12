@@ -20,13 +20,26 @@ def main() -> None:
     except Exception:
         pass
     interval = float(os.environ.get("MICRO_DISTILL_INTERVAL_S", str(24 * 3600)))
+    # FAST RETRY (2026-07-12 perf fix): the distill's whole value is populating the ms fast-path
+    # table. If it produces ZERO coins (engine API not reachable at boot — the historical failure
+    # mode: every attempt logged "could not connect to :8080" then slept 24h, leaving the table
+    # empty so ALL ~600 symbols fell through to the 7.5s teacher = the 400-538s scan), retry in
+    # minutes, not a day — and skip the other heavy jobs until the fast-path actually exists.
+    retry = float(os.environ.get("MICRO_DISTILL_RETRY_S", "300"))
     from trading.crypto.freqtrade.micro_policy import distill_once
     while True:
+        ok = False
         try:
             rep = distill_once()
+            ok = int(rep.get("coins", 0)) > 0
             print(f"[micro-distill] {time.strftime('%F %T')} {rep}", flush=True)
         except Exception as e:                   # noqa: BLE001 — daemon must survive anything
             print(f"[micro-distill] ERROR {type(e).__name__}: {e}", flush=True)
+        if not ok:
+            print(f"[micro-distill] no coins distilled — fast-path still empty; "
+                  f"retrying in {retry:.0f}s (skip dream/challenger until it exists)", flush=True)
+            time.sleep(retry)
+            continue
         # Dream-Trainer phase-2 (2026-07-10): nightly world-model imagination replay of
         # the newest closed trades — MCTS per trade, so it lives HERE (nice-10, its own
         # process), never in the dashboard/learn thread. Kill-switch: DREAM_REPLAY=0.
