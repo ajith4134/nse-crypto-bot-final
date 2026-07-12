@@ -268,7 +268,18 @@ class BrokerSenseFunnel:
         # leaving ~0-1 NEW candidates per cycle — the real reason "max trades
         # unlimited" still opened almost nothing. shortlist_n now budgets NEW symbols
         # only; opens are appended on top (they still need the eyes for exits).
-        new_hot = [s for s in hot if s not in open_syms][: shortlist_n]
+        # LOOK TOP-K BOUND (owner 2026-07-12, final governor-flip lever): the LOOK stage reads
+        # per-TF direction (fast_candles) for EVERY pick — ~250 symbols × TFs — which kept cycles
+        # over budget even after the VERIFY bound, so the rolling tab pool couldn't sweep coverage
+        # to the governor's flip threshold. `hot` is already score-ranked, so read direction only
+        # for the top-K most-promising NEW symbols; OPEN trades are always looked at (exits need it).
+        # LOOK_TOPK tunes it (default 60); 0 = unbounded (old behaviour, shortlist_n only).
+        try:
+            look_topk = int(os.environ.get("LOOK_TOPK", "60") or 60)
+        except ValueError:
+            look_topk = 60
+        _cap = min(shortlist_n, look_topk) if look_topk > 0 else shortlist_n
+        new_hot = [s for s in hot if s not in open_syms][: _cap]
         picks = [by_sym.get(s, {"symbol": s, "lane": "tradingview"})
                  for s in new_hot]
         picks += [by_sym.get(s, {"symbol": s, "lane": "open-position"})
