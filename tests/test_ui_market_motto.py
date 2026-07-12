@@ -255,6 +255,31 @@ class TabPoolTest(_Base):
         # screenshots persisted for the vision lane
         self.assertTrue(tab_pool.charts("ETH/USDT:USDT"))
 
+    def test_refresh_snaps_and_heals_parked_tabs(self):
+        from trading.broker_sense import tab_pool
+        pool = tab_pool.TabPool(_FakeSessions(), "binance")
+        with mock.patch.dict(os.environ, {"UI_TAB_POOL_N": "2",
+                                          "UI_TAB_OPEN_PER_CALL": "2",
+                                          "UI_TAB_SNAP_S": "0"}):
+            pool.ensure(["BTC/USDT:USDT", "ETH/USDT:USDT"])
+            # simulate the starved-open case: a tab left with tf unset, snap overdue
+            for t in pool._tabs.values():
+                t["tf"], t["last_snap"] = "?", 0.0
+            rep = pool.refresh()
+        self.assertTrue(rep["snapped"])                 # mirror keeps moving between cycles
+        self.assertTrue(rep["healed"])                  # tf='?' repaired to primary
+        self.assertTrue(all(t["tf"] == "5m" for t in pool._tabs.values()))
+
+    def test_refresh_yields_to_operator_login(self):
+        from trading.broker_sense import tab_pool
+        pool = tab_pool.TabPool(_FakeSessions(), "binance")
+        with mock.patch.dict(os.environ, {"UI_TAB_OPEN_PER_CALL": "1", "UI_TAB_SNAP_S": "0"}):
+            pool.ensure(["BTC/USDT:USDT"])
+        with mock.patch("trading.broker_sense.sessions.login_in_progress",
+                        return_value=True):
+            rep = pool.refresh()
+        self.assertEqual(rep["snapped"], [])            # never touches the browser mid-login
+
     def test_kill_switch_and_login_yield(self):
         from trading.broker_sense import tab_pool
         pool = tab_pool.TabPool(_FakeSessions(), "binance")

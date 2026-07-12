@@ -478,6 +478,36 @@ class SessionManager:
                   f"released {broker} browser profile" + (f" — {reason}" if reason else ""))
         return True
 
+    def guard_all_pages(self, broker: str) -> bool:
+        """Scan EVERY open tab of `broker` for a human challenge and raise the Human-Handoff
+        take-control if any shows one. The per-action guard only checks the page the brain is
+        actively clicking; a CAPTCHA on an idle tab (an options/parked tab the driver opened
+        and left) went undetected until the brain happened to act on it again — so the operator
+        never got a solve window (owner report 2026-07-12). Owner-thread only (Playwright is
+        thread-bound); returns True if a challenge was found. Never raises."""
+        if not self._own_thread():
+            return False
+        ctx = self._contexts.get(broker)
+        if ctx is None:
+            return False
+        found = False
+        try:
+            pages = list(ctx.pages)
+        except Exception:
+            return False
+        for pg in pages:
+            try:
+                if pg.is_closed() or (pg.url or "about:blank").startswith("about:blank"):
+                    continue
+                if is_human_challenge(pg):
+                    from trading.broker_sense import human_handoff
+                    human_handoff.guard(broker, pg, block=False)   # raise banner + VNC, no park
+                    found = True
+                    break
+            except Exception:
+                continue
+        return found
+
     def release_if_login_locked(self) -> list[str]:
         """Loop-tick hook: release every open context whose broker the operator is currently
         logging into. Lets the funnel hand the profile over within ~one poll instead of waiting a

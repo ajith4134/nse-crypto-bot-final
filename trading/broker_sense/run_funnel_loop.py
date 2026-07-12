@@ -344,6 +344,8 @@ def main() -> int:
         # process per profile) instead of colliding for a whole cycle. Release runs here, on the
         # loop's OWN thread (Playwright sync contexts are thread-bound).
         _deadline = max(time.time() + 2.0, _next_bar_close())
+        _last_tab_refresh = 0.0
+        _last_captcha_scan = 0.0
         while True:
             try:
                 _rel = sessions.release_if_login_locked()
@@ -351,6 +353,38 @@ def main() -> int:
                     print(f"[funnel-loop] yielded profile(s) {_rel} to operator login", flush=True)
             except Exception as _e:
                 print(f"[funnel-loop] release check error: {_e!r}", flush=True)
+            # CAPTCHA WATCHDOG on EVERY open tab (2026-07-12): a Binance security check on an
+            # IDLE tab (options/parked tab the driver opened + left) was invisible to the
+            # per-action guard, so the operator never got a solve window. Scan all tabs each
+            # poll so the take-control banner + noVNC come up within ~2s of the popup.
+            if time.time() - _last_captcha_scan >= float(
+                    os.environ.get("HANDOFF_CHECK_S", "4") or 4):
+                _last_captcha_scan = time.time()
+                for _bkr in ("binance", "upstox"):
+                    try:
+                        if sessions.guard_all_pages(_bkr):
+                            print(f"[handoff] challenge detected on an idle {_bkr} tab — "
+                                  f"take-control raised", flush=True)
+                    except Exception as _e:
+                        print(f"[handoff] scan error: {_e!r}", flush=True)
+            # KEEP THE PARKED TABS WARM between cycles (2026-07-12): the per-cycle
+            # tab_pool.ensure() runs at the tail of the budget with no time to snap, so
+            # the mirror froze during the 5-min sleep and the app's kline/depth streams
+            # lapsed. Snapshot + heal the parked tabs here on the OWNER thread (Playwright
+            # is thread-bound) every ~UI_TAB_SNAP_S so the eyes keep MOVING and the streams
+            # stay live → the UI-only governor can actually reach fresh coverage.
+            if "crypto" in funnels and time.time() - _last_tab_refresh >= float(
+                    os.environ.get("UI_TAB_SNAP_S", "20") or 20):
+                _last_tab_refresh = time.time()
+                try:
+                    from trading.broker_sense import tab_pool
+                    _tr = tab_pool.get_pool(sessions, "binance").refresh(
+                        deadline=time.monotonic() + 8.0)
+                    if _tr.get("snapped") or _tr.get("healed"):
+                        print(f"[tab-pool] refresh snapped={_tr['snapped']} "
+                              f"healed={_tr['healed']} dead={_tr['dead']}", flush=True)
+                except Exception as _e:
+                    print(f"[tab-pool] refresh error: {_e!r}", flush=True)
             _remain = _deadline - time.time()
             if _remain <= 0:
                 break

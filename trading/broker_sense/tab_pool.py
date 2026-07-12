@@ -293,6 +293,58 @@ class TabPool:
             pass
         return True
 
+    def refresh(self, *, deadline: float | None = None) -> dict:
+        """Snapshot + keep the ALREADY-parked tabs warm, WITHOUT opening/closing any.
+        Called from the funnel's inter-cycle sleep loop (owner thread) so the parked
+        tabs stream continuously and the mirror keeps MOVING between cycles — the
+        per-cycle ensure() runs at the end of the budget and had no time left to snap
+        (observed 2026-07-12: parked tabs, snaps=0, tf='?', frozen mirror). Cheap: one
+        snapshot per due tab, plus a stray-TF self-heal. Never opens a page."""
+        rep = {"broker": self.broker, "snapped": [], "healed": [], "dead": []}
+        if not enabled() or not self._tabs:
+            return rep
+        try:
+            from trading.broker_sense.sessions import login_in_progress
+            if login_in_progress(self.broker):
+                return rep                            # operator has the browser — don't touch
+        except Exception:
+            pass
+        primary = _rotation_tfs()[0]
+        try:
+            snap_s = float(os.environ.get("UI_TAB_SNAP_S", "20"))
+        except ValueError:
+            snap_s = 20.0
+        now = time.time()
+        for sym in sorted(self._tabs):
+            if deadline is not None and time.monotonic() > deadline:
+                break
+            t = self._tabs[sym]
+            pg = t.get("page")
+            try:
+                if pg is None or pg.is_closed():
+                    self._tabs.pop(sym, None)
+                    rep["dead"].append(sym)
+                    continue
+            except Exception:
+                self._tabs.pop(sym, None)
+                rep["dead"].append(sym)
+                continue
+            if t.get("challenged"):                   # operator solving a CAPTCHA here
+                continue
+            if t.get("tf") in ("?", None) and self._click_tf(pg, primary):
+                t["tf"] = primary                     # heal the TF the starved open() couldn't set
+                rep["healed"].append(sym)
+            if now - t.get("last_snap", 0.0) >= snap_s and self._snap(sym, t):
+                t["last_snap"] = now
+                rep["snapped"].append(sym)
+        if rep["snapped"] or rep["healed"] or rep["dead"]:
+            self._persist({"parked": [{"symbol": s, "tf": self._tabs[s]["tf"],
+                                       "age_s": round(now - self._tabs[s]["opened_ts"], 1)}
+                                      for s in self._tabs],
+                           "opened": [], "closed": rep["dead"], "rotated": None,
+                           "snaps": len(rep["snapped"]), "errors": []})
+        return rep
+
     def drop_all(self, reason: str = "") -> None:
         """Close every pooled page (operator login / shutdown). Context stays alive.
         The reason lands in tab_pool.json — the diagnostic for a coverage collapse."""

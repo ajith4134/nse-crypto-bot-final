@@ -123,6 +123,26 @@ class TestHumanHandoff(unittest.TestCase):
         from trading.broker_sense import sessions
         self.assertFalse(sessions.is_human_challenge(None))     # bad input → False, no crash
 
+    def test_guard_all_pages_catches_captcha_on_idle_tab(self):
+        """Regression (2026-07-12): a CAPTCHA on an IDLE tab (options tab the driver opened
+        and left) went undetected because the per-action guard only checks the active page.
+        guard_all_pages scans every open tab so the operator gets a solve window."""
+        from trading.broker_sense import sessions
+
+        class _Ctx:
+            def __init__(self, pages): self.pages = pages
+        clean = FakePage("normal options chain", url="https://binance.com/en/eoptions/BTCUSDT")
+        capt = FakePage(CHALLENGE_BODY, url="https://binance.com/en/eoptions/BTCUSDT")
+
+        class _SM(sessions.SessionManager):
+            def __init__(self): self._contexts = {"binance": _Ctx([clean, capt])}
+            def _own_thread(self): return True
+        sm = _SM()
+        self.assertTrue(sm.guard_all_pages("binance"))          # found on the 2nd (idle) tab
+        # an all-clean context → no false positive
+        sm._contexts["binance"] = _Ctx([clean, FakePage("markets futures")])
+        self.assertFalse(sm.guard_all_pages("binance"))
+
     # ── guard: no challenge = fast path, no state ─────────────────────────────
     def test_guard_no_challenge_is_noop(self):
         self.assertFalse(self.hh.guard("binance", FakePage("normal page")))
