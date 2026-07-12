@@ -21,8 +21,23 @@ class FakePage:
     def inner_text(self, _sel):
         return self._body
 
-    def query_selector_all(self, _sel):
+    def __init_widgets__(self, widgets):
+        self._widgets = widgets or {}
+
+    _widgets: dict = {}
+
+    def with_widgets(self, widgets):
+        self._widgets = widgets
+        return self
+
+    def query_selector_all(self, sel):
+        for key, els in (self._widgets or {}).items():
+            if key in sel:
+                return els
         return []                                    # no captcha widget → text match decides
+
+    def query_selector(self, _sel):
+        return None
 
     def is_closed(self):
         return self._closed
@@ -71,6 +86,38 @@ class TestHumanHandoff(unittest.TestCase):
         from trading.broker_sense import sessions
         self.assertTrue(sessions.is_human_challenge(FakePage(CHALLENGE_BODY)))
         self.assertFalse(sessions.is_human_challenge(FakePage("just a normal chart")))
+
+    def test_detects_binance_jigsaw_security_verification(self):
+        """Regression (2026-07-12): Binance's 'Security Verification' JIGSAW puzzle — no
+        'slide' wording, a canvas widget — was read as 'no challenge'. Must fire now."""
+        from trading.broker_sense import sessions
+
+        class _El:
+            def is_visible(self): return True
+            def bounding_box(self): return {"x": 0, "y": 0, "width": 320, "height": 240}
+            def get_attribute(self, _a): return ""
+        jig = FakePage("dashboard est. total value security verification user-28ba0") \
+            .with_widgets({"canvas": [_El()]})
+        self.assertTrue(sessions.is_human_challenge(jig))
+
+    def test_otp_security_verification_is_not_a_challenge(self):
+        """The OTP 'Security Verification' step (code input, no puzzle) must NOT hand off —
+        the brain solves it via the vault. Guards against a false-positive regression."""
+        from trading.broker_sense import sessions
+
+        class _Code:
+            def is_visible(self): return True
+            def bounding_box(self): return {"x": 0, "y": 0, "width": 40, "height": 40}
+            def get_attribute(self, _a): return ""
+        otp = FakePage("security verification enter the 6-digit code sent to your email") \
+            .with_widgets({"one-time-code": [_Code()], "maxlength": [_Code()]})
+        self.assertFalse(sessions.is_human_challenge(otp))
+
+    def test_detects_puzzle_action_phrases(self):
+        from trading.broker_sense import sessions
+        for txt in ("please complete the puzzle to continue",
+                    "drag the slider to finish", "slide to verify your identity"):
+            self.assertTrue(sessions.is_human_challenge(FakePage(txt)), txt)
 
     def test_is_human_challenge_never_raises(self):
         from trading.broker_sense import sessions

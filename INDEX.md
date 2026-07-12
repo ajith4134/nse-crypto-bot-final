@@ -3440,7 +3440,7 @@ _trading/broker_sense/screeners.py — the whole-universe screen runs on OTHER p
 ## `trading/broker_sense/sessions.py`
 _trading/broker_sense/sessions.py — persistent logged-in broker browser sessions (saver H)._
 - **classes:** SessionManager
-- **functions:** `_sess_path(broker)`; `_login_lock_path(broker)`; `login_in_progress(broker) -> bool`; `begin_operator_login(broker) -> None`; `end_operator_login(broker) -> None`; `ensure_headed_display() -> str | None`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `is_human_challenge(pg) -> bool`; `_challenge_present(pg) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
+- **functions:** `_sess_path(broker)`; `_login_lock_path(broker)`; `login_in_progress(broker) -> bool`; `begin_operator_login(broker) -> None`; `end_operator_login(broker) -> None`; `ensure_headed_display() -> str | None`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `is_human_challenge(pg) -> bool`; `_challenge_present(pg) -> bool`; `_has_visible(pg, selector) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
 - **imports:** __future__, os, re, stat, time, trading, trading.broker_sense.brokers
 
 ## `trading/broker_sense/stock_xray.py`

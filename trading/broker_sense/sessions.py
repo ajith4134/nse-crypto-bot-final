@@ -159,9 +159,28 @@ def _looks_like_login(pg) -> bool:
 
 # captcha-SPECIFIC phrases only — NOT generic words like "slider"/"unusual activity" that appear
 # on ordinary carousels/markets pages (those false-flagged a real login as failed).
+# 2026-07-12: added the puzzle-ACTION phrases Binance's jigsaw variant uses ("complete the
+# puzzle", "drag the slider …") — the earlier list only had the SLIDER wording, so the
+# click-the-pieces "Security Verification" jigsaw (screenshot) matched nothing and Human
+# Handoff read "no challenge" while the CAPTCHA sat unsolved.
 _CHALLENGE_TXT = ("select all images", "select each image", "please select all", "captcha",
                   "slide to complete", "slide the puzzle", "verify you are human",
-                  "i'm not a robot", "are you human", "complete the security check")
+                  "i'm not a robot", "are you human", "complete the security check",
+                  "complete the puzzle", "drag the slider", "drag the puzzle",
+                  "slide to verify", "rotate the image", "tap the pieces")
+
+# The Binance CAPTCHA modal's TITLE is the generic "Security Verification" — too weak to match
+# on alone (it also titles the email/phone OTP step, which the brain solves via the vault). We
+# treat it as a human-only challenge ONLY when it carries a PUZZLE widget (canvas / jigsaw /
+# slider / captcha image) AND has NO one-time-code input (which would mark it as the OTP step).
+_CHALLENGE_TITLE_TXT = ("security verification", "verify to continue",
+                        "verify it's you", "unusual login", "verification required")
+_CODE_INPUT_SEL = ("input[autocomplete='one-time-code'], input[name*=code i], "
+                   "input[maxlength='1'], input[inputmode='numeric']")
+_PUZZLE_WIDGET_SEL = (
+    "canvas, [class*=puzzle i], [class*=jigsaw i], [class*=slider i], [class*=slideblock i], "
+    "[class*=nc_ i], [class*=geetest i], [class*=bcaptcha i], [class*=captcha i], "
+    "[id*=captcha i], img[src*=captcha i], img[src*=slide i]")
 
 
 def is_human_challenge(pg) -> bool:
@@ -192,9 +211,36 @@ def _challenge_present(pg) -> bool:
             box = el.bounding_box()
             if el.is_visible() and box and box["width"] > 60 and box["height"] > 60:
                 return True
+        # BINANCE "Security Verification" jigsaw/slider puzzle (2026-07-12): the title is
+        # generic, so require it TOGETHER with a visible puzzle widget AND no code input —
+        # that combination is the human-only puzzle, never the vault-solvable OTP step.
+        if any(t in body for t in _CHALLENGE_TITLE_TXT) and \
+                not _has_visible(pg, _CODE_INPUT_SEL):
+            if _has_visible(pg, _PUZZLE_WIDGET_SEL, min_w=100, min_h=60):
+                return True
         return False
     except Exception:
         return False
+
+
+def _has_visible(pg, selector: str, *, min_w: int = 0, min_h: int = 0) -> bool:
+    """True if `pg` has a visible element matching `selector` at least min_w×min_h px.
+    Never raises. min_w/min_h=0 → presence check (a tiny/offscreen node still counts)."""
+    try:
+        for el in pg.query_selector_all(selector):
+            try:
+                if not el.is_visible():
+                    continue
+                if min_w or min_h:
+                    box = el.bounding_box()
+                    if not box or box["width"] < min_w or box["height"] < min_h:
+                        continue
+                return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
 
 
 # NOT the real submit: SSO providers + cookie-consent buttons whose text also contains
@@ -634,6 +680,14 @@ class SessionManager:
             self._log("login_challenge", app.name,
                       f"{app.name} requires a human step (image CAPTCHA / verification) that "
                       f"automated login can't pass — needs a one-time human login (see report)")
+            # raise the Human-Handoff take-control so the operator can solve it (2026-07-12):
+            # a login-wall CAPTCHA otherwise returned False silently and never surfaced the
+            # noVNC button — the funnel just kept degrading to API data (motto-breaking).
+            try:
+                from trading.broker_sense import human_handoff
+                human_handoff.guard(app.name.lower(), pg, block=False)
+            except Exception:
+                pass
             return False
         ok = (pg.query_selector("input[type=password]") is None
               and not _looks_like_login(pg))       # not still parked on a login form
