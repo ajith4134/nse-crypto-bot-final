@@ -39,6 +39,12 @@ class LibraryBrainDecider:
         self._tf = timeframe
         self._lookback = lookback
         self._min_votes = min_votes
+        # exit only on a REAL reversal (ensemble flips against the position by this many net
+        # votes), not merely turning neutral — stops the too-soon force-exits. EXIT_MIN_VOTES.
+        try:
+            self._exit_votes = max(1, int(os.environ.get("EXIT_MIN_VOTES", "2") or 2))
+        except ValueError:
+            self._exit_votes = 2
         self._strats = strategies            # None → resolve all executable crypto signal strategies
         self._ccxt = None
         self._ohlcv_cache: dict = {}         # symbol -> (monotonic_ts, df)
@@ -125,10 +131,16 @@ class LibraryBrainDecider:
                 shorts += 1; contributors.append((s.name, -1))
         net = longs - shorts
         total = max(1, longs + shorts)
-        # decision: open on a net long majority; exit when the net turns non-positive
+        # decision: open on a net long majority; exit only on a REAL reversal (owner 2026-07-12:
+        # 'trades force-exit too soon'). The old `net <= 0` closed a winner the instant the
+        # ensemble merely turned NEUTRAL (a single noisy cycle at 92s), undercutting the profit
+        # tailgate that's meant to ride + lock the gain. Now exit needs the ensemble to flip
+        # against the position by EXIT_MIN_VOTES (default 2), not just go flat — so stoploss +
+        # tailgate handle the normal give-back and the strategy exit fires only on a genuine turn.
         action = "FLAT"
+        exit_votes = self._exit_votes
         if in_position:
-            action = "EXIT" if net <= 0 else "FLAT"
+            action = "EXIT" if net <= -exit_votes else "FLAT"
         elif net >= self._min_votes:
             action = "LONG"
         elif net <= -self._min_votes:
@@ -652,8 +664,14 @@ class BrainExecutor:
                     entered.append(tsym)
                     self._record_entry_meta(tsym, act, tag, brain, psych)
                 elif act == "EXIT" and sym in open_pairs:
-                    cli.close_pair(sym, segment=self.segment)
-                    exited.append(sym)
+                    # MIN-HOLD guard (owner 2026-07-12: 'exiting too soon'): don't strategy-exit a
+                    # trade younger than EXIT_MIN_HOLD_S — give the thesis time to play out; the
+                    # stoploss + profit tailgate still protect it in the meantime. 0 disables.
+                    if self._too_young_to_exit(cli, sym):
+                        skipped += 1
+                    else:
+                        cli.close_pair(sym, segment=self.segment)
+                        exited.append(sym)
                 else:
                     skipped += 1
             except Exception:
@@ -1105,6 +1123,30 @@ class BrainExecutor:
             return fz
         except Exception:
             return None
+
+    def _too_young_to_exit(self, cli, sym: str) -> bool:
+        """True if the open trade `sym` is younger than EXIT_MIN_HOLD_S (default 600s) — so a
+        noisy same-cycle ensemble flip can't force-exit a just-opened trade before its thesis
+        develops. Stoploss + tailgate still act regardless. Best-effort; never blocks on error."""
+        try:
+            hold_s = float(os.environ.get("EXIT_MIN_HOLD_S", "600") or 600)
+        except ValueError:
+            hold_s = 600.0
+        if hold_s <= 0:
+            return False
+        try:
+            import datetime as _dt
+            for t in (cli.status() or []):
+                if isinstance(t, dict) and (t.get("pair") == sym):
+                    od = t.get("open_date")
+                    if not od:
+                        return False
+                    o = _dt.datetime.fromisoformat(str(od).replace("Z", "").split("+")[0])
+                    age = (_dt.datetime.utcnow() - o).total_seconds()
+                    return 0 <= age < hold_s
+        except Exception:
+            return False
+        return False
 
     def _stack_features(self, sym: str) -> dict:
         """Full stacking feature vector for `sym`: the indicator_fusion lenses + the CORTEX ensemble
