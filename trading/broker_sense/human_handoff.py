@@ -179,6 +179,14 @@ def _activate(broker: str, url: str) -> None:
     }
     _write(data)
     _alert(broker, url)
+    try:                                                     # Brain Chat feed too — the
+        from trading.brain import mind_events                # owner may not be on Telegram
+        mind_events.emit("challenge",
+                         f"🧩 HUMAN NEEDED on {broker}: security check hit — browser "
+                         f"paused. Dashboard → Human Handoff → Take control; automation "
+                         f"resumes by itself once solved.", salience=0.98)
+    except Exception:
+        pass
 
 
 def _deactivate(broker: str, *, resolved: bool = True) -> None:

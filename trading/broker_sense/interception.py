@@ -19,6 +19,7 @@ classification are plain functions with no browser dependency. Read-only by cons
 observe responses, we never issue requests or actions."""
 from __future__ import annotations
 
+import re
 import time
 from urllib.parse import urlsplit
 
@@ -244,7 +245,36 @@ class NetworkRecorder:
     def __init__(self, registry: EndpointRegistry | None = None):
         self.registry = registry or EndpointRegistry()
         self._cache: dict[tuple[str, str], dict] = {}     # (broker, kind) → {body, ts, url}
+        self._ws_seen: dict[tuple, float] = {}            # (broker, kind, sym) → last-capture ts
         self.captured = 0
+
+    # every kind the ui_market door can serve — forwarded on capture (THE MOTTO: the
+    # app's own traffic IS the market-data feed; candles go to ui_data as before)
+    _MARKET_KINDS = ("orderbook", "funding", "mark_price", "index_price", "ticker",
+                     "open_interest", "long_short", "taker_volume", "liquidation",
+                     "option_chain", "recent_trades", "movers", "basis", "screener")
+
+    def _forward(self, broker: str, kind: str, url: str, body, *, ws: bool = False) -> None:
+        """Route a captured payload into the UI-only data doors. Callers pass only
+        successfully-parsed JSON bodies. Never raises."""
+        if body is None:
+            return
+        if kind == "candles":
+            try:
+                from trading.broker_sense import ui_data
+                if ws:
+                    ui_data.feed_ws_kline(broker, url, body)
+                else:
+                    ui_data.feed_capture(broker, url, body)
+            except Exception:
+                pass
+            return
+        if kind in self._MARKET_KINDS:
+            try:
+                from trading.broker_sense import ui_market
+                ui_market.feed_capture(broker, kind, url, body)
+            except Exception:
+                pass
 
     def attach(self, page, broker: str) -> None:
         """Hook response + websocket capture onto a live page. Best-effort; never raises."""
@@ -278,8 +308,26 @@ class NetworkRecorder:
             pass
 
     _WS_THROTTLE_S = 3.0
+    _WS_SYM_RE = re.compile(r'"s(?:ymbol)?"\s*:\s*"([A-Za-z0-9|_:-]{2,24})"')
+    # combined-stream wrapper: {"stream":"btcusdt@depth20@100ms",…} — partial-depth
+    # frames carry the symbol ONLY here; the @suffix also carries the kline TF, which
+    # must be part of the throttle key (a busy 5m stream must not starve a rotated 15m)
+    _WS_STREAM_RE = re.compile(r'"stream"\s*:\s*"([a-z0-9]{2,24})@([a-z0-9_@]+)"')
+    _WS_TF_RE = re.compile(r'"i"\s*:\s*"([0-9]+[mhdw])"')
 
     def _handle_ws(self, url: str, payload, broker: str) -> None:
+        # BINARY frames (Upstox Pro market-data-feeder = protobuf): text heuristics can't
+        # touch them — hand to the dedicated decoder, which feeds the ui_data/ui_market
+        # doors itself. Best-effort: no decoder / bad frame → registry-only record below.
+        if isinstance(payload, (bytes, bytearray)):
+            try:
+                from trading.broker_sense import upstox_feed
+                if upstox_feed.matches(url) and upstox_feed.decode_frame(broker, url,
+                                                                         bytes(payload)):
+                    self.captured += 1
+                    return
+            except Exception:
+                pass
         snippet = (payload if isinstance(payload, str) else str(payload))[:400]
         # classify the FRAME first: a combined ws stream (one URL) carries many event types, and the
         # specific one is in the payload (e.g. {"e":"forceOrder"} → liquidation). URL is the fallback.
@@ -298,19 +346,49 @@ class NetworkRecorder:
                 self._cache[(broker, "_ws_unknown")] = {"body": None, "ts": time.time(),
                                                         "url": url}
             return
-        prev = self._cache.get((broker, kind))
-        if prev and time.time() - prev["ts"] < self._WS_THROTTLE_S:
+        # PER-SYMBOL throttle (motto 2026-07-12): the old per-(broker, kind) key let ONE
+        # busy symbol's depth stream shadow every other parked tab's frames — with a
+        # tab-per-symbol pool, each symbol must get its own capture window. Arrays
+        # (!markPrice@arr, !ticker@arr) carry no top-level "s" → sym="" → per-kind window
+        # (correct: one array frame already covers every symbol).
+        m = self._WS_SYM_RE.search(snippet)
+        sym = (m.group(1).upper() if m else "")
+        sub = ""
+        ms = self._WS_STREAM_RE.search(snippet)
+        if ms:
+            sym = sym or ms.group(1).upper()
+            sub = ms.group(2)                 # kline_5m / depth20@100ms — per-stream window
+        elif kind == "candles":
+            mt = self._WS_TF_RE.search(snippet)
+            sub = mt.group(1) if mt else ""
+        tkey = (broker, kind, sym, sub)
+        prev_ts = self._ws_seen.get(tkey, 0.0)
+        if time.time() - prev_ts < self._WS_THROTTLE_S:
             return                            # already have a fresh capture — skip (rate-limit)
-        body = {"ws": True, "frame": snippet}
+        body = None
         try:
             import json as _json
             if snippet[:1] in "{[":
                 body = _json.loads((payload if isinstance(payload, str) else snippet))
         except Exception:
-            pass
-        self.registry.record(broker, url, method="WS", content_type="ws", body=None)
-        self._cache[(broker, kind)] = {"body": body, "ts": time.time(), "url": url}
+            body = None
+        self._ws_seen[tkey] = time.time()
+        if len(self._ws_seen) > 4000:          # bounded: stale (kind, sym) markers drop
+            cut = time.time() - self._WS_THROTTLE_S
+            self._ws_seen = {k: v for k, v in self._ws_seen.items() if v >= cut}
+        # registry writes stay per-(broker, kind): the URL pattern is symbol-agnostic,
+        # and per-symbol recording would autosave broker_endpoints.json every few
+        # seconds on the browser event thread once a tab pool streams many symbols
+        rkey = (broker, kind, "", "_registry")
+        if time.time() - self._ws_seen.get(rkey, 0.0) >= self._WS_THROTTLE_S:
+            self._ws_seen[rkey] = time.time()
+            self.registry.record(broker, url, method="WS", content_type="ws", body=None)
+        self._cache[(broker, kind)] = {"body": body if body is not None
+                                       else {"ws": True, "frame": snippet},
+                                       "ts": time.time(), "url": url}
         self.captured += 1
+        if body is not None:                   # unparsed snippets never reach the doors
+            self._forward(broker, kind, url, body, ws=True)
 
     def _handle(self, resp, broker: str) -> None:
         url = resp.url
@@ -342,14 +420,11 @@ class NetworkRecorder:
             self._cache[(broker, kind)] = {"body": body, "ts": time.time(), "url": url}
             if self.captured % 25 == 0:            # cheap periodic cross-process snapshot
                 self._persist_freshness()
-            if kind == "candles":
-                # UI-ONLY DATA (owner 2026-07-07): index the app's own kline payloads by
-                # (symbol, tf) so the funnel can trade on what the EYES see — no polling.
-                try:
-                    from trading.broker_sense import ui_data
-                    ui_data.feed_capture(broker, url, body)
-                except Exception:
-                    pass
+            # UI-ONLY DATA (owner 2026-07-07 → THE MOTTO 2026-07-12): route EVERY
+            # classified payload into the doors — candles → ui_data, everything else
+            # (book/funding/OI/long-short/taker/ticker/options/…) → ui_market. The app's
+            # own traffic replaces the API polls.
+            self._forward(broker, kind, url, body)
 
     def latest(self, broker: str, kind: str, *, max_age_s: float = _CACHE_TTL_S):
         """Freshest captured body for (broker, kind), or None if absent/stale."""

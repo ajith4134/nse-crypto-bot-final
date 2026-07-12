@@ -707,6 +707,14 @@ def handle_ui_data(h):
             if snap:
                 snap["note"] = "cross-process snapshot (eyes live in the funnel process)"
                 cov = snap
+        # THE MOTTO (2026-07-12): the door now serves EVERY kind, not just candles —
+        # show the ui_market superstore coverage + the parked-tab pool beside it.
+        try:
+            from trading.broker_sense import tab_pool, ui_market
+            cov["market_kinds"] = ui_market.coverage()
+            cov["tab_pool"] = tab_pool.status()
+        except Exception:
+            pass
         body = _json.dumps(cov).encode()
     except Exception as e:
         body = _json.dumps({"available": False,

@@ -94,13 +94,29 @@ def _ui_only() -> bool:
 def quote(symbol: str, market: str) -> dict | None:
     """Last price + bid/ask via API. crypto → ccxt Binance; NSE → OpenAlgo.
     UI-only mode: last close from the eyes' candles, else honest None."""
+    # THE MOTTO (2026-07-12): the app's own ticker/mark/book captures serve the quote
+    # FIRST — fresher than a 1m candle close and API-free — in every mode. Only a
+    # capture WITH a price short-circuits: a book-only capture must not return
+    # last=None and suppress a still-allowed API fill.
+    bk = None
+    try:
+        from trading.broker_sense import ui_market
+        t = ui_market.ticker(symbol)
+        bk = ui_market.book(symbol)
+        mk = ui_market.funding(symbol) if t is None else None
+        last = (t or {}).get("last") or (mk or {}).get("mark")
+        if last is not None:
+            return {"last": last, "bid": (bk or {}).get("bid"),
+                    "ask": (bk or {}).get("ask"), "source": "ui:capture"}
+    except Exception:
+        pass
     if _ui_only():
         from trading.broker_sense import ui_data
         rows = ui_data.ui_ohlcv(symbol, timeframe="1m", limit=2) or \
             ui_data.ui_ohlcv(symbol, timeframe="5m", limit=2)
         if rows:
-            return {"last": rows[-1][4], "bid": None, "ask": None,
-                    "source": "ui:capture"}
+            return {"last": rows[-1][4], "bid": (bk or {}).get("bid"),
+                    "ask": (bk or {}).get("ask"), "source": "ui:capture"}
         return None
     def _get():
         try:
@@ -120,8 +136,16 @@ def quote(symbol: str, market: str) -> dict | None:
 
 
 def top_of_book(symbol: str, market: str) -> dict | None:
-    """Best bid/ask via API (order-book fail-safe for the screen monitor).
-    UI-only mode: no API — honest None (books come from the eyes or not at all)."""
+    """Best bid/ask — the app's OWN depth stream first (THE MOTTO: web data, RAM-fast),
+    API only as failsafe when UI-only mode is off.
+    UI-only mode: captured book or honest None — never an API poll."""
+    try:
+        from trading.broker_sense import ui_market
+        bk = ui_market.book(symbol)
+        if bk is not None and (bk.get("bid") is not None or bk.get("ask") is not None):
+            return {"bid": bk.get("bid"), "ask": bk.get("ask"), "source": "ui:capture"}
+    except Exception:
+        pass
     if _ui_only():
         return None
     def _get():

@@ -89,7 +89,21 @@ def read_symbol(symbol: str, market: str = "crypto", timeframes=_DEFAULT_TFS,
             if prev and prev.get("bar_ts") == bar_ts:        # same bar already read → skip (cheap)
                 got[tf] = prev.get("read")
                 continue
-            path = chart_render.annotated(rows, symbol, tf)
+            # THE MOTTO tenet 4 (2026-07-12): prefer the REAL app chart pixels — a fresh
+            # parked-tab screenshot (tab_pool) IS the chart the app drew, indicators and
+            # all; the local render from door candles is the fallback. The shot must be
+            # from the CURRENT bar (mtime ≥ bar open) or the cached read would pin a
+            # stale chart to a new bar_ts. App shots are owned by the pool: never
+            # deleted here.
+            app_shot = None
+            try:
+                from trading.broker_sense import tab_pool
+                app_shot = tab_pool.latest_shot(symbol, tf)
+                if app_shot and os.path.getmtime(app_shot) < bar_ts / 1000.0:
+                    app_shot = None              # older than this bar → render instead
+            except Exception:
+                app_shot = None
+            path = app_shot or chart_render.annotated(rows, symbol, tf)
             if not path:
                 continue
             # FRAME-DIFF GATE (#5): if the freshly-rendered chart is pixel-identical to the last
@@ -101,10 +115,11 @@ def read_symbol(symbol: str, market: str = "crypto", timeframes=_DEFAULT_TFS,
                 got[tf] = prev["read"]
                 cache[key] = {**prev, "ts": time.time(), "bar_ts": bar_ts}
                 wrote += 1
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
+                if not app_shot:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
                 continue
             ctx = None
             try:
@@ -119,10 +134,11 @@ def read_symbol(symbol: str, market: str = "crypto", timeframes=_DEFAULT_TFS,
                 read = chart_vlm.read_chart(path, symbol, tf, context=ctx,
                                             timeout=int(budget), total_timeout=budget)
             finally:
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
+                if not app_shot:                 # rendered temp only — pool owns app shots
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
             if read:
                 cache[key] = {"ts": time.time(), "bar_ts": bar_ts, "phash": ph, "read": read}
                 got[tf] = read

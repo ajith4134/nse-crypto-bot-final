@@ -361,7 +361,14 @@ class SessionManager:
             return self._browser
         self._ensure_display()
         from playwright.sync_api import sync_playwright
-        self._pw = sync_playwright().start()
+        # REUSE an already-started driver (2026-07-12): context()'s persistent-profile
+        # attempt starts self._pw before launch_persistent_context can throw (profile
+        # held by another process). A second sync_playwright().start() on the same
+        # thread trips Playwright's asyncio-loop guard — which silently BROKE the
+        # documented "profile busy → saved-cookies context" degrade path (page()
+        # returned None and callers fell back to API, starving web coverage).
+        if self._pw is None:
+            self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=self.headless, args=self._CHROMIUM_ARGS)
         return self._browser
 

@@ -48,8 +48,13 @@ class TestRead(unittest.TestCase):
         # _ohlcv_fast tries a LIVE ccxt fetch before the data_failsafe fallback — mock
         # BOTH so this unit test never depends on the real market's current direction
         # (it flaked 'short' whenever real BTC trended down, 2026-07-10 fix)
-        with mock.patch("trading.broker_sense.app_school._ccxt_exchange",
+        # the UI-data door (THE MOTTO 2026-07-12) now serves candles FIRST — mock it to
+        # a miss too, or a real live capture snapshot leaks the actual market direction
+        fc._READ_CACHE.clear()               # a poisoned same-bar memo would mask the mock
+        with mock.patch("trading.crypto.exchange_pool.pool_enabled", return_value=False), \
+             mock.patch("trading.broker_sense.app_school._ccxt_exchange",
                         side_effect=RuntimeError("no network in unit tests")), \
+             mock.patch("trading.broker_sense.ui_data.ui_ohlcv", return_value=None), \
              mock.patch("trading.broker_sense.data_failsafe.ohlcv", return_value=_uptrend()):
             out = fc.read([{"symbol": "BTC/USDT:USDT"}], "crypto", timeframes=("5m", "1h"))
         self.assertIn("BTC/USDT:USDT", out)

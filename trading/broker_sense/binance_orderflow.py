@@ -84,11 +84,41 @@ def _f(v):
 
 
 # ── the feature pack ─────────────────────────────────────────────────────────
-def _liq_pressure(symbol: str) -> dict:
-    """Recent liquidation notional by side from the push mirror (no network)."""
+def _ui_only() -> bool:
+    """THE MOTTO (2026-07-12): UI-only mode turns off EVERY API path in this module —
+    the app's captured order-flow kinds (ui_market) are the sole source; missing kinds
+    are honest Nones, never a silent /futures/data poll or public-WS read."""
+    try:
+        from trading.broker_sense import ui_data
+        return ui_data.enabled()
+    except Exception:
+        return False
+
+
+def _fund_fields(out: dict, src: dict) -> None:
+    """funding_rate/mark/next_funding_in_s from a funding record (one derivation for
+    the capture and mirror branches — they must never compute different numbers)."""
+    out["funding_rate"] = src.get("funding_rate")
+    out["mark"] = src.get("mark")
+    nf = src.get("next_funding_ts")
+    out["next_funding_in_s"] = (round(max(0.0, nf / 1000.0 - time.time()), 1)
+                                if nf else None)
+
+
+def _liq_pressure(symbol: str, *, ui_only: bool = False) -> dict:
+    """Recent liquidation notional by side — the app's captured forceOrder stream first
+    (ui_market), the public push mirror only when UI-only mode is off."""
     now = time.time()
-    liqs = [x for x in get_mirror().recent_liquidations(symbol, 200)
-            if now - (x.get("ts") or 0) <= _LIQ_WINDOW_S]
+    liqs = []
+    try:
+        from trading.broker_sense import ui_market
+        liqs = [x for x in ui_market.recent_liquidations(symbol, 200)
+                if now - (x.get("ts") or 0) <= _LIQ_WINDOW_S]
+    except Exception:
+        pass
+    if not liqs and not ui_only:
+        liqs = [x for x in get_mirror().recent_liquidations(symbol, 200)
+                if now - (x.get("ts") or 0) <= _LIQ_WINDOW_S]
     # Binance forceOrder side is the side of the LIQUIDATION order: SELL = a long got liquidated.
     long_liq = sum((x.get("qty") or 0) * (x.get("price") or 0) for x in liqs if x.get("side") == "SELL")
     short_liq = sum((x.get("qty") or 0) * (x.get("price") or 0) for x in liqs if x.get("side") == "BUY")
@@ -115,50 +145,85 @@ def features(symbol: str, *, cheap: bool = False) -> dict:
         out["enabled"] = False
         return out
 
-    # 1) funding + countdown (mirror, push)
-    mk = get_mirror().funding(sym)
-    if mk:
-        out["funding_rate"] = mk.get("funding_rate")
-        out["mark"] = mk.get("mark")
-        nf = mk.get("next_funding_ts")
-        out["next_funding_in_s"] = round(max(0.0, nf / 1000.0 - time.time()), 1) if nf else None
-    out["funding_stale"] = get_mirror().is_stale(sym)
+    ui_only = _ui_only()                      # one read — features() runs per symbol
+    # 0) THE MOTTO: the app's OWN captured feeds serve every kind they can, first.
+    # Values are set only when the capture actually CARRIES them — a partial capture
+    # must not plant a None that blocks the (still allowed) REST/mirror backfill.
+    try:
+        from trading.broker_sense import ui_market
+    except Exception:
+        ui_market = None
+    if ui_market is not None:
+        mk = ui_market.funding(sym)
+        if mk and mk.get("funding_rate") is not None:
+            _fund_fields(out, mk)
+            out["funding_stale"] = False
+            out["source"] = "ui:capture"
+        ls = ui_market.long_short(sym)
+        if ls and ls.get("ratio") is not None:
+            out["crowd_long_short"] = ls["ratio"]
+        if ls and ls.get("long_pct") is not None:
+            out["crowd_long_pct"] = ls["long_pct"]
+        lss = ui_market.long_short(sym, smart=True)
+        if lss and lss.get("ratio") is not None:
+            out["smart_pos_long_short"] = lss["ratio"]
+        if lss and lss.get("long_pct") is not None:
+            out["smart_long_pct"] = lss["long_pct"]
+        tkc = ui_market.taker(sym)
+        if tkc and tkc.get("buy_sell_ratio") is not None:
+            out["taker_buy_sell_ratio"] = tkc["buy_sell_ratio"]
+        oic = ui_market.open_interest(sym)
+        if oic and oic.get("open_interest") is not None:
+            out["open_interest_usd"] = oic["open_interest"]
 
-    # 2) liquidation pressure (mirror, push)
-    out.update(_liq_pressure(sym))
+    # 1) funding + countdown (public mirror, push) — failsafe only, off in UI-only mode
+    if out.get("funding_rate") is None and not ui_only:
+        mk = get_mirror().funding(sym)
+        if mk:
+            _fund_fields(out, mk)
+        out["funding_stale"] = get_mirror().is_stale(sym)
+    out.setdefault("funding_stale", out.get("funding_rate") is None)
 
-    if cheap:                                     # mirror-only: skip the /futures/data REST below
+    # 2) liquidation pressure (captures first; mirror gated inside)
+    out.update(_liq_pressure(sym, ui_only=ui_only))
+
+    if cheap or ui_only:      # mirror/UI-only: never the per-symbol /futures/data REST
         return out
 
     # 3) crowd positioning — global account long/short (retail; contrarian at extremes)
-    g = _data("globalLongShortAccountRatio", sym)
-    if isinstance(g, list) and g:
-        out["crowd_long_short"] = _f(g[-1].get("longShortRatio"))
-        out["crowd_long_pct"] = _f(g[-1].get("longAccount"))
+    if out.get("crowd_long_pct") is None:
+        g = _data("globalLongShortAccountRatio", sym)
+        if isinstance(g, list) and g:
+            out["crowd_long_short"] = _f(g[-1].get("longShortRatio"))
+            out["crowd_long_pct"] = _f(g[-1].get("longAccount"))
 
     # 4) smart-money — top-trader account + position long/short
-    ta = _data("topLongShortAccountRatio", sym)
-    if isinstance(ta, list) and ta:
-        out["smart_acct_long_short"] = _f(ta[-1].get("longShortRatio"))
-    tp = _data("topLongShortPositionRatio", sym)
-    if isinstance(tp, list) and tp:
-        out["smart_pos_long_short"] = _f(tp[-1].get("longShortRatio"))
-        out["smart_long_pct"] = _f(tp[-1].get("longAccount"))
+    if out.get("smart_acct_long_short") is None:
+        ta = _data("topLongShortAccountRatio", sym)
+        if isinstance(ta, list) and ta:
+            out["smart_acct_long_short"] = _f(ta[-1].get("longShortRatio"))
+    if out.get("smart_long_pct") is None:
+        tp = _data("topLongShortPositionRatio", sym)
+        if isinstance(tp, list) and tp:
+            out["smart_pos_long_short"] = _f(tp[-1].get("longShortRatio"))
+            out["smart_long_pct"] = _f(tp[-1].get("longAccount"))
 
     # 5) aggressor flow — taker buy/sell volume
-    tk = _data("takerlongshortRatio", sym)
-    if isinstance(tk, list) and tk:
-        out["taker_buy_sell_ratio"] = _f(tk[-1].get("buySellRatio"))
+    if out.get("taker_buy_sell_ratio") is None:
+        tk = _data("takerlongshortRatio", sym)
+        if isinstance(tk, list) and tk:
+            out["taker_buy_sell_ratio"] = _f(tk[-1].get("buySellRatio"))
 
     # 6) open interest + %change (conviction) — need 2 points for the delta
-    oi = _data("openInterestHist", sym, limit=2)
-    if isinstance(oi, list) and oi:
-        cur = _f(oi[-1].get("sumOpenInterestValue"))
-        out["open_interest_usd"] = cur
-        if len(oi) >= 2:
-            prev = _f(oi[-2].get("sumOpenInterestValue"))
-            if cur is not None and prev:
-                out["oi_change_pct"] = round((cur - prev) / prev * 100.0, 3)
+    if out.get("open_interest_usd") is None:
+        oi = _data("openInterestHist", sym, limit=2)
+        if isinstance(oi, list) and oi:
+            cur = _f(oi[-1].get("sumOpenInterestValue"))
+            out["open_interest_usd"] = cur
+            if len(oi) >= 2:
+                prev = _f(oi[-2].get("sumOpenInterestValue"))
+                if cur is not None and prev:
+                    out["oi_change_pct"] = round((cur - prev) / prev * 100.0, 3)
     return out
 
 

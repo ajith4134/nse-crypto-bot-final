@@ -85,8 +85,26 @@ def _tf_seconds(tf: str) -> int:
 
 
 def _ohlcv_fast(sym: str, market: str, tf: str) -> list | None:
-    """Candles the FAST way: ccxt fetch_ohlcv on the cached exchange (~200ms) — skips the slow
-    Freqtrade-REST-first path in data_failsafe. Falls back to data_failsafe only if ccxt fails."""
+    """Candles the FAST way. THE MOTTO (2026-07-12): the eyes' captured candles are FIRST
+    always — they're RAM, already paid for by the app, and API-free. In UI-only mode they
+    are also LAST: this used to try ccxt-direct BEFORE the gate (gap D), silently leaking
+    API reads while the flag said web-only. API paths run only when UI-only is off."""
+    ui_on = os.environ.get("UI_ONLY_DATA", "") in ("1", "true", "TRUE", "yes")
+    try:
+        from trading.broker_sense import ui_data
+        ui_on = ui_data.enabled()             # env backstop above: an exception here
+        rows = ui_data.ui_ohlcv(sym, timeframe=tf, limit=_BARS)   # must NOT unlock the
+        if rows and len(rows) >= 15:          # API paths while the flag says web-only
+            return rows
+    except Exception:
+        pass
+    if ui_on:
+        try:
+            # honest miss — data_failsafe.ohlcv re-checks the door then returns None,
+            # never an API poll (upstream records the data failure)
+            return data_failsafe.ohlcv(sym, market, timeframe=tf, limit=_BARS)
+        except Exception:
+            return None                       # UI-only: an error is a miss, never ccxt
     if market == "crypto":
         # MULTI-VENUE POOL first (2026-07-12): ban-proof round-robin over binance/bybit/okx/kucoin
         # instead of hitting Binance-direct every call (a top 418 contributor). MULTI_VENUE_POOL=0

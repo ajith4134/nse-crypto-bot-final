@@ -2614,6 +2614,11 @@ _AI-scientist idea #5 — TSFM ensemble + conformal calibration._
 - **functions:** `_dataset(n, d, seed)`
 - **imports:** core.node_protocol, nodes.tsfm_ensemble, numpy, os, unittest
 
+## `tests/test_ui_market_motto.py`
+_THE MOTTO build tests (2026-07-12): ui_market superstore, WS-kline upsert,_
+- **classes:** _Base, UiMarketTest, WsKlineUpsertTest, InterceptionForwardTest, _FakeLocator, _FakePage, _FakeSessions, TabPoolTest, UpstoxFeedTest, GateTest
+- **imports:** os, pathlib, tempfile, time, unittest
+
 ## `tests/test_ui_only_data.py`
 _UI-only data mode tests (owner 2026-07-07) — capture parsing + honest misses._
 - **classes:** UiOnlyDataTest, AutoFlipGovernorTest, TestCrawlUrlNormalization, TestGovernorFlipBack
@@ -3233,7 +3238,7 @@ _trading/broker_sense/binance_options.py — Binance options IV/skew regime gaug
 
 ## `trading/broker_sense/binance_orderflow.py`
 _trading/broker_sense/binance_orderflow.py — Binance-computed order-flow & positioning features._
-- **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `_get_json(url)`; `_cached(key, url)`; `_data(path, symbol)`; `_f(v)`; `_liq_pressure(symbol) -> dict`; `features(symbol) -> dict`; `signal(symbol) -> dict`; `clear_cache() -> None`
+- **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `_get_json(url)`; `_cached(key, url)`; `_data(path, symbol)`; `_f(v)`; `_ui_only() -> bool`; `_fund_fields(out, src) -> None`; `_liq_pressure(symbol) -> dict`; `features(symbol) -> dict`; `signal(symbol) -> dict`; `clear_cache() -> None`
 - **imports:** __future__, json, os, threading, time, trading.broker_sense.binance_stream, urllib.parse, urllib.request
 
 ## `trading/broker_sense/binance_sectors.py`
@@ -3355,7 +3360,7 @@ _trading/broker_sense/indicator_fusion.py — ultra-advanced multi-timeframe ind
 _trading/broker_sense/interception.py — the brain's peripheral nerve: capture the broker_
 - **classes:** EndpointRegistry, NetworkRecorder
 - **functions:** `_url_pattern(url) -> str`; `classify(url, body) -> str`; `_sample_keys(body) -> list[str]`; `get_recorder() -> NetworkRecorder`
-- **imports:** __future__, time, trading, urllib.parse
+- **imports:** __future__, re, time, trading, urllib.parse
 
 ## `trading/broker_sense/learning_columns.py`
 _trading/broker_sense/learning_columns.py — discovered app data → DYNAMIC learning columns._
@@ -3443,6 +3448,12 @@ _trading/broker_sense/stock_xray.py — the Upstox Stock X-Ray: one FUSED per-st
 - **functions:** `_oa()`; `_is_option(symbol, segment) -> bool`; `_opt_exchange(symbol, exchange, segment) -> str`; `demand_supply_zones(candles) -> dict`; `_cluster(levels, price) -> list[dict]`; `circuit_bands(quote) -> dict`; `depth_imbalance(depth) -> dict`; `capture(symbol, exchange, segment) -> dict`; `_summary(snap) -> dict`; `_visual_capture(symbol, sessions) -> dict`; `_persist(symbol, snap) -> None`; `get_xray(symbol) -> Optional[dict]`; `latest(limit) -> list[dict]`; `capture_on_open(symbol, exchange, segment) -> None`; `_to_list_candles(rows) -> list`; `_slim_candle(r) -> Optional[dict]`; `_f(d, key) -> Optional[float]`
 - **imports:** __future__, time, trading, typing
 
+## `trading/broker_sense/tab_pool.py`
+_trading/broker_sense/tab_pool.py — parked streaming tabs: the app IS the feed._
+- **classes:** TabPool
+- **functions:** `enabled() -> bool`; `_pool_n() -> int`; `_rotation_tfs() -> list[str]`; `_rotation_seq() -> list[str]`; `_flat(symbol) -> str`; `_shot_dir()`; `charts(symbol) -> dict[str, str]`; `latest_shot(symbol, tf) -> str | None`; `status() -> dict`; `get_pool(sessions, broker) -> TabPool`
+- **imports:** __future__, os, re, time, trading
+
 ## `trading/broker_sense/trade_columns.py`
 _trading/broker_sense/trade_columns.py — turn the App Driving School's discovered app labels_
 - **functions:** `_norm(label) -> str`; `journal_fields() -> set`; `discovered_labels() -> list`; `propose() -> dict`; `accepted() -> list`; `accept(column) -> dict`; `reject(column) -> dict`
@@ -3455,13 +3466,23 @@ _trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
 
 ## `trading/broker_sense/ui_data.py`
 _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._
-- **functions:** `enabled() -> bool`; `_fresh_shortlist_cov(shortlist, fresh_s) -> float | None`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`; `_write_rows_snapshot(rows) -> None`; `_hydrate_from_snapshot() -> None`
+- **functions:** `enabled() -> bool`; `_fresh_shortlist_cov(shortlist, fresh_s) -> float | None`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `feed_ws_kline(broker, url, frame) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`; `_write_rows_snapshot(rows, path) -> None`; `_hydrate_from_snapshot() -> None`
 - **imports:** __future__, os, re, time, trading
 
 ## `trading/broker_sense/ui_health.py`
 _trading/broker_sense/ui_health.py — Human-UI self-check (owner goal 2026-07-07, #10)._
 - **functions:** `_has_session(broker) -> bool`; `_eyes_fresh(broker, max_age_s) -> dict`; `_crawl_recent(max_age_s) -> dict`; `_hand_available() -> dict`; `check() -> dict`
 - **imports:** __future__, time, trading
+
+## `trading/broker_sense/ui_market.py`
+_trading/broker_sense/ui_market.py — UI-ONLY market data for EVERYTHING beyond candles._
+- **functions:** `_fresh_for(kind) -> float`; `_norm_symbol(raw) -> str`; `_f(v)`; `_unwrap(body)`; `_url_symbol(url) -> str | None`; `_event_symbol(d) -> str | None`; `_parse_orderbook(d, url)`; `_parse_mark(d, url)`; `_parse_ticker(d, url)`; `_parse_open_interest(d, url)`; `_parse_long_short(d, url)`; `_parse_taker(d, url)`; `_parse_liquidation(d, url)`; `_stream_hint(body) -> str | None`; `feed_capture(broker, kind, url, body) -> int`; `_learn_alias(row) -> None`; `_candidates(symbol) -> list[str]`; `_get(kind, symbol) -> dict | None`; `book(symbol) -> dict | None`; `funding(symbol) -> dict | None`; `ticker(symbol) -> dict | None`; `open_interest(symbol) -> dict | None`; `long_short(symbol) -> dict | None`; `taker(symbol) -> dict | None`; `option_chain(symbol) -> dict | None`; `recent_liquidations(symbol, n) -> list`; `movers(n) -> list[dict]`; `coverage() -> dict`; `fresh_kinds(symbol) -> list[str]`; `_maybe_snapshot() -> None`; `_write_snapshot(rows, liqs, path) -> None`; `_hydrate_from_snapshot() -> None`
+- **imports:** __future__, os, re, time, trading
+
+## `trading/broker_sense/upstox_feed.py`
+_trading/broker_sense/upstox_feed.py — decode the Upstox web app's protobuf WS frames._
+- **functions:** `_pb_modules() -> list`; `matches(url) -> bool`; `_parse(raw)`; `_feed_parts(feed)`; `_q(quote) -> float`; `decode_frame(broker, url, raw) -> int`
+- **imports:** __future__, pathlib, sys, time
 
 ## `trading/broker_sense/vision_worker.py`
 _trading/broker_sense/vision_worker.py — async deep chart-vision worker (the brain's patient eyes)._

@@ -67,11 +67,30 @@ class LibraryBrainDecider:
         now = time.monotonic()
         if hit and (now - hit[0]) < 20:
             return hit[1]
+        # THE MOTTO (2026-07-12): the eyes' captured candles serve the DECISION bars
+        # first — this was the last ungated ccxt read in the entry path (audit gap C).
+        # In UI-only mode a capture miss OR an error is an honest None (FLAT), never an
+        # API poll — the env backstop keeps that true even if the door itself errors.
+        raw = None
+        ui_on = os.environ.get("UI_ONLY_DATA", "") in ("1", "true", "TRUE", "yes")
         try:
-            # OHLCV comes from the spot ccxt feed even when the bot trades futures perps.
-            raw = self._client()._client().fetch_ohlcv(_spot(symbol), self._tf, limit=self._lookback)
+            from trading.broker_sense import ui_data
+            ui_on = ui_data.enabled()
+            raw = ui_data.ui_ohlcv(_spot(symbol), timeframe=self._tf,
+                                   limit=self._lookback)
+            if raw is not None and len(raw) < 40:
+                raw = None                        # too thin for the strategies
         except Exception:
+            raw = None
+        if raw is None and ui_on:
             return None
+        if raw is None:
+            try:
+                # OHLCV comes from the spot ccxt feed even when the bot trades futures perps.
+                raw = self._client()._client().fetch_ohlcv(_spot(symbol), self._tf,
+                                                           limit=self._lookback)
+            except Exception:
+                return None
         if not raw:
             return None
         df = pd.DataFrame(raw, columns=["time", "open", "high", "low", "close", "volume"])

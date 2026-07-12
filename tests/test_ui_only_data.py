@@ -19,9 +19,14 @@ class UiOnlyDataTest(unittest.TestCase):
         from trading import state
         self._p = mock.patch.object(state, "STATE_DIR", Path(self._tmp.name))
         self._p.start()
-        from trading.broker_sense import ui_data
+        from trading.broker_sense import ui_data, ui_market
         ui_data._STORE.clear()
         ui_data._HITS.update({"served": 0, "missed": 0, "fed": 0})
+        # ui_market (THE MOTTO superstore) now also serves quotes/books — clear it too
+        # or captures forwarded by earlier tests leak into the no-capture assertions
+        ui_market._STORE.clear()
+        ui_market._LIQS.clear()
+        ui_market._HITS.update({"fed": 0, "served": 0, "missed": 0})
 
     def tearDown(self):
         self._p.stop()
@@ -100,9 +105,14 @@ class AutoFlipGovernorTest(unittest.TestCase):
         from trading import state
         self._p = mock.patch.object(state, "STATE_DIR", Path(self._tmp.name))
         self._p.start()
-        from trading.broker_sense import ui_data
+        from trading.broker_sense import ui_data, ui_market
         ui_data._STORE.clear()
         ui_data._HITS.update({"served": 0, "missed": 0, "fed": 0})
+        # ui_market (THE MOTTO superstore) now also serves quotes/books — clear it too
+        # or captures forwarded by earlier tests leak into the no-capture assertions
+        ui_market._STORE.clear()
+        ui_market._LIQS.clear()
+        ui_market._HITS.update({"fed": 0, "served": 0, "missed": 0})
         os.environ.pop("UI_ONLY_DATA", None)
 
     def tearDown(self):

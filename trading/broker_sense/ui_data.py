@@ -260,6 +260,53 @@ def feed_capture(broker: str, url: str, body) -> bool:
         return False
 
 
+def feed_ws_kline(broker: str, url: str, frame) -> bool:
+    """Interception WS hook (THE MOTTO 2026-07-12): the app's chart page keeps a kline
+    stream OPEN while a tab is parked on it — each event updates ONE bar. Upserting it
+    into the captured history keeps that (symbol, tf) key *continuously* fresh with zero
+    re-navigation: the REST capture seeds the rows, the stream keeps them current.
+    Binance shape: {"e":"kline","s":"BTCUSDT","k":{t,o,h,l,c,v,i}} (possibly wrapped in
+    {"stream": …, "data": …}). Rejects nonsense bars; never raises."""
+    try:
+        d = frame.get("data") if isinstance(frame, dict) and \
+            isinstance(frame.get("data"), dict) else frame
+        if not isinstance(d, dict):
+            return False
+        k = d.get("k")
+        if not isinstance(k, dict):
+            return False
+        sym, tf = d.get("s") or k.get("s"), k.get("i")
+        if not sym or not tf:
+            return False
+        t = int(k["t"])
+        if 0 < t < 10**12:
+            t *= 1000                                 # epoch-seconds feed → ms (parity
+        bar = [t, float(k["o"]), float(k["h"]), float(k["l"]),   # with _parse_rows)
+               float(k["c"]), float(k.get("v") or 0.0)]
+        if bar[0] <= 0 or bar[4] <= 0 or bar[2] < bar[3]:
+            return False                              # nonsense prices → reject
+        key = (_norm_symbol(sym), str(tf).lower())
+        row = _STORE.get(key)
+        if row and row.get("rows"):
+            rows = row["rows"]
+            if bar[0] == rows[-1][0]:
+                rows[-1] = bar                        # same bar → replace (stream update)
+            elif bar[0] > rows[-1][0]:
+                rows.append(bar)                      # new bar → append
+                del rows[:-_MAX_ROWS]
+            else:
+                return False                          # out-of-order frame → drop
+            row["ts"] = time.time()
+        else:
+            _STORE[key] = {"rows": [bar], "ts": time.time(), "url": (url or "")[:160],
+                           "broker": broker}
+        _HITS["fed"] += 1
+        _maybe_snapshot()
+        return True
+    except Exception:
+        return False
+
+
 def _candidates(symbol: str) -> list[str]:
     """Symbol spellings the apps use: BTC/USDT:USDT → BTCUSDT; RELIANCE → RELIANCE…"""
     s = (symbol or "").upper()
@@ -328,7 +375,11 @@ def _maybe_snapshot() -> None:
                                     "rows": (r.get("rows") or [])[-_SNAP_ROWS:]}
                     for (sym, tf), r in _STORE.items()}
             import threading
-            threading.Thread(target=_write_rows_snapshot, args=(rows,),
+            # resolve the target path NOW: the daemon thread may outlive a test's
+            # STATE_DIR monkeypatch and would otherwise write fixture rows into the
+            # LIVE snapshot (observed 2026-07-12: fake 100.5 bars served to the funnel)
+            threading.Thread(target=_write_rows_snapshot,
+                             args=(rows, state._path("ui_candles.json")),
                              daemon=True, name="ui-candles-snapshot").start()
     except Exception:
         pass
@@ -342,13 +393,19 @@ _last_rows_snap = 0.0
 _last_hydrate = 0.0
 
 
-def _write_rows_snapshot(rows: dict) -> None:
+def _write_rows_snapshot(rows: dict, path=None) -> None:
     """MERGE-write: keys a previous run (or another broker's crawl) snapshotted stay
     until a NEWER capture replaces them — a cold funnel restart must not clobber the
     cross-process store down to its first re-crawled symbol. Bounded by dropping the
-    oldest keys; readers still apply freshness gates, so old keys serve honest None."""
+    oldest keys; readers still apply freshness gates, so old keys serve honest None.
+    `path` is resolved by the SPAWNER (STATE_DIR may change under a daemon thread)."""
+    import json as _json
     try:
-        old = state.load_json("ui_candles.json", {}).get("rows") or {}
+        p = path if path is not None else state._path("ui_candles.json")
+        try:
+            old = (_json.loads(p.read_text()) or {}).get("rows") or {}
+        except Exception:
+            old = {}
         for k, r in old.items():
             cur = rows.get(k)
             if cur is None or float((r or {}).get("ts") or 0) > float(cur.get("ts") or 0):
@@ -357,7 +414,9 @@ def _write_rows_snapshot(rows: dict) -> None:
             rows = dict(sorted(rows.items(),
                                key=lambda kv: float((kv[1] or {}).get("ts") or 0)
                                )[-_SNAP_KEYS_MAX:])
-        state.save_json("ui_candles.json", {"saved_ts": time.time(), "rows": rows})
+        tmp = p.with_suffix(p.suffix + ".tmp")
+        tmp.write_text(_json.dumps({"saved_ts": time.time(), "rows": rows}))
+        os.replace(tmp, p)
     except Exception:
         pass
 
@@ -373,7 +432,9 @@ def _hydrate_from_snapshot() -> None:
     if _HITS["fed"]:
         return                          # live feeder: its own captures win
     now = time.time()
-    if _STORE and now - _last_hydrate < _HYDRATE_EVERY_S:
+    # time-only throttle (2026-07-12): `_STORE and …` disabled the throttle while the
+    # store was empty — a cold non-feeder process paid a disk JSON load on EVERY read
+    if now - _last_hydrate < _HYDRATE_EVERY_S:
         return
     _last_hydrate = now
     try:

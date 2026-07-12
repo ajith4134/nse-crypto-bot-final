@@ -542,9 +542,18 @@ class BrokerSenseFunnel:
         # NSE→upstox. Budget-tail slot, never blocks entry.
         if os.environ.get("UI_CRAWL", "1") in ("1", "true", "TRUE", "yes"):
             try:
-                from trading.broker_sense import ui_crawl, ui_data
+                from trading.broker_sense import tab_pool, ui_crawl, ui_data
                 _syms = sorted(set(tradeable) | open_syms)
                 _broker = "binance" if self.market == "crypto" else "upstox"
+                # PARKED TAB POOL (THE MOTTO 2026-07-12): one open tab per top-shortlist
+                # symbol = the app's own WS streams klines/depth/mark continuously into
+                # interception → ui_data/ui_market. This is what keeps fresh coverage
+                # ≥80% so the UI-only governor flips ON and STAYS on. Open trades park
+                # first — their data must never lapse.
+                _prio = sorted(open_syms) + [s for s in tradeable if s not in open_syms]
+                rep["stages"]["tab_pool"] = tab_pool.get_pool(
+                    self.sessions, _broker).ensure(_prio, deadline=t0 + budget * 1.1)
+                # serial crawl covers the LONG TAIL beyond the parked head
                 rep["stages"]["ui_crawl"] = ui_crawl.crawl_once(
                     self.sessions, _syms, deadline=t0 + budget * 1.15, broker=_broker)
                 # the GOVERNOR (owner's standing order): flip UI-only-data ON by itself

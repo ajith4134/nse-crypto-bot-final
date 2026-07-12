@@ -193,6 +193,23 @@ def capture(symbol: str, exchange: str = "NSE", segment: str = "intraday", *,
                           "greeks": {k: _f(snap.get("quote", {}), k)
                                      for k in ("delta", "gamma", "theta", "vega", "iv")}}
 
+    # UI-market door (THE MOTTO 2026-07-12): whatever the eyes captured from the app's
+    # own streams for this symbol — book/funding/OI/positioning — rides the X-Ray too,
+    # with provenance. Best-effort: an empty door adds nothing.
+    try:
+        from trading.broker_sense import ui_market
+        kinds = ui_market.fresh_kinds(symbol)
+        if kinds:
+            snap["ui_market"] = {"fresh_kinds": kinds,
+                                 "book": ui_market.book(symbol),
+                                 "funding": ui_market.funding(symbol),
+                                 "open_interest": ui_market.open_interest(symbol),
+                                 "long_short": ui_market.long_short(symbol),
+                                 "taker": ui_market.taker(symbol)}
+            snap["sources"].append("ui:capture")
+    except Exception:
+        pass
+
     # derived summary (always available from the structured data)
     snap["summary"] = _summary(snap)
 
