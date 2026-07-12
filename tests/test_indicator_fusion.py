@@ -94,6 +94,9 @@ class TestFuse(unittest.TestCase):
         self._oc = mock.patch.object(IF, "_onchain_cached", return_value=None)
         self._oc.start()
         self.addCleanup(self._oc.stop)
+        # isolate from the per-5m-bar fuse() memo: these tests re-mock _fetch per case, so a
+        # cached result from a prior test (same symbol + bar) must not leak in. (2026-07-12)
+        IF._FUSE_CACHE.clear()
 
     def _patch_fetch(self, trend):
         return mock.patch.object(IF, "_fetch",

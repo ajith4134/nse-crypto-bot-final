@@ -10,6 +10,7 @@ Honest: this is a transparent momentum/trend read of the real candles — not a 
 returns 'unavailable' (never a fake number) when the data can't be fetched."""
 from __future__ import annotations
 
+import os
 import time
 
 from trading.broker_sense import data_failsafe
@@ -70,6 +71,19 @@ _UNAVAIL = {"p_up": 0.5, "direction": "neutral", "source": "unavailable", "chart
 _MAX_TFS = 3                                     # direction needs a few TFs, not all — keep it fast
 
 
+_READ_CACHE: dict = {}      # (sym, market, tf, tf_bar_epoch) -> direction dict
+
+
+def _tf_seconds(tf: str) -> int:
+    """'5m'->300, '1h'->3600, '1d'->86400; default 300 — used to key the per-TF bar so a 1h read
+    is reused for the whole hour and a 5m read for the 5 minutes it's valid."""
+    try:
+        n, u = int(tf[:-1]), tf[-1].lower()
+        return n * {"m": 60, "h": 3600, "d": 86400}.get(u, 60)
+    except Exception:
+        return 300
+
+
 def _ohlcv_fast(sym: str, market: str, tf: str) -> list | None:
     """Candles the FAST way: ccxt fetch_ohlcv on the cached exchange (~200ms) — skips the slow
     Freqtrade-REST-first path in data_failsafe. Falls back to data_failsafe only if ccxt fails."""
@@ -103,15 +117,30 @@ def read(picks: list[dict], market: str, timeframes=("5m", "15m", "1h"),
     if not jobs or (deadline is not None and time.monotonic() > deadline):
         return out
 
+    _memo = os.environ.get("FAST_CANDLES_MEMO", "1") in ("1", "true", "TRUE", "yes", "on")
+
     def _one(job):
         sym, tf = job
         if deadline is not None and time.monotonic() > deadline:   # queued past budget → skip fetch
             return sym, tf, dict(_UNAVAIL)
+        # PER-TF-BAR MEMO (2026-07-12 LOOK-stage perf): the (sym, tf) candle read is bar-stable, so
+        # consecutive funnel cycles within the same bar reuse it instead of re-fetching every pick ×
+        # tf (the measured 35s LOOK hog). Keyed by the TF's own bar. FAST_CANDLES_MEMO=0 disables.
+        if _memo:
+            ep = int(time.time() // _tf_seconds(tf))
+            ck = (sym, market, tf, ep)
+            hit = _READ_CACHE.get(ck)
+            if hit is not None:
+                return sym, tf, hit
         rows = _ohlcv_fast(sym, market, tf)     # ccxt direct (fast); data_failsafe as fallback
         if not rows:
             return sym, tf, dict(_UNAVAIL)
         res = direction_from_ohlcv(rows)
         res["chart_source"] = "fast:ohlcv"
+        if _memo:
+            if len(_READ_CACHE) > 8000:          # bounded — clear rather than grow unbounded
+                _READ_CACHE.clear()
+            _READ_CACHE[ck] = res
         return sym, tf, res
 
     # HARD wall-clock bound: collect via as_completed with the remaining budget, then shut the pool

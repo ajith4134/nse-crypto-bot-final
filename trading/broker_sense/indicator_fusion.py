@@ -327,9 +327,52 @@ def _onchain_cached(ttl: float = 300.0) -> dict | None:
     return _ONCHAIN_CACHE["snap"]
 
 
+_FUSE_CACHE: dict = {}      # (symbol, market, tfs, vision_sig) -> (bar_epoch, result)
+
+
+def _vision_sig(vision) -> tuple:
+    """Cheap fingerprint of the vision lens so a changed chart read misses the cache (correct)
+    but a stable one within the bar hits it. None/empty → ()."""
+    if not isinstance(vision, dict):
+        return ()
+    out = []
+    for tf, v in sorted(vision.items()):
+        if isinstance(v, dict):
+            out.append((tf, round(float(v.get("p_up", 0.5) or 0.5), 3), v.get("direction")))
+    return tuple(out)
+
+
 def fuse(symbol: str, market: str = "crypto",
          timeframes=("1m", "5m", "15m", "1h", "4h", "1d"),
          vision: dict | None = None) -> dict:
+    """Per-5m-bar-memoized wrapper over the real fusion. fuse() reads bar-stable OHLCV across
+    timeframes (the funnel VERIFY hog — measured ~6s/candidate live) so within a bar the result is
+    deterministic for a given vision lens; consecutive funnel cycles (every ~1-2 min) reuse it
+    instead of re-fetching every timeframe. Cache by (symbol, market, timeframes, vision-print) for
+    the bar. FUSE_MEMO=0 disables; FUSE_MEMO_BAR_S sets the bar seconds (default 300). Unavailable
+    results are never cached (so a transient data miss retries next cycle)."""
+    if os.environ.get("FUSE_MEMO", "1") not in ("1", "true", "TRUE", "yes", "on"):
+        return _fuse_uncached(symbol, market, timeframes, vision)
+    try:
+        bar = int(os.environ.get("FUSE_MEMO_BAR_S", "300"))
+    except Exception:
+        bar = 300
+    epoch = int(time.time() // max(1, bar))
+    key = (symbol, market, tuple(timeframes), _vision_sig(vision))
+    hit = _FUSE_CACHE.get(key)
+    if hit is not None and hit[0] == epoch:
+        return hit[1]
+    result = _fuse_uncached(symbol, market, timeframes, vision)
+    if isinstance(result, dict) and result.get("available"):
+        if len(_FUSE_CACHE) > 6000:               # bounded — clear rather than grow unbounded
+            _FUSE_CACHE.clear()
+        _FUSE_CACHE[key] = (epoch, result)
+    return result
+
+
+def _fuse_uncached(symbol: str, market: str = "crypto",
+                   timeframes=("1m", "5m", "15m", "1h", "4h", "1d"),
+                   vision: dict | None = None) -> dict:
     """THE decision object for one symbol (research §"Final decision object").
 
     vision: optional {tf: {p_up, direction}} from chart_vision/fast_candles — the independent
