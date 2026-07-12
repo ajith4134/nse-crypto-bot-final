@@ -134,7 +134,24 @@ def _frame(symbol: str, market: str, timeframe: str):
     df = df.dropna(subset=["open", "high", "low", "close"])
     if len(df) < _MIN_ROWS:
         return None, f"insufficient clean rows ({len(df)})"
-    return df.reset_index(drop=True), "ok"
+    df = df.reset_index(drop=True)
+    # BINANCE-FILTER FEATURES (owner 2026-07-12: 'research strategies that use Binance's built-in
+    # filters to pick symbols/direction'). Splice the app's OWN screener/order-flow signals —
+    # funding, OI, taker buy/sell, long/short (retail + smart), captured from the account web app
+    # (orderflow_store) — onto the candle frame by timestamp, so the strategy generators can BREED
+    # rules over Binance's filter data, not just price. Same enrichment the direction equation uses;
+    # bars before the store began carry NaN and are ignored. Best-effort — bare OHLCV if absent.
+    if market == "crypto" and os.environ.get("AUTORESEARCH_BINANCE_FEATURES", "1") not in (
+            "0", "false", "off"):
+        try:
+            df["ts"] = pd.to_numeric(df["date"], errors="coerce")
+            from trading.strategy.direction_equation import features_bus
+            enriched = features_bus(df, symbol=symbol, market="crypto")
+            if enriched is not None and len(enriched) == len(df):
+                df = enriched
+        except Exception:
+            pass
+    return df, "ok"
 
 
 # ── the cycle ────────────────────────────────────────────────────────────────────────

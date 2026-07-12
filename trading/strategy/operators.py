@@ -18,7 +18,15 @@ from deap import gp
 from trading.strategy.features import FEATURE_NAMES
 from trading.strategy.genome import Strategy, get_pset, random_tree
 
-_MARKET_EXTRA = {"CRYPTO": [], "NSE": []}
+# Market-legal building blocks for the genetic engine (owner 2026-07-12: 'research strategies
+# that use Binance's built-in filters'). CRYPTO now exposes the app's OWN screener/order-flow
+# signals — captured from the Binance web app (orderflow_store._FIELDS): taker buy/sell ratio,
+# retail crowd long%, smart-money long%, open interest, funding rate, liquidation skew, and a
+# stationarised order-flow-imbalance. autoresearch._frame splices these columns onto the candle
+# frame, so the generators can now BREED rules over Binance's filter data — not just price.
+# Genomes that reference a column absent for a symbol get all-NaN and are ignored (features_bus).
+from trading.strategy.features import CRYPTO_EXTRA_FEATURES as _BINANCE_FILTER_FEATURES
+_MARKET_EXTRA = {"CRYPTO": list(_BINANCE_FILTER_FEATURES), "NSE": []}
 
 
 def market_features(market: str) -> list[str]:

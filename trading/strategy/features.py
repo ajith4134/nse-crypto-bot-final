@@ -25,6 +25,16 @@ FEATURE_NAMES: list[str] = [
     "mom", "vol", "zscore", "range_pct", "rvol",
 ]
 
+# Binance-filter / order-flow building blocks (owner 2026-07-12): the app's OWN screener
+# signals captured from the web account (orderflow_store._FIELDS). compute_features NaN-fills
+# these when the real values weren't spliced (a plain OHLCV frame, or a symbol with no
+# capture), so a genome that references one NEVER KeyErrors — it just sees NaN, which the
+# generators ignore. autoresearch._frame splices the real values in for crypto research.
+CRYPTO_EXTRA_FEATURES: list[str] = [
+    "of_taker_ratio", "of_crowd_long", "of_smart_long", "of_oi",
+    "of_funding", "of_liq_skew", "of_gofi",
+]
+
 
 def _talib_feats(df, close, high, low, fast, slow, mom_n):
     df["sma_fast"] = talib.SMA(close, timeperiod=fast)
@@ -77,4 +87,13 @@ def compute_features(ohlcv: pd.DataFrame, *, fast: int = 10, slow: int = 30,
     df["range_pct"] = (high_s - low_s) / close_s
     df["rvol"] = vol_s / vol_s.rolling(slow).mean()
 
-    return df.dropna().reset_index(drop=True)
+    # Drop warm-up NaNs on the BASE features only — NOT the Binance-filter extras, whose NaN
+    # (a symbol/frame with no captured order-flow) is legitimate and must not delete every row.
+    base = [c for c in FEATURE_NAMES if c in df.columns]
+    df = df.dropna(subset=base).reset_index(drop=True)
+    # guarantee every declared Binance-filter column exists so a genome referencing one sees
+    # NaN (ignored) instead of KeyError when the real order-flow wasn't spliced onto this frame
+    for f in CRYPTO_EXTRA_FEATURES:
+        if f not in df.columns:
+            df[f] = np.nan
+    return df
