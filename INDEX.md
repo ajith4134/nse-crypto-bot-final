@@ -2047,6 +2047,11 @@ _Tests for fast candle direction (trading/broker_sense/fast_candles) + crypto or
 - **functions:** `_uptrend(n, start, step)`; `_downtrend(n, start, step)`
 - **imports:** __future__, trading.broker_sense, unittest
 
+## `tests/test_fast_candles_deadline.py`
+_Regression: fast_candles.read must enforce its deadline PER JOB (2026-07-12)._
+- **classes:** TestFastCandlesDeadline
+- **imports:** time, trading.broker_sense, unittest
+
 ## `tests/test_fast_nav.py`
 _tests/test_fast_nav.py — fast-nav planner over learned app-school state (2026-07-10)._
 - **functions:** `_seed(tmp_path, skills)`; `test_plan_prefers_learned_url_then_explore(monkeypatch, tmp_path)`; `test_skill_outranks_goto(monkeypatch, tmp_path)`; `test_two_strikes_demotes_below_explore_ranking(monkeypatch, tmp_path)`; `test_unknown_target_only_explores(monkeypatch, tmp_path)`

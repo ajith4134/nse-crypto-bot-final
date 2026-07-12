@@ -93,17 +93,20 @@ def read(picks: list[dict], market: str, timeframes=("5m", "15m", "1h"),
     """Per pick × timeframe: fetch OHLCV (fast API) → direction. Same shape as ChartVision.read.
     Fetches run in PARALLEL (I/O-bound) so the whole LOOK stage is ~2-3s, not ~25s; bounded by
     `deadline` (time.monotonic) so it never overruns the budget."""
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FTimeout, as_completed
     tfs = tuple(timeframes)[:_MAX_TFS]
-    out: dict[str, dict[str, dict]] = {p["symbol"]: {} for p in picks}
     jobs = [(p["symbol"], tf) for p in picks for tf in tfs]
-    if deadline is not None and time.monotonic() > deadline:
-        for sym, tf in jobs:
-            out[sym][tf] = dict(_UNAVAIL)
+    # PRE-FILL unavailable: any job that doesn't finish by the deadline keeps this honest default,
+    # so a hung/slow fetch never leaves a hole (and never blocks the cycle — see below).
+    out: dict[str, dict[str, dict]] = {p["symbol"]: {tf: dict(_UNAVAIL) for tf in tfs}
+                                       for p in picks}
+    if not jobs or (deadline is not None and time.monotonic() > deadline):
         return out
 
     def _one(job):
         sym, tf = job
+        if deadline is not None and time.monotonic() > deadline:   # queued past budget → skip fetch
+            return sym, tf, dict(_UNAVAIL)
         rows = _ohlcv_fast(sym, market, tf)     # ccxt direct (fast); data_failsafe as fallback
         if not rows:
             return sym, tf, dict(_UNAVAIL)
@@ -111,7 +114,24 @@ def read(picks: list[dict], market: str, timeframes=("5m", "15m", "1h"),
         res["chart_source"] = "fast:ohlcv"
         return sym, tf, res
 
-    with ThreadPoolExecutor(max_workers=min(12, len(jobs) or 1)) as pool:
-        for sym, tf, res in pool.map(_one, jobs):
-            out[sym][tf] = res
+    # HARD wall-clock bound: collect via as_completed with the remaining budget, then shut the pool
+    # down WITHOUT waiting. A rate-limited venue makes individual ccxt/data_failsafe fetches take
+    # seconds with no timeout; pool.map + the context-manager's wait-shutdown used to block on the
+    # slowest straggler and blew the LOOK stage to 400-540s, starving VERIFY/fusion → no fusion
+    # claims, no entries. Now unfinished jobs simply keep their pre-filled UNAVAIL. (2026-07-12)
+    pool = ThreadPoolExecutor(max_workers=min(12, len(jobs)))
+    try:
+        futs = [pool.submit(_one, job) for job in jobs]
+        remaining = None if deadline is None else max(0.05, deadline - time.monotonic())
+        try:
+            for fut in as_completed(futs, timeout=remaining):
+                try:
+                    sym, tf, res = fut.result()
+                    out[sym][tf] = res
+                except Exception:
+                    pass
+        except _FTimeout:
+            pass                                # budget hit — stragglers keep their UNAVAIL default
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)   # never block the cycle on a hung fetch
     return out
