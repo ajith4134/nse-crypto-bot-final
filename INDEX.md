@@ -873,8 +873,8 @@ _Optuna-backed hyperparameter optimization (Tier-2/3 infra, group H of the model
 ## `core/llm.py`
 _core/llm.py — P4.1 cloud-LLM access (the brain's "mouth"), reuse-first via LiteLLM._
 - **classes:** NoLLMConfigured
-- **functions:** `_candidates(providers) -> list[tuple[str, dict]]`; `_local_vision_model() -> str`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `_label_from_key(key) -> str`; `_governor_on() -> bool`; `_cache_ttl() -> float`; `_cache_key(messages, max_tokens, temperature) -> str`; `_cache_get(key) -> str | None`; `_cache_put(key, text) -> None`; `_skippable(prov) -> bool`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
-- **imports:** __future__, base64, config, hashlib, json, os, threading, time
+- **functions:** `_bounded(fn, hard_timeout)`; `_candidates(providers) -> list[tuple[str, dict]]`; `_local_vision_model() -> str`; `active_model() -> tuple[str, dict] | None`; `provider_name(model) -> str`; `_label_from_key(key) -> str`; `_governor_on() -> bool`; `_cache_ttl() -> float`; `_cache_key(messages, max_tokens, temperature) -> str`; `_cache_get(key) -> str | None`; `_cache_put(key, text) -> None`; `_skippable(prov) -> bool`; `chat(messages, max_tokens, temperature, timeout, total_timeout) -> str`; `_image_data_url(img, mime) -> str`; `vision_available() -> bool`; `vision_chat(prompt, images) -> str`; `vision_order() -> list[str]`; `_telemetry(_fn, provider, ok, latency_ms, err)`; `configured_order() -> list[str]`; `chat_stream(messages, max_tokens, temperature, timeout)`
+- **imports:** __future__, base64, concurrent.futures, config, hashlib, json, os, threading, time
 
 ## `core/llm_telemetry.py`
 _Per-provider cloud-LLM telemetry (real call stats for the dashboard)._

@@ -17,6 +17,28 @@ import json
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FuturesTimeout
+
+# HARD per-attempt wall-clock (2026-07-12): litellm's `timeout` is an httpx read/connect
+# timeout that does NOT bound a hung getaddrinfo (DNS), so a single unreachable cloud provider
+# blocked the whole funnel cycle for 27 min and never fell through to the local free LLM. This
+# runs each provider attempt in a worker thread and ABANDONS it past a hard deadline, so the
+# failover chain always reaches the next provider — and ultimately the local Ollama floor.
+_ATTEMPT_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="llm-attempt")
+
+
+def _bounded(fn, hard_timeout: float):
+    """Run fn() in a worker thread; raise TimeoutError if it doesn't finish by hard_timeout.
+    An abandoned thread keeps running (can't kill a blocked syscall) but the CALLER is freed —
+    the chain advances instead of wedging. hard_timeout=None → run inline (no bound)."""
+    if not hard_timeout or hard_timeout <= 0:
+        return fn()
+    fut = _ATTEMPT_POOL.submit(fn)
+    try:
+        return fut.result(timeout=hard_timeout)
+    except _FuturesTimeout:
+        fut.cancel()
+        raise TimeoutError(f"provider attempt exceeded {hard_timeout:.0f}s hard deadline")
 
 from config import settings
 
@@ -252,8 +274,9 @@ def chat(messages: list[dict], max_tokens: int = 600, temperature: float = 0.4,
             t0 = time.time()
             _last_call[prov] = t0
             try:
-                r = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,
-                                       temperature=temperature, timeout=timeout, **extra)
+                r = _bounded(lambda: litellm.completion(
+                    model=model, messages=messages, max_tokens=max_tokens,
+                    temperature=temperature, timeout=timeout, **extra), timeout + 5)
                 _telemetry("record", prov, True, (time.time() - t0) * 1000.0, None)
                 text = r["choices"][0]["message"]["content"]
                 _cache_put(ck, text)
@@ -339,8 +362,9 @@ def vision_chat(prompt: str, images, *, system: str | None = None, max_tokens: i
             t0 = time.time()
             _last_call[prov + ":vision"] = t0
             try:
-                r = litellm.completion(model=model, messages=messages, max_tokens=max_tokens,
-                                       temperature=temperature, timeout=timeout, **extra)
+                r = _bounded(lambda: litellm.completion(
+                    model=model, messages=messages, max_tokens=max_tokens,
+                    temperature=temperature, timeout=timeout, **extra), timeout + 5)
                 _telemetry("record", prov + ":vision", True, (time.time() - t0) * 1000.0, None)
                 return r["choices"][0]["message"]["content"]
             except Exception as e:

@@ -155,12 +155,18 @@ class HumanUI:
         return _extract_json(raw)
 
     # ── BRAIN→HAND: locate an element by description, in pixels ───────────────────
-    def locate(self, target: str, *, timeout: float = 30.0) -> Optional[tuple[int, int]]:
+    def locate(self, target: str, *, timeout: float = 30.0,
+               free_only: bool = False) -> Optional[tuple[int, int]]:
         """Return the (x, y) pixel center of the control described by `target`, or None.
 
         FREE FIRST: match the target against DOM element labels + OCR text (deterministic,
         instant, no quota). Only if the free eyes miss does it fall back to the rate-limited
-        cloud vision model (0-1000 grid → viewport pixels)."""
+        cloud vision model (0-1000 grid → viewport pixels).
+
+        `free_only=True`: DOM/OCR ONLY — never the LLM grounding/VLM. Use it on the trade-loop
+        thread (e.g. dismiss_modals) so a hung provider connection can't WEDGE the whole funnel
+        cycle: a 27-min stall on 2026-07-12 was a modal-dismiss locate() falling into a
+        vision_chat that blocked on getaddrinfo (DNS), which the request timeout doesn't bound."""
         if self.eyes is not None:
             try:
                 xy = self.eyes.locate(target)
@@ -170,6 +176,8 @@ class HumanUI:
                     return xy
             except Exception:
                 pass
+        if free_only:
+            return None                              # DOM/OCR missed — do NOT call the LLM
         from core import llm
         shot = self._shot()
         if not shot:
@@ -221,13 +229,15 @@ class HumanUI:
         return (x, y)
 
     # ── HAND: human-like pointer + keyboard (order-guarded) ──────────────────────
-    def click(self, target: str, *, guard: bool = True, settle_ms: int = 400) -> bool:
+    def click(self, target: str, *, guard: bool = True, settle_ms: int = 400,
+              free_only: bool = False) -> bool:
         """Move the pointer to `target` and click it — like a human. Returns True on click.
-        Guarded: refuses anything that could place an order / move money."""
+        Guarded: refuses anything that could place an order / move money.
+        `free_only=True` locates via DOM/OCR only (no hangable LLM) — trade-loop-thread safe."""
         if guard and _control_forbidden(target):
             self._note({"act": "click", "target": target, "blocked": "order-guard"})
             return False
-        xy = self.locate(target)
+        xy = self.locate(target, free_only=free_only)
         if xy is None:
             self._note({"act": "click", "target": target, "found": False}, frame=False)
             return False
@@ -318,10 +328,13 @@ class HumanUI:
             for label in _DISMISS_LABELS:
                 if label in dead or _control_forbidden(label):
                     continue
-                before = self.locate(label)
+                # free_only: a modal close button is ALWAYS a DOM element — never invoke the
+                # LLM grounding here. It runs on the funnel's trade-loop thread, so a hung
+                # provider connection would wedge the WHOLE cycle (27-min stall, 2026-07-12).
+                before = self.locate(label, free_only=True)
                 if before is None:
                     continue
-                if not self.click(label, settle_ms=500):
+                if not self.click(label, settle_ms=500, free_only=True):
                     dead.add(label)
                     continue
                 # VERIFY the dialog actually went away (2026-07-10): a click "succeeding"
@@ -329,7 +342,7 @@ class HumanUI:
                 # used to be re-clicked forever ('Okay, I Understand' @1254,27 loop),
                 # which also starved the × fallback below. Same label still at the same
                 # spot → not a dismissal; blacklist it for this pass and move on.
-                after = self.locate(label)
+                after = self.locate(label, free_only=True)
                 if after is not None and abs(after[0] - before[0]) <= 2 \
                         and abs(after[1] - before[1]) <= 2:
                     self._note({"act": "click", "target": label, "ok": False,
