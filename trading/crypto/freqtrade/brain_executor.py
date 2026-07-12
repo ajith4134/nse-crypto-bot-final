@@ -275,6 +275,7 @@ class BrainExecutor:
         entered, exited, skipped = [], [], 0
         queued: list = []                      # inbox mode: queued-not-yet-filled decisions
         picks: dict = {}
+        self._cortex_sigs: dict = {}           # per-cycle CORTEX signals → stacking features
         vetoes: list = []
         deadline_deferred = 0
         # PROFIT TAILGATING pass (owner feature): over EVERY open trade, ratchet the locked-profit
@@ -477,15 +478,13 @@ class BrainExecutor:
                         # proven model (holdout AUC ≥ META_MIN_AUC) and never in
                         # explore (explore generates its training data).
                         from trading.direction import meta_labeler as _ml
-                        _fz6 = (getattr(self, "extra_signals", {}) or {}).get(
-                            sym, {}).get("indicator_fusion")
                         _mg6 = _ml.gate(act, {
                             "ts": time.time(), "symbol": sym, "market": "CRYPTO",
                             "segment": self.segment or "futures",
                             "source": str(tag or "unknown"),
                             "confidence": brain.get("confidence"),
                             "regime": _rg(sym).get("regime"), "taken": True,
-                            "features": _ml.lens_features(_fz6)})   # M1 stacking lens features
+                            "features": self._stack_features(sym)})   # M1 stacking: lenses + cortex
                         if _mg6.get("p") is not None:
                             brain = {**brain, "meta_gate": _mg6}
                         if not explore and not _mg6.get("allow", True):
@@ -941,6 +940,10 @@ class BrainExecutor:
             src = cx.get_cortex_source()
             df = self.decider._ohlcv(sym)
             sig = src.signal(sym, df)
+            try:                                   # stash for the stacking meta-learner features
+                self._cortex_sigs[sym] = sig
+            except Exception:
+                pass
             print(f"[cortex:{self.segment}] {sym} shadow side={sig.get('side')} "
                   f"frac={sig.get('size_fraction')} conf={sig.get('confidence')} "
                   f"tier={sig.get('tier_reached')} experts={sig.get('experts_fired')} "
@@ -1056,6 +1059,18 @@ class BrainExecutor:
             return fz
         except Exception:
             return None
+
+    def _stack_features(self, sym: str) -> dict:
+        """Full stacking feature vector for `sym`: the indicator_fusion lenses + the CORTEX ensemble
+        signal. Shared by the meta-gate (predict) and the entry truth-claim (train) so there is no
+        train/serve skew — the model sees the same features it learns from. Never raises."""
+        try:
+            from trading.direction import meta_labeler as _mlx
+            fz = (getattr(self, "extra_signals", {}) or {}).get(sym, {}).get("indicator_fusion")
+            cx = (getattr(self, "_cortex_sigs", {}) or {}).get(sym)
+            return {**_mlx.lens_features(fz), **_mlx.cortex_features(cx)}
+        except Exception:
+            return {}
 
     def _apply_discovery(self, sym: str, act: str, brain: dict) -> None:
         """Concept Discovery Engine: the brain's SELF-INVENTED features on this symbol's
@@ -1258,6 +1273,7 @@ class BrainExecutor:
                                 source=str(tag or "unknown"),
                                 confidence=(brain or {}).get("confidence")
                                 if isinstance(brain, dict) else None,
-                                taken=True)
+                                taken=True,
+                                features=self._stack_features(sym))   # aligned stacking signal
         except Exception:
             pass

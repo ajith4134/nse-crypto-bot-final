@@ -34,6 +34,19 @@ class TestMetaStackingFeatures(unittest.TestCase):
         for k in ml._LENS_NUMS:
             self.assertIn(k, feat)
 
+    def test_cortex_features_folded_into_stack(self):
+        from trading.direction import meta_labeler as ml
+        cf = ml.cortex_features({"side": "short", "confidence": 0.8})
+        self.assertEqual(cf["f_cortex_side"], -1.0)
+        self.assertEqual(cf["f_cortex_conf"], 0.8)
+        # absent cortex → safe zeros (learnable input, never fabricated)
+        self.assertEqual(ml.cortex_features(None), {"f_cortex_side": 0.0, "f_cortex_conf": 0.0})
+        # cortex columns live in the same stacking feature space as the lenses
+        self.assertIn("f_cortex_side", ml._LENS_NUMS)
+        merged = {**ml.lens_features(None), **ml.cortex_features({"side": "long", "confidence": 0.5})}
+        feat = ml._featurize({"source": "cortex", "direction": "LONG", "features": merged})
+        self.assertEqual(feat["f_cortex_side"], 1.0)
+
     def test_record_carries_features(self):
         from trading.direction import truth_ledger as tl
         d = tempfile.mkdtemp()

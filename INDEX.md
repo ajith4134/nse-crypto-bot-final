@@ -4052,7 +4052,7 @@ _trading/direction/meta_challenger.py — TabPFN challenger for the D6 meta-labe
 
 ## `trading/direction/meta_labeler.py`
 _trading/direction/meta_labeler.py — D6: the direction meta-labeler (Pillar 27)._
-- **functions:** `lens_features(fusion) -> dict`; `_env_f(name, default) -> float`; `_enabled() -> bool`; `_model_path() -> Path`; `_source_prior(source, horizon) -> float`; `_featurize(ex) -> dict`; `_frame(rows)`; `train(min_examples) -> dict`; `maybe_train() -> dict | None`; `load_model() -> dict | None`; `p_correct(example) -> float | None`; `gate(direction, example) -> dict`; `status() -> dict`
+- **functions:** `lens_features(fusion) -> dict`; `cortex_features(sig) -> dict`; `_env_f(name, default) -> float`; `_enabled() -> bool`; `_model_path() -> Path`; `_source_prior(source, horizon) -> float`; `_featurize(ex) -> dict`; `_frame(rows)`; `train(min_examples) -> dict`; `maybe_train() -> dict | None`; `load_model() -> dict | None`; `p_correct(example) -> float | None`; `gate(direction, example) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, json, os, pathlib, time, trading
 
 ## `trading/direction/micro_features.py`

@@ -42,7 +42,10 @@ _CATS = ("source", "regime", "segment", "market", "horizon")
 # fixed hierarchical gate (which underperformed naive baseline). Zero-filled for pre-M1 examples
 # and any decision where a lens was unavailable, so the model degrades gracefully as data accrues.
 _LENS_NUMS = ("f_confluence", "f_p_up", "f_orderflow", "f_sectors", "f_ai", "f_vp",
-              "f_yolo", "f_direq", "f_onchain", "f_vision")
+              "f_yolo", "f_direq", "f_onchain", "f_vision",
+              # CORTEX ensemble folded in as a learnable input (2026-07-12) — the stack learns its
+              # conditional reliability instead of discarding the anti-signal (see cortex_features).
+              "f_cortex_side", "f_cortex_conf")
 _NUMS = ("confidence", "dir_long", "taken", "hour", "dow", "source_prior") + _LENS_NUMS
 
 
@@ -78,6 +81,24 @@ def lens_features(fusion: dict | None) -> dict:
         "f_onchain": _n(onc.get("composite")) if onc.get("available") else 0.0,
         "f_vision": _n(fz.get("vision_dir")),
     }
+
+
+def cortex_features(sig: dict | None) -> dict:
+    """CORTEX ensemble output as stacking features (2026-07-12): the shadow network becomes a
+    learnable INPUT to the meta-learner rather than a discarded anti-signal — the stack learns its
+    conditional reliability per regime/source. side→{long:+1, short:-1, flat/none:0}; 0-filled when
+    absent. Same pure-function contract as lens_features (shared train + serve, no skew)."""
+    s = sig or {}
+    side = str(s.get("side") or "").lower()
+
+    def _n(v, d=0.0):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return d
+
+    return {"f_cortex_side": 1.0 if side == "long" else -1.0 if side == "short" else 0.0,
+            "f_cortex_conf": _n(s.get("confidence"))}
 
 
 def _env_f(name: str, default: float) -> float:
