@@ -293,6 +293,39 @@ class TabPool:
             pass
         return True
 
+    def pump(self, *, budget_s: float = 1.5) -> int:
+        """CHEAP owner-thread tick: process each parked tab's QUEUED WebSocket frames so
+        the app's live klines/depth land in interception → ui_data continuously — even
+        while the funnel's main thread is busy with CPU brain-work (the root cause of
+        lapsed coverage + frozen mirror, 2026-07-12: Playwright sync only pumps a page's
+        WS 'framereceived' events when we touch that page, so idle CPU stretches starved
+        the streams). A tiny wait_for_timeout per tab pumps its event loop. Returns the
+        number of tabs pumped. No snapshots, no clicks — call it OFTEN and near-free."""
+        if not enabled() or not self._tabs:
+            return 0
+        try:
+            from trading.broker_sense.sessions import login_in_progress
+            if login_in_progress(self.broker):
+                return 0
+        except Exception:
+            pass
+        pumped = 0
+        t0 = time.monotonic()
+        for sym in list(self._tabs):
+            if time.monotonic() - t0 > budget_s:
+                break
+            t = self._tabs[sym]
+            pg = t.get("page")
+            try:
+                if pg is None or pg.is_closed() or t.get("challenged"):
+                    continue
+                pg.wait_for_timeout(60)          # pump this page's event loop (WS frames)
+                pumped += 1
+            except Exception:
+                # dead page — let refresh()/ensure() reap it; don't churn here
+                continue
+        return pumped
+
     def refresh(self, *, deadline: float | None = None) -> dict:
         """Snapshot + keep the ALREADY-parked tabs warm, WITHOUT opening/closing any.
         Called from the funnel's inter-cycle sleep loop (owner thread) so the parked

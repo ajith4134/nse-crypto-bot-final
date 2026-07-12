@@ -159,6 +159,7 @@ class BrokerSenseFunnel:
         self.exec = exec_adapter or ExecAdapter()
         self._executor = executor                     # crypto: injected override (tests)
         self._executors: dict = {}                    # crypto: BrainExecutor per segment (lazy)
+        self._strat_lib = None                        # cached full-library decider (lazy)
         self.cycle_n = 0
         st = state.load_json(_STATUS_FILE, {})
         self.shortlist_n = int(st.get(f"{market}_shortlist_n", 12))
@@ -368,6 +369,31 @@ class BrokerSenseFunnel:
                             pass
                 except Exception as e:
                     sig["indicator_fusion"] = {"available": False, "error": str(e)[:120]}
+            # STRATEGY LIBRARY lens (owner 2026-07-12: "use ALL the strategy features when
+            # opening a trade"): run the full institutional strategy library ensemble on the
+            # symbol's (UI-captured) candles — every active strategy votes — and stack it as a
+            # meta-labeler source alongside fusion, so the trade-open decision reflects the whole
+            # strategy stack, not just indicators+vision. Budget-bounded + opt-out (STRATEGY_LENS=0).
+            if os.environ.get("STRATEGY_LENS", "1") in ("1", "true", "TRUE", "yes") \
+                    and self.market == "crypto" and time.monotonic() - t0 < budget * 0.9:
+                try:
+                    _tsl = time.monotonic()
+                    sig["strategy_library"] = self._strategy_lens(s)
+                    _vt["fusion"] += time.monotonic() - _tsl
+                    _sl = sig["strategy_library"]
+                    if _sl.get("available") and _sl.get("direction") in ("long", "short"):
+                        try:
+                            from trading.direction import meta_labeler as _ml1
+                            from trading.direction import truth_ledger as _tl1
+                            _tl1.record(symbol=s, market=self.market,
+                                        segment=segment or "futures",
+                                        direction=_sl["direction"], source="strategy_library",
+                                        confidence=_sl.get("p_up"),
+                                        features=_ml1.lens_features(_sl))
+                        except Exception:
+                            pass
+                except Exception as e:
+                    sig["strategy_library"] = {"available": False, "error": str(e)[:120]}
             _to = time.monotonic()
             try:                              # NEW eyes: fused Ocular Cortex perception per
                 sig["ocular"] = self.ocular.enrich(   # candidate → learning columns + memory
@@ -592,6 +618,32 @@ class BrokerSenseFunnel:
         state.update_json(_STATUS_FILE, {self.market: rep,
                                          f"{self.market}_shortlist_n": self.shortlist_n})
         return rep
+
+    def _strategy_lens(self, symbol: str) -> dict:
+        """Run the FULL institutional strategy library ensemble on `symbol` (owner: use ALL
+        strategy features on trade-open). Every active strategy votes on the symbol's
+        UI-captured candles; the net becomes a stackable directional lens. Cached decider;
+        honest {available:False} when data/strategies are absent (never a fake number)."""
+        try:
+            if self._strat_lib is None:
+                from trading.crypto.freqtrade.brain_executor import LibraryBrainDecider
+                self._strat_lib = LibraryBrainDecider()
+            d = self._strat_lib.decide("CRYPTO", symbol, None, in_position=False)
+            b = d.get("_brain") or {}
+            longs, shorts = int(b.get("longs") or 0), int(b.get("shorts") or 0)
+            n = longs + shorts
+            if n == 0:
+                return {"available": False, "reason": b.get("reason", "no strategy votes")}
+            net = longs - shorts
+            direction = "long" if net > 0 else "short" if net < 0 else "neutral"
+            # p_up: fraction of votes that were long, mapped around 0.5 → [0,1]
+            p_up = round(0.5 + 0.5 * (net / n), 4)
+            return {"available": True, "direction": direction, "p_up": p_up,
+                    "confluence": round(abs(net) / n, 4), "longs": longs, "shorts": shorts,
+                    "net": net, "n_strategies": n, "top": b.get("top", []),
+                    "action": d.get("action")}
+        except Exception as e:
+            return {"available": False, "error": str(e)[:120]}
 
     # ── dashboard status (honest) ───────────────────────────────────────────────
     def status(self) -> dict:

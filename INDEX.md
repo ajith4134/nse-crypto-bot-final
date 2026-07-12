@@ -2616,7 +2616,7 @@ _AI-scientist idea #5 — TSFM ensemble + conformal calibration._
 
 ## `tests/test_ui_market_motto.py`
 _THE MOTTO build tests (2026-07-12): ui_market superstore, WS-kline upsert,_
-- **classes:** _Base, UiMarketTest, WsKlineUpsertTest, InterceptionForwardTest, _FakeLocator, _FakePage, _FakeSessions, TabPoolTest, UpstoxFeedTest, GateTest, StealthTest
+- **classes:** _Base, UiMarketTest, WsKlineUpsertTest, InterceptionForwardTest, _FakeLocator, _FakePage, _FakeSessions, TabPoolTest, UpstoxFeedTest, GateTest, StealthTest, StreamPumpTest
 - **imports:** os, pathlib, tempfile, time, unittest
 
 ## `tests/test_ui_only_data.py`

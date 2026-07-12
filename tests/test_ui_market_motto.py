@@ -413,3 +413,34 @@ class StealthTest(unittest.TestCase):
             self.assertEqual(fp.get("locale"), "en-IN")
         with mock.patch.dict(os.environ, {"BROKER_STEALTH": "0"}):
             self.assertEqual(sessions._context_fp("binance"), {})
+
+
+class StreamPumpTest(_Base):
+    def test_pump_processes_open_tabs_and_skips_dead(self):
+        from trading.broker_sense import tab_pool
+
+        class _Pg:
+            def __init__(self, closed=False): self._c = closed; self.waited = 0
+            def is_closed(self): return self._c
+            def wait_for_timeout(self, ms): self.waited += ms
+        pool = tab_pool.TabPool(_FakeSessions(), "binance")
+        pool._tabs = {"BTCUSDT": {"page": _Pg(), "tf": "5m", "opened_ts": 0.0,
+                                  "last_snap": 0.0},
+                      "ETHUSDT": {"page": _Pg(closed=True), "tf": "5m",
+                                  "opened_ts": 0.0, "last_snap": 0.0}}
+        with mock.patch.dict(os.environ, {"UI_TAB_POOL": "1"}):
+            self.assertEqual(pool.pump(), 1)          # live tab pumped, dead one skipped
+        self.assertGreater(pool._tabs["BTCUSDT"]["page"].waited, 0)
+
+    def test_pump_yields_to_operator_login(self):
+        from trading.broker_sense import tab_pool
+
+        class _Pg:
+            def is_closed(self): return False
+            def wait_for_timeout(self, ms): pass
+        pool = tab_pool.TabPool(_FakeSessions(), "binance")
+        pool._tabs = {"BTCUSDT": {"page": _Pg(), "tf": "5m", "opened_ts": 0.0,
+                                  "last_snap": 0.0}}
+        with mock.patch("trading.broker_sense.sessions.login_in_progress",
+                        return_value=True):
+            self.assertEqual(pool.pump(), 0)          # never touches browser mid-login
