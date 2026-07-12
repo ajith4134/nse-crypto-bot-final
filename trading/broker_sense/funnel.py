@@ -341,6 +341,17 @@ class BrokerSenseFunnel:
                 try:
                     from trading.broker_sense import indicator_fusion as _if
                     sig["indicator_fusion"] = _if.fuse(s, self.market, vision=charts.get(s))
+                    # measure fusion as a directional SOURCE so the mirror gate can weight/invert
+                    # it by its real hit-rate (wired 2026-07-12; the executor now trades on it).
+                    _fz = sig["indicator_fusion"]
+                    if _fz.get("available") and _fz.get("direction") in ("long", "short"):
+                        try:
+                            from trading.direction import truth_ledger as _tl
+                            _tl.record(symbol=s, market=self.market, segment=segment or "futures",
+                                       direction=_fz["direction"], source="indicator_fusion",
+                                       confidence=_fz.get("p_up"))
+                        except Exception:
+                            pass
                 except Exception as e:
                     sig["indicator_fusion"] = {"available": False, "error": str(e)[:120]}
             try:                              # NEW eyes: fused Ocular Cortex perception per

@@ -426,9 +426,20 @@ class BrainExecutor:
                 # passes every safety gate below). This makes the connected-account data actually
                 # drive entries instead of the executor's split library vote silently skipping.
                 if act not in ("LONG", "SHORT") and sym not in open_pairs:
+                    # PREFER the rich indicator_fusion lens (multi-TF confluence + vision +
+                    # order-flow + volume-profile + YOLO + direction-equation + on-chain) over the
+                    # raw mtf vote — it is a strictly richer read and, tagged "indicator_fusion",
+                    # passes through the mirror_gate below so its measured reliability governs it
+                    # (wired 2026-07-12: fusion was computed every cycle but never drove entries).
+                    _fz = (getattr(self, "extra_signals", {}) or {}).get(sym, {}).get("indicator_fusion") or {}
+                    _fdir = _fz.get("direction") if _fz.get("available") else None
                     _vote = (getattr(self, "extra_signals", {}) or {}).get(sym, {}).get("vote", {})
                     _vdir = (_vote or {}).get("direction")
-                    if _vdir == "long":
+                    if _fdir == "long":
+                        act, tag = "LONG", (tag or "indicator_fusion")
+                    elif _fdir == "short":
+                        act, tag = "SHORT", (tag or "indicator_fusion")
+                    elif _vdir == "long":
                         act, tag = "LONG", (tag or "account_path")
                     elif _vdir == "short":
                         act, tag = "SHORT", (tag or "account_path")
@@ -498,6 +509,11 @@ class BrainExecutor:
                 # concept discovery: self-invented features scale confidence (validated lane)
                 if act in ("LONG", "SHORT") and sym not in open_pairs:
                     self._apply_discovery(sym, act, brain)
+                # indicator fusion: the rich multi-lens signal (order-flow/VP/YOLO/direction-eq/
+                # on-chain/vision) scales confidence by its agreement with the chosen side,
+                # weighted by its own conviction (advisory; measured as a source via truth_ledger).
+                if act in ("LONG", "SHORT") and sym not in open_pairs:
+                    self._apply_fusion(sym, act, brain)
                 # order-book trader psychology: live entry signal (boost/dampen/veto)
                 psych = None
                 if act in ("LONG", "SHORT") and sym not in open_pairs:
@@ -1007,6 +1023,36 @@ class BrainExecutor:
                 brain["memory_n"] = b["n"]
         except Exception:
             pass
+
+    def _apply_fusion(self, sym: str, act: str, brain: dict) -> dict | None:
+        """Wire the rich indicator_fusion lens INTO the live decision (2026-07-12).
+
+        Research (deep-connect audit): calibrated, reliability-weighted combination of
+        heterogeneous alphas beats simple averaging (López de Prado meta-labeling). So fusion
+        is a NAMED source: its AGREEMENT with the chosen side scales confidence (bounded ±25%,
+        weighted by its own conviction |confluence|), and its directional claim is measured by
+        the truth ledger (source="indicator_fusion") so the mirror gate can invert it if it ever
+        becomes an anti-signal. Advisory on confidence; never forces an entry here (the FLAT
+        fallback above already adopts its direction under the mirror gate). Returns the fusion
+        dict for provenance, else None."""
+        try:
+            fz = (getattr(self, "extra_signals", {}) or {}).get(sym, {}).get("indicator_fusion") or {}
+            if not fz or not fz.get("available"):
+                return None
+            fdir = fz.get("direction")                       # long / short / neutral
+            conf = abs(float(fz.get("confluence") or 0.0))   # 0..1 conviction
+            if fdir in ("long", "short") and isinstance(brain, dict) \
+                    and brain.get("confidence") is not None:
+                agree = (fdir == "long" and act == "LONG") or (fdir == "short" and act == "SHORT")
+                factor = 1.0 + (0.25 if agree else -0.25) * min(1.0, conf)
+                brain["confidence"] = float(min(1.0, max(0.0, float(brain["confidence"]) * factor)))
+                brain["fusion_agree"] = agree
+            brain["fusion_dir"] = fdir
+            brain["fusion_p_up"] = fz.get("p_up")
+            brain["fusion_confluence"] = fz.get("confluence")
+            return fz
+        except Exception:
+            return None
 
     def _apply_discovery(self, sym: str, act: str, brain: dict) -> None:
         """Concept Discovery Engine: the brain's SELF-INVENTED features on this symbol's

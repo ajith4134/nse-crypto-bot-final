@@ -115,6 +115,10 @@ def main() -> int:
                     print(f"[pullback-sweep] error: {e!r}", flush=True)
                     time.sleep(30)
 
+        # Pin the sync-Playwright browser to THIS (main loop) thread before the sweeper starts,
+        # so the reflex/sweeper thread can never claim it and trigger the greenlet cross-thread
+        # crash (it degrades to the API path instead). See sessions.claim_browser_owner.
+        sessions.claim_browser_owner()
         threading.Thread(target=_pullback_sweeper, args=(funnels["crypto"],),
                          daemon=True, name="pullback-sweeper").start()
     print(f"[funnel-loop] start: markets={sorted(funnels)} allow_live={allow_live} "
@@ -318,7 +322,22 @@ def main() -> int:
                 print(f"[direction-meta] {mt}", flush=True)
         except Exception as e:
             print(f"[direction-truth] error: {e!r}", flush=True)
-        time.sleep(max(2.0, _next_bar_close() - time.time()))    # saver C: bar-close trigger
+        # saver C: sleep to the next bar close — but poll every ~2s so that when the operator
+        # opens a Live-Browser login we hand over the shared Chromium profile promptly (one
+        # process per profile) instead of colliding for a whole cycle. Release runs here, on the
+        # loop's OWN thread (Playwright sync contexts are thread-bound).
+        _deadline = max(time.time() + 2.0, _next_bar_close())
+        while True:
+            try:
+                _rel = sessions.release_if_login_locked()
+                if _rel:
+                    print(f"[funnel-loop] yielded profile(s) {_rel} to operator login", flush=True)
+            except Exception as _e:
+                print(f"[funnel-loop] release check error: {_e!r}", flush=True)
+            _remain = _deadline - time.time()
+            if _remain <= 0:
+                break
+            time.sleep(min(2.0, _remain))
 
 
 if __name__ == "__main__":

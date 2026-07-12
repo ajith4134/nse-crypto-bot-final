@@ -1620,6 +1620,10 @@ _(2) Fold regime-routing into the main learned_router._
 - **functions:** `_split(X, y, reg, frac, seed)`; `_by_regime(pred, y, reg)`; `main() -> dict`
 - **imports:** __future__, core, data.benchmarks, eval.golden, json, nodes.base_learners, nodes.chaos_nodes, nodes.phase2_nodes, nodes.phase2b_nodes, nodes.router_node, os, random, time
 
+## `scratchpad/cap_trading.py`
+_(no summary)_
+- **imports:** asyncio, base64, os, playwright.async_api
+
 ## `scratchpad/discover_aiselect.py`
 _(no summary)_
 - **imports:** asyncio, json, playwright.async_api
@@ -2476,6 +2480,11 @@ _tests/test_self_evolve.py — lifelong self-evolving strategy loop._
 _Phase P4.4 (FSRS self-quiz mastery tracker) acceptance tests — fully offline._
 - **classes:** KnowBrain, BlankBrain, TestMakeCloze, TestQuizOne, TestRunRound, TestMasteryCurve, TestInjectedHooks, TestStatus
 - **imports:** __future__, datetime, json, memory.self_quiz, unittest, warnings
+
+## `tests/test_sessions_thread_guard.py`
+_Regression test for the sync-Playwright cross-thread crash (W2, 2026-07-12)._
+- **classes:** TestSessionThreadGuard
+- **imports:** threading, trading.broker_sense.sessions, unittest
 
 ## `tests/test_sizing.py`
 _Tests for trading/sizing -- per-trade position/capital sizer._

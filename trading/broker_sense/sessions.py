@@ -39,6 +39,94 @@ def _sess_path(broker: str):
     return d / f"{broker}.json"
 
 
+# ── operator-login coordination (one Chromium per profile) ──────────────────────
+# A Chromium user-data-dir can be held by EXACTLY ONE process at a time. The funnel owns
+# browser_profiles/<broker> to read the account headless; the dashboard's Live-Browser panel
+# opens the SAME profile so the operator can log in. Two Chromiums on one profile corrupt the
+# cookie DB (logins never persist → bounce back to login) and contend the renderer (frames
+# hitch). This flag makes the funnel YIELD the profile while the operator is logging in, so the
+# login browser is the sole owner; the funnel re-acquires the now-valid session afterward.
+_LOGIN_LOCK_DIR = "browser_login_lock"
+
+
+def _login_lock_path(broker: str):
+    return state._path(_LOGIN_LOCK_DIR) / f"{(broker or 'binance').lower()}.lock"
+
+
+# A forgotten lock (operator closed the tab without "Close", or the dashboard restarted mid-login)
+# must not yield the funnel's profile forever — treat a lock older than this as stale.
+_LOGIN_LOCK_MAX_AGE_S = float(os.environ.get("LIVE_LOGIN_LOCK_MAX_AGE", "1800") or 1800)
+
+
+def login_in_progress(broker: str) -> bool:
+    """True while the operator is logging into `broker` via the Live-Browser panel — the funnel
+    must not open/hold that broker's Chromium profile during this window. Self-expiring: a lock
+    older than _LOGIN_LOCK_MAX_AGE_S is treated as abandoned so the funnel reclaims the profile."""
+    try:
+        p = _login_lock_path(broker)
+        if not p.exists():
+            return False
+        try:
+            ts = float((p.read_text() or "0").strip() or 0)
+        except (ValueError, OSError):
+            ts = p.stat().st_mtime
+        if time.time() - ts > _LOGIN_LOCK_MAX_AGE_S:
+            p.unlink(missing_ok=True)            # abandoned — reclaim
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def begin_operator_login(broker: str) -> None:
+    """Live-Browser panel start: claim `broker`'s profile for interactive login."""
+    try:
+        p = _login_lock_path(broker)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(str(time.time()))
+    except Exception:
+        pass
+
+
+def end_operator_login(broker: str) -> None:
+    """Live-Browser panel stop: release `broker`'s profile back to the funnel."""
+    try:
+        _login_lock_path(broker).unlink()
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+
+def ensure_headed_display() -> str | None:
+    """Return a usable X DISPLAY for HEADED Chromium (so broker login pages that block headless
+    render), starting a shared Xvfb if none is up. Reuses the funnel's :99 when it exists. Returns
+    the display string, or None when headed rendering isn't possible (no Xvfb binary)."""
+    if os.environ.get("DISPLAY"):
+        return os.environ["DISPLAY"]
+    disp = os.environ.get("BROKER_SENSE_DISPLAY", ":99") or ":99"
+    if not disp.startswith(":"):
+        disp = f":{disp}"
+    try:                                    # already up (e.g. the funnel's Xvfb) → just use it
+        if os.path.exists(f"/tmp/.X11-unix/X{disp.lstrip(':')}"):
+            os.environ["DISPLAY"] = disp
+            return disp
+    except Exception:
+        pass
+    import shutil
+    if not shutil.which("Xvfb"):
+        return None
+    import subprocess
+    try:
+        subprocess.Popen(["Xvfb", disp, "-screen", "0", "1600x1000x24", "-nolisten", "tcp"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1.5)
+        os.environ["DISPLAY"] = disp
+        return disp
+    except Exception:
+        return None
+
+
 def has_session(broker: str) -> bool:
     """True if a saved (persisted) browser session exists for `broker` — QR logins produce
     one with no vault credentials at all, and it counts as connected."""
@@ -182,6 +270,13 @@ class SessionManager:
         self.headless = headless
         self._pw = None
         self._browser = None
+        # Playwright's sync API is thread-bound: the FIRST thread to start it owns it, and a
+        # cross-thread call throws `greenlet.error: cannot switch to a different thread` (which
+        # was crash-looping the crypto funnel — its reflex/pullback-sweeper thread, running its
+        # own asyncio loop, touched the main loop's browser). Track the owner and refuse foreign
+        # threads gracefully (they fall back to the API/None path the funnel already handles).
+        self._owner_tid: int | None = None
+        self._foreign_warned = False
         self._xvfb = None                          # Popen handle for an auto-started Xvfb
         self._contexts: dict[str, object] = {}
         self.events: list[dict] = []               # honest session log for the dashboard
@@ -231,7 +326,37 @@ class SessionManager:
         except Exception:
             pass
 
+    def claim_browser_owner(self) -> None:
+        """Pin sync-Playwright ownership to the CALLING thread. Call from the main loop thread
+        BEFORE starting any worker thread (reflex/pullback-sweeper) that might otherwise claim
+        it first and lock the main loop out of the browser."""
+        import threading
+        self._owner_tid = threading.get_ident()
+
+    def _own_thread(self) -> bool:
+        """True if the calling thread may drive the sync-Playwright browser. The first thread to
+        touch it claims ownership; any other thread is refused (returns False) so it degrades to
+        the API/None path instead of triggering the thread-bound greenlet crash. See __init__."""
+        import threading
+        tid = threading.get_ident()
+        if self._owner_tid is None:
+            self._owner_tid = tid                  # claim on first use (the main loop thread)
+            return True
+        if tid == self._owner_tid:
+            return True
+        if not self._foreign_warned:
+            self._foreign_warned = True
+            try:
+                self._log("browser_thread_guard", "-",
+                          "browser access from a non-owner thread refused → API fallback "
+                          "(Playwright sync is thread-bound)")
+            except Exception:
+                pass
+        return False
+
     def _ensure_browser(self):
+        if not self._own_thread():
+            raise RuntimeError("sync-Playwright browser not available on this (non-owner) thread")
         if self._browser is not None:
             return self._browser
         self._ensure_display()
@@ -245,6 +370,8 @@ class SessionManager:
         login (browser_profiles/<broker>) because device-bound logins (e.g. Binance) survive
         ONLY in the original profile — an exported storage_state loaded into a fresh context
         gets bounced back to login. Falls back to storage_state / a plain context otherwise."""
+        if not self._own_thread():                 # a foreign thread would fire the greenlet crash
+            raise RuntimeError("sync-Playwright browser not available on this (non-owner) thread")
         if broker in self._contexts:
             return self._contexts[broker]
         prof = state._path("browser_profiles") / broker
@@ -282,6 +409,33 @@ class SessionManager:
         except OSError:
             pass
 
+    def _release_context(self, broker: str, *, reason: str = "") -> bool:
+        """Close + evict `broker`'s cached Chromium context so ANOTHER process (the operator's
+        Live-Browser login) can own the shared profile. Runs on the caller's thread — Playwright's
+        sync API is thread-bound, so this must be called from the loop thread that owns the
+        context, never a watcher thread. Returns True if a context was actually released."""
+        ctx = self._contexts.pop(broker, None)
+        if ctx is None:
+            return False
+        try:
+            ctx.close()
+        except Exception:
+            pass
+        self._log("profile_released", broker,
+                  f"released {broker} browser profile" + (f" — {reason}" if reason else ""))
+        return True
+
+    def release_if_login_locked(self) -> list[str]:
+        """Loop-tick hook: release every open context whose broker the operator is currently
+        logging into. Lets the funnel hand the profile over within ~one poll instead of waiting a
+        full cycle. Call ONLY from the loop's own thread (see _release_context)."""
+        released = []
+        for broker in list(self._contexts):
+            if login_in_progress(broker):
+                if self._release_context(broker, reason="operator logging in via the live panel"):
+                    released.append(broker)
+        return released
+
     def close(self) -> None:
         for name in list(self._contexts):
             try:
@@ -302,6 +456,17 @@ class SessionManager:
         """Open `url` (default: app home) in the broker's persistent context, logging in if
         the app asks. Returns a live Page, or None with the reason logged (never raises on
         a login wall — the funnel continues with public/API paths)."""
+        # THREAD GUARD: only the browser's owner thread may drive it. A foreign thread (the
+        # reflex/pullback-sweeper) gets None here and falls back to the API path — this is the
+        # fix for the greenlet cross-thread crash-loop (see __init__ / _own_thread).
+        if not self._own_thread():
+            return None
+        # YIELD to an operator login (one Chromium per profile): if the Live-Browser panel is
+        # logging into this broker, close+release our context so we don't corrupt the shared
+        # profile, and skip this broker until the operator finishes (page() may return None).
+        if login_in_progress(broker):
+            self._release_context(broker, reason="operator logging in via the live panel")
+            return None
         app = REGISTRY[broker]
         ctx = self.context(broker)
         pg = ctx.new_page()
