@@ -163,7 +163,9 @@ def _parse_mark(d, url):
 
 
 def _parse_ticker(d, url):
-    """24hrTicker WS event / REST 24hr row / broker quote row → last + %chg + vol."""
+    """24hrTicker WS event / REST 24hr row / broker quote row / Binance bulk get-product-dynamic
+    row ({s,c,h,l,o,v,qv}) → last + %chg + vol. When no explicit %change field is present (the
+    bulk market row), derive it from open→close so the 1000+-symbol bulk screen carries direction."""
     if not isinstance(d, dict):
         return None
     sym = _event_symbol(d) or _url_symbol(url)
@@ -171,10 +173,17 @@ def _parse_ticker(d, url):
               or d.get("last_price") or d.get("close"))
     if last is None:
         return None
-    return sym, {"last": last,
-                 "pct_change": _f(d.get("P") or d.get("priceChangePercent")
-                                  or d.get("change_percent") or d.get("netChange")),
-                 "quote_volume": _f(d.get("q") or d.get("quoteVolume")),
+    pct = _f(d.get("P") or d.get("priceChangePercent") or d.get("change_percent")
+             or d.get("netChange"))
+    if pct is None:                                   # bulk market row: derive from open→close
+        op = _f(d.get("o") or d.get("openPrice") or d.get("open"))
+        if op:
+            pct = round((last - op) / op * 100.0, 4)
+    return sym, {"last": last, "pct_change": pct,
+                 "high": _f(d.get("h") or d.get("highPrice") or d.get("high")),
+                 "low": _f(d.get("l") or d.get("lowPrice") or d.get("low")),
+                 "open": _f(d.get("o") or d.get("openPrice") or d.get("open")),
+                 "quote_volume": _f(d.get("qv") or d.get("q") or d.get("quoteVolume")),
                  "trades": _f(d.get("n") or d.get("count"))}
 
 

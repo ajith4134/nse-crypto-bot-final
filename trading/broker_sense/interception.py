@@ -76,8 +76,12 @@ _KIND_RULES = [
     ("screener", ("screener", "scanner", "screen", "filter?")),
     # "market-data-feeder" = Upstox Pro's live quote websocket (wss://market-data.upstox.com/
     # market-data-feeder/v2/feeds — protobuf frames, classified by URL; verified live 2026-07-10)
+    # BULK SCREEN door (idea ④, 2026-07-12): the Binance markets page fires ONE request —
+    # bapi/…/get-product-dynamic / get-products — carrying O/H/L/C/V for ~1014 symbols. Capturing
+    # it broadens the web-captured screen universe to the whole board in a single web call (no
+    # per-symbol tabs), classified as 'ticker' so ui_market indexes each symbol.
     ("ticker", ("ticker", "quote", "snapquote", "ltp", "24hr", "marketdata",
-                "market-data-feeder")),
+                "market-data-feeder", "get-product-dynamic", "get-products")),
     ("positions", ("positions", "holdings", "portfolio", "position?")),
     ("balance", ("balance", "funds", "margin", "wallet", "account")),
     ("news", ("news", "announcement", "feed")),
