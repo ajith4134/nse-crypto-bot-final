@@ -3465,7 +3465,7 @@ _trading/broker_sense/ui_health.py — Human-UI self-check (owner goal 2026-07-0
 
 ## `trading/broker_sense/vision_worker.py`
 _trading/broker_sense/vision_worker.py — async deep chart-vision worker (the brain's patient eyes)._
-- **functions:** `_cache() -> dict`; `_save(cache) -> None`; `cached_read(symbol, tf) -> dict | None`; `deep_vision(symbol, timeframes) -> dict | None`; `read_symbol(symbol, market, timeframes) -> dict`; `_target_symbols(limit) -> list[tuple[str, str]]`; `run_once(limit) -> dict`; `loop(interval, limit) -> None`
+- **functions:** `_cache() -> dict`; `_save(cache) -> None`; `_phash(path) -> str | None`; `cached_read(symbol, tf) -> dict | None`; `deep_vision(symbol, timeframes) -> dict | None`; `read_symbol(symbol, market, timeframes) -> dict`; `_target_symbols(limit) -> list[tuple[str, str]]`; `run_once(limit) -> dict`; `loop(interval, limit) -> None`
 - **imports:** __future__, os, time, trading
 
 ## `trading/broker_sense/volume_profile.py`

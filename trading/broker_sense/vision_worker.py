@@ -33,6 +33,24 @@ def _save(cache: dict) -> None:
     state.save_json(_CACHE_FILE, cache)
 
 
+def _phash(path: str) -> str | None:
+    """Cheap 64-bit average-hash of the rendered chart (8x8 grayscale > mean). Lets read_symbol
+    skip the EXPENSIVE VLM call when the chart is visually identical to the last read
+    (frame-diff gating, #5) — the vision cost is the funnel hog and unchanged charts add nothing.
+    None on any failure so it can only ever fall through to a normal read, never block one."""
+    try:
+        from PIL import Image
+        px = list(Image.open(path).convert("L").resize((8, 8)).getdata())
+        avg = sum(px) / len(px)
+        bits = 0
+        for i, p in enumerate(px):
+            if p > avg:
+                bits |= (1 << i)
+        return f"{bits:016x}"
+    except Exception:
+        return None
+
+
 def cached_read(symbol: str, tf: str, *, max_age: float = _MAX_AGE) -> dict | None:
     """Freshest cached deep read for (symbol, tf), or None if absent/stale."""
     hit = _cache().get(f"{symbol}|{tf}")
@@ -74,6 +92,20 @@ def read_symbol(symbol: str, market: str = "crypto", timeframes=_DEFAULT_TFS,
             path = chart_render.annotated(rows, symbol, tf)
             if not path:
                 continue
+            # FRAME-DIFF GATE (#5): if the freshly-rendered chart is pixel-identical to the last
+            # read (e.g. a new bar that barely moved), reuse the cached VLM read instead of paying
+            # for another qwen2.5-vl pass. VISION_PHASH_GATE=0 disables.
+            ph = _phash(path)
+            if ph and prev and prev.get("phash") == ph and prev.get("read") \
+                    and os.environ.get("VISION_PHASH_GATE", "1") not in ("0", "false", "False"):
+                got[tf] = prev["read"]
+                cache[key] = {**prev, "ts": time.time(), "bar_ts": bar_ts}
+                wrote += 1
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                continue
             ctx = None
             try:
                 vpf = volume_profile.features(rows, market)
@@ -92,7 +124,7 @@ def read_symbol(symbol: str, market: str = "crypto", timeframes=_DEFAULT_TFS,
                 except OSError:
                     pass
             if read:
-                cache[key] = {"ts": time.time(), "bar_ts": bar_ts, "read": read}
+                cache[key] = {"ts": time.time(), "bar_ts": bar_ts, "phash": ph, "read": read}
                 got[tf] = read
                 wrote += 1
         except Exception:
