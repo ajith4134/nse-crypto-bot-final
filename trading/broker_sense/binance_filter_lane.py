@@ -198,9 +198,12 @@ def universe(segment: str = "futures", *, min_rows: int = 1) -> list[dict]:
     # enriched per-symbol via features() (ui_market funding/OI/LS/taker where the eyes have them).
     base: list[dict] = []
     try:
-        from trading.broker_sense.binance_stream import get_mirror as _gm
-        _m = _gm()
-        if _m.enabled() and not _m.is_stale("BTCUSDT"):
+        from trading.broker_sense import binance_stream as _bs
+        _m = _bs.get_mirror()
+        # NB: enabled() is a MODULE function, not an instance method (an earlier _m.enabled() raised
+        # AttributeError → silent fallback to the thin ui_market universe, so this whole mirror path
+        # was a no-op). is_stale() confirms the mirror is actually warm before we trust its rows.
+        if _bs.enabled() and not _m.is_stale("BTCUSDT"):
             base = [{"symbol": r.get("raw"), "pct_change": r.get("pct_change"),
                      "qv": r.get("quote_volume"), "funding_rate": r.get("funding_rate")}
                     for r in (_m.futures_rows() or []) if r.get("raw")]
