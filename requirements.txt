@@ -231,3 +231,4 @@ alphalens-reloaded      # factor IC scorer (offline eval utility, not a node —
 #   used as offline scorer only (forward-return based -> would leak as a node feature).
 protobuf-inspector  # web-feed schema-drift diagnosis (feed_selfheal)
 patchright  # stealth Playwright fork (browser_launch, STEALTH_BROWSER=patchright)
+tradingview-ws  # supplementary TV quote lane (tv_feed, TV_WS_LANE=1)

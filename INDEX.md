@@ -2718,6 +2718,11 @@ _AI-scientist idea #5 — TSFM ensemble + conformal calibration._
 - **functions:** `_dataset(n, d, seed)`
 - **imports:** core.node_protocol, nodes.tsfm_ensemble, numpy, os, unittest
 
+## `tests/test_tv_feed.py`
+_Tests for tv_feed (adopt item 6a) — TradingView-WS SUPPLEMENTARY lane: default-OFF, NSE_
+- **classes:** _Base, TestGating, TestSafety
+- **imports:** os, time, trading.broker_sense, unittest
+
 ## `tests/test_ui_market_motto.py`
 _THE MOTTO build tests (2026-07-12): ui_market superstore, WS-kline upsert,_
 - **classes:** _Base, UiMarketTest, WsKlineUpsertTest, InterceptionForwardTest, _FakeLocator, _FakePage, _FakeSessions, TabPoolTest, UpstoxFeedTest, GateTest, StealthTest, StreamPumpTest, RollingTabTest
@@ -3642,6 +3647,11 @@ _trading/broker_sense/tab_pool.py — parked streaming tabs: the app IS the feed
 _trading/broker_sense/trade_columns.py — turn the App Driving School's discovered app labels_
 - **functions:** `_norm(label) -> str`; `journal_fields() -> set`; `discovered_labels() -> list`; `propose() -> dict`; `accepted() -> list`; `accept(column) -> dict`; `reject(column) -> dict`
 - **imports:** __future__, re, trading
+
+## `trading/broker_sense/tv_feed.py`
+_trading/broker_sense/tv_feed.py — TradingView-WS SUPPLEMENTARY data lane (adopt item 6a)._
+- **functions:** `enabled() -> bool`; `_nse_allowed() -> bool`; `_timeout() -> float`; `_tv_market(market) -> str`; `_tv_ticker(symbol) -> str`; `_fetch_blocking(symbol, market) -> Optional[dict]`; `quote(symbol, market) -> Optional[dict]`; `feed(symbol, market) -> bool`; `status() -> dict`
+- **imports:** __future__, os, threading, time, typing
 
 ## `trading/broker_sense/ui_crawl.py`
 _trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
