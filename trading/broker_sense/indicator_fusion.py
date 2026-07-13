@@ -587,6 +587,29 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
     except Exception:
         neurons = None
 
+    # 4k ── APPLY an instruction (closes evolve→APPLY→grade→promote): pick the best live
+    # recipe for this regime/direction — epsilon-greedy over a recipe AND its evolved
+    # CHILDREN so mutations earn their own graded evidence — and record its id so the trade
+    # outcome grades exactly THIS instruction. Default = pure attribution (no trade change);
+    # a bounded ±0.03 p_up tilt is opt-in via INSTRUCTION_APPLY_TILT=1. Guarded, never raises.
+    if direction != "neutral":
+        try:
+            from trading.brain import apply as _apply
+            applied = _apply.select(f"enter {direction} in {regime}")
+            if applied:
+                if neurons is None:
+                    neurons = {"ids": [], "actions": [], "titles": []}
+                if applied["id"] not in neurons["ids"]:
+                    neurons["ids"].append(applied["id"])   # graded on close → earns evidence
+                neurons["applied"] = {"id": applied["id"], "title": applied["title"],
+                                      "confidence": applied["confidence"]}
+                if os.environ.get("INSTRUCTION_APPLY_TILT") == "1":
+                    p_up = round(_clamp(p_up + applied["tilt"], 0.02, 0.98), 4)
+                    direction = ("long" if p_up > 0.56 else
+                                 "short" if p_up < 0.44 else "neutral")
+        except Exception:
+            pass
+
     # 6 ── triple-barrier geometry off the trigger TF's ATR
     trig_tf = next((tf for tf in _TRIGGER_TFS if tf in avail), next(iter(avail)))
     trig = avail[trig_tf]

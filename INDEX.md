@@ -1701,6 +1701,11 @@ _Tests for the App Driving School (trading/broker_sense/app_school) — offline,
 - **classes:** _IsolatedState, TestAppMap, TestRouteTo, TestRanking, _FakePage, _FakeCortex, _FakeRegistry, _FakeRecorder, TestExplore, TestFastMovers, TestAccountScreenWiring
 - **imports:** __future__, pathlib, tempfile, trading.broker_sense, trading.state, unittest
 
+## `tests/test_apply.py`
+_Tests for trading/brain/apply.py — applying instruction neurons in the decision path._
+- **classes:** _RNG, ApplyTest
+- **imports:** memory, memory.neurons, tempfile, trading.brain.apply, trading.brain.instructions, unittest
+
 ## `tests/test_associative_memory.py`
 _Tests for memory/associative.py — HippoRAG PPR recall + A-MEM evolution (offline path)._
 - **functions:** `_seed(mem)`; `test_add_links_related_notes()`; `test_recall_is_associative_multihop()`; `test_persistence_across_instances(tmp_path)`; `test_llm_path_used_when_available()`
@@ -2960,6 +2965,11 @@ _trading/brain/ — Brain upgrades (Phase T8.4+)._
 _trading/brain/activity_feed.py — the brain's EPHEMERAL transparency feed (cross-process)._
 - **functions:** `_load() -> dict`; `_save(d) -> None`; `_expire(events) -> list`; `emit(kind, title, detail) -> dict`; `peek(limit) -> list[dict]`; `drain(limit) -> list[dict]`; `status() -> dict`
 - **imports:** __future__, threading, time
+
+## `trading/brain/apply.py`
+_trading/brain/apply.py — APPLY instruction neurons in the decision path._
+- **functions:** `_evidence(n) -> int`; `select(query) -> dict | None`
+- **imports:** __future__, os, random
 
 ## `trading/brain/attribution.py`
 _Per-trade feature attribution — WHICH data led to this decision and HOW MUCH._
