@@ -56,6 +56,26 @@ class ApplyTest(unittest.TestCase):
     def test_no_match_returns_none(self):
         self.assertIsNone(ap.select("navigate binance spot", explore=0.0, rng=_RNG(0.9)))
 
+    def test_market_scoped_never_cross_applies(self):
+        # a crypto recipe and an NSE recipe both match the regime/direction text; select()
+        # with market='nse' must return the NSE one, never the crypto one.
+        cry = self.store.add("instruction", "Enter long [crypto] in range via vp",
+                             "1) x", "use only in crypto. verify", ref="trade:crypto:BTC/USDT",
+                             auto_link=False)
+        nse = self.store.add("instruction", "Enter long [nse] in range via vp",
+                             "1) x", "use only in nse. verify", ref="trade:nse:RELIANCE",
+                             auto_link=False)
+        for _ in range(6):
+            self.eng.grade(cry.id, success=True, domain="trade:crypto")
+            self.eng.grade(nse.id, success=True, domain="trade:nse")
+        out = ap.select("enter long in range", market="nse", explore=0.0, rng=_RNG(0.9))
+        self.assertNotEqual(out["id"], cry.id)                  # crypto recipe NEVER on NSE
+        out_c = ap.select("enter long in range", market="crypto", explore=0.0, rng=_RNG(0.9))
+        self.assertNotEqual(out_c["id"], nse.id)                # NSE recipe NEVER on crypto
+        # and each market's own recipe IS reachable in its market
+        self.assertTrue(ap._in_market(nse, "nse") and not ap._in_market(nse, "crypto"))
+        self.assertTrue(ap._in_market(cry, "crypto") and not ap._in_market(cry, "nse"))
+
     def test_retired_is_excluded(self):
         self.eng.retire(self.good.id, "test")
         out = ap.select("enter long in range", explore=0.0, rng=_RNG(0.9))

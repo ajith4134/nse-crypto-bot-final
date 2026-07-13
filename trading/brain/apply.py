@@ -23,18 +23,34 @@ def _evidence(n) -> int:
     return int(n.stats.get("wins", 0)) + int(n.stats.get("losses", 0))
 
 
-def select(query: str, *, explore: float | None = None, rng=None) -> dict | None:
+def _in_market(n, market: str) -> bool:
+    """A trade instruction belongs to `market` only if its identity says so — never let a
+    crypto recipe match an NSE decision (or vice-versa). Non-trade instructions (e.g. nav)
+    pass through unfiltered."""
+    if not market:
+        return True
+    ref = str(getattr(n, "ref", "") or "")
+    if ref.startswith("trade:"):
+        return ref.startswith(f"trade:{market}")       # trade recipe: ref encodes market
+    return f"[{market}]" in n.title or "[" not in n.title   # child/other: title tag
+
+
+def select(query: str, *, market: str = "", explore: float | None = None,
+           rng=None) -> dict | None:
     """Return {"id","title","confidence","tilt"} for the instruction to apply, or None.
 
-    tilt in [-TILT_CAP, +TILT_CAP], derived from the instruction's confidence (0.5 = flat).
+    MARKET-SCOPED: when `market` is given, only instructions belonging to that market are
+    eligible (a crypto recipe can never be applied to an NSE decision). tilt in
+    [-TILT_CAP, +TILT_CAP], derived from the instruction's confidence (0.5 = flat).
     """
     explore = EXPLORE if explore is None else explore
     rng = rng or random
     try:
         from memory.neurons import get_store
         store = get_store()
-        matched = [n for h in store.search(query, kind="instruction", k=8)
-                   if (n := store.get(h["id"])) is not None and not n.stats.get("retired")]
+        matched = [n for h in store.search(query, kind="instruction", k=12)
+                   if (n := store.get(h["id"])) is not None and not n.stats.get("retired")
+                   and _in_market(n, market)]
         if not matched:
             return None
         pool = {n.id: n for n in matched}

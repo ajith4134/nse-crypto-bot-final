@@ -581,7 +581,7 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
     try:
         from trading.brain import brain_os as _bos       # OS-4: one kernel-routed surface
         neurons = _bos.consult(
-            f"{symbol} {direction} {regime} {market}", domain="trading", k=3)
+            f"{symbol} {direction} {regime} {market}", domain=f"trade:{market}", k=3)
         if not neurons["ids"]:
             neurons = None
     except Exception:
@@ -595,7 +595,7 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
     if direction != "neutral":
         try:
             from trading.brain import apply as _apply
-            applied = _apply.select(f"enter {direction} in {regime}")
+            applied = _apply.select(f"enter {direction} in {regime}", market=market)
             if applied:
                 if neurons is None:
                     neurons = {"ids": [], "actions": [], "titles": []}

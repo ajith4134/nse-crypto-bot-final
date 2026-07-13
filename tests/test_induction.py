@@ -23,7 +23,7 @@ class InductionTest(unittest.TestCase):
         gp.start(); self.addCleanup(gp.stop)
 
     def test_trade_recipe_created_then_graded_idempotent(self):
-        nid = ind.induce_from_trade(strategy="vp_reversion", regime="range",
+        nid = ind.induce_from_trade(market="crypto", strategy="vp_reversion", regime="range",
                                     direction="long", win=True, net_pnl=12.0)
         self.assertIsNotNone(nid)
         n = self.store.get(nid)
@@ -31,15 +31,31 @@ class InductionTest(unittest.TestCase):
         self.assertTrue(n.action.strip())                       # R24 action facet
         self.assertEqual(n.stats["wins"], 1)
         # same pattern again (a loss) → SAME neuron, evidence accrues, no dupe
-        nid2 = ind.induce_from_trade(strategy="vp_reversion", regime="range",
+        nid2 = ind.induce_from_trade(market="crypto", strategy="vp_reversion", regime="range",
                                      direction="long", win=False, net_pnl=-8.0)
         self.assertEqual(nid, nid2)
         n = self.store.get(nid)
         self.assertEqual(n.stats["wins"], 1)
         self.assertEqual(n.stats["losses"], 1)
 
+    def test_crypto_and_nse_recipes_never_collide(self):
+        # SAME strategy/regime/direction in two markets must be TWO distinct instructions —
+        # the brain keeps crypto and NSE separate.
+        c = ind.induce_from_trade(market="crypto", strategy="breakout", regime="trend",
+                                  direction="long", win=True, net_pnl=5.0)
+        n = ind.induce_from_trade(market="nse", strategy="breakout", regime="trend",
+                                  direction="long", win=True, net_pnl=5.0)
+        self.assertNotEqual(c, n)                                # distinct neuron ids
+        self.assertIn("[crypto]", self.store.get(c).title)
+        self.assertIn("[nse]", self.store.get(n).title)
+        self.assertEqual(self.store.get(c).ref[:12], "trade:crypto")
+        self.assertEqual(self.store.get(n).ref[:9], "trade:nse")
+        # per-market genius-use domains kept separate
+        self.assertIn("trade:crypto", self.store.get(c).stats.get("by_domain", {}))
+        self.assertIn("trade:nse", self.store.get(n).stats.get("by_domain", {}))
+
     def test_trade_without_strategy_is_skipped(self):
-        self.assertIsNone(ind.induce_from_trade(strategy="", regime="range",
+        self.assertIsNone(ind.induce_from_trade(market="crypto", strategy="", regime="range",
                                                 direction="long", win=True))
 
     def test_nav_route_induced_only_on_completion(self):
@@ -57,12 +73,12 @@ class InductionTest(unittest.TestCase):
 
     def test_induction_feeds_the_evolver_end_to_end(self):
         # a recipe that wins once then loses repeatedly → underperformer WITH failure traces
-        ind.induce_from_trade(strategy="rsi_cross", regime="trend", direction="long",
+        ind.induce_from_trade(market="crypto", strategy="rsi_cross", regime="trend", direction="long",
                               win=True, net_pnl=5.0)
         for _ in range(4):
-            ind.induce_from_trade(strategy="rsi_cross", regime="trend", direction="long",
+            ind.induce_from_trade(market="crypto", strategy="rsi_cross", regime="trend", direction="long",
                                   win=False, net_pnl=-3.0)
-        nid = ind._key("trade", "rsi_cross", "trend", "long")
+        nid = ind._key("trade", "crypto", "rsi_cross", "trend", "long")
         n = self.store.get(nid)
         self.assertLess(n.confidence, 0.5)                      # below the VARY floor
         self.assertGreaterEqual(n.stats["wins"] + n.stats["losses"], 5)

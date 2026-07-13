@@ -155,6 +155,26 @@ class TradeJournal:
         except Exception:
             pass
 
+        # NSE brain-learning (R7/R22), market-scoped: crypto learns via freqtrade_ingest
+        # (market="crypto"); every NON-crypto close learns here as market="nse" — so the
+        # brain keeps NSE and crypto recipes STRICTLY SEPARATE and never cross-applies one
+        # market's instruction to the other. Fail-open; never blocks recording.
+        if not _is_crypto(trade):
+            try:
+                snap = trade.decision_snapshot if isinstance(trade.decision_snapshot, dict) else {}
+                fus = ((snap.get("app_signals") or {}).get("indicator_fusion") or {})
+                from trading.brain.trade_learn import learn_from_closed
+                learn_from_closed(
+                    market="nse",
+                    strategy=str(trade.strategy_name or ""),
+                    regime=str(snap.get("market_regime") or fus.get("regime") or "any"),
+                    direction=str(trade.direction or "").lower() or "either",
+                    win=(trade.net_pnl or 0) > 0, net_pnl=float(trade.net_pnl or 0.0),
+                    symbol=str(trade.symbol or ""),
+                    consulted_ids=((fus.get("neurons") or {}).get("ids") or []))
+            except Exception:
+                pass
+
         self._trades.append(trade)
         self._save()
         return trade

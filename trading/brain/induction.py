@@ -73,29 +73,35 @@ def induce_from_nav(goal: str, market: str, trace, *, completed: bool) -> str | 
         success=True, pnl=0.0, domain="navigation", ref=f"nav:{market}")
 
 
-def induce_from_trade(*, strategy: str, regime: str, direction: str, win: bool,
-                      net_pnl: float = 0.0, signals=None, symbol: str = "") -> str | None:
+def induce_from_trade(*, market: str, strategy: str, regime: str, direction: str,
+                      win: bool, net_pnl: float = 0.0, signals=None,
+                      symbol: str = "") -> str | None:
     """The recipe a closed trade used → an entry instruction, graded with the real outcome.
 
-    Called on EVERY close (win or loss) so a recipe's confidence tracks its live win-rate;
-    losers sinking below the floor become material for the evolver to mutate."""
+    MARKET-SCOPED: crypto and NSE are different markets, so their recipes are DIFFERENT
+    neurons (market is in the key) and credit DIFFERENT genius-use domains — the brain
+    never mixes a crypto recipe with an NSE one. Called on EVERY close (win or loss) so a
+    recipe's confidence tracks its live win-rate; losers sinking below the floor become
+    material the evolver mutates."""
+    market = (market or "").strip().lower() or "crypto"
     strategy = str(strategy or "").strip()
     if not strategy:
         return None                                             # need a named recipe
     regime = str(regime or "any").strip()
     direction = str(direction or "either").strip().lower()
     sig_txt = ", ".join(str(s) for s in (signals or [])[:5]) or "the fused confluence"
-    body = (f"1) Confirm the market regime is {regime}.\n"
+    body = (f"1) Confirm the market is {market} and the regime is {regime}.\n"
             f"2) Wait for the {strategy} setup to fire.\n"
             f"3) Confirm supporting signals: {sig_txt}.\n"
-            f"4) Size within the risk cap, then enter {direction}.")
-    action = (f"Use when {strategy} fires in a {regime} regime for a {direction} entry; "
-              f"verify: p_win clears the gate and the signals above are present. Induced "
-              f"from a closed trade and graded on its real outcome.")
-    fail_reason = (f"lost: {strategy} in a {regime} regime for a {direction} entry"
+            f"4) Size within the {market} risk cap, then enter {direction}.")
+    action = (f"Use ONLY in the {market} market when {strategy} fires in a {regime} regime "
+              f"for a {direction} entry — do NOT apply to any other market; verify: p_win "
+              f"clears the gate and the signals above are present. Induced from a closed "
+              f"{market} trade and graded on its real outcome.")
+    fail_reason = (f"lost: {market} {strategy} in a {regime} regime for a {direction} entry"
                    if not win else "")
     return _upsert_instruction(
-        _key("trade", strategy, regime, direction),
-        f"Enter {direction} in {regime} via {strategy}", body, action,
-        success=bool(win), pnl=float(net_pnl or 0.0), domain="trading",
-        ref=f"trade:{symbol}", fail_reason=fail_reason)
+        _key("trade", market, strategy, regime, direction),
+        f"Enter {direction} [{market}] in {regime} via {strategy}", body, action,
+        success=bool(win), pnl=float(net_pnl or 0.0), domain=f"trade:{market}",
+        ref=f"trade:{market}:{symbol}", fail_reason=fail_reason)

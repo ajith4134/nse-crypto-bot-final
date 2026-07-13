@@ -95,6 +95,15 @@ export default function BrainOsPanel({ intervalMs = 10000 }) {
           {wm.focus?.segment && <> · focus <b style={{ color: T.accent }}>{wm.focus.segment}</b></>}
           {d.scheduler?.next && <> · attends next <b style={{ color: T.good }}>{d.scheduler.next}</b> (tick {d.scheduler.tick})</>}
         </div>
+        {d.cross_process?.by_domain && Object.keys(d.cross_process.by_domain).length > 0 && (
+          <div style={{ fontSize: 10, color: T.muted, marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <span>consults across processes (per market):</span>
+            {Object.entries(d.cross_process.by_domain).sort((a, b) => b[1] - a[1]).map(([dom, n]) => (
+              <span key={dom} style={{ color: dom.startsWith('trade:') ? T.accent : T.muted }}>
+                {dom} <b style={{ color: T.text }}>{n}</b></span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* process table */}

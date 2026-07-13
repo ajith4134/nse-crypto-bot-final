@@ -64,26 +64,19 @@ def _learn_from_close(ft: dict, t) -> None:
     except Exception:
         pass
     try:
-        # neuron credit (Brain Ultra Upgrade R22): the exact neurons fuse() consulted at
-        # entry (decision_snapshot.app_signals.indicator_fusion.neurons.ids) get this
-        # trade's outcome — the consult→grade loop that feeds confidence + genius-use.
+        # CRYPTO brain-learning (R7/R22), market-scoped: grade the neurons fuse() consulted
+        # at entry + induce the recipe this trade used — all tagged market="crypto" so it
+        # stays SEPARATE from NSE (which learns via journal.record). One shared hook.
         snap = t.decision_snapshot if isinstance(t.decision_snapshot, dict) else {}
         fus = ((snap.get("app_signals") or {}).get("indicator_fusion") or {})
-        ids = ((fus.get("neurons") or {}).get("ids") or [])
-        if ids:
-            from trading.brain import brain_os as _bos       # OS-4: kernel-routed surface
-            _bos.grade(ids, win=win, pnl=_f(t.net_pnl), domain="trading")
-    except Exception:
-        pass
-    try:                                          # AWM induction (R7): the recipe this
-        from trading.brain import induction as _ind   # trade used → a graded instruction
-        snap2 = t.decision_snapshot if isinstance(t.decision_snapshot, dict) else {}
-        fus2 = ((snap2.get("app_signals") or {}).get("indicator_fusion") or {})
-        _ind.induce_from_trade(
+        from trading.brain.trade_learn import learn_from_closed
+        learn_from_closed(
+            market="crypto",
             strategy=str(t.strategy_name or ft.get("enter_tag") or ""),
-            regime=str(snap2.get("market_regime") or fus2.get("regime") or "any"),
+            regime=str(snap.get("market_regime") or fus.get("regime") or "any"),
             direction="short" if ft.get("is_short") else "long",
-            win=win, net_pnl=_f(t.net_pnl), symbol=ft.get("pair", ""))
+            win=win, net_pnl=_f(t.net_pnl), symbol=ft.get("pair", ""),
+            consulted_ids=((fus.get("neurons") or {}).get("ids") or []))
     except Exception:
         pass
     _LEARN_SEEN.append(key)                       # insertion order → trim drops OLDEST first

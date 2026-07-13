@@ -2968,7 +2968,7 @@ _trading/brain/activity_feed.py — the brain's EPHEMERAL transparency feed (cro
 
 ## `trading/brain/apply.py`
 _trading/brain/apply.py — APPLY instruction neurons in the decision path._
-- **functions:** `_evidence(n) -> int`; `select(query) -> dict | None`
+- **functions:** `_evidence(n) -> int`; `_in_market(n, market) -> bool`; `select(query) -> dict | None`
 - **imports:** __future__, os, random
 
 ## `trading/brain/attribution.py`
@@ -2985,7 +2985,7 @@ _trading/brain/boss.py — the BOSS COMMAND ENGINE: talk to the brain like a bos
 ## `trading/brain/brain_os.py`
 _trading/brain/brain_os.py — the Brain-OS kernel + its own RAM (OS-1)._
 - **classes:** WorkingMemory, BrainKernel
-- **functions:** `_sizeof(obj) -> int`; `_file_age(fname, now) -> float | None`; `_proc_state(age, budget) -> str`; `_focus_match(lobe, focus) -> bool`; `get_kernel() -> BrainKernel`; `ensure_kernel() -> BrainKernel`; `consult(query) -> dict`; `grade(ids) -> int`
+- **functions:** `_sizeof(obj) -> int`; `_file_age(fname, now) -> float | None`; `_proc_state(age, budget) -> str`; `_focus_match(lobe, focus) -> bool`; `get_kernel() -> BrainKernel`; `ensure_kernel() -> BrainKernel`; `consult(query) -> dict`; `_record_activity(domain, out) -> None`; `read_activity() -> dict`; `grade(ids) -> int`
 - **imports:** __future__, collections, json, threading, time
 
 ## `trading/brain/briefing.py`
@@ -3325,6 +3325,11 @@ _trading/brain/trade_features.py — trade rows → ML network inputs → outcom
 - **classes:** _NumpyLogReg, _TabPFNWrap, TradeOutcomeNet
 - **functions:** `_f(v, default)`; `_is_crypto(trade) -> bool`; `_brain_telemetry(trade) -> dict`; `_entry_hour(trade) -> int | None`; `_regime(trade) -> str`; `trade_feature_row(trade) -> list[float]`; `_won(trade) -> int`; `get_outcome_net(closed_rows) -> TradeOutcomeNet`
 - **imports:** __future__, datetime, math
+
+## `trading/brain/trade_learn.py`
+_trading/brain/trade_learn.py — one market-scoped brain-learning hook per closed trade._
+- **functions:** `learn_from_closed() -> None`
+- **imports:** __future__
 
 ## `trading/brain/ultra.py`
 _trading/brain/ultra.py — glue singleton for the brain ultra-upgrade (Phases A–E)._

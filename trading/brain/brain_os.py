@@ -379,6 +379,7 @@ class BrainKernel:
                 "uptime_secs": self.uptime_secs(),
                 "working_memory": self.wm.snapshot(),
                 "processes": self.ps(),
+                "cross_process": read_activity(),          # consults from ALL processes, per market
                 "scheduler": self.next_lobe(),             # OS-3: who the brain attends next
                 "store": {"neurons": store_status.get("neurons"),
                           "links": store_status.get("links"),
@@ -425,10 +426,68 @@ def ensure_kernel() -> BrainKernel:
 def consult(query: str, *, domain: str, k: int = 3, kind: str | None = None) -> dict:
     """Kernel-routed recall+record_use. Same shape as trading.brain.consult.consult."""
     try:
-        return get_kernel().syscall("consult", query=query, domain=domain, k=k, kind=kind)
+        out = get_kernel().syscall("consult", query=query, domain=domain, k=k, kind=kind)
     except Exception:
         from trading.brain import consult as _c
-        return _c.consult(query, domain=domain, k=k, kind=kind)
+        out = _c.consult(query, domain=domain, k=k, kind=kind)
+    _record_activity(domain, out)                      # cross-process WM heartbeat (throttled)
+    return out
+
+
+# ── cross-process WM unification: every process's consults heartbeat to ONE file ──
+# The crypto funnel, NSE funnel and dashboard are SEPARATE processes with separate RAM,
+# so the dashboard kernel can't see the funnels' working memory directly. Each process
+# accumulates its consult counts per domain and flushes them (throttled to once/60s, so
+# concurrent writes are rare and a lost heartbeat self-corrects) to brain_os_activity.json;
+# the dashboard kernel reads it back in top(). Domains are market-scoped (trade:crypto vs
+# trade:nse) so the OS view shows the two markets as the distinct activities they are.
+_ACTIVITY_FILE = "brain_os_activity.json"
+_ACT_FLUSH_SECS = 60.0
+_act_lock = threading.Lock()
+_act_pending: dict = {}
+_act_last: dict = {}
+_act_flush_ts = 0.0
+
+
+def _record_activity(domain: str, out: dict) -> None:
+    global _act_flush_ts
+    try:
+        with _act_lock:
+            _act_pending[domain] = _act_pending.get(domain, 0) + 1
+            titles = out.get("titles") or []
+            if titles:
+                _act_last[domain] = str(titles[0])[:60]
+            now = time.time()
+            if now - _act_flush_ts < _ACT_FLUSH_SECS:
+                return                                 # throttle: accumulate, don't write yet
+            _act_flush_ts = now
+            pend, last = dict(_act_pending), dict(_act_last)
+            _act_pending.clear()
+        from trading import state
+
+        def _upd(d):
+            d = d or {"by_domain": {}, "last": {}}
+            bd = d.get("by_domain", {})
+            for dom, c in pend.items():
+                bd[dom] = int(bd.get(dom, 0)) + int(c)
+            d["by_domain"] = bd
+            lastmap = d.get("last", {})
+            for dom, title in last.items():
+                lastmap[dom] = {"title": title, "ts": round(time.time(), 1)}
+            d["last"] = lastmap
+            return d
+        state.mutate_json(_ACTIVITY_FILE, _upd, default={"by_domain": {}, "last": {}})
+    except Exception:
+        pass
+
+
+def read_activity() -> dict:
+    try:
+        from trading import state
+        return state.load_json(_ACTIVITY_FILE, {"by_domain": {}, "last": {}}) or \
+            {"by_domain": {}, "last": {}}
+    except Exception:
+        return {"by_domain": {}, "last": {}}
 
 
 def grade(ids, *, win: bool, pnl: float = 0.0, domain: str = "") -> int:
