@@ -355,10 +355,11 @@ class BrainExecutor:
             _psym = (pick.get("symbol") if isinstance(pick, dict) else "") or ""
             # ALL captured filters/screeners (not just momentum): book/taker/OI/long-short/
             # liquidations/funding/PCR — each weighted by its MEASURED edge (owner 2026-07-13).
-            _sigs = _asig.signals(_psym, market="crypto",
-                                  row=pick if isinstance(pick, dict) else None)
-            out = _ld.decide(_sigs, market="CRYPTO",
-                             segment=self.segment or "futures", regime=regime, symbol=_psym)
+            _col = _asig.collect(_psym, market="crypto",
+                                 row=pick if isinstance(pick, dict) else None)
+            out = _ld.decide(_col["signals"], market="CRYPTO",
+                             segment=self.segment or "futures", regime=regime,
+                             symbol=_psym, coverage=_col["coverage"])
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
                 return out["direction"].upper(), "learned_direction", out
         except Exception:

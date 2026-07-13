@@ -17,6 +17,12 @@ from __future__ import annotations
 import math
 
 
+# every filter/screener the brain tries to collect for EVERY trade's direction (owner
+# 2026-07-13: "brain collecting all this every time every trade, not only on available").
+ALL_KINDS = ["momentum", "funding", "taker", "book_imbalance", "longshort",
+             "oi_trend", "liquidations", "pcr"]
+
+
 def _sig(x: float) -> float:
     return min(0.98, max(0.02, float(x)))
 
@@ -110,3 +116,43 @@ def signals(symbol: str, *, market: str = "crypto", row: dict | None = None) -> 
         out.append(("filter:pcr", _sig(0.5 + max(-0.3, min(0.3, (float(pcr) - 1.0) * 0.3)))))
 
     return out
+
+
+WANTED_FILE = "direction_collect_wanted.json"
+
+
+def _ensure_streaming(symbol: str, market: str) -> None:
+    """Decoupled request: record that direction WANTS this symbol's full filter set, so the
+    funnel's tab pool pins it and its kinds (book/taker/OI/long-short) stream in for next
+    time. The funnel owns the browser sessions; this just leaves a want (ban-safe WS on its
+    side), non-blocking + fail-open so a trade never waits on the browser. TTL'd by the funnel."""
+    try:
+        from trading import state
+        import time as _t
+        mk = str(market).lower()
+
+        def _upd(d):
+            d = d or {}
+            wanted = d.get(mk, {})
+            wanted[str(symbol)] = round(_t.time(), 1)
+            d[mk] = dict(sorted(wanted.items(), key=lambda kv: -kv[1])[:80])   # freshest 80
+            return d
+        state.mutate_json(WANTED_FILE, _upd, default={})
+    except Exception:
+        pass
+
+
+def collect(symbol: str, *, market: str = "crypto", row: dict | None = None) -> dict:
+    """COLLECT every filter/screener for this trade's direction — every time — and report
+    coverage. Returns {signals, coverage:{present,missing,n_present,n_total}}. The brain
+    gathers all kinds on each trade (not just whatever was already fresh); missing kinds
+    trigger a stream-subscribe so they fill in, and the coverage is recorded so every trade
+    shows WHAT it collected."""
+    sigs = signals(symbol, market=market, row=row)
+    present = sorted({s.split(":", 1)[1] for s, _ in sigs})
+    missing = [k for k in ALL_KINDS if k not in present]
+    coverage = {"present": present, "missing": missing,
+                "n_present": len(present), "n_total": len(ALL_KINDS)}
+    if missing:
+        _ensure_streaming(symbol, market)          # fill the gaps for next time (ban-safe)
+    return {"signals": sigs, "coverage": coverage}

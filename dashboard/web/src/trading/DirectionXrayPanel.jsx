@@ -62,6 +62,8 @@ export default function DirectionXrayPanel({ intervalMs = 12000 }) {
               <span style={{ fontWeight: 800, color: DIRCOL[r.direction] || T.muted }}>{(r.direction || '?').toUpperCase()}</span>
               {r.p_up != null && <span style={{ color: T.muted }}>p_up {r.p_up}</span>}
               {r.abstained && <span style={{ color: T.warn }}>ABSTAINED</span>}
+              {r.coverage && <span style={{ color: (r.coverage.n_present || 0) >= (r.coverage.n_total || 8) * 0.6 ? T.good : T.warn }}>
+                collected {r.coverage.n_present}/{r.coverage.n_total} filters</span>}
               <span style={{ color: T.muted }}>{r.market}{r.regime ? ` · ${r.regime}` : ''} · {r.seam}</span>
               <div style={{ flex: 1 }} />
               <span style={{ color: T.muted, fontSize: 10 }}>{agefmt(r.ts)}</span>

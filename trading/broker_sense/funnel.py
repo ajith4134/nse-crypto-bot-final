@@ -610,9 +610,22 @@ class BrokerSenseFunnel:
                 # the open trades as PINS (permanent tabs). The pool slides a window across the
                 # whole list, recycling tabs, so every traded symbol gets a fresh web-capture
                 # within a sweep → UI-data coverage reaches the governor's flip threshold.
+                # direction-collect wants (owner 2026-07-13): pin symbols the direction path
+                # asked to collect ALL filters for, so their book/taker/OI/long-short stream in
+                # for the next decision — the brain gathers every filter each trade, not just
+                # whatever was already fresh. Fresh wants only (<10 min).
+                _dwant = set()
+                try:
+                    import time as _t
+                    from trading import state as _st
+                    _mk = "nse" if _broker == "upstox" else "crypto"    # wanted file keyed by market
+                    _w = (_st.load_json("direction_collect_wanted.json", {}) or {}).get(_mk, {})
+                    _dwant = {s for s, ts in _w.items() if _t.time() - float(ts or 0) < 600}
+                except Exception:
+                    _dwant = set()
                 rep["stages"]["tab_pool"] = tab_pool.get_pool(
                     self.sessions, _broker).ensure(_prio, deadline=t0 + budget * 1.1,
-                                                   pins=set(open_syms))
+                                                   pins=set(open_syms) | _dwant)
                 # serial crawl covers the LONG TAIL beyond the parked head
                 rep["stages"]["ui_crawl"] = ui_crawl.crawl_once(
                     self.sessions, _syms, deadline=t0 + budget * 1.15, broker=_broker)

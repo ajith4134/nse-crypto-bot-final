@@ -17,8 +17,9 @@ LEDGER_FILE = "direction_ledger.json"
 CAP = 400                       # recent decisions kept (ring)
 
 
-def record(decision: dict, *, symbol: str = "", market: str = "",
-           regime: str = "", seam: str = "decide", now: float | None = None) -> None:
+def record(decision: dict, *, symbol: str = "", market: str = "", regime: str = "",
+           seam: str = "decide", coverage: dict | None = None,
+           now: float | None = None) -> None:
     """Persist one direction decision's rationale. `decision` is a learned_direction.decide()
     result (direction/p_up/confidence/weights/abstained) — or a correct_direction() info dict."""
     try:
@@ -36,6 +37,7 @@ def record(decision: dict, *, symbol: str = "", market: str = "",
                "p_up": decision.get("p_up"), "confidence": decision.get("confidence"),
                "abstained": bool(decision.get("abstained")),
                "n_sources": decision.get("n_sources"),
+               "coverage": coverage,               # which filters the brain collected this trade
                "drivers": drivers[:8]}
 
         def _upd(d):

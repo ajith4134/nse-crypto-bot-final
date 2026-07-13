@@ -4320,7 +4320,7 @@ _trading/direction — the Direction Accuracy Program (goal Pillar 27)._
 
 ## `trading/direction/app_signals.py`
 _trading/direction/app_signals.py — turn EVERY captured broker filter/screener into a_
-- **functions:** `_sig(x) -> float`; `_num(d)`; `signals(symbol) -> list`
+- **functions:** `_sig(x) -> float`; `_num(d)`; `signals(symbol) -> list`; `_ensure_streaming(symbol, market) -> None`; `collect(symbol) -> dict`
 - **imports:** __future__, math
 
 ## `trading/direction/dir_exit.py`

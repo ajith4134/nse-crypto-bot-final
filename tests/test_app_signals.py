@@ -49,5 +49,28 @@ class AppSignalsTest(unittest.TestCase):
         self.assertGreater(sigs["filter:taker"], 0.5)              # buy-heavy → long
 
 
+    def test_collect_reports_coverage_and_requests_missing(self):
+        import tempfile
+        from trading import state
+        with mock.patch.object(state, "STATE_DIR", type(state.STATE_DIR)(tempfile.mkdtemp())), \
+             mock.patch("trading.broker_sense.ui_market.funding", lambda s: {"funding_rate": 0.0001}), \
+             mock.patch("trading.broker_sense.ui_market.taker", lambda s: None), \
+             mock.patch("trading.broker_sense.ui_market.book", lambda s: None), \
+             mock.patch("trading.broker_sense.ui_market.long_short", lambda s: None), \
+             mock.patch("trading.broker_sense.ui_market.open_interest", lambda s: None), \
+             mock.patch("trading.broker_sense.ui_market.recent_liquidations", lambda s, n=50: []), \
+             mock.patch("trading.broker_sense.ui_market.option_chain", lambda s: None):
+            col = asig.collect("BTCUSDT", market="crypto", row={"pct_change": 2.0})
+            cov = col["coverage"]
+            self.assertEqual(cov["n_total"], len(asig.ALL_KINDS))
+            self.assertIn("momentum", cov["present"])
+            self.assertIn("funding", cov["present"])
+            self.assertIn("book_imbalance", cov["missing"])       # not captured → requested
+            self.assertLess(cov["n_present"], cov["n_total"])
+            # missing kinds → a streaming want recorded for the funnel to pin
+            w = state.load_json("direction_collect_wanted.json", {}) or {}
+            self.assertIn("BTCUSDT", w.get("crypto", {}))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -115,18 +115,19 @@ def _signed_weight(rel: dict, cfg: dict) -> tuple[float, bool]:
     return edge, invert
 
 
-def _log(decision: dict, *, symbol: str, market: str, regime, seam: str) -> None:
+def _log(decision: dict, *, symbol: str, market: str, regime, seam: str,
+         coverage: dict | None = None) -> None:
     """Record the direction rationale so every trade's direction is auditable (owner ask)."""
     try:
         from trading.brain import direction_ledger as _dl
         _dl.record(decision, symbol=symbol, market=market, regime=str(regime or ""),
-                   seam=seam)
+                   seam=seam, coverage=coverage)
     except Exception:
         pass
 
 
 def decide(readings, *, market: str = "", segment: str = "",
-           regime: str | None = None, symbol: str = "") -> dict:
+           regime: str | None = None, symbol: str = "", coverage: dict | None = None) -> dict:
     """Fuse directional lens readings into ONE learned decision, weighting each by measured edge.
 
     readings: iterable of (source, p_up) — p_up in [0,1], the source's probability of LONG.
@@ -163,7 +164,7 @@ def decide(readings, *, market: str = "", segment: str = "",
     if tot_w < cfg["min_total_w"]:
         out = {"direction": "neutral", "p_up": 0.5, "confidence": round(tot_w, 4),
                "weights": weights, "abstained": True, "n_sources": len(weights)}
-        _log(out, symbol=symbol, market=market, regime=regime, seam="decide")
+        _log(out, symbol=symbol, market=market, regime=regime, seam="decide", coverage=coverage)
         return out
     p_final = 0.5 + num / tot_w
     p_final = min(1.0, max(0.0, p_final))
@@ -177,7 +178,7 @@ def decide(readings, *, market: str = "", segment: str = "",
     out = {"direction": direction, "p_up": round(p_final, 4),
            "confidence": round(tot_w, 4), "weights": weights,
            "abstained": direction == "neutral", "n_sources": len(weights)}
-    _log(out, symbol=symbol, market=market, regime=regime, seam="decide")
+    _log(out, symbol=symbol, market=market, regime=regime, seam="decide", coverage=coverage)
     return out
 
 
