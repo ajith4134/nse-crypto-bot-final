@@ -18,7 +18,8 @@ def _png(w=1600, h=900):
 
 class _Base(unittest.TestCase):
     def setUp(self):
-        self._env = {k: os.environ.get(k) for k in ("GROUNDER", "UITARS_MODEL")}
+        self._env = {k: os.environ.get(k) for k in
+                     ("GROUNDER", "UITARS_MODEL", "UITARS_LAST_RESORT")}
         self._avail = u._AVAIL
         u._AVAIL = None
 
@@ -39,6 +40,19 @@ class TestFlag(_Base):
     def test_flag_enables_uitars(self):
         os.environ["GROUNDER"] = "uitars"
         self.assertTrue(u.enabled())
+
+    def test_last_resort_flag(self):
+        os.environ.pop("GROUNDER", None)
+        os.environ.pop("UITARS_LAST_RESORT", None)
+        self.assertFalse(u.last_resort())               # off by default
+        os.environ["UITARS_LAST_RESORT"] = "1"
+        self.assertTrue(u.last_resort())                # its own flag
+        self.assertFalse(u.enabled())                   # last-resort != aggressive-first
+
+    def test_aggressive_implies_last_resort(self):
+        os.environ.pop("UITARS_LAST_RESORT", None)
+        os.environ["GROUNDER"] = "uitars"
+        self.assertTrue(u.last_resort())                # GROUNDER=uitars also grounds late
 
 
 class TestLocate(_Base):

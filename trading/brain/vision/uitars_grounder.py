@@ -31,8 +31,19 @@ _LOCK = threading.Lock()
 
 
 def enabled() -> bool:
-    """UI-TARS is the active grounder only when GROUNDER=uitars (OmniParser is the default)."""
+    """AGGRESSIVE mode: UI-TARS grounds FIRST when GROUNDER=uitars. Off by default (it's ~tens of
+    seconds on CPU); prefer last_resort() for the sane wiring."""
     return os.environ.get("GROUNDER", "omniparser").strip().lower() == "uitars"
+
+
+def last_resort() -> bool:
+    """LAST-RESORT mode (recommended): UI-TARS runs ONLY after DOM/OCR + OmniParser(local+SoM) +
+    the cloud grid-guess have ALL missed — a rare total miss, off the trade-loop hot path. Its
+    ~tens-of-seconds CPU cost is paid only on those rare misses, buying accuracy without stalling
+    normal navigation. Enabled by UITARS_LAST_RESORT=1 (or implied by the aggressive GROUNDER=uitars)."""
+    if os.environ.get("UITARS_LAST_RESORT", "0") in ("1", "true", "TRUE", "yes", "on"):
+        return True
+    return enabled()
 
 
 def _model() -> str:
@@ -166,5 +177,7 @@ def locate(target: str, png: bytes, *, timeout: float = 30.0) -> Optional[tuple[
 
 
 def status() -> dict:
-    return {"active_grounder": "uitars" if enabled() else "omniparser",
-            "model": _model(), "model_pulled": available(), "stats": dict(_STATS)}
+    mode = "uitars-first" if enabled() else ("uitars-last-resort" if last_resort() else "off")
+    return {"mode": mode, "default_grounder": "omniparser",
+            "model": _model(), "model_pulled": available(),
+            "max_px": _max_px(), "stats": dict(_STATS)}

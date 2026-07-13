@@ -182,20 +182,6 @@ class HumanUI:
         shot = self._shot()
         if not shot:
             return None
-        # UI-TARS GROUNDER (adopt-plan item 1, behind GROUNDER=uitars): a GUI-grounding-trained
-        # model that returns the click point end-to-end. Preferred when flagged AND its model is
-        # pulled; otherwise dormant and we fall straight through to OmniParser below (no hit, no
-        # cost). Market-agnostic — same for Binance and Upstox.
-        try:
-            from trading.brain.vision import uitars_grounder
-            if uitars_grounder.enabled() and uitars_grounder.available():
-                xy = uitars_grounder.locate(target, shot, timeout=timeout)
-                if xy is not None:
-                    self.trail.append({"act": "locate", "target": target, "xy": list(xy),
-                                       "via": "uitars"})
-                    return xy
-        except Exception:
-            pass
         # GROUNDED EYES (invent-beyond #1): OmniParser icon-detection grounds the click in a
         # REAL detected control — local match first ($0), then ONE Set-of-Marks cloud pick
         # over the numbered boxes. Only if grounding is unavailable/misses does the old
@@ -226,21 +212,34 @@ class HumanUI:
             "Return ONLY JSON: {\"found\": true/false, \"x\": <0-1000>, \"y\": <0-1000>} where x,y "
             "are the CENTER of the control on a 0-1000 grid (0,0 = top-left, 1000,1000 = "
             "bottom-right). If it is not visible, return {\"found\": false}.")
+        grid_xy = None
         try:
             raw = llm.vision_chat(prompt, shot, total_timeout=timeout, max_tokens=120)
-        except Exception:
-            return None
-        obj = _extract_json(raw) or {}
-        if not isinstance(obj, dict) or not obj.get("found"):
-            return None
+            obj = _extract_json(raw) or {}
+            if isinstance(obj, dict) and obj.get("found"):
+                gx, gy = float(obj["x"]), float(obj["y"])
+                w, h = self._viewport()
+                grid_xy = (max(0, min(w - 1, round(gx / 1000.0 * w))),
+                           max(0, min(h - 1, round(gy / 1000.0 * h))))
+        except (Exception, KeyError, TypeError, ValueError):
+            grid_xy = None
+        if grid_xy is not None:
+            return grid_xy
+        # LAST RESORT: UI-TARS GUI-grounding model (adopt-plan item 1). It runs ONLY here — after
+        # DOM/OCR + OmniParser(local+SoM) + the cloud grid-guess have ALL missed (a rare total
+        # miss) — because it is ~tens of seconds on CPU. Never on the free_only trade-loop thread
+        # (guarded above), so its cost can't stall the hot path. UITARS_LAST_RESORT=1 + model pulled.
         try:
-            gx, gy = float(obj["x"]), float(obj["y"])
-        except (KeyError, TypeError, ValueError):
-            return None
-        w, h = self._viewport()
-        x = max(0, min(w - 1, round(gx / 1000.0 * w)))
-        y = max(0, min(h - 1, round(gy / 1000.0 * h)))
-        return (x, y)
+            from trading.brain.vision import uitars_grounder
+            if uitars_grounder.last_resort() and uitars_grounder.available():
+                xy = uitars_grounder.locate(target, shot, timeout=timeout)
+                if xy is not None:
+                    self.trail.append({"act": "locate", "target": target, "xy": list(xy),
+                                       "via": "uitars-last-resort"})
+                    return xy
+        except Exception:
+            pass
+        return None
 
     # ── HAND: human-like pointer + keyboard (order-guarded) ──────────────────────
     def click(self, target: str, *, guard: bool = True, settle_ms: int = 400,

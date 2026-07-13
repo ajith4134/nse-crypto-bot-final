@@ -3351,7 +3351,7 @@ _trading/brain/vision/ocular_cortex.py — the Ocular Cortex: ultra-advanced eye
 
 ## `trading/brain/vision/uitars_grounder.py`
 _trading/brain/vision/uitars_grounder.py — UI-TARS end-to-end GUI grounder (adopt-plan item 1)._
-- **functions:** `enabled() -> bool`; `_model() -> str`; `_ollama_base() -> str`; `available() -> bool`; `_max_px() -> int`; `_prep_image(png) -> tuple[bytes, int, int]`; `locate(target, png) -> Optional[tuple[int, int]]`; `status() -> dict`
+- **functions:** `enabled() -> bool`; `last_resort() -> bool`; `_model() -> str`; `_ollama_base() -> str`; `available() -> bool`; `_max_px() -> int`; `_prep_image(png) -> tuple[bytes, int, int]`; `locate(target, png) -> Optional[tuple[int, int]]`; `status() -> dict`
 - **imports:** __future__, base64, io, os, re, threading, time, typing
 
 ## `trading/brain/worldmodel.py`
