@@ -294,10 +294,14 @@ def main() -> int:
                         try:
                             from trading.broker_sense import binance_filter_lane as _bfl
                             if _bfl.enabled():
+                                # raised budget (owner 2026-07-13, lever 3): the parallel + fast lane
+                                # can process the whole top-N, so give it a bigger slice than one cycle
+                                # budget (FILTER_LANE_BUDGET_MULT, default 1.5×) to open the full breadth.
+                                _flb = float(os.environ.get("BROKER_SENSE_BUDGET", "120") or 120) * \
+                                    float(os.environ.get("FILTER_LANE_BUDGET_MULT", "1.5") or 1.5)
                                 _flr = funnel.executor(seg).open_filter_lane(
                                     allow_live=allow_live,
-                                    deadline=time.monotonic() + float(
-                                        os.environ.get("BROKER_SENSE_BUDGET", "120") or 120))
+                                    deadline=time.monotonic() + _flb)
                                 if _flr.get("entered") or _flr.get("error"):
                                     print(f"[filter-lane:{market}:{seg}] "
                                           f"preset={_flr.get('preset')} "

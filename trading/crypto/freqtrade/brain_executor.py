@@ -386,11 +386,16 @@ class BrainExecutor:
         return "LONG"
 
     def _learned_filter_side(self, pick: dict, preset: str,
-                             regime: str | None) -> tuple:
+                             regime: str | None, *, fast: bool = False) -> tuple:
         """Stage 3: the LEARNED per-pick side. Fuse the cheap UI direction mini-lenses through the
         reliability-weighted decider; use its side when it has a proven edge (tag 'learned_direction'),
         else EXPLORE on the momentum prior (tag 'filter:<preset>') so the lane still opens and
-        generates the labels the decider learns from. Returns (side, enter_tag, decide_out|None)."""
+        generates the labels the decider learns from. Returns (side, enter_tag, decide_out|None).
+
+        fast=True (the TOP-N breadth lane, owner 2026-07-13): SKIP the bull/bear/risk debate — it is
+        an LLM round per pick, fatal across 50 candidates (only ~5 got processed before the cycle
+        deadline). The RAM lenses (app_signals + direction_model + symbol_move_net + learned_direction)
+        stay; the decide_out carries the collected signals so the caller reuses them (no 2nd collect)."""
         try:
             from trading.direction import learned_direction as _ld
             from trading.direction import app_signals as _asig
@@ -408,9 +413,10 @@ class BrainExecutor:
             except Exception:
                 pass
             try:                                          # proposal E: the bull/bear/risk debate
-                if os.environ.get("DEBATE_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on") \
-                        and _reads:                       # CONTESTS the preliminary lean
-                    from trading.brain import debate_gate as _dbg
+                if not fast \
+                        and os.environ.get("DEBATE_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on") \
+                        and _reads:                       # CONTESTS the preliminary lean (LLM — skipped
+                    from trading.brain import debate_gate as _dbg   # in the fast breadth lane)
                     _prelim = "long" if (sum(p for _, p in _reads) / len(_reads)) >= 0.5 else "short"
                     _dc = _dbg.get_debate_gate().contest(
                         _psym, _prelim, features=_asig.feature_dict(_col["signals"]))
@@ -451,6 +457,7 @@ class BrainExecutor:
             out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
                              symbol=_psym, coverage=_col["coverage"])
+            out["_signals"] = _col.get("signals")     # reused by the lane's record batch (no 2nd collect)
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
                 return out["direction"].upper(), "learned_direction", out
         except Exception:
@@ -499,56 +506,57 @@ class BrainExecutor:
                 open_pairs = set(cli.open_pairs(segment=self.segment))
             except Exception:
                 open_pairs = set()
-            from trading.direction import learned_direction as _ld
+            from concurrent.futures import ThreadPoolExecutor
             from trading.direction.regime import classify as _rgc
-            for pick in picks:
-                if deadline is not None and time.monotonic() > deadline:
-                    break
+            # THROUGHPUT (owner 2026-07-13): the old loop did per-pick LLM debate + duplicate
+            # app_signals + ~10 blocking truth-ledger writes, so only ~5 of 50 ranked picks got
+            # processed before the cycle deadline. Three levers: (1) fast=True side derivation
+            # skips the LLM debate; (2) the compute-heavy side derivation runs in a THREAD POOL
+            # (RAM lenses + pure decider — no browser, no shared client mutation); (3) the learning
+            # records are BATCHED and written AFTER placement (off the entry hot path). Order
+            # placement stays sequential + open_pairs-guarded (controlled, no order-client race).
+            _workers = max(1, int(os.environ.get("FILTER_LANE_WORKERS", "8") or 8))
+
+            def _derive(pick):
                 sym = pick.get("symbol")
                 if not sym:
-                    continue
-                # the eyes surface FLAT tickers ('DODOXUSDT'); the engine trades slashed pairs —
-                # bridge before the tradeability check or every pick is silently dropped.
-                _psym = cli.tradeable_form(_bfl.to_pair(sym, self.segment or "futures"),
-                                           self.segment)
+                    return None
+                # eyes surface FLAT tickers ('DODOXUSDT'); the engine trades slashed pairs.
+                _psym = cli.tradeable_form(_bfl.to_pair(sym, self.segment or "futures"), self.segment)
                 if _psym is None or _psym in open_pairs:
-                    rep["skipped"] += 1
-                    continue
+                    return ("skip", pick, _psym, None, None, [])
                 _reg = (_rgc(sym) or {}).get("regime")
-                _pkpreset = pick.get("_preset", preset)   # the preset that surfaced THIS pick (multi-preset)
-                # Stage 3: LEARNED per-pick side (reliability-weighted decider over the cheap UI
-                # direction mini-lenses), replacing the raw-momentum side that was net-losing.
-                _side, _tag, _ldout = self._learned_filter_side(pick, _pkpreset, _reg)
-                # record each mini-lens's own call (taken=False) so the decider keeps learning which
-                # signal actually predicts direction; the entered claim is recorded taken=True below.
+                _side, _tag, _ldout = self._learned_filter_side(
+                    pick, pick.get("_preset", preset), _reg, fast=True)
+                recs = []                                  # deferred learning records
                 try:
-                    from trading.direction import truth_ledger as _tl
                     from trading.direction import app_signals as _asig2
                     from trading.direction import direction_model as _dmodel
-                    # ALL captured filters (proposal C) recorded WITH the microstructure
-                    # feature vector (proposal B enrichment) so the direction model trains on
-                    # better inputs; plus the model's own p_up as a measured source.
-                    _rich = _asig2.signals(sym, market="crypto",
-                                           row=pick if isinstance(pick, dict) else None)
+                    _rich = (_ldout or {}).get("_signals") or _asig2.signals(
+                        sym, market="crypto", row=pick if isinstance(pick, dict) else None)
                     _fd = _asig2.feature_dict(_rich)
                     for _msrc, _mp in _rich:
-                        _tl.record(symbol=sym, market="CRYPTO",
-                                   segment=self.segment or "futures",
-                                   direction=("LONG" if _mp >= 0.5 else "SHORT"),
-                                   source=_msrc, confidence=_mp, regime=_reg, taken=False,
-                                   features=_fd)
+                        recs.append((sym, "LONG" if _mp >= 0.5 else "SHORT", _msrc, _mp, _reg, _fd))
                     _pm = _dmodel.predict(_fd)
                     if _pm is not None:
-                        _tl.record(symbol=sym, market="CRYPTO",
-                                   segment=self.segment or "futures",
-                                   direction=("LONG" if _pm >= 0.5 else "SHORT"),
-                                   source=_dmodel.SOURCE, confidence=_pm, regime=_reg,
-                                   taken=False, features=_fd)
+                        recs.append((sym, "LONG" if _pm >= 0.5 else "SHORT",
+                                     _dmodel.SOURCE, _pm, _reg, _fd))
                 except Exception:
                     pass
+                return ("ok", pick, _psym, _side, _tag, recs)
+
+            with ThreadPoolExecutor(max_workers=_workers) as _ex:   # parallel side derivation
+                derived = [d for d in _ex.map(_derive, picks) if d]
+            all_recs: list = []
+            for kind, pick, _psym, _side, _tag, recs in derived:    # sequential guarded placement
+                all_recs.extend(recs)
+                if kind == "skip" or _psym in open_pairs:
+                    rep["skipped"] += 1
+                    continue
+                if deadline is not None and time.monotonic() > deadline:
+                    break
                 _res = cli.place_order(
-                    symbol=_psym, action="BUY",
-                    side=("long" if _side == "LONG" else "short"),
+                    symbol=_psym, action="BUY", side=("long" if _side == "LONG" else "short"),
                     allow_live=allow_live, enter_tag=_tag, segment=self.segment)
                 if isinstance(_res, dict) and _res.get("ok") is False:
                     print(f"[filter-lane-drop:{self.segment}] {_psym} preset={preset} "
@@ -563,6 +571,15 @@ class BrainExecutor:
                     {"filter": {k: pick.get(k) for k in
                                 ("filter_preset", "filter_score", "pct_change",
                                  "funding_rate")}}, None, explore=True)
+            if all_recs:                                    # BATCH the learning records off the hot path
+                try:
+                    from trading.direction import truth_ledger as _tl
+                    for _sym, _d, _src, _mp, _reg2, _fd2 in all_recs:
+                        _tl.record(symbol=_sym, market="CRYPTO", segment=self.segment or "futures",
+                                   direction=_d, source=_src, confidence=_mp, regime=_reg2,
+                                   taken=False, features=_fd2)
+                except Exception:
+                    pass
             if rep["ranked"]:            # ALWAYS log when the lane ran (an all-skipped cycle must
                                          # never look identical to a dead lane — debug-error lesson)
                 print(f"[filter-lane:{self.segment}] preset={preset} ranked={rep['ranked']} "
