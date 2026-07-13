@@ -2818,7 +2818,7 @@ _tools/gen_upstox_census.py — compile the Upstox discovered-features inventory
 
 ## `tools/loop_keeper.py`
 _tools/loop_keeper.py — RUNTIME self-heal for the trading stack (2026-07-10)._
-- **functions:** `_alive(pattern) -> bool`; `_check() -> dict`; `_save_state(state) -> None`; `run_once() -> int`; `install_cron() -> None`
+- **functions:** `_alive(pattern) -> bool`; `_nse_funnel_off() -> bool`; `_check() -> dict`; `_save_state(state) -> None`; `run_once() -> int`; `install_cron() -> None`
 - **imports:** __future__, json, os, subprocess, sys, time
 
 ## `tools/orderbook_collector.py`

@@ -138,7 +138,11 @@ BROKER_SENSE_HEADED=$BROKER_SENSE_HEADED NAV_BRAIN=$NAV_BRAIN"; }
 pgrep -f "run_funnel_loop crypto" >/dev/null || \
   env $(_bs_env) \
   setsid .venv/bin/python -m trading.broker_sense.run_funnel_loop crypto >>logs/funnel_crypto.log 2>&1 </dev/null &
-pgrep -f "run_funnel_loop nse" >/dev/null || \
+# NSE funnel kill-switch (owner 2026-07-13): set NSE_FUNNEL_OFF=1 in .env to keep the NSE
+# trading funnel stopped across restarts/loop_keeper respawns. Crypto is unaffected. Read
+# straight from .env so it works even when start_all runs without .env in its environment.
+_NSE_OFF="${NSE_FUNNEL_OFF:-$(grep -E '^NSE_FUNNEL_OFF=' .env 2>/dev/null | tail -1 | cut -d= -f2)}"
+[ "${_NSE_OFF:-0}" = "1" ] || pgrep -f "run_funnel_loop nse" >/dev/null || \
   env $(_bs_env) BROKER_SENSE_NSE=1 \
   setsid .venv/bin/python -m trading.broker_sense.run_funnel_loop nse >>logs/funnel_nse.log 2>&1 </dev/null &
 

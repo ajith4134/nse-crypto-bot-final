@@ -49,8 +49,26 @@ def _alive(pattern: str) -> bool:
         return False           # pgrep itself failing → treat as dead, let start_all guard
 
 
+def _nse_funnel_off() -> bool:
+    """Owner kill-switch (NSE_FUNNEL_OFF=1 in .env) — when set, the NSE funnel is
+    intentionally stopped, so don't watch it or trigger start_all trying to respawn it."""
+    if os.environ.get("NSE_FUNNEL_OFF") == "1":
+        return True
+    try:
+        with open(os.path.join(HOME, ".env")) as f:
+            for line in f:
+                if line.strip().startswith("NSE_FUNNEL_OFF="):
+                    return line.split("=", 1)[1].strip() == "1"
+    except Exception:
+        pass
+    return False
+
+
 def _check() -> dict:
-    return {name: _alive(pat) for name, pat in REQUIRED.items()}
+    required = dict(REQUIRED)
+    if _nse_funnel_off():
+        required.pop("funnel_nse", None)               # intentionally stopped — don't respawn
+    return {name: _alive(pat) for name, pat in required.items()}
 
 
 def _save_state(state: dict) -> None:
