@@ -61,19 +61,22 @@ def _cfg() -> dict:
 _CACHE: dict[tuple, tuple[float, dict]] = {}
 
 
-def reliability(source: str, regime: str | None = None) -> dict:
-    """Cached truth_ledger.source_reliability(source, regime) with a regime→any fallback:
+def reliability(source: str, regime: str | None = None, market: str | None = None) -> dict:
+    """Cached truth_ledger.source_reliability(source, market, regime) with a regime→any fallback:
     prefer the regime-specific measurement, fall back to the across-regime rollup when the
-    regime bucket is too thin. Returns the truth_ledger dict (rate/ci_low/ci_high/edge/n)."""
+    regime bucket is too thin. `market` (CRYPTO|NSE) keeps crypto and NSE reliability APART so
+    an NSE decision never reads a crypto-polluted edge (isolation, 2026-07-13). Returns the
+    truth_ledger dict (rate/ci_low/ci_high/edge/n)."""
     ttl = _cfg()["cache_ttl"]
-    key = (source, (regime or "").lower() or None)
+    m = (market or "").upper() or None
+    key = (source, (regime or "").lower() or None, m)
     hit = _CACHE.get(key)
     if hit and (time.monotonic() - hit[0]) < ttl:
         return hit[1]
-    rel = _tl.source_reliability(source, regime=regime, min_n=1)
-    # thin regime bucket → back off to the source's across-regime measurement
+    rel = _tl.source_reliability(source, market=m, regime=regime, min_n=1)
+    # thin regime bucket → back off to the source's across-regime measurement (SAME market)
     if (rel.get("n") or 0) < _cfg()["min_n"] and regime:
-        allr = _tl.source_reliability(source, regime=None, min_n=1)
+        allr = _tl.source_reliability(source, market=m, regime=None, min_n=1)
         if (allr.get("n") or 0) > (rel.get("n") or 0):
             rel = allr
     _CACHE[key] = (time.monotonic(), rel)
@@ -135,7 +138,7 @@ def decide(readings, *, market: str = "", segment: str = "",
         except (TypeError, ValueError):
             continue
         p = min(1.0, max(0.0, p))
-        rel = reliability(source, regime)
+        rel = reliability(source, regime, market)
         w, invert = _signed_weight(rel, cfg)
         if w <= 0.0:
             weights[source] = {"w": 0.0, "invert": invert, "rate": rel.get("rate"),
@@ -179,7 +182,7 @@ def correct_direction(direction: str, *, source: str, market: str = "",
     if d not in ("LONG", "SHORT"):
         return direction, {"action": "pass", "reason": "non-directional"}
     try:
-        rel = reliability(source, regime)
+        rel = reliability(source, regime, market)
         w, invert = _signed_weight(rel, _cfg())
         if invert and w > 0.0:                       # significant, reliably-wrong source → flip
             newd = "SHORT" if d == "LONG" else "LONG"

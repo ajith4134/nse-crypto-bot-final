@@ -11,8 +11,14 @@ from pathlib import Path
 import trading.state as state
 
 
-def _seed(buckets: dict) -> None:
-    state.save_json("direction_truth.json", {"buckets": buckets})
+def _seed(buckets: dict, market: str = "CRYPTO") -> None:
+    """Seed truth buckets in the market-scoped key format (2026-07-13): the legacy
+    "source|regime|horizon" keys get MARKET injected → "source|MARKET|regime|horizon"."""
+    scoped = {}
+    for k, v in buckets.items():
+        src, rest = k.split("|", 1)
+        scoped[f"{src}|{market.upper()}|{rest}"] = v
+    state.save_json("direction_truth.json", {"buckets": scoped})
 
 
 def _snap(votes: dict):

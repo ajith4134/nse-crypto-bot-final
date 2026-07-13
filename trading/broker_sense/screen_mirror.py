@@ -209,8 +209,23 @@ def actions(broker: str, limit: int = 60) -> list[dict]:
         return []
 
 
+def _broker_market(broker: str) -> str:
+    """Which market a mirror broker belongs to (CRYPTO|NSE), so the mirror UI can group /
+    separate the two markets instead of reading as one 'Binance-only' feed."""
+    try:
+        from trading.broker_sense.brokers import REGISTRY
+        m = (REGISTRY.get(broker) or {}).market if broker in REGISTRY else ""
+        if m:
+            return m.upper()
+    except Exception:
+        pass
+    return "NSE" if broker in ("upstox", "groww", "angelone", "zerodha") else "CRYPTO"
+
+
 def status(*, stale_after_s: float = 30.0) -> dict:
-    """Honest per-broker mirror state: frame age, LIVE/STALE, current page, last action."""
+    """Honest per-broker mirror state: frame age, LIVE/STALE, current page, last action,
+    the broker's MARKET (crypto/NSE) and whether the operator is mid-login (so a stale
+    Upstox tab reads as 'needs re-login', not 'missing' — 2026-07-13 isolation pass)."""
     root = state._path("screen_mirror")
     out: dict[str, dict] = {}
     try:
@@ -228,8 +243,14 @@ def status(*, stale_after_s: float = 30.0) -> dict:
             meta = {}
         ts = float(meta.get("ts") or 0.0)
         age = round(now - ts, 1) if ts else None
+        try:
+            from trading.broker_sense.sessions import login_in_progress
+            logging_in = bool(login_in_progress(b))
+        except Exception:
+            logging_in = False
         out[b] = {"ts": ts or None, "age_s": age,
                   "live": bool(ts) and (now - ts) <= stale_after_s,
+                  "market": _broker_market(b), "login_in_progress": logging_in,
                   "url": meta.get("url"), "title": meta.get("title"),
                   "viewport": meta.get("viewport"),
                   "last_action": meta.get("last_action"),

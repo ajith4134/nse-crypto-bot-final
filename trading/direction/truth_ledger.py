@@ -246,13 +246,16 @@ def _append_train(folds) -> None:
 # ── label resolution + aggregation ────────────────────────────────────────────────
 
 
-def _bucket_key(source: str, regime: str, horizon: str) -> str:
-    return f"{source}|{regime or 'neutral'}|{horizon}"
+# Bucket key carries MARKET so a source firing in BOTH crypto and NSE never pools its
+# hit-rate across markets (multi-market isolation, 2026-07-13). Format:
+#   source | market | regime | horizon   (rsplit on '|' from the right → 4 parts).
+def _bucket_key(source: str, market: str, regime: str, horizon: str) -> str:
+    return f"{source}|{(market or 'CRYPTO').upper()}|{regime or 'neutral'}|{horizon}"
 
 
 def _fold(agg: dict, row: dict, horizon: str, correct: bool, method: str) -> None:
     b = agg.setdefault("buckets", {}).setdefault(
-        _bucket_key(row["source"], row.get("regime"), horizon),
+        _bucket_key(row["source"], row.get("market"), row.get("regime"), horizon),
         {"n": 0, "correct": 0})
     b["n"] += 1
     b["correct"] += int(correct)
@@ -473,6 +476,53 @@ def backfill_journal(limit: int | None = None) -> dict:
     return rep
 
 
+def rebuild_from_train() -> dict:
+    """Rebuild the WHOLE bucket/rollup aggregate from the labeled train JSONL, re-keying every
+    resolved decision by MARKET. One-shot migration for the 2026-07-13 market-scoping change:
+    the pre-market aggregate pooled crypto+NSE under `source|regime|horizon`; the train log
+    (`_append_train`) carries `market` per row and already includes journal-backfilled labels,
+    so folding it fresh reconstructs full per-market history with the new key. Idempotent
+    (fully replaces the aggregate). Returns a small report."""
+    rep = {"rows": 0, "folded": 0, "skipped": 0}
+    p = Path(state.STATE_DIR) / _TRAIN
+    if not p.exists():
+        return rep
+    folds: list[tuple[dict, str, bool, str]] = []
+    with open(p, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            rep["rows"] += 1
+            try:
+                ex = json.loads(line)
+            except json.JSONDecodeError:
+                rep["skipped"] += 1
+                continue
+            hz = ex.get("horizon")
+            if hz is None or ex.get("correct") is None or not ex.get("source"):
+                rep["skipped"] += 1
+                continue
+            row = {"source": str(ex.get("source")),
+                   "market": (ex.get("market") or "CRYPTO"),
+                   "segment": (ex.get("segment") or "futures"),
+                   "direction": (ex.get("direction") or "LONG"),
+                   "regime": (ex.get("regime") or "neutral")}
+            folds.append((row, str(hz), bool(ex.get("correct")),
+                          str(ex.get("method") or "rebuild")))
+            rep["folded"] += 1
+    # rebuild from scratch: replace the aggregate entirely (drops legacy pooled keys)
+    def _rebuild(_old: dict) -> dict:
+        agg: dict = {}
+        for row, hz, ok, method in folds:
+            _fold(agg, row, hz, ok, method)
+        agg["updated"] = time.time()
+        agg["rebuilt_market_scoped"] = True
+        return agg
+    state.mutate_json(_AGG, _rebuild, default={})
+    return rep
+
+
 # ── read side: Wilson-bounded hit rates for gates + dashboard ─────────────────────
 
 
@@ -487,33 +537,39 @@ def _wilson(correct: int, n: int, z: float = 1.96) -> tuple[float, float, float]
     return p, max(0.0, centre - half), min(1.0, centre + half)
 
 
-def hit_rates(*, min_n: int = 1) -> list[dict]:
-    """Per (source, regime, horizon) accuracy rows, Wilson-bounded, worst first."""
+def hit_rates(*, min_n: int = 1, market: str | None = None) -> list[dict]:
+    """Per (source, market, regime, horizon) accuracy rows, Wilson-bounded, worst first.
+    `market` (CRYPTO|NSE) filters to one market's buckets."""
     agg = state.load_json(_AGG, {})
+    want_m = (market or "").upper() or None
     rows = []
     for key, b in (agg.get("buckets") or {}).items():
         try:
-            source, regime, horizon = key.rsplit("|", 2)
+            source, mkt, regime, horizon = key.rsplit("|", 3)
         except ValueError:
+            continue                                 # legacy 3-part key (pre-market) → skip
+        if want_m is not None and mkt.upper() != want_m:
             continue
         n, c = int(b.get("n", 0)), int(b.get("correct", 0))
         if n < min_n:
             continue
         rate, lo, hi = _wilson(c, n)
-        rows.append({"source": source, "regime": regime, "horizon": horizon,
+        rows.append({"source": source, "market": mkt, "regime": regime, "horizon": horizon,
                      "n": n, "correct": c, "rate": round(rate, 4),
                      "ci_low": round(lo, 4), "ci_high": round(hi, 4)})
     rows.sort(key=lambda r: (r["rate"], -r["n"]))
     return rows
 
 
-def source_reliability(source: str, *, regime: str | None = None,
+def source_reliability(source: str, *, market: str | None = None, regime: str | None = None,
                        horizon: str | None = None, min_n: int = 1) -> dict:
     """Measured accuracy of one directional SOURCE, aggregated across the buckets that match.
 
     Reads the same live aggregate `hit_rates()` serves, but rolls a single source up into ONE
     honest number the direction driver can weight by: sums (n, correct) over every bucket whose
-    source matches (optionally filtered to a regime and/or horizon), then Wilson-bounds it.
+    source matches (optionally filtered to a `market`, regime and/or horizon), then Wilson-bounds
+    it. `market` (CRYPTO|NSE) keeps crypto and NSE reliability APART so a source that trades in
+    both never has one market's outcomes poison the other's decisions (isolation, 2026-07-13).
 
     Returns {n, correct, rate, ci_low, ci_high, edge} where `edge = rate - 0.5` (signed: negative
     means the source is measured WRONG more than half the time → the caller should invert it).
@@ -522,12 +578,15 @@ def source_reliability(source: str, *, regime: str | None = None,
     agg = state.load_json(_AGG, {})
     n = c = 0
     reg = (regime or "").lower() or None
+    want_m = (market or "").upper() or None
     for key, b in (agg.get("buckets") or {}).items():
         try:
-            s, r, h = key.rsplit("|", 2)
+            s, mkt, r, h = key.rsplit("|", 3)
         except ValueError:
-            continue
+            continue                                 # legacy 3-part key (pre-market) → skip
         if s != source:
+            continue
+        if want_m is not None and mkt.upper() != want_m:
             continue
         if reg is not None and r.lower() != reg:
             continue

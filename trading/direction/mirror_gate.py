@@ -57,20 +57,40 @@ def _enabled() -> bool:
 
 
 def _buckets() -> dict:
-    """source → regime → horizon → {n, correct}, cached ~60s (gate runs per candidate)."""
+    """market → source → regime → horizon → {n, correct}, cached ~60s (gate runs per
+    candidate). Market-nested so the gate never pools a source's crypto and NSE outcomes
+    when judging one market's claim (isolation, 2026-07-13)."""
     now = time.time()
     if _CACHE["buckets"] is not None and now - _CACHE["ts"] < _CACHE_TTL_S:
         return _CACHE["buckets"]
     out: dict = {}
     for key, b in (state.load_json(_AGG, {}).get("buckets") or {}).items():
         try:
-            source, regime, horizon = key.rsplit("|", 2)
+            source, market, regime, horizon = key.rsplit("|", 3)
         except ValueError:
-            continue
-        out.setdefault(source, {}).setdefault(regime, {})[horizon] = {
-            "n": int(b.get("n", 0)), "correct": int(b.get("correct", 0))}
+            continue                                 # legacy 3-part key (pre-market) → skip
+        out.setdefault(market.upper(), {}).setdefault(source, {}).setdefault(regime, {})[
+            horizon] = {"n": int(b.get("n", 0)), "correct": int(b.get("correct", 0))}
     _CACHE.update(ts=now, buckets=out)
     return out
+
+
+def _sources_for(market: str | None) -> dict:
+    """source → regime → horizon map for one market, or all markets pooled when market is
+    None (legacy back-compat; callers should pass a market to keep isolation)."""
+    bmk = _buckets()
+    if market:
+        return bmk.get(market.upper(), {})
+    merged: dict = {}
+    for smap in bmk.values():                        # pool every market (legacy path only)
+        for source, regs in smap.items():
+            for reg, hz in regs.items():
+                dst = merged.setdefault(source, {}).setdefault(reg, {})
+                for h, v in hz.items():
+                    cur = dst.setdefault(h, {"n": 0, "correct": 0})
+                    cur["n"] += v["n"]
+                    cur["correct"] += v["correct"]
+    return merged
 
 
 def _horizons() -> list[str]:
@@ -81,11 +101,12 @@ def _horizons() -> list[str]:
     return hs or ["1h"]
 
 
-def _lookup(source: str, regime: str | None, horizons: list[str]) -> tuple[int, int, str]:
-    """(n, correct, bucket_used) POOLED across the given clean horizons. Exact regime
-    (summed over the horizons) first; else the source summed across regimes AND horizons
-    — more evidence beats finer conditioning until the per-regime bucket has its own n."""
-    src = _buckets().get(source) or {}
+def _lookup(source: str, regime: str | None, horizons: list[str],
+            market: str | None = None) -> tuple[int, int, str]:
+    """(n, correct, bucket_used) POOLED across the given clean horizons, WITHIN one market.
+    Exact regime (summed over the horizons) first; else the source summed across regimes AND
+    horizons — more evidence beats finer conditioning until the per-regime bucket has its own n."""
+    src = _sources_for(market).get(source) or {}
     min_n = int(_env_f("MIRROR_MIN_N", 30))
     tag = "+".join(horizons)
     reg_map = src.get(regime or "") or {}
@@ -108,7 +129,7 @@ def _lookup(source: str, regime: str | None, horizons: list[str]) -> tuple[int, 
 
 
 def decide(direction: str, *, source: str, regime: str | None = None,
-           horizon: str | None = None) -> dict:
+           horizon: str | None = None, market: str | None = None) -> dict:
     """Gate one directional claim. Returns
     {"direction": "LONG"/"SHORT"/None, "action": pass|invert|abstain|off,
      "rate", "ci_low", "ci_high", "n", "bucket"} — direction=None means abstain.
@@ -127,7 +148,7 @@ def decide(direction: str, *, source: str, regime: str | None = None,
         # single horizon; otherwise POOL the clean fixed horizons for a tighter interval.
         single = horizon or os.environ.get("MIRROR_HORIZON")
         horizons = [single] if single else _horizons()
-        n, c, bucket = _lookup(str(source), regime, horizons)
+        n, c, bucket = _lookup(str(source), regime, horizons, market)
         out["bucket"] = bucket
         out["n"] = n
         min_n = int(_env_f("MIRROR_MIN_N", 30))
@@ -154,7 +175,7 @@ def apply(direction: str, *, source: str, symbol: str = "", market: str = "CRYPT
     """decide() + the self-measuring loop: an INVERTED claim is recorded in the Truth
     Ledger as source "mirror:<source>" so the flip earns its own track record.
     Returns (final_direction_or_None, gate_info)."""
-    g = decide(direction, source=source, regime=regime)
+    g = decide(direction, source=source, regime=regime, market=market)
     if g["action"] == "invert" and g["direction"] and symbol:
         try:
             from trading.direction import truth_ledger
@@ -176,24 +197,25 @@ def status() -> dict:
     horizons = [single] if single else _horizons()
     hz = "+".join(horizons)
     acts = []
-    for source, regs in _buckets().items():
-        n = c = 0
-        for reg_map in regs.values():
-            for h in horizons:
-                b = reg_map.get(h)
-                if b:
-                    n += b["n"]
-                    c += b["correct"]
-        if n < min_n:
-            continue
-        rate, lo, hi = _wilson(c, n)
-        action = ("invert" if hi < invert_ci else
-                  "abstain" if n >= 4 * min_n and lo > invert_ci and hi < trust_ci
-                  else "trusted" if lo > trust_ci else "pass")
-        if action != "pass":
-            acts.append({"source": source, "horizon": hz, "n": n,
-                         "rate": round(rate, 4), "ci_low": round(lo, 4),
-                         "ci_high": round(hi, 4), "action": action})
+    for market, smap in _buckets().items():
+        for source, regs in smap.items():
+            n = c = 0
+            for reg_map in regs.values():
+                for h in horizons:
+                    b = reg_map.get(h)
+                    if b:
+                        n += b["n"]
+                        c += b["correct"]
+            if n < min_n:
+                continue
+            rate, lo, hi = _wilson(c, n)
+            action = ("invert" if hi < invert_ci else
+                      "abstain" if n >= 4 * min_n and lo > invert_ci and hi < trust_ci
+                      else "trusted" if lo > trust_ci else "pass")
+            if action != "pass":
+                acts.append({"source": source, "market": market, "horizon": hz, "n": n,
+                             "rate": round(rate, 4), "ci_low": round(lo, 4),
+                             "ci_high": round(hi, 4), "action": action})
     acts.sort(key=lambda a: a["rate"])
     return {"enabled": _enabled(), "horizon": hz, "min_n": min_n,
             "invert_ci": invert_ci, "trust_ci": trust_ci, "active": acts}

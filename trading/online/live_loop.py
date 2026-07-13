@@ -489,6 +489,14 @@ class LiveTradeLoop:
         (no broker); live hits the real broker (guarded by allow_live). NEVER raises — returns
         (order_id, status) so the loop/journal stay honest when OpenAlgo is down/unconfigured."""
         from trading.config import trading_config
+        # STRUCTURAL guard: a crypto-shaped symbol must NEVER reach the OpenAlgo/Kite door,
+        # whatever upstream tagged it NSE (multi-market isolation, 2026-07-13).
+        try:
+            from trading.market_guard import assert_market_symbol
+            assert_market_symbol("NSE", symbol)
+        except Exception as exc:
+            self._note_error(f"blocked cross-market NSE order: {str(exc)[:80]}")
+            return "", f"blocked (cross-market: {symbol})"
         if not trading_config.is_configured:
             return "", "sim-only (OpenAlgo not configured)"
         exch = self._oa_exch_for(symbol, segment)
@@ -576,6 +584,13 @@ class LiveTradeLoop:
         exit. crypto_options stays on the ccxt path (Freqtrade is spot/perp only). Never raises."""
         if (seg or "").lower() == "options":
             return {"skipped": "crypto_options on ccxt (Freqtrade = spot/perp only)"}
+        # STRUCTURAL guard: an NSE-shaped symbol must never reach the crypto engine.
+        try:
+            from trading.market_guard import assert_market_symbol
+            assert_market_symbol("CRYPTO", symbol)
+        except Exception as exc:
+            self._note_error(f"blocked cross-market crypto order: {str(exc)[:80]}")
+            return {"blocked": f"cross-market: {symbol}"}
         eng = self._crypto_engine_client()
         if eng is None:
             return {"skipped": "engine unavailable"}

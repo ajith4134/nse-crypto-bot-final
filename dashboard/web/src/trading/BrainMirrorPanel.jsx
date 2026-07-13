@@ -161,14 +161,28 @@ export default function BrainMirrorPanel() {
             padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 800 }}>
             {liveStream ? '⏺ LIVE VIDEO' : '▶ LIVE VIDEO'}
           </button>
-          {brokers.map((b) => (
-            <button key={b} onClick={() => setBroker(b)} style={{
-              background: T.panel2 || '#1a1f2b', color: b === broker ? (T.accent || '#5b9dff') : T.muted,
-              border: `1px solid ${b === broker ? (T.accent || '#5b9dff') : T.border}`, borderRadius: 8,
-              padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-              {b === broker ? `● ${b}` : b}
-            </button>
-          ))}
+          {/* group tabs by market (CRYPTO first, then NSE) so the two markets read as separate
+              feeds, and show each broker's live/stale/login state — a stale Upstox reads as
+              "needs re-login", never "missing" (2026-07-13 isolation pass). */}
+          {[...brokers].sort((a, c) => {
+            const ma = (st.brokers[a]?.market || 'CRYPTO'), mc = (st.brokers[c]?.market || 'CRYPTO')
+            return ma === mc ? a.localeCompare(c) : (ma === 'CRYPTO' ? -1 : 1)
+          }).map((b) => {
+            const bm = st.brokers[b] || {}
+            const mkt = bm.market || 'CRYPTO'
+            const dot = bm.login_in_progress ? '🔑' : (bm.live ? '●' : '○')
+            const mktColor = mkt === 'CRYPTO' ? '#f0b90b' : '#5b9dff'   // binance-gold vs nse-blue
+            return (
+              <button key={b} onClick={() => setBroker(b)} title={`${mkt} · ${bm.login_in_progress ? 'operator logging in' : bm.live ? 'live' : `stale${bm.age_s != null ? ` ${bm.age_s}s` : ''}`}`} style={{
+                background: T.panel2 || '#1a1f2b', color: b === broker ? (T.accent || '#5b9dff') : T.muted,
+                border: `1px solid ${b === broker ? (T.accent || '#5b9dff') : T.border}`, borderRadius: 8,
+                padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                {dot} {b}
+                <span style={{ marginLeft: 5, fontSize: 9, fontWeight: 800, color: mktColor,
+                  border: `1px solid ${mktColor}`, borderRadius: 4, padding: '0 3px' }}>{mkt}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
       <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>

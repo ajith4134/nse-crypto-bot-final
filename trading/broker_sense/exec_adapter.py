@@ -49,6 +49,18 @@ class ExecAdapter:
               quantity: int | None = None, live: bool = False) -> dict:
         """Place one order. live=False (the default, and the only mode until the owner's
         explicit go) rides the existing paper stacks."""
+        market = (market or "").lower()                      # normalize: "CRYPTO"→"crypto"
+        # STRUCTURAL market↔symbol guard (multi-market isolation): a crypto-shaped symbol can
+        # never reach the NSE/OpenAlgo door, nor an NSE symbol the crypto engine — regardless
+        # of a wrong upstream tag. Returns an honest failure instead of placing.
+        try:
+            from trading.market_guard import assert_market_symbol
+            assert_market_symbol("CRYPTO" if market == "crypto" else "NSE", symbol)
+        except Exception as exc:
+            entry = {"market": market, "symbol": symbol, "action": action, "segment": segment,
+                     "live": False, "broker": None, "ok": False, "blocked": str(exc)}
+            self.log = (self.log + [entry])[-50:]
+            return {"placed": False, **entry}
         live = bool(live) and self._live_allowed(market)
         broker = (EXEC_REAL["crypto"] if market == "crypto" else
                   (real_broker("nse") or "zerodha-sandbox"))

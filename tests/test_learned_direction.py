@@ -24,7 +24,7 @@ class LearnedDirectionTest(unittest.TestCase):
         ld.clear_cache()
         self._table = {}
 
-        def fake_reliability(source, *, regime=None, min_n=1):
+        def fake_reliability(source, *, market=None, regime=None, min_n=1):
             return self._table.get(source, _rel(None, 0))
 
         self._orig = ld._tl.source_reliability

@@ -6,8 +6,14 @@ from pathlib import Path
 import trading.state as state
 
 
-def _seed(buckets: dict) -> None:
-    state.save_json("direction_truth.json", {"buckets": buckets})
+def _seed(buckets: dict, market: str = "CRYPTO") -> None:
+    """Seed truth buckets. Keys are given as legacy "source|regime|horizon" and the market
+    is injected → "source|MARKET|regime|horizon" (the 2026-07-13 market-scoped key format)."""
+    scoped = {}
+    for k, v in buckets.items():
+        src, rest = k.split("|", 1)
+        scoped[f"{src}|{market.upper()}|{rest}"] = v
+    state.save_json("direction_truth.json", {"buckets": scoped})
 
 
 class _Iso(unittest.TestCase):
@@ -102,6 +108,22 @@ class TestMirrorGate(_Iso):
         # but a caller pinning the 1h horizon still sees the single-horizon inversion
         g1 = self.mg.decide("LONG", source="unstable", horizon="1h")
         self.assertEqual(g1["action"], "invert")
+
+    def test_market_isolation_no_crosspollination(self):
+        # SAME source, OPPOSITE reliability per market: reliably-wrong in CRYPTO (invert),
+        # reliably-right in NSE (pass). The gate must judge each market on its OWN bucket and
+        # never pool them (multi-market isolation, 2026-07-13).
+        state.save_json("direction_truth.json", {"buckets": {
+            "shared|CRYPTO|any|1h": {"n": 200, "correct": 60},    # 30% → invert
+            "shared|NSE|any|1h": {"n": 200, "correct": 140},      # 70% → trust/pass
+        }})
+        self.mg._CACHE.update(ts=0.0, buckets=None)
+        g_c = self.mg.decide("LONG", source="shared", regime="any", market="CRYPTO")
+        g_n = self.mg.decide("LONG", source="shared", regime="any", market="NSE")
+        self.assertEqual(g_c["action"], "invert")                 # crypto bucket only
+        self.assertEqual(g_c["direction"], "SHORT")
+        self.assertEqual(g_n["action"], "pass")                   # nse bucket only
+        self.assertEqual(g_n["direction"], "LONG")
 
     def test_status_lists_actions(self):
         _seed({"bad|any|1h": {"n": 200, "correct": 60},

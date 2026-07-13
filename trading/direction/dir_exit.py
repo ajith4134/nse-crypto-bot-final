@@ -95,7 +95,7 @@ def read(symbol: str, market: str = "CRYPTO", segment: str = "futures", *,
             if raw not in ("LONG", "SHORT"):
                 continue
             conf = (snap.get(lane) or {}).get("conf") or 0.0
-            g = mirror_gate.decide(raw, source=lane, regime=regime, horizon=hz)
+            g = mirror_gate.decide(raw, source=lane, regime=regime, horizon=hz, market=market)
             corrected = g.get("direction")
             if corrected not in ("LONG", "SHORT"):
                 continue                              # gate abstained → no vote

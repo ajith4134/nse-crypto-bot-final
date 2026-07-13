@@ -1878,6 +1878,11 @@ _Concept Discovery Engine (trading/brain/discovery/) — pure-self feature inven
 - **functions:** `_ohlcv(n, seed)`
 - **imports:** __future__, numpy, os, tempfile, unittest, warnings
 
+## `tests/test_consult.py`
+_Tests for trading/brain/consult.py + the consult→grade wiring (R22, Phase 2)._
+- **classes:** ConsultTest
+- **imports:** memory.neurons, tempfile, trading, trading.brain, unittest
+
 ## `tests/test_continual_learning.py`
 _Tests for Phase E — Avalanche ContinualLearner + world-model continual update._
 - **functions:** `_regime(seed, w, n)`; `test_learns_sequential_regimes_without_forgetting()`; `_ohlcv(seed, n, drift)`; `test_worldmodel_updates_online_with_replay()`
@@ -1986,7 +1991,7 @@ _Decision-memory subsystem (trading/brain/decision_memory.py + attribution.py) a
 ## `tests/test_dir_exit.py`
 _Tests for trading/direction/dir_exit — the directional EXIT oracle (Pillar 27)._
 - **classes:** _Iso, TestRead, TestEvaluate
-- **functions:** `_seed(buckets) -> None`; `_snap(votes)`
+- **functions:** `_seed(buckets, market) -> None`; `_snap(votes)`
 - **imports:** json, os, pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_direction_equation.py`
@@ -2282,6 +2287,11 @@ _tests/test_loop_keeper.py — runtime self-heal keeper (2026-07-10)._
 - **functions:** `_fresh_keeper(monkeypatch, tmp_path)`; `test_all_alive_no_restart(monkeypatch, tmp_path)`; `test_dead_loop_triggers_start_all(monkeypatch, tmp_path)`; `test_off_flag_blocks_restart(monkeypatch, tmp_path)`
 - **imports:** __future__, importlib, sys
 
+## `tests/test_market_guard.py`
+_Tests for trading/market_guard + the two execution doors — multi-market isolation_
+- **classes:** TestClassify, TestMatch, TestExecAdapterDoor
+- **imports:** trading.market_guard, unittest
+
 ## `tests/test_memory_assoc.py`
 _P4.2 acceptance: human-like ASSOCIATIVE recall (Personalized-PageRank + RRF fusion)._
 - **classes:** TestAssociativeRecall
@@ -2329,7 +2339,7 @@ _Tests for nodes/micro_transformer_node.py — cloned-LLM node (Phase C)._
 ## `tests/test_mirror_gate.py`
 _Tests for trading/direction/mirror_gate — D2 of the Direction Accuracy Program._
 - **classes:** _Iso, TestMirrorGate
-- **functions:** `_seed(buckets) -> None`
+- **functions:** `_seed(buckets, market) -> None`
 - **imports:** pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_mlnb_engine_native.py`
@@ -2930,6 +2940,11 @@ _trading/brain/connectivity_monitor.py — a light, always-on wiring watchdog._
 - **functions:** `_py_files(sub) -> list`; `scan_async() -> dict`; `scan() -> dict`; `rebaseline() -> dict`
 - **imports:** __future__, os, re, time
 
+## `trading/brain/consult.py`
+_trading/brain/consult.py — the brain USES its web of neurons before acting (R22)._
+- **functions:** `consult(query) -> dict`; `grade(ids) -> int`
+- **imports:** __future__
+
 ## `trading/brain/continual.py`
 _trading/brain/continual.py — online/continual learning + experience replay (T8.5)._
 - **classes:** OnlineNode, ReplayBuffer, ContinualLearner
@@ -3318,7 +3333,7 @@ _trading/broker_sense/binance_catalysts.py — Binance-native event catalysts (P
 
 ## `trading/broker_sense/binance_filter_lane.py`
 _trading/broker_sense/binance_filter_lane.py — the Binance-filter TOP-N breadth lane._
-- **functions:** `to_pair(flat, segment) -> str`; `_f(v, default)`; `features(symbol, ticker_row) -> dict`; `presets() -> list[str]`; `_components(row) -> dict`; `score(row, preset) -> float`; `rank(rows, preset, n) -> list[dict]`; `adaptive_n() -> int`; `enabled() -> bool`; `universe(segment) -> list[dict]`; `top_picks(segment, preset, n) -> list[dict]`
+- **functions:** `to_pair(flat, segment) -> str`; `_f(v, default)`; `features(symbol, ticker_row) -> dict`; `presets() -> list[str]`; `_sig(p) -> float`; `direction_signals(row) -> list`; `_components(row) -> dict`; `score(row, preset) -> float`; `rank(rows, preset, n) -> list[dict]`; `adaptive_n() -> int`; `enabled() -> bool`; `universe(segment) -> list[dict]`; `top_picks(segment, preset, n) -> list[dict]`
 - **imports:** __future__, os, re, trading.broker_sense
 
 ## `trading/broker_sense/binance_options.py`
@@ -3523,7 +3538,7 @@ _trading/broker_sense/run_upstox_focus.py — drive the Upstox App School to 100
 
 ## `trading/broker_sense/screen_mirror.py`
 _trading/broker_sense/screen_mirror.py — live screen-mirror of the brain's OWN browsers._
-- **functions:** `enabled() -> bool`; `_dir(broker)`; `_min_interval() -> float`; `record(broker, page) -> bool`; `record_bytes(broker, jpeg) -> bool`; `log_action(broker, page, act, detail) -> None`; `_append_action(broker, row) -> None`; `frame(broker) -> bytes | None`; `actions(broker, limit) -> list[dict]`; `status() -> dict`
+- **functions:** `enabled() -> bool`; `_dir(broker)`; `_min_interval() -> float`; `record(broker, page) -> bool`; `record_bytes(broker, jpeg) -> bool`; `log_action(broker, page, act, detail) -> None`; `_append_action(broker, row) -> None`; `frame(broker) -> bytes | None`; `actions(broker, limit) -> list[dict]`; `_broker_market(broker) -> str`; `status() -> dict`
 - **imports:** __future__, json, os, time, trading, typing
 
 ## `trading/broker_sense/screeners.py`
@@ -4191,7 +4206,7 @@ _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 2
 
 ## `trading/direction/learned_direction.py`
 _trading/direction/learned_direction.py — D10: the learned direction DRIVER (goal Pillar 27)._
-- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
+- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime, market) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, math, os, time, trading.direction
 
 ## `trading/direction/meta_challenger.py`
@@ -4211,7 +4226,7 @@ _trading/direction/micro_features.py — D4: microstructure direction features (
 
 ## `trading/direction/mirror_gate.py`
 _trading/direction/mirror_gate.py — D2: the Mirror Gate (goal Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_buckets() -> dict`; `_horizons() -> list[str]`; `_lookup(source, regime, horizons) -> tuple[int, int, str]`; `decide(direction) -> dict`; `apply(direction) -> tuple[str | None, dict]`; `status() -> dict`
+- **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_buckets() -> dict`; `_sources_for(market) -> dict`; `_horizons() -> list[str]`; `_lookup(source, regime, horizons, market) -> tuple[int, int, str]`; `decide(direction) -> dict`; `apply(direction) -> tuple[str | None, dict]`; `status() -> dict`
 - **imports:** __future__, os, time, trading
 
 ## `trading/direction/pullback.py`
@@ -4232,7 +4247,7 @@ _trading/direction/regime.py — D5: the direction regime classifier (goal Pilla
 
 ## `trading/direction/truth_ledger.py`
 _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._
-- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit) -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `status() -> dict`
+- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, fcntl, json, math, os, pathlib, time, trading
 
 ## `trading/evidence.py`
@@ -4405,6 +4420,12 @@ _trading/journal/tearsheet.py — Phase T5 HTML/PDF performance tearsheet._
 _Barrier-style 3-class labeling for CORTEX lanes (CANON-28; PNP-14/PNP-15)._
 - **functions:** `barrier_label(close, pipdiff, sl_tp_ratio, horizon_bars) -> np.ndarray`; `class_balance(labels) -> dict`
 - **imports:** __future__, numpy
+
+## `trading/market_guard.py`
+_trading/market_guard.py — the ONE structural boundary between markets._
+- **classes:** MarketSymbolMismatch
+- **functions:** `market_of_symbol(symbol) -> str | None`; `market_matches(market, symbol) -> bool`; `assert_market_symbol(market, symbol) -> None`
+- **imports:** __future__
 
 ## `trading/market_toggle.py`
 _trading/market_toggle.py — NSE master on/off switch (T1 §7)._
