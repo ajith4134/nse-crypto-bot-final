@@ -1119,6 +1119,7 @@ def handle_opentrades(h):
                 except Exception:
                     hold = "—"
                 crypto_pnl += upnl; crypto_cap += margin
+                _ftm = srv._ft_entry_meta(t)          # entry-meta sidecar (carries the filter preset)
                 rows.append({
                     "Symbol": t.get("symbol"), "Trade Type": "crypto-freqtrade",
                     "Instrument Type": t.get("instrument_type", "SPOT"), "Currency": "USD",
@@ -1137,7 +1138,10 @@ def handle_opentrades(h):
                     "Stop": stop_txt, "Trail Stop": stop_txt,
                     **_tg_cells(_lk.get("locked"), _lk.get("dist")),
                     "R-multiple": "—", "Efficiency": "—",
-                    "Filter": _filter_preset_of(t),
+                    # filter preset lives in the entry-meta snapshot's brain.filter (enter_tag is the
+                    # direction source e.g. 'learned_direction', not the filter) — read it from _ftm.
+                    "Filter": (_filter_preset_of(t) if _filter_preset_of(t) != "—"
+                               else _filter_preset_of(_ftm)),
                     "Strategy": t.get("enter_tag") or t.get("strategy") or "freqtrade",
                     "Exchange": t.get("exchange", "binance"),
                     "Exit Policy": "freqtrade-managed", "Liq Price": "—",
@@ -1145,7 +1149,7 @@ def handle_opentrades(h):
                     **(lambda mc: {"NN Move %": mc[0], "NN Direction": mc[1]})(_move_cells(t)),
                     "Win Prob": "—", "NN Verdict": "—", "Exp R": "—",
                     # entry-time psychology + UQ from the brain-loop sidecar store
-                    **srv._psych_cells((_ftm := srv._ft_entry_meta(t)).get("psychology")),
+                    **srv._psych_cells(_ftm.get("psychology")),
                     **srv._uq_cells(_ftm.get("uq"))})
         except Exception:
             pass
