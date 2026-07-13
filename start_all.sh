@@ -48,7 +48,10 @@ export VISION_EXIT="${VISION_EXIT:-trade}"                 # vision-read exit ac
 export LEARNED_DIRECTION="${LEARNED_DIRECTION:-1}"         # reliability-weighted direction gate
 export BINANCE_FILTER_LANE="${BINANCE_FILTER_LANE:-1}"     # top-N breadth lane ON (kill: =0)
 export BINANCE_FILTER_PRESET="${BINANCE_FILTER_PRESET:-momentum}"
-export BINANCE_FILTER_TOPN="${BINANCE_FILTER_TOPN:-20}"
+# MULTI-PRESET breadth (owner 2026-07-13): rank the full RAM universe across several presets so
+# diverse dislocations open, not just the same momentum movers. TOPN raised 20→50 (bigger union).
+export BINANCE_FILTER_PRESETS="${BINANCE_FILTER_PRESETS:-momentum,squeeze,funding_extreme,liquidity}"
+export BINANCE_FILTER_TOPN="${BINANCE_FILTER_TOPN:-50}"
 # UI-ONLY DATA (owner goal 2026-07-07): 1 = the eyes' captured trading-app payloads are
 # the ONLY market-data source (every free-API poll/fallback disabled; misses are honest
 # data-failures in the evidence lane). Flip to 1 once /api/trading/ui_data shows the
