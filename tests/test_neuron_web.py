@@ -83,6 +83,34 @@ class NeuronWebTest(unittest.TestCase):
         r2 = nw.NeuronWeb(self.store)._run(nw.NeuronWeb(self.store).conv_features)
         self.assertEqual(r2["added"], 0)                             # idempotent
 
+    def test_inventions_and_nav_routes_and_recipes(self):
+        (self.state / "skill_library.json").write_text(json.dumps([
+            {"id": "s1", "name": "gamma_scalp", "kind": "strategy", "market": "CRYPTO",
+             "metric": 0.9, "metrics": {"dsr": 0.9, "fwer_passed": True},
+             "generation": 0, "payload": {}},
+            {"id": "s2", "name": "weak", "kind": "strategy", "market": "CRYPTO",
+             "metric": 0.1, "metrics": {"dsr": 0.1, "fwer_passed": False}},  # gate FAILED
+        ]))
+        (self.state / "strategy_foundry.json").write_text(json.dumps(
+            {"specs": [{"sid": "f1", "name": "vp_break", "segment": "crypto_futures",
+                        "family": "breakout", "idea": "break the value area high"}]}))
+        (self.state / "app_school_map.json").write_text(json.dumps(
+            {"routes": {"binance": {"futures": {"confirmed": True, "endpoint": "api/fut"}},
+                        "upstox": {"chain": {"confirmed": False, "endpoint": "x"}}}}))
+        nw.backfill(self.store)
+        # R6: only the GATE-PASSED strategy becomes an invention
+        inv = [n for n in self.store.all_neurons() if n.kind == "invention"]
+        self.assertEqual(len(inv), 1)
+        self.assertIn("gamma_scalp", inv[0].title)
+        # R7: strategy recipe is a market-scoped instruction
+        rec = self.store.search("vp_break", kind="instruction")
+        self.assertTrue(any("[crypto]" in h["title"] for h in rec))
+        # R12/R13: only the CONFIRMED nav route becomes an instruction
+        nav = [n for n in self.store.all_neurons()
+               if n.kind == "instruction" and n.ref.startswith("nav:")]
+        self.assertEqual(len(nav), 1)
+        self.assertIn("futures", nav[0].title)
+
     def test_changed_row_updates_in_place(self):
         nw.backfill(self.store)
         j = json.loads((self.state / "journal.json").read_text())

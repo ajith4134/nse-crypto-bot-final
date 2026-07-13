@@ -253,6 +253,64 @@ class NeuronWeb:
                                origin="book", ref=f"trade:{market}:strategy-library",
                                confidence=0.5)
 
+    def conv_nav_routes(self):
+        """App-School's CONFIRMED discovered routes → nav INSTRUCTION neurons (R12/R13).
+        Each golden path to a market-data kind on Binance/Upstox becomes a followable nav
+        instruction, so the brain accumulates a real navigation library from what it actually
+        discovered (market-scoped: binance→crypto, upstox→nse)."""
+        d = _load("app_school_map.json") or {}
+        app_market = {"binance": "crypto", "upstox": "nse"}
+        for app, kinds in (d.get("routes") or {}).items():
+            market = app_market.get(app, "crypto")
+            for kind, info in (kinds or {}).items():
+                if not (isinstance(info, dict) and info.get("confirmed")):
+                    continue
+                ep = str(info.get("endpoint") or "")
+                body = (f"1) In the {app} web app, navigate to the {kind} view.\n"
+                        f"2) The confirmed data door is: {ep}\n"
+                        f"3) Read the {kind} data from there.")
+                action = (f"Use to reach '{kind}' market data on the {app} app ({market}); the "
+                          f"confirmed golden route is {ep}. Verify: the {kind} data loads. "
+                          f"Navigation route for {market} only.")
+                yield self._upsert("nav_route", f"{app}:{kind}", "instruction",
+                                   f"Nav [{market}] {app}: reach {kind}"[:200], body, action,
+                                   origin="experiment", ref=f"nav:{market}:{app}",
+                                   confidence=0.6)
+
+    def conv_inventions(self):
+        """Gate-passed strategies (autoresearch CPCV+DSR+FWER) → INVENTION neurons (R6). An
+        admitted skill survived the SAME out-of-sample statistical gate the goal's R6
+        acceptance requires, so it becomes an invention neuron the L5 curriculum examines —
+        closing 'the brain has ≥1 invention that passed the CPCV+DSR gate'."""
+        for r in (_load("skill_library.json") or []):
+            if not isinstance(r, dict):
+                continue
+            m = r.get("metrics") or {}
+            if isinstance(m, str):
+                try:
+                    m = json.loads(m.replace("'", '"').replace("True", "true")
+                                   .replace("False", "false"))
+                except Exception:
+                    m = {}
+            dsr = _num(m.get("dsr") if isinstance(m, dict) else None) or _num(r.get("metric"))
+            passed = (isinstance(m, dict) and bool(m.get("fwer_passed"))) or \
+                     (dsr is not None and dsr > 0.5)
+            if not passed:
+                continue                               # only GATE-PASSED inventions
+            name = r.get("name") or r.get("id")
+            market = str(r.get("market") or "crypto").lower()
+            body = (f"Invented strategy '{name}' ({r.get('kind')}) for {market}. Passed the "
+                    f"CPCV+DSR+FWER gate: DSR={dsr} fwer_passed="
+                    f"{m.get('fwer_passed') if isinstance(m, dict) else '?'} "
+                    f"gen={r.get('generation')}.")
+            action = (f"Deploy invention '{name}' on {market} when its regime fits — it "
+                      f"cleared the out-of-sample CPCV+DSR gate (DSR {dsr}); track its live "
+                      f"outcome to keep or retire it. Gate-passed invention (R6).")
+            yield self._upsert("invention", str(r.get("id") or name), "invention",
+                               f"Invention: {name}"[:200], body, action, origin="experiment",
+                               ref="trading/state/skill_library.json",
+                               confidence=min(0.9, 0.5 + (dsr or 0) / 4))
+
     def conv_hypotheses(self):
         """hypotheses.json (hypothesis ledger) → finding (tested) / lesson (failed)."""
         d = _load("hypotheses.json") or {}
@@ -406,6 +464,8 @@ class NeuronWeb:
             ("conv_skill_library", self.conv_skill_library),
             ("conv_strategy_foundry", self.conv_strategy_foundry),
             ("conv_strategy_recipes", self.conv_strategy_recipes),
+            ("conv_nav_routes", self.conv_nav_routes),
+            ("conv_inventions", self.conv_inventions),
             ("conv_hypotheses", self.conv_hypotheses),
             ("conv_news", self.conv_news),
             ("conv_journal", self.conv_journal),

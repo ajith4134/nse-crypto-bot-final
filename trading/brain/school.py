@@ -124,6 +124,31 @@ class School:
                         "question": f"how would you USE '{n.title[:60]}'?"})
         return out
 
+    def _exam_select(self, neurons: list) -> list[dict]:
+        """R27 knowledge-APPLICATION: given a situation, can the brain SELECT a relevant
+        instruction to act on (not just recall an action string)? Uses the live apply.select
+        surface — the same one the decision path uses — so this exams the real capability."""
+        out = []
+        try:
+            from trading.brain import apply as _apply
+        except Exception:
+            return out
+        for n in neurons:
+            scenario = f"{n.title} {n.body[:80]}"
+            picked = _apply.select(scenario, explore=0.0)   # deterministic (exploit)
+            if picked is None:
+                out.append({"type": "select", "neuron": n.id, "correct": False,
+                            "question": f"which instruction applies to '{n.title[:50]}'?",
+                            "note": "no instruction selected"})
+                continue
+            title = self.store.get(picked["id"])
+            rel = _jaccard(_words(picked.get("title", "") + " " +
+                                  (title.action if title else "")), _words(scenario))
+            out.append({"type": "select", "neuron": n.id, "picked": picked["id"],
+                        "correct": rel >= 0.06, "score": round(rel, 3),
+                        "question": f"which instruction applies to '{n.title[:50]}'?"})
+        return out
+
     # ── Track B: the domain + L6 evolution evidence ────────────────────────────
     def _exam_domain(self, level: str, neurons: list) -> list[dict]:
         if level == "L6":                             # evidence-based, not quiz-based
@@ -156,6 +181,8 @@ class School:
         track_a = (self._exam_recall(material[: n_questions // 3])
                    + self._exam_connect(material[n_questions // 3: 2 * n_questions // 3])
                    + self._exam_apply(material[2 * n_questions // 3:]))
+        if level in ("L3", "L4", "L5", "L6"):          # R27: knowledge-application graded
+            track_a += self._exam_select(material[: max(2, n_questions // 4)])
         track_b = self._exam_domain(level, self._material(level, n=n_questions // 2))
         result = {"level": level, "name": CURRICULUM[level]["name"], "ts": ts}
         for track, items in (("track_a", track_a), ("track_b", track_b)):
