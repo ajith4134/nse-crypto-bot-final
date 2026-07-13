@@ -1,4 +1,5 @@
 """Tests for trading/brain/self_evaluation.py (R3, R22, R23, R28, time horizon)."""
+import json
 import tempfile
 import unittest
 from unittest import mock
@@ -48,6 +49,26 @@ class SelfEvaluationTest(unittest.TestCase):
             ev.snapshot_history(cap=2)
         hist = (state.load_json("self_evaluation.json", {}) or {}).get("history", [])
         self.assertEqual(len(hist), 2)                     # capped, trend persisted
+
+    def test_apply_lift_cohort_deltas(self):
+        def row(pnl, applied=None):
+            snap = {"app_signals": {"indicator_fusion": {"neurons": {"applied": applied}}}} \
+                if applied else {}
+            return {"net_pnl": pnl, "decision_snapshot": snap}
+        rows = [
+            row(5, {"id": "i1", "confidence": 0.7}),    # applied hi-conf, win
+            row(3, {"id": "i1", "confidence": 0.7}),    # applied hi-conf, win
+            row(-2, {"id": "i2", "confidence": 0.3}),   # applied lo-conf, loss
+            row(-1), row(-4), row(2),                   # baseline (no applied)
+        ]
+        (state.STATE_DIR / "journal.json").write_text(json.dumps(rows))
+        al = SelfEvaluation(self.store, llm=lambda p: None).apply_lift()
+        self.assertEqual(al["applied"]["n"], 3)
+        self.assertEqual(al["applied"]["win_rate"], round(2 / 3, 4))     # 2 of 3 applied won
+        self.assertEqual(al["applied_high_conf"]["n"], 2)
+        self.assertEqual(al["applied_high_conf"]["win_rate"], 1.0)       # both hi-conf won
+        self.assertEqual(al["baseline_win_rate"], round(3 / 6, 4))       # 3 of 6 overall
+        self.assertIn("lift", al)
 
     def test_snapshot_history_parity_gated(self):
         # rich neurons so llm_parity can run; a fake LLM keeps it deterministic + offline

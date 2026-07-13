@@ -130,6 +130,26 @@ function SelfEval({ ev, onRun, running }) {
               sub={acc ? `${acc.growing ? 'growing' : 'STALLED'} · decayed levels: ${Object.entries(acc.exam_trends || {}).filter(([, t]) => t.decayed).map(([l]) => l).join(', ') || 'none'}` : ''}
               color={acc?.growing ? T.good : T.warn} />
       </div>
+      {ev?.apply_lift && (() => {
+        const al = ev.apply_lift
+        const lift = al.lift
+        return (
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', fontSize: 10,
+                        color: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: 8 }}>
+            <span style={{ fontWeight: 700, color: T.text }}>
+              applied-instruction lift {al.tilt_enabled ? '(tilt ON)' : '(attribution only)'}
+            </span>
+            <span>baseline {pct(al.baseline_win_rate)}</span>
+            <span>applied {al.applied?.n
+              ? <><b style={{ color: T.text }}>{pct(al.applied.win_rate)}</b> (n={al.applied.n})</>
+              : <span style={{ color: T.muted }}>no applied trades yet</span>}</span>
+            {lift != null && <span style={{ color: lift >= 0 ? T.good : T.warn, fontWeight: 800 }}>
+              {lift >= 0 ? '▲' : '▼'}{pct(Math.abs(lift))} lift</span>}
+            {al.applied_high_conf?.n > 0 &&
+              <span>hi-conf {pct(al.applied_high_conf.win_rate)} (n={al.applied_high_conf.n})</span>}
+          </div>
+        )
+      })()}
       {ev?.history?.length > 1 && <TrendRow history={ev.history} />}
       {il && (
         <div style={{ fontSize: 11, border: `1px solid ${T.border}`, borderRadius: 8, padding: 8 }}>

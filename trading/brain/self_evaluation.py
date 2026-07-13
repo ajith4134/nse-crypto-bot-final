@@ -21,6 +21,7 @@ Reports persist to trading/state/self_evaluation.json for the dashboard (honest 
 """
 from __future__ import annotations
 
+import os
 import time
 
 from memory.neurons import NeuronStore, _jaccard, _words, get_store
@@ -256,6 +257,38 @@ class SelfEvaluation:
             return d
         state.mutate_json(REPORT_FILE, _append, default={})
         return snap
+
+    # ── does APPLYING an instruction lift win-rate? (R22/R27 knowledge-application) ──
+    def apply_lift(self, *, lookback: int = 2000) -> dict:
+        """Observational cohort deltas: compare the win-rate of closed trades whose decision
+        APPLIED an instruction (recorded in decision_snapshot…neurons.applied) against the
+        baseline, bucketed by the applied instruction's confidence. Honest — this is the
+        live applied-instruction cohort, not a randomised A/B; `tilt_enabled` says whether
+        the instruction actually moved the decision (INSTRUCTION_APPLY_TILT=1) or was pure
+        attribution. Populates as trades close after instruction-application shipped."""
+        rows = (state.load_json("journal.json", []) or [])[-int(lookback):]
+
+        def wr(rs):
+            return round(sum(1 for r in rs if (r.get("net_pnl") or 0) > 0) / len(rs), 4) \
+                if rs else None
+        applied, hi, lo = [], [], []
+        for r in rows:
+            neu = ((((r.get("decision_snapshot") or {}).get("app_signals") or {})
+                    .get("indicator_fusion") or {}).get("neurons") or {})
+            a = neu.get("applied")
+            if isinstance(a, dict) and a.get("id"):
+                applied.append(r)
+                (hi if float(a.get("confidence") or 0) >= 0.6 else lo).append(r)
+        base = wr(rows)
+        out = {"baseline_win_rate": base, "n_trades": len(rows),
+               "applied": {"n": len(applied), "win_rate": wr(applied)},
+               "applied_high_conf": {"n": len(hi), "win_rate": wr(hi)},
+               "applied_low_conf": {"n": len(lo), "win_rate": wr(lo)},
+               "tilt_enabled": os.environ.get("INSTRUCTION_APPLY_TILT") == "1"}
+        if base is not None and applied and wr(applied) is not None:
+            out["lift"] = round(wr(applied) - base, 4)
+        self._merge_report({"apply_lift": out})
+        return out
 
     # ── the standing report ────────────────────────────────────────────────────
     def full_report(self, *, now: float | None = None) -> dict:

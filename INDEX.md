@@ -2611,7 +2611,7 @@ _Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandbo
 ## `tests/test_self_evaluation.py`
 _Tests for trading/brain/self_evaluation.py (R3, R22, R23, R28, time horizon)._
 - **classes:** _FakeLibrarian, SelfEvaluationTest
-- **imports:** memory.neurons, tempfile, trading, trading.brain.self_evaluation, unittest
+- **imports:** json, memory.neurons, tempfile, trading, trading.brain.self_evaluation, unittest
 
 ## `tests/test_self_evolve.py`
 _tests/test_self_evolve.py — lifelong self-evolving strategy loop._
@@ -3281,7 +3281,7 @@ _trading/brain/school.py — the School: dual-track curriculum L0→L6 with real
 _trading/brain/self_evaluation.py — the brain grades ITSELF, honestly_
 - **classes:** SelfEvaluation
 - **functions:** `_default_llm(prompt) -> str | None`
-- **imports:** __future__, memory.neurons, time, trading
+- **imports:** __future__, memory.neurons, os, time, trading
 
 ## `trading/brain/selfeval.py`
 _trading/brain/selfeval.py — auto-quiz + Reflexion self-critique (T8.5)._
