@@ -284,7 +284,8 @@ class BrainExecutor:
                             _lreg = (_ldrg(_row["symbol"]) or {}).get("regime")
                             _cd, _ci = _ld.correct_direction(
                                 _dir, source=_ltag, market="CRYPTO",
-                                segment=self.segment or "futures", regime=_lreg)
+                                segment=self.segment or "futures", regime=_lreg,
+                                symbol=_row["symbol"])
                             if _ci.get("action") == "invert":
                                 # teach the ledger: the ORIGINAL source's own (overridden) call is
                                 # recorded as a SKIPPED claim so it earns its honest track record —
@@ -342,6 +343,24 @@ class BrainExecutor:
             return "LONG" if float(pct) >= 0 else "SHORT"
         return "LONG"
 
+    def _learned_filter_side(self, pick: dict, preset: str,
+                             regime: str | None) -> tuple:
+        """Stage 3: the LEARNED per-pick side. Fuse the cheap UI direction mini-lenses through the
+        reliability-weighted decider; use its side when it has a proven edge (tag 'learned_direction'),
+        else EXPLORE on the momentum prior (tag 'filter:<preset>') so the lane still opens and
+        generates the labels the decider learns from. Returns (side, enter_tag, decide_out|None)."""
+        try:
+            from trading.broker_sense import binance_filter_lane as _bfl
+            from trading.direction import learned_direction as _ld
+            out = _ld.decide(_bfl.direction_signals(pick), market="CRYPTO",
+                             segment=self.segment or "futures", regime=regime,
+                             symbol=(pick.get("symbol") if isinstance(pick, dict) else "") or "")
+            if not out.get("abstained") and out.get("direction") in ("long", "short"):
+                return out["direction"].upper(), "learned_direction", out
+        except Exception:
+            pass
+        return self._filter_side(pick, preset), f"filter:{preset}", None
+
     def open_filter_lane(self, *, allow_live: bool = False,
                          deadline: float | None = None) -> dict:
         """Stage 1b — the Binance-filter TOP-N breadth lane (owner idea, APPROVED 2026-07-12).
@@ -380,24 +399,21 @@ class BrainExecutor:
                 if _psym is None or _psym in open_pairs:
                     rep["skipped"] += 1
                     continue
-                src = f"filter:{preset}"
                 _reg = (_rgc(sym) or {}).get("regime")
-                _side, _info = _ld.correct_direction(
-                    self._filter_side(pick, preset), source=src, market="CRYPTO",
-                    segment=self.segment or "futures", regime=_reg)
-                _tag = src
-                if _info.get("action") == "invert":
-                    # the preset's own (overridden) call recorded taken=False so it earns its honest
-                    # track record; the entered inverted claim is recorded taken=True below via meta.
-                    try:
-                        from trading.direction import truth_ledger as _tl
+                # Stage 3: LEARNED per-pick side (reliability-weighted decider over the cheap UI
+                # direction mini-lenses), replacing the raw-momentum side that was net-losing.
+                _side, _tag, _ldout = self._learned_filter_side(pick, preset, _reg)
+                # record each mini-lens's own call (taken=False) so the decider keeps learning which
+                # signal actually predicts direction; the entered claim is recorded taken=True below.
+                try:
+                    from trading.direction import truth_ledger as _tl
+                    for _msrc, _mp in _bfl.direction_signals(pick):
                         _tl.record(symbol=sym, market="CRYPTO",
                                    segment=self.segment or "futures",
-                                   direction=_info.get("from"), source=src,
-                                   taken=False, regime=_reg)
-                    except Exception:
-                        pass
-                    _tag = "learned_direction"
+                                   direction=("LONG" if _mp >= 0.5 else "SHORT"),
+                                   source=_msrc, confidence=_mp, regime=_reg, taken=False)
+                except Exception:
+                    pass
                 _res = cli.place_order(
                     symbol=_psym, action="BUY",
                     side=("long" if _side == "LONG" else "short"),

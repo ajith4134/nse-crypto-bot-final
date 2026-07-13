@@ -16,6 +16,7 @@ import { T } from './trading/theme.js'
 import NeuronWebPanel from './trading/NeuronWebPanel.jsx'
 import FlowHealthPanel from './trading/FlowHealthPanel.jsx'
 import BrainOsPanel from './trading/BrainOsPanel.jsx'
+import DirectionXrayPanel from './trading/DirectionXrayPanel.jsx'
 import SchoolPanel from './trading/SchoolPanel.jsx'
 import BrainPanel from './trading/BrainPanel.jsx'
 import BrainOutcomeNet from './trading/BrainOutcomeNet.jsx'
@@ -173,6 +174,9 @@ export default function BrainPage() {
             <BrainOutcomeNet data={predict} />
           </Card>
         </div>
+        <Card title="Direction X-Ray — what data drove each trade's direction" hint="the Direction Ledger: every decision's winning side + each source's MEASURED edge-weight (proven anti-signals inverted) · fixes the 'why this direction' blind spot">
+          <DirectionXrayPanel />
+        </Card>
         <Card title="Metacognition — calibrated uncertainty & abstention (Pillar 17)" hint="conformal p_up + coverage-guaranteed intervals · reliability diagram · abstention log">
           <MetacognitionPanel />
         </Card>

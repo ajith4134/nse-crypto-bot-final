@@ -369,6 +369,25 @@ def _evo_demo_build():
         _evo_building = False
 
 
+def handle_direction_xray(h):
+    """GET /api/trading/direction/xray — per-decision direction rationale (owner ask): WHAT
+    DATA drove each trade's direction. Reads the Direction Ledger (state-file only, cheap):
+    recent decisions with each source's measured edge-weight + whether it was inverted + the
+    winning side, plus a coverage summary. Optional ?symbol= for one symbol's latest."""
+    import urllib.parse as _up
+    q = _up.parse_qs(_up.urlparse(h.path).query)
+    sym = (q.get("symbol") or [""])[0]
+    try:
+        from trading.brain import direction_ledger as _dl
+        if sym:
+            out = {"symbol": sym, "latest": _dl.by_symbol(sym), "summary": _dl.summary()}
+        else:
+            out = {"summary": _dl.summary(), "recent": _dl.recent(60)}
+    except Exception as e:
+        out = {"error": f"{type(e).__name__}: {e}"[:200]}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
 def handle_evolution_status(h):
     """GET /api/trading/evolution/status — honest T8.3 DEAP NSGA-II evolution snapshot.
     STATE-FILE-ONLY: the heavy demo build runs in a background thread and persists to

@@ -938,7 +938,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `_evo_demo_build()`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_mirror_stream(h)`; `handle_direction_truth(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_binance_edge(h)`; `handle_handoff(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `_evo_demo_build()`; `handle_direction_xray(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_mirror_stream(h)`; `handle_direction_truth(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_binance_edge(h)`; `handle_handoff(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -2021,6 +2021,11 @@ _Tests for trading/strategy/direction_equation_deploy.py — P4 live deploy._
 - **functions:** `_rows(n, seed)`
 - **imports:** __future__, numpy, pandas, pathlib, tempfile, trading, trading.strategy, unittest
 
+## `tests/test_direction_ledger.py`
+_Tests for the Direction Decision Ledger (owner ask: what data drove each direction)._
+- **classes:** DirectionLedgerTest
+- **imports:** tempfile, trading, trading.brain, unittest
+
 ## `tests/test_direction_regime.py`
 _Tests for trading/direction/regime — D5 direction regime classifier._
 - **classes:** _Iso, TestClassifyCloses, TestClassifyIO
@@ -3036,6 +3041,11 @@ _Decision memory — every trade is a fully-provenanced EPISODE the brain recall
 - **classes:** DecisionMemory
 - **functions:** `_tokens(text) -> set`; `get_memory() -> DecisionMemory`
 - **imports:** __future__, math, random, time, trading
+
+## `trading/brain/direction_ledger.py`
+_trading/brain/direction_ledger.py — the Direction Decision Ledger (owner ask 2026-07-13)._
+- **functions:** `record(decision) -> None`; `recent(n) -> list[dict]`; `by_symbol(symbol) -> dict | None`; `summary() -> dict`
+- **imports:** __future__, time
 
 ## `trading/brain/discovery/__init__.py`
 _Concept Discovery Engine — pure-self market-feature invention (idea-discovery mode)._
@@ -4310,7 +4320,7 @@ _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 2
 
 ## `trading/direction/learned_direction.py`
 _trading/direction/learned_direction.py — D10: the learned direction DRIVER (goal Pillar 27)._
-- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime, market) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
+- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime, market) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `_log(decision) -> None`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, math, os, time, trading.direction
 
 ## `trading/direction/meta_challenger.py`

@@ -115,8 +115,18 @@ def _signed_weight(rel: dict, cfg: dict) -> tuple[float, bool]:
     return edge, invert
 
 
+def _log(decision: dict, *, symbol: str, market: str, regime, seam: str) -> None:
+    """Record the direction rationale so every trade's direction is auditable (owner ask)."""
+    try:
+        from trading.brain import direction_ledger as _dl
+        _dl.record(decision, symbol=symbol, market=market, regime=str(regime or ""),
+                   seam=seam)
+    except Exception:
+        pass
+
+
 def decide(readings, *, market: str = "", segment: str = "",
-           regime: str | None = None) -> dict:
+           regime: str | None = None, symbol: str = "") -> dict:
     """Fuse directional lens readings into ONE learned decision, weighting each by measured edge.
 
     readings: iterable of (source, p_up) — p_up in [0,1], the source's probability of LONG.
@@ -151,8 +161,10 @@ def decide(readings, *, market: str = "", segment: str = "",
                            "rate": rel.get("rate"), "n": rel.get("n"),
                            "p_used": round(p_cal, 4)}
     if tot_w < cfg["min_total_w"]:
-        return {"direction": "neutral", "p_up": 0.5, "confidence": round(tot_w, 4),
-                "weights": weights, "abstained": True, "n_sources": len(weights)}
+        out = {"direction": "neutral", "p_up": 0.5, "confidence": round(tot_w, 4),
+               "weights": weights, "abstained": True, "n_sources": len(weights)}
+        _log(out, symbol=symbol, market=market, regime=regime, seam="decide")
+        return out
     p_final = 0.5 + num / tot_w
     p_final = min(1.0, max(0.0, p_final))
     band = cfg["band"]
@@ -162,13 +174,16 @@ def decide(readings, *, market: str = "", segment: str = "",
         direction = "short"
     else:
         direction = "neutral"
-    return {"direction": direction, "p_up": round(p_final, 4),
-            "confidence": round(tot_w, 4), "weights": weights,
-            "abstained": direction == "neutral", "n_sources": len(weights)}
+    out = {"direction": direction, "p_up": round(p_final, 4),
+           "confidence": round(tot_w, 4), "weights": weights,
+           "abstained": direction == "neutral", "n_sources": len(weights)}
+    _log(out, symbol=symbol, market=market, regime=regime, seam="decide")
+    return out
 
 
 def correct_direction(direction: str, *, source: str, market: str = "",
-                      segment: str = "", regime: str | None = None) -> tuple[str, dict]:
+                      segment: str = "", regime: str | None = None,
+                      symbol: str = "") -> tuple[str, dict]:
     """Single-claim correction for lanes that carry an already-chosen direction (the Reflex
     fast lane / armed pullbacks), where the rich multi-lens fusion isn't available at fire time.
 
@@ -184,20 +199,27 @@ def correct_direction(direction: str, *, source: str, market: str = "",
     try:
         rel = reliability(source, regime, market)
         w, invert = _signed_weight(rel, _cfg())
+        chosen = d
         if invert and w > 0.0:                       # significant, reliably-wrong source → flip
-            newd = "SHORT" if d == "LONG" else "LONG"
-            return newd, {"action": "invert", "from": d, "source": source,
-                          "rate": rel.get("rate"), "n": rel.get("n"),
-                          "regime": regime}
-        return d, {"action": "pass", "source": source, "rate": rel.get("rate"),
-                   "n": rel.get("n")}
+            chosen = "SHORT" if d == "LONG" else "LONG"
+            info = {"action": "invert", "from": d, "source": source,
+                    "rate": rel.get("rate"), "n": rel.get("n"), "regime": regime}
+        else:
+            info = {"action": "pass", "source": source, "rate": rel.get("rate"),
+                    "n": rel.get("n")}
+        _log({"direction": chosen.lower(), "p_up": None, "confidence": w,
+              "weights": {source: {"w": round(w, 4), "invert": invert,
+                                   "rate": rel.get("rate"), "n": rel.get("n")}},
+              "abstained": False, "n_sources": 1},
+             symbol=symbol, market=market, regime=regime, seam="correct")
+        return chosen, info
     except Exception as e:
         return d, {"action": "pass", "error": str(e)[:120]}
 
 
 # ── drop-in replacement for funnel._vote (cheap gate over the multi-TF chart) ─────────
 def learned_vote(chart: dict, *, market: str = "crypto", segment: str = "futures",
-                 regime: str | None = None) -> tuple[str, float]:
+                 regime: str | None = None, symbol: str = "") -> tuple[str, float]:
     """Same signature as funnel._vote → (direction, p_up), but the mtf reading is passed through
     the learned decider as the `funnel_mtf_vote` source. Because that source measures ~47%
     (near-random) / trend-anti, this attenuates or INVERTS it instead of trading it raw — the
@@ -211,7 +233,8 @@ def learned_vote(chart: dict, *, market: str = "crypto", segment: str = "futures
     if not ps:
         return "neutral", 0.5
     mean = sum(ps) / len(ps)
-    out = decide([("funnel_mtf_vote", mean)], market=market, segment=segment, regime=regime)
+    out = decide([("funnel_mtf_vote", mean)], market=market, segment=segment,
+                 regime=regime, symbol=symbol)
     if out["abstained"]:
         # no proven edge from the vote → stay neutral, but report the raw mean for ranking
         return "neutral", round(mean, 4)
