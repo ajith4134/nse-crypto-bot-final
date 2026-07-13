@@ -379,10 +379,12 @@ def handle_direction_xray(h):
     sym = (q.get("symbol") or [""])[0]
     try:
         from trading.brain import direction_ledger as _dl
+        from trading.direction import direction_model as _dm
         if sym:
             out = {"symbol": sym, "latest": _dl.by_symbol(sym), "summary": _dl.summary()}
         else:
-            out = {"summary": _dl.summary(), "recent": _dl.recent(60)}
+            out = {"summary": _dl.summary(), "recent": _dl.recent(60),
+                   "model": _dm.status()}          # proposal B: direction-aware GBM status
     except Exception as e:
         out = {"error": f"{type(e).__name__}: {e}"[:200]}
     return h._send(200, json.dumps(out, default=str).encode(), "application/json")

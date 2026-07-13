@@ -45,6 +45,8 @@ export default function DirectionXrayPanel({ intervalMs = 12000 }) {
           {sm.decisions ?? 0} decisions · driver-coverage <b style={{ color: (sm.with_driver_rate ?? 0) > 0.7 ? T.good : T.warn }}>{sm.with_driver_rate == null ? '—' : `${Math.round(sm.with_driver_rate * 100)}%`}</b> · abstain {sm.abstain_rate == null ? '—' : `${Math.round(sm.abstain_rate * 100)}%`}
           {sm.markets?.length ? ` · ${sm.markets.join(', ')}` : ''}
         </span>
+        {d.model && <span style={{ fontSize: 11, color: d.model.trained ? T.accent : T.muted }}>
+          model: {d.model.trained ? `${d.model.engine} AUC ${d.model.holdout_auc ?? '—'} (n${d.model.n})` : 'untrained'}</span>}
         <span style={{ fontSize: 10, color: T.muted }}>what data drove each direction — each source weighted by its MEASURED edge</span>
         <div style={{ flex: 1 }} />
         {state.stamp && <span style={{ fontSize: 10, color: T.muted }}>{state.stamp.toLocaleTimeString()}</span>}

@@ -142,6 +142,12 @@ def _ensure_streaming(symbol: str, market: str) -> None:
         pass
 
 
+def feature_dict(readings: list) -> dict:
+    """Flatten [(source, p_up)] → {m_<name>: p_up} numeric features for the direction model
+    (proposal B). Same builder used at record-time and predict-time → no train/serve skew."""
+    return {"m_" + s.split(":", 1)[-1]: round(float(p), 4) for s, p in (readings or [])}
+
+
 def collect(symbol: str, *, market: str = "crypto", row: dict | None = None) -> dict:
     """COLLECT every filter/screener for this trade's direction — every time — and report
     coverage. Returns {signals, coverage:{present,missing,n_present,n_total}}. The brain

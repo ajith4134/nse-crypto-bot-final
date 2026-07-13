@@ -357,7 +357,15 @@ class BrainExecutor:
             # liquidations/funding/PCR — each weighted by its MEASURED edge (owner 2026-07-13).
             _col = _asig.collect(_psym, market="crypto",
                                  row=pick if isinstance(pick, dict) else None)
-            out = _ld.decide(_col["signals"], market="CRYPTO",
+            _reads = list(_col["signals"])
+            try:                                          # proposal B: the direction model as a
+                from trading.direction import direction_model as _dm   # measured source
+                _pm = _dm.predict(_asig.feature_dict(_col["signals"]))
+                if _pm is not None:
+                    _reads.append((_dm.SOURCE, _pm))
+            except Exception:
+                pass
+            out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
                              symbol=_psym, coverage=_col["coverage"])
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
@@ -412,11 +420,27 @@ class BrainExecutor:
                 # signal actually predicts direction; the entered claim is recorded taken=True below.
                 try:
                     from trading.direction import truth_ledger as _tl
-                    for _msrc, _mp in _bfl.direction_signals(pick):
+                    from trading.direction import app_signals as _asig2
+                    from trading.direction import direction_model as _dmodel
+                    # ALL captured filters (proposal C) recorded WITH the microstructure
+                    # feature vector (proposal B enrichment) so the direction model trains on
+                    # better inputs; plus the model's own p_up as a measured source.
+                    _rich = _asig2.signals(sym, market="crypto",
+                                           row=pick if isinstance(pick, dict) else None)
+                    _fd = _asig2.feature_dict(_rich)
+                    for _msrc, _mp in _rich:
                         _tl.record(symbol=sym, market="CRYPTO",
                                    segment=self.segment or "futures",
                                    direction=("LONG" if _mp >= 0.5 else "SHORT"),
-                                   source=_msrc, confidence=_mp, regime=_reg, taken=False)
+                                   source=_msrc, confidence=_mp, regime=_reg, taken=False,
+                                   features=_fd)
+                    _pm = _dmodel.predict(_fd)
+                    if _pm is not None:
+                        _tl.record(symbol=sym, market="CRYPTO",
+                                   segment=self.segment or "futures",
+                                   direction=("LONG" if _pm >= 0.5 else "SHORT"),
+                                   source=_dmodel.SOURCE, confidence=_pm, regime=_reg,
+                                   taken=False, features=_fd)
                 except Exception:
                     pass
                 _res = cli.place_order(

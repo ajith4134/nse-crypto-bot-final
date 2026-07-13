@@ -270,6 +270,24 @@ class LearnLoop:
                                        "neurons": snap.get("neurons")}
         except Exception:
             pass
+        # Direction model tick (proposal B): retrain the direction-aware GBM on the truth
+        # ledger's resolved outcomes so it sharpens as microstructure-featured examples
+        # accumulate. Time-gated to BRAIN_DIRMODEL_INTERVAL_H (default 6h); CPU-only.
+        try:
+            from trading import state as _dms
+            dm_st = _dms.load_json("direction_model.json", {}) or {}
+            last_dm = float(dm_st.get("_trained_at", 0) or 0)
+            if time.time() - last_dm > float(os.environ.get("BRAIN_DIRMODEL_INTERVAL_H", 6)) * 3600:
+                from trading.direction import direction_model as _dmod
+                r = _dmod.train()
+                if r.get("trained"):
+                    dm_st = _dms.load_json("direction_model.json", {}) or {}
+                    dm_st["_trained_at"] = time.time()
+                    _dms.save_json("direction_model.json", dm_st)
+                    st["last_dirmodel"] = {"ts": time.time(), "auc": r.get("holdout_auc"),
+                                           "n": r.get("n")}
+        except Exception:
+            pass
         # Brain-OS attention tick (OS-3): advance the resident kernel's scheduler each
         # cycle so the process table shows which lobe the brain attends next (focus-driven,
         # fairness-balanced). Advisory + cheap; never gates trading.

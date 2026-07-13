@@ -2031,6 +2031,11 @@ _Tests for the Direction Decision Ledger (owner ask: what data drove each direct
 - **classes:** DirectionLedgerTest
 - **imports:** tempfile, trading, trading.brain, unittest
 
+## `tests/test_direction_model.py`
+_Tests for trading/direction/direction_model.py — the direction-aware GBM (proposal B)._
+- **classes:** DirectionModelTest
+- **imports:** json, tempfile, trading, trading.direction, unittest
+
 ## `tests/test_direction_regime.py`
 _Tests for trading/direction/regime — D5 direction regime classifier._
 - **classes:** _Iso, TestClassifyCloses, TestClassifyIO
@@ -4320,13 +4325,18 @@ _trading/direction — the Direction Accuracy Program (goal Pillar 27)._
 
 ## `trading/direction/app_signals.py`
 _trading/direction/app_signals.py — turn EVERY captured broker filter/screener into a_
-- **functions:** `_sig(x) -> float`; `_num(d)`; `signals(symbol) -> list`; `_ensure_streaming(symbol, market) -> None`; `collect(symbol) -> dict`
+- **functions:** `_sig(x) -> float`; `_num(d)`; `signals(symbol) -> list`; `_ensure_streaming(symbol, market) -> None`; `feature_dict(readings) -> dict`; `collect(symbol) -> dict`
 - **imports:** __future__, math
 
 ## `trading/direction/dir_exit.py`
 _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str | None`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
 - **imports:** __future__, os
+
+## `trading/direction/direction_model.py`
+_trading/direction/direction_model.py — the direction-aware model (proposal B, 2026-07-13)._
+- **functions:** `enabled() -> bool`; `_state_dir() -> Path`; `_label_up(ex) -> int | None`; `_rows() -> tuple[list[dict], list[int]]`; `_matrix(X, names)`; `train(min_examples) -> dict`; `_load()`; `predict(features) -> float | None`; `status() -> dict`
+- **imports:** __future__, json, os, pathlib
 
 ## `trading/direction/learned_direction.py`
 _trading/direction/learned_direction.py — D10: the learned direction DRIVER (goal Pillar 27)._
