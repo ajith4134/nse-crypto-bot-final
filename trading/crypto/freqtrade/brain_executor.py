@@ -218,6 +218,37 @@ class BrainExecutor:
             return 0
         return max(0, v)          # 0 = no limit (all whitelisted pairs)
 
+    def _move_net_direction(self, under: str) -> str | None:
+        """RAM SymbolMoveNet direction for an underlying — the options fallback when the per-coin
+        tournament gives no side (owner 2026-07-13). Builds the feature ctx from RAM (all app_signals
+        filters + the mirror's 24h volume) so the net predicts on real data; returns LONG/SHORT only
+        when both heads agree (else None → the driver keeps its honest no_direction). Never raises."""
+        try:
+            from trading.brain import symbol_move_net as _smn
+            if not _smn.enabled():
+                return None
+            flt = {}
+            try:
+                from trading.direction import app_signals as _asig
+                flt = {s: p for s, p in (_asig.collect(under, market="crypto").get("signals") or [])}
+            except Exception:
+                flt = {}
+            vol = 0.0
+            try:
+                from trading.broker_sense.binance_stream import get_mirror
+                vol = float((get_mirror().ticker(under) or {}).get("quote_volume") or 0.0)
+            except Exception:
+                vol = 0.0
+            out = _smn.consult({"symbol": under, "direction": "LONG", "market": "CRYPTO",
+                                "exchange": "binance",
+                                "decision_snapshot": {"market_context": {
+                                    "filters": flt, "quote_volume_24h": vol}}})
+            if out.get("trained") and out.get("direction") in ("LONG", "SHORT"):
+                return out["direction"]
+        except Exception:
+            return None
+        return None
+
     def _armable(self, sym: str) -> bool:
         """Safety guard (2026-07-12): only arm a pullback for a symbol that's in THIS segment's
         tradeable whitelist, so a symbol that isn't executable can't waste an arming slot on an
@@ -441,9 +472,28 @@ class BrainExecutor:
             from trading.broker_sense import binance_filter_lane as _bfl
             if not _bfl.enabled():
                 return rep
-            preset = os.environ.get("BINANCE_FILTER_PRESET", "momentum")
-            picks = _bfl.top_picks(self.segment or "futures", preset=preset)
-            rep["preset"], rep["ranked"] = preset, len(picks)
+            # MULTI-PRESET breadth (owner 2026-07-13): the lane ran ONLY 'momentum', so the same
+            # top movers churned and the concurrent count plateaued. Union the top-N across SEVERAL
+            # presets (momentum + squeeze + funding_extreme + liquidity) so each cycle surfaces a
+            # DIVERSE candidate set — different dislocations, different symbols. Deduped by symbol,
+            # remembering which preset surfaced each (its side derivation uses that preset). Single
+            # preset still available via BINANCE_FILTER_PRESET; BINANCE_FILTER_PRESETS overrides the list.
+            _plist = [p.strip() for p in os.environ.get(
+                "BINANCE_FILTER_PRESETS", "momentum,squeeze,funding_extreme,liquidity").split(",")
+                if p.strip()] or [os.environ.get("BINANCE_FILTER_PRESET", "momentum")]
+            _seen: set = set()
+            picks = []
+            for _pr in _plist:
+                try:
+                    for _pk in _bfl.top_picks(self.segment or "futures", preset=_pr):
+                        _s = _pk.get("symbol")
+                        if _s and _s not in _seen:
+                            _seen.add(_s)
+                            picks.append({**_pk, "_preset": _pr})
+                except Exception:
+                    continue
+            preset = _plist[0]
+            rep["preset"], rep["ranked"] = ",".join(_plist), len(picks)
             cli = self.client()
             try:
                 open_pairs = set(cli.open_pairs(segment=self.segment))
@@ -465,9 +515,10 @@ class BrainExecutor:
                     rep["skipped"] += 1
                     continue
                 _reg = (_rgc(sym) or {}).get("regime")
+                _pkpreset = pick.get("_preset", preset)   # the preset that surfaced THIS pick (multi-preset)
                 # Stage 3: LEARNED per-pick side (reliability-weighted decider over the cheap UI
                 # direction mini-lenses), replacing the raw-momentum side that was net-losing.
-                _side, _tag, _ldout = self._learned_filter_side(pick, preset, _reg)
+                _side, _tag, _ldout = self._learned_filter_side(pick, _pkpreset, _reg)
                 # record each mini-lens's own call (taken=False) so the decider keeps learning which
                 # signal actually predicts direction; the entered claim is recorded taken=True below.
                 try:
@@ -1182,6 +1233,10 @@ class BrainExecutor:
                             confidence=d.get("confidence"))
                     except Exception:
                         pass
+                if act not in ("LONG", "SHORT"):          # tournament inconclusive → RAM move-net 2nd opinion
+                    _mn = self._move_net_direction(under)  # SymbolMoveNet on RAM features (owner 2026-07-13)
+                    if _mn:
+                        act = _mn
                 held = [s for s in open_pairs if s.startswith(f"{base}/")]
                 want = {"LONG": "C", "SHORT": "P"}.get(act)
                 if want is None:

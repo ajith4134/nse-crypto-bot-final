@@ -954,6 +954,32 @@ def handle_opentrades(h):
         # train the project node network on the CLOSED journal, predict each OPEN trade
         net = srv._trade_outcome_net()
         preds = net.predict(live) if net else []
+        # Symbol-Move Net (owner 2026-07-13): the NEW output net — signed price-move % + direction,
+        # NOT win %. Surface it as its own columns so the table shows what we implemented. Module-
+        # cached by closed-trade count (retrains only when a trade closes), mirroring the outcome net.
+        # NON-BLOCKING: the server helper trains the move net in a background thread (never in this
+        # request thread — that starves the GIL and 502s the tunnel); we only ever do cheap forward passes.
+        mpreds, _mnet = [], None
+        try:
+            _mnet = srv._symbol_move_net()
+            if _mnet is not None and _mnet.trained:
+                mpreds = _mnet.predict(live)
+            else:
+                _mnet = None
+        except Exception:
+            mpreds, _mnet = [], None
+
+        def _move_cells(trade_dict):
+            """(move%_txt, direction) from the NEW output net for one trade dict; ('—','—') when
+            the net is untrained. Shared by the loop-owned and Freqtrade-owned open-trade rows."""
+            if _mnet is None:
+                return "—", "—"
+            try:
+                _p = _mnet.predict_one(trade_dict)
+                _v = _p.get("expected_move_pct")
+                return (f"{_v:+.2f}%" if _v is not None else "—"), (_p.get("direction") or "—")
+            except Exception:
+                return "—", "—"
         # rows are DICTS keyed by OPEN_TRADE_COLUMNS (the frontend reads row[columnName]).
         rows = []
         nse_pnl = crypto_pnl = nse_cap = crypto_cap = 0.0
@@ -1003,6 +1029,11 @@ def handle_opentrades(h):
             pr = preds[i] if i < len(preds) else {}
             win_txt = (f"{round(pr['p_win'] * 100, 1)}%"
                        if pr.get("p_win") is not None else "—")
+            # NEW output net: signed price-move % (primary) + its derived direction (owner 2026-07-13)
+            mp = mpreds[i] if i < len(mpreds) else {}
+            _mv = mp.get("expected_move_pct")
+            move_txt = (f"{_mv:+.2f}%" if _mv is not None else "—")
+            nn_dir_txt = mp.get("direction") or "—"
             expr = pr.get("expected_R")
             expr_txt = f"{expr:.2f}R" if expr is not None else "—"
             # confidence: brain entry confidence, else the NN p_win
@@ -1041,6 +1072,9 @@ def handle_opentrades(h):
                 "Exchange": "binance" if p["market"] == "CRYPTO" else "NSE",
                 "Exit Policy": exit_policy, "Liq Price": liq_txt, "Hold Time": hold,
                 "Confidence": conf_txt,
+                # NEW brain output net (SymbolMoveNet): predicted price-move % + direction — this is
+                # the "what we implemented" the win% never showed. Win Prob kept for back-compat.
+                "NN Move %": move_txt, "NN Direction": nn_dir_txt,
                 "Win Prob": win_txt, "NN Verdict": pr.get("verdict", "—"),
                 "Exp R": expr_txt, **srv._psych_cells(p.get("psych")),
                 **srv._uq_cells(p.get("uq"))})
@@ -1091,8 +1125,9 @@ def handle_opentrades(h):
                     "Strategy": t.get("enter_tag") or t.get("strategy") or "freqtrade",
                     "Exchange": t.get("exchange", "binance"),
                     "Exit Policy": "freqtrade-managed", "Liq Price": "—",
-                    "Hold Time": hold, "Confidence": "—", "Win Prob": "—",
-                    "NN Verdict": "—", "Exp R": "—",
+                    "Hold Time": hold, "Confidence": "—",
+                    **(lambda mc: {"NN Move %": mc[0], "NN Direction": mc[1]})(_move_cells(t)),
+                    "Win Prob": "—", "NN Verdict": "—", "Exp R": "—",
                     # entry-time psychology + UQ from the brain-loop sidecar store
                     **srv._psych_cells((_ftm := srv._ft_entry_meta(t)).get("psychology")),
                     **srv._uq_cells(_ftm.get("uq"))})
@@ -1125,7 +1160,8 @@ def handle_opentrades(h):
                     "Strategy": p.get("strategy") or "openalgo",
                     "Exchange": p.get("exchange", "NSE"),
                     "Exit Policy": "openalgo-managed", "Liq Price": "—",
-                    "Hold Time": "—", "Confidence": "—", "Win Prob": "—",
+                    "Hold Time": "—", "Confidence": "—",
+                    "NN Move %": "—", "NN Direction": "—", "Win Prob": "—",
                     "NN Verdict": "—", "Exp R": "—",
                     "Psychology": "—", "Psych Label": "—",
                     "p_up": "—", "Interval ±": "—", "Self-Unc": "—"})

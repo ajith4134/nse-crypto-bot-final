@@ -246,6 +246,9 @@ OPEN_TRADE_COLUMNS = [
     "Tailgate Lock", "Tailgate Trail",
     "R-multiple", "Efficiency", "Strategy", "Exchange", "Exit Policy",
     "Liq Price", "Hold Time", "Confidence",
+    # NEW brain output net (SymbolMoveNet, 2026-07-13): predicted signed price-move % (primary,
+    # sign=direction) + the derived direction — this is the "what we implemented" output.
+    "NN Move %", "NN Direction",
     # T-wire: the project node network's outcome call on THIS open trade (trade row → NN)
     "Win Prob", "NN Verdict", "Exp R",
     # order-book trader psychology at entry (trading/brain/psychology.py)
@@ -335,6 +338,49 @@ def _trade_outcome_net():
 
     threading.Thread(target=_build, daemon=True, name="outcome-net-build").start()
     return _NET_STATE["net"]
+
+
+_SMN_LOCK = threading.Lock()
+_SMN_STATE: dict = {"net": None, "count": -1, "building": False, "built_at": 0.0}
+
+
+def _symbol_move_net():
+    """The NEW multi-head output net (signed price-move % + direction) trained on the live journal.
+    SAME non-blocking pattern as _trade_outcome_net: requests get the last built net immediately; a
+    journal-count change triggers ONE background retrain. NEVER trains in the request thread — doing
+    so starves the GIL and 502s the whole tunnel (the outcome-net learned this the hard way)."""
+    try:
+        from trading.brain import symbol_move_net as _smn
+        if not _smn.enabled():
+            return None
+        from trading.journal.journal import TradeJournal
+        closed = [t.to_dict() for t in TradeJournal(state_file="journal.json", persist=True)._trades]
+    except Exception:
+        return _SMN_STATE["net"]
+    n = len(closed)
+    with _SMN_LOCK:
+        fresh = (time.time() - _SMN_STATE["built_at"]) < _NET_REBUILD_SEC
+        if n == _SMN_STATE["count"] or _SMN_STATE["building"] or (fresh and _SMN_STATE["net"]):
+            return _SMN_STATE["net"]
+        _SMN_STATE["building"] = True
+
+    def _build():
+        net = None
+        try:
+            from trading.brain.symbol_move_net import get_move_net
+            m = get_move_net(closed)
+            net = m if m.trained else None
+        except Exception:
+            net = None
+        with _SMN_LOCK:
+            if net is not None:
+                _SMN_STATE["net"] = net
+                _SMN_STATE["count"] = n
+                _SMN_STATE["built_at"] = time.time()
+            _SMN_STATE["building"] = False
+
+    threading.Thread(target=_build, daemon=True, name="symbol-move-net-build").start()
+    return _SMN_STATE["net"]
 
 
 def _confidence_book() -> dict:
