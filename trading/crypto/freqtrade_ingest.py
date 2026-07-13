@@ -75,6 +75,17 @@ def _learn_from_close(ft: dict, t) -> None:
             _bos.grade(ids, win=win, pnl=_f(t.net_pnl), domain="trading")
     except Exception:
         pass
+    try:                                          # AWM induction (R7): the recipe this
+        from trading.brain import induction as _ind   # trade used → a graded instruction
+        snap2 = t.decision_snapshot if isinstance(t.decision_snapshot, dict) else {}
+        fus2 = ((snap2.get("app_signals") or {}).get("indicator_fusion") or {})
+        _ind.induce_from_trade(
+            strategy=str(t.strategy_name or ft.get("enter_tag") or ""),
+            regime=str(snap2.get("market_regime") or fus2.get("regime") or "any"),
+            direction="short" if ft.get("is_short") else "long",
+            win=win, net_pnl=_f(t.net_pnl), symbol=ft.get("pair", ""))
+    except Exception:
+        pass
     _LEARN_SEEN.append(key)                       # insertion order → trim drops OLDEST first
     _LEARN_SEEN = _LEARN_SEEN[-8000:]
     _LEARN_SEEN_SET = set(_LEARN_SEEN)

@@ -2231,6 +2231,11 @@ _Tests for the ultra-advanced multi-timeframe indicator-fusion engine (offline, 
 - **functions:** `_series(trend, n, start, noise) -> list`
 - **imports:** __future__, math, trading.broker_sense, unittest
 
+## `tests/test_induction.py`
+_Tests for trading/brain/induction.py — AWM induction of instruction neurons (R7/R12/R13),_
+- **classes:** InductionTest
+- **imports:** memory, memory.neurons, tempfile, trading, trading.brain.evolution, trading.brain.induction, trading.brain.instructions, unittest
+
 ## `tests/test_instructions.py`
 _Tests for trading/brain/instructions.py — instruction lifecycle (R7-R9, R26)._
 - **classes:** InstructionsTest
@@ -3139,6 +3144,11 @@ _trading/brain/hypothesis.py — the brain's hypothesis → experiment → belie
 - **classes:** Hypothesis, ExperimentRunner, HypothesisLedger, HypothesisNode
 - **functions:** `_metric_values(trades, metric) -> np.ndarray`; `_win_rate(vals) -> float`; `_bayes_ab(cond, ctrl, draws, seed) -> float`; `register_hypothesis_ledger(ledger) -> HypothesisNode`
 - **imports:** __future__, core.node_protocol, dataclasses, hashlib, numpy
+
+## `trading/brain/induction.py`
+_trading/brain/induction.py — Agent-Workflow-Memory induction (R7/R12/R13)._
+- **functions:** `_key() -> str`; `_upsert_instruction(nid, title, body, action) -> str | None`; `induce_from_nav(goal, market, trace) -> str | None`; `induce_from_trade() -> str | None`
+- **imports:** __future__, hashlib, memory.neurons, re
 
 ## `trading/brain/instructions.py`
 _trading/brain/instructions.py — the instruction lifecycle: follow, grade, edit,_

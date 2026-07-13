@@ -164,6 +164,11 @@ class NavBrain:
                 _consult.grade(self._consulted["ids"], win=completed, domain="navigation")
         except Exception:
             pass
+        try:                                       # AWM induction (R12/R13): a completed
+            from trading.brain import induction as _ind   # route becomes a reusable
+            _ind.induce_from_nav(goal, self.market, trace, completed=completed)  # instruction
+        except Exception:
+            pass
         return {"goal": goal, "steps": steps, "replans": replans,
                 "completed": completed,
                 "allowed_segments": sorted(self.allowed_segments()), "trace": trace,
