@@ -350,11 +350,15 @@ class BrainExecutor:
         else EXPLORE on the momentum prior (tag 'filter:<preset>') so the lane still opens and
         generates the labels the decider learns from. Returns (side, enter_tag, decide_out|None)."""
         try:
-            from trading.broker_sense import binance_filter_lane as _bfl
             from trading.direction import learned_direction as _ld
-            out = _ld.decide(_bfl.direction_signals(pick), market="CRYPTO",
-                             segment=self.segment or "futures", regime=regime,
-                             symbol=(pick.get("symbol") if isinstance(pick, dict) else "") or "")
+            from trading.direction import app_signals as _asig
+            _psym = (pick.get("symbol") if isinstance(pick, dict) else "") or ""
+            # ALL captured filters/screeners (not just momentum): book/taker/OI/long-short/
+            # liquidations/funding/PCR — each weighted by its MEASURED edge (owner 2026-07-13).
+            _sigs = _asig.signals(_psym, market="crypto",
+                                  row=pick if isinstance(pick, dict) else None)
+            out = _ld.decide(_sigs, market="CRYPTO",
+                             segment=self.segment or "futures", regime=regime, symbol=_psym)
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
                 return out["direction"].upper(), "learned_direction", out
         except Exception:

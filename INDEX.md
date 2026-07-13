@@ -1701,6 +1701,11 @@ _Tests for the App Driving School (trading/broker_sense/app_school) — offline,
 - **classes:** _IsolatedState, TestAppMap, TestRouteTo, TestRanking, _FakePage, _FakeCortex, _FakeRegistry, _FakeRecorder, TestExplore, TestFastMovers, TestAccountScreenWiring
 - **imports:** __future__, pathlib, tempfile, trading.broker_sense, trading.state, unittest
 
+## `tests/test_app_signals.py`
+_Tests for trading/direction/app_signals.py — every captured filter → a direction source._
+- **classes:** _UM, AppSignalsTest
+- **imports:** trading.direction, unittest
+
 ## `tests/test_apply.py`
 _Tests for trading/brain/apply.py — applying instruction neurons in the decision path._
 - **classes:** _RNG, ApplyTest
@@ -4312,6 +4317,11 @@ _trading/crypto/watchlist.py — persisted crypto watchlist (T2)._
 
 ## `trading/direction/__init__.py`
 _trading/direction — the Direction Accuracy Program (goal Pillar 27)._
+
+## `trading/direction/app_signals.py`
+_trading/direction/app_signals.py — turn EVERY captured broker filter/screener into a_
+- **functions:** `_sig(x) -> float`; `_num(d)`; `signals(symbol) -> list`
+- **imports:** __future__, math
 
 ## `trading/direction/dir_exit.py`
 _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 27)._
