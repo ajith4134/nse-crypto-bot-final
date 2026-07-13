@@ -1189,19 +1189,34 @@ class BrainExecutor:
         if os.environ.get("OPTIONS_LIQ_GUARD", "1") in ("0", "false", "no"):
             return True
         try:
-            import ccxt
-            ex = getattr(self, "_opt_book_ex", None)
-            if ex is None:
-                ex = self._opt_book_ex = ccxt.deribit()
-            ob = ex.fetch_order_book(symbol, limit=1)
-            bid = (ob.get("bids") or [[0]])[0][0] or 0.0
-            ask = (ob.get("asks") or [[0]])[0][0] or 0.0
+            # BUG FIX (2026-07-13): the options are BINANCE USDC contracts — the old ccxt.deribit()
+            # returned an EMPTY book for every Binance symbol (bid=0) → fail-closed hollow_book on
+            # ALL options → none ever opened. Read the real book from Binance's own eapi depth.
+            from trading.broker_sense import binance_options as _bo
+            native = self._to_binance_option(symbol)
+            bk = _bo.option_book(native) if native else None
+            if not bk:
+                return False
+            bid, ask = bk
             if bid <= 0 or ask <= 0:
                 return False
             max_spread = float(os.environ.get("OPTIONS_MAX_SPREAD_PCT", "12"))
             return (ask - bid) / ((ask + bid) / 2.0) * 100.0 <= max_spread
         except Exception:
             return False
+
+    @staticmethod
+    def _to_binance_option(sym: str) -> str | None:
+        """ccxt option symbol 'AVAX/USDC:USDC-260714-6.5-P' → Binance native 'AVAX-260714-6.5-P'
+        (the eapi depth format). None when it isn't a well-formed option symbol."""
+        try:
+            base = sym.split("/", 1)[0]
+            parts = sym.split(":", 1)[1].split("-")     # [SETTLE, EXPIRY, STRIKE, TYPE]
+            if len(parts) < 4:
+                return None
+            return f"{base}-{parts[1]}-{parts[2]}-{parts[3]}"
+        except (IndexError, AttributeError):
+            return None
 
     def _run_options_cycle(self, *, allow_live: bool = False,
                            deadline: float | None = None) -> dict:

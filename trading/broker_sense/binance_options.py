@@ -40,6 +40,28 @@ def _get_json(url: str):
         return None
 
 
+_DEPTH_URL = "https://eapi.binance.com/eapi/v1/depth"
+
+
+def option_book(binance_symbol: str) -> tuple[float, float] | None:
+    """(best_bid, best_ask) for a Binance option contract from eapi depth. `binance_symbol` is the
+    NATIVE format 'AVAX-260714-6.5-P' (not ccxt). None on failure/empty. This is the liquidity
+    guard's correct book source — the guard used ccxt.deribit(), which returns an EMPTY book for
+    Binance symbols (bid=0), so EVERY Binance option read as hollow_book and never opened (bug fix
+    2026-07-13). limit=10 (Binance eapi rejects other small limits with HTTP 400)."""
+    d = _get_json(f"{_DEPTH_URL}?symbol={binance_symbol}&limit=10")
+    if not isinstance(d, dict):
+        return None
+    try:
+        bids = d.get("bids") or []
+        asks = d.get("asks") or []
+        bid = float(bids[0][0]) if bids else 0.0
+        ask = float(asks[0][0]) if asks else 0.0
+        return (bid, ask)
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
 def _mark():
     now = time.time()
     with _lock:

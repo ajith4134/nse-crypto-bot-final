@@ -3486,7 +3486,7 @@ _trading/broker_sense/binance_filter_lane.py — the Binance-filter TOP-N breadt
 
 ## `trading/broker_sense/binance_options.py`
 _trading/broker_sense/binance_options.py — Binance options IV/skew regime gauge (P4)._
-- **functions:** `enabled() -> bool`; `_get_json(url)`; `_mark()`; `_f(v)`; `_parse(sym)`; `iv_summary(underlying) -> dict`; `regime() -> dict`; `clear_cache() -> None`
+- **functions:** `enabled() -> bool`; `_get_json(url)`; `option_book(binance_symbol) -> tuple[float, float] | None`; `_mark()`; `_f(v)`; `_parse(sym)`; `iv_summary(underlying) -> dict`; `regime() -> dict`; `clear_cache() -> None`
 - **imports:** __future__, json, os, threading, time, urllib.request
 
 ## `trading/broker_sense/binance_orderflow.py`
