@@ -346,6 +346,11 @@ def tick(budget_s: float = 15.0) -> dict:
                         rows.append(json.loads(line))
                     except json.JSONDecodeError:
                         continue                    # torn line: drop, appends are small
+        # NEWEST-first (2026-07-13 fix): resolve recently-due claims FIRST so they land inside
+        # their short live-quote probe window even when an old backlog is present. Processing
+        # oldest-first let a large backlog consume the whole budget on stale/no_data rows and
+        # starve fresh claims → every source stuck unproven. Sort is cheap vs the price lookups.
+        rows.sort(key=lambda r: float(r.get("ts") or 0), reverse=True)
         for row in rows:
             if time.monotonic() - t0 > budget_s:
                 keep.append(row)
