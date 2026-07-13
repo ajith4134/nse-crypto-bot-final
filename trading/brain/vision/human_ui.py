@@ -182,6 +182,20 @@ class HumanUI:
         shot = self._shot()
         if not shot:
             return None
+        # UI-TARS GROUNDER (adopt-plan item 1, behind GROUNDER=uitars): a GUI-grounding-trained
+        # model that returns the click point end-to-end. Preferred when flagged AND its model is
+        # pulled; otherwise dormant and we fall straight through to OmniParser below (no hit, no
+        # cost). Market-agnostic — same for Binance and Upstox.
+        try:
+            from trading.brain.vision import uitars_grounder
+            if uitars_grounder.enabled() and uitars_grounder.available():
+                xy = uitars_grounder.locate(target, shot, timeout=timeout)
+                if xy is not None:
+                    self.trail.append({"act": "locate", "target": target, "xy": list(xy),
+                                       "via": "uitars"})
+                    return xy
+        except Exception:
+            pass
         # GROUNDED EYES (invent-beyond #1): OmniParser icon-detection grounds the click in a
         # REAL detected control — local match first ($0), then ONE Set-of-Marks cloud pick
         # over the numbered boxes. Only if grounding is unavailable/misses does the old

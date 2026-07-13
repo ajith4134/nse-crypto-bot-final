@@ -923,7 +923,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `_state_json(name, default)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`; `handle_neurons(h)`; `handle_neurons_graph(h)`; `handle_neurons_search(h)`; `handle_brain_flow(h)`; `handle_selfeval_report(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `_state_json(name, default)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`; `handle_neurons(h)`; `handle_neurons_graph(h)`; `handle_neurons_search(h)`; `handle_brain_flow(h)`; `handle_selfeval_report(h)`; `handle_evolution(h)`; `handle_brain_os(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -933,7 +933,7 @@ _Extracted network / state / knowledge HTTP routes (dashboard/server.py split �
 
 ## `dashboard/routes/post_ext.py`
 _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
-- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`; `handle_chat_stream(h)`; `handle_agui(h)`; `handle_crypto_params(h)`; `handle_closedtrades_reset(h)`; `handle_crypto_mode(h)`; `handle_online_control(h)`; `handle_gui_action(h)`; `handle_broker_sense_post(h)`; `handle_school_exam(h)`; `handle_selfeval_run(h)`
+- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`; `handle_chat_stream(h)`; `handle_agui(h)`; `handle_crypto_params(h)`; `handle_closedtrades_reset(h)`; `handle_crypto_mode(h)`; `handle_online_control(h)`; `handle_gui_action(h)`; `handle_broker_sense_post(h)`; `handle_school_exam(h)`; `handle_brain_os_ctl(h)`; `handle_selfeval_run(h)`
 - **imports:** json, os, sys, threading
 
 ## `dashboard/routes/trading_ext.py`
@@ -1788,6 +1788,11 @@ _Forcing tests for brain paths the audit (2026-07-03) found under-exercised._
 - **functions:** `test_file_memory_recall_keyword_fallback(tmp_path)`; `_planted_trades(n, seed) -> list[dict]`; `test_gui_agent_experiment_runs_hypothesis_cycle()`; `test_knowledge_brain_recall_without_embeddings()`; `test_online_node_drift_then_replay_retrain_adapts()`; `test_c_inference_kernel_available()`; `test_knowledge_brain_persists_across_instances(monkeypatch, tmp_path)`
 - **imports:** numpy, pathlib, pytest, tempfile, trading.state
 
+## `tests/test_brain_os.py`
+_Tests for trading/brain/brain_os.py — Brain-OS kernel + RAM working memory (OS-1)._
+- **classes:** WorkingMemoryTest, BrainKernelTest
+- **imports:** memory.neurons, tempfile, trading, trading.brain.brain_os, unittest
+
 ## `tests/test_brain_segment_cycles.py`
 _Unit tests for BrainExecutor's options/prediction segment cycles (audit gap 4)._
 - **classes:** FakeClient, FakeDecider, TestOptionParse, TestOptionsCycle, TestPredictionCycle, TestPerSegmentMaxOpenTrades
@@ -2053,6 +2058,12 @@ _W3 evidence lane tests — isolated STATE_DIR, synthetic cycles._
 - **classes:** EvidenceLaneTest
 - **functions:** `_sig(direction, price)`
 - **imports:** pathlib, tempfile, time, unittest
+
+## `tests/test_evolution.py`
+_Tests for trading/brain/evolution.py — the instruction evolution loop (R8/R9/R26)._
+- **classes:** EvolutionTest
+- **functions:** `_fake_llm(reply)`
+- **imports:** json, memory.neurons, tempfile, trading, trading.brain.evolution, trading.brain.instructions, unittest
 
 ## `tests/test_evolve_t8.py`
 _Trading Phase T8.3 (DEAP NSGA-II evolution loop + promotion) acceptance tests — offline._
@@ -2709,6 +2720,12 @@ _Tests for the hand skill-cache (invent-beyond #2) + free-eyes glance cache (#5)
 - **functions:** `_ui(name)`
 - **imports:** __future__, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_uitars_grounder.py`
+_Tests for the UI-TARS GUI grounder (adopt-plan item 1) — behind GROUNDER=uitars, with an_
+- **classes:** _Base, TestFlag, TestLocate
+- **functions:** `_png(w, h)`
+- **imports:** PIL, io, os, trading.brain.vision, unittest
+
 ## `tests/test_uq_conformal.py`
 _Pillar 17 — conformal calibrated uncertainty (trading/uq) + sizing gate tests._
 - **classes:** TestSelfUncertainty, TestTradeUQ, TestSizerConsumesUQ, TestJournalColumns
@@ -2930,6 +2947,12 @@ _trading/brain/boss.py — the BOSS COMMAND ENGINE: talk to the brain like a bos
 - **functions:** `directives() -> dict`; `_save(d) -> None`; `segment_enabled(market, segment) -> bool | None`; `all_segments(market) -> tuple`; `active_segments(market) -> list`; `segment_focus_active(market, segment) -> bool`; `target_for(market, segment) -> int`; `is_paused(market) -> bool`; `focus_of(market) -> str | None`; `mode() -> str`; `intensity() -> float`; `entry_policy(market, segment) -> dict`; `report_progress(market, segment, open_now) -> None`; `_norm_market(market) -> str`; `_bg(fn) -> None`; `set_segments(market, enable, disable) -> dict`; `_engine_segments() -> list`; `navigate_app(app, target) -> dict`; `set_target_open_trades(market, segment, target) -> dict`; `focus_segment(market, segment) -> dict`; `set_mode(mode) -> dict`; `set_intensity(level) -> dict`; `pause_trading(market) -> dict`; `resume_trading(market) -> dict`; `_set_paused(market, val) -> dict`; `research_online(topic) -> dict`; `add_goal(text) -> dict`; `get_status() -> dict`; `_looks_like_command(msg) -> bool`; `_market_in(msg) -> str`; `parse_deterministic(msg) -> list[dict]`; `parse_llm(msg) -> list[dict] | None`; `handle(message, history) -> dict | None`
 - **imports:** __future__, json, re, threading, time, trading.brain
 
+## `trading/brain/brain_os.py`
+_trading/brain/brain_os.py — the Brain-OS kernel + its own RAM (OS-1)._
+- **classes:** WorkingMemory, BrainKernel
+- **functions:** `_sizeof(obj) -> int`; `_file_age(fname, now) -> float | None`; `_proc_state(age, budget) -> str`; `get_kernel() -> BrainKernel`; `ensure_kernel() -> BrainKernel`
+- **imports:** __future__, collections, json, threading, time
+
 ## `trading/brain/briefing.py`
 _trading/brain/briefing.py — W8 daily morning briefing (owner goal 2026-07-07;_
 - **functions:** `_ist_now() -> dt.datetime`; `due(hour_ist, minute_ist) -> bool`; `generate(deliver) -> dict`; `latest() -> dict`
@@ -3023,6 +3046,12 @@ _trading/brain/dreamer.py — Counterfactual Dream-Trainer (invented 2026-07-10)
 _trading/brain/entryexit.py — regime/pattern-gated entry + learned exit (T8.6)._
 - **classes:** EntryExitPolicy
 - **imports:** __future__, dataclasses, trading.brain.continual
+
+## `trading/brain/evolution.py`
+_trading/brain/evolution.py — the instruction EVOLUTION loop (R8/R9/R26)._
+- **classes:** InstructionEvolver
+- **functions:** `get_evolver() -> InstructionEvolver`
+- **imports:** __future__, time, trading, trading.brain.instructions
 
 ## `trading/brain/experience.py`
 _trading/brain/experience.py — episodic experience bank + CBR recall (T8.4)._
@@ -3299,6 +3328,11 @@ _trading/brain/vision/ocular_cortex.py — the Ocular Cortex: ultra-advanced eye
 - **classes:** PerceptualFrame, LayoutMemory, OcularCortex
 - **functions:** `_norm_label(s) -> str`; `_label_set(controls) -> set[str]`; `_jaccard(a, b) -> float`; `_fingerprint(controls) -> str`; `_vision_online() -> bool`; `_known_kinds()`; `_extract_from_page(page)`; `get_cortex() -> OcularCortex`
 - **imports:** __future__, dataclasses, hashlib, time, trading
+
+## `trading/brain/vision/uitars_grounder.py`
+_trading/brain/vision/uitars_grounder.py — UI-TARS end-to-end GUI grounder (adopt-plan item 1)._
+- **functions:** `enabled() -> bool`; `_model() -> str`; `_ollama_base() -> str`; `available() -> bool`; `_png_dims(png) -> tuple[int, int]`; `locate(target, png) -> Optional[tuple[int, int]]`; `status() -> dict`
+- **imports:** __future__, base64, io, os, re, threading, time, typing
 
 ## `trading/brain/worldmodel.py`
 _trading/brain/worldmodel.py — learned market world-model + imagination planner._
