@@ -32,6 +32,35 @@ class MirrorPriceTest(unittest.TestCase):
             # ccxt-style perp symbol → flattened + priced from the all-market mirror
             self.assertEqual(tl._mirror_price("MAGMA/USDT:USDT", t), 0.72)
 
+    def test_record_stamps_ref_price_from_mirror_at_decision_time(self):
+        """100% coverage (2026-07-13): a fresh CRYPTO claim with no ref_price must lock
+        the entry price from the live mirror mark AT record time — otherwise resolution
+        depends on per-process in-RAM history at an old ts and the claim stays no_data."""
+        with mock.patch.object(tl, "_mirror_price", return_value=0.352) as mp, \
+             mock.patch.object(tl, "_enabled", return_value=True), \
+             mock.patch.object(tl, "_pending_path") as pp:
+            import tempfile, pathlib, json as _json
+            f = pathlib.Path(tempfile.mkdtemp()) / "pending.jsonl"
+            pp.return_value = f
+            ok = tl.record(symbol="MAGMAUSDT", market="CRYPTO", segment="futures",
+                           direction="LONG", source="filter:momentum", confidence=0.6)
+            self.assertTrue(ok)
+            row = _json.loads(f.read_text().strip().splitlines()[-1])
+            self.assertEqual(row["ref_price"], 0.352)   # stamped, not null
+            mp.assert_called()
+        # NSE claims must NOT be mirror-stamped (mirror is crypto-only)
+        with mock.patch.object(tl, "_mirror_price", return_value=0.352) as mp2, \
+             mock.patch.object(tl, "_enabled", return_value=True), \
+             mock.patch.object(tl, "_pending_path") as pp2:
+            import tempfile, pathlib, json as _json
+            f2 = pathlib.Path(tempfile.mkdtemp()) / "pending.jsonl"
+            pp2.return_value = f2
+            tl.record(symbol="RELIANCE", market="NSE", segment="equity",
+                      direction="LONG", source="filter:momentum")
+            row2 = _json.loads(f2.read_text().strip().splitlines()[-1])
+            self.assertIsNone(row2["ref_price"])
+            mp2.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

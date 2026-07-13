@@ -101,8 +101,20 @@ def record(*, symbol: str, market: str, segment: str, direction: str, source: st
                     regime = current_regime()      # honest market-wide label there
             except Exception:
                 regime = "unknown"
-        row = {"ts": float(ts if ts is not None else time.time()),
-               "symbol": str(symbol), "market": (market or "").upper() or "CRYPTO",
+        _ts = float(ts if ts is not None else time.time())
+        _mkt = (market or "").upper() or "CRYPTO"
+        # 100% coverage (2026-07-13): lock the entry price AT decision time from the
+        # live all-market mirror mark. Without this, ref_price stays null and resolution
+        # must back-fill ref from per-process in-RAM history — which a fresh/other process
+        # (or a funnel restart that wipes RAM history) can't do for an old ts, leaving the
+        # claim permanently no_data. Stamping here makes every crypto claim resolvable:
+        # only the target price at maturity is then needed, not the ref.
+        if not ref_price and _mkt == "CRYPTO":
+            _mp = _mirror_price(str(symbol), _ts)
+            if _mp:
+                ref_price = _mp
+        row = {"ts": _ts,
+               "symbol": str(symbol), "market": _mkt,
                "segment": (segment or "futures").lower(), "direction": d,
                "source": str(source)[:80], "confidence": confidence,
                "regime": str(regime), "taken": bool(taken),
