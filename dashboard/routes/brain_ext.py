@@ -902,7 +902,8 @@ def handle_selfeval_report(h):
                                  if k != "growth_14d"},
                 "time_horizon": ev.time_horizon(),
                 "llm_parity": persisted.get("llm_parity"),
-                "independent_learning": persisted.get("independent_learning")}
+                "independent_learning": persisted.get("independent_learning"),
+                "history": (persisted.get("history") or [])[-60:]}   # R23/R28 trend
     return h._send(200, _srv(h)._bg_snapshot("selfeval", _p_selfeval),
                    "application/json")
 

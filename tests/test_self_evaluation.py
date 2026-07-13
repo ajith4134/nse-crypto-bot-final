@@ -37,6 +37,30 @@ class SelfEvaluationTest(unittest.TestCase):
         self.assertTrue(any(l["rel"] == "derived-from" for l in instr.links))
         self.assertIsNotNone(r["quiz_score"])          # quizzed on what it learned
 
+    def test_snapshot_history_appends_and_caps(self):
+        self.store.add("fact", "kyle lambda", "price impact per unit flow", "use to size")
+        ev = SelfEvaluation(self.store, llm=lambda p: None)
+        s1 = ev.snapshot_history(cap=2)
+        self.assertIn("knowledge_use_rate", s1)
+        self.assertIn("neurons", s1)
+        self.assertNotIn("parity_brain", s1)               # run_parity default False
+        for _ in range(3):
+            ev.snapshot_history(cap=2)
+        hist = (state.load_json("self_evaluation.json", {}) or {}).get("history", [])
+        self.assertEqual(len(hist), 2)                     # capped, trend persisted
+
+    def test_snapshot_history_parity_gated(self):
+        # rich neurons so llm_parity can run; a fake LLM keeps it deterministic + offline
+        for i in range(4):
+            self.store.add("strategy", f"strat {i}",
+                           "A detailed multi-line body describing the setup, the entry "
+                           "trigger, the filters, and the exit for this strategy variant.",
+                           "Apply when the regime matches and the trigger fires; verify "
+                           "the fill and that the filters held before trusting the signal.")
+        ev = SelfEvaluation(self.store, llm=lambda p: "use it when the setup fires")
+        snap = ev.snapshot_history(run_parity=True)
+        self.assertIn("parity_brain", snap)                # parity ran and was recorded
+
     def test_independent_learning_refuses_known_topic(self):
         self.store.add("fact", "RSI oversold", "RSI below 30 marks oversold zones "
                        "in ranging markets for liquid symbols.",

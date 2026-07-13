@@ -77,6 +77,36 @@ function Curriculum({ school, onExam, busy, lastExam }) {
   )
 }
 
+function Spark({ vals, w = 84, h = 18, color = '#4cc2ff' }) {
+  const nums = vals.filter((v) => v != null)
+  if (nums.length < 2) return <span style={{ color: T.muted, fontSize: 10 }}>—</span>
+  const min = Math.min(...nums), max = Math.max(...nums), span = max - min || 1
+  const pts = nums.map((v, i) =>
+    `${(i / (nums.length - 1)) * w},${h - ((v - min) / span) * (h - 2) - 1}`).join(' ')
+  return (
+    <svg width={w} height={h} style={{ verticalAlign: 'middle' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function TrendRow({ history }) {
+  const first = history[0], last = history[history.length - 1]
+  const dUse = (last.knowledge_use_rate ?? 0) - (first.knowledge_use_rate ?? 0)
+  const dNeur = (last.neurons ?? 0) - (first.neurons ?? 0)
+  return (
+    <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', fontSize: 10,
+                  color: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: 8 }}>
+      <span style={{ fontWeight: 700, color: T.text }}>trend · {history.length} pts (R23/R28)</span>
+      <span>genius-use <Spark vals={history.map((h) => h.knowledge_use_rate)}
+            color={dUse >= 0 ? T.good : T.warn} /> {dUse >= 0 ? '▲' : '▼'}{pct(Math.abs(dUse), 2)}</span>
+      <span>neurons <Spark vals={history.map((h) => h.neurons)} color={T.accent} /> {dNeur >= 0 ? '+' : ''}{dNeur}</span>
+      {last.parity_brain != null &&
+        <span>parity <Spark vals={history.map((h) => h.parity_brain)} color={T.good} /> {last.parity_brain}v{last.parity_llm ?? '—'}</span>}
+    </div>
+  )
+}
+
 function SelfEval({ ev, onRun, running }) {
   const [topic, setTopic] = useState('')
   const gu = ev?.genius_use
@@ -100,6 +130,7 @@ function SelfEval({ ev, onRun, running }) {
               sub={acc ? `${acc.growing ? 'growing' : 'STALLED'} · decayed levels: ${Object.entries(acc.exam_trends || {}).filter(([, t]) => t.decayed).map(([l]) => l).join(', ') || 'none'}` : ''}
               color={acc?.growing ? T.good : T.warn} />
       </div>
+      {ev?.history?.length > 1 && <TrendRow history={ev.history} />}
       {il && (
         <div style={{ fontSize: 11, border: `1px solid ${T.border}`, borderRadius: 8, padding: 8 }}>
           <span style={{ fontWeight: 700 }}>last independent-learning test (R3): </span>

@@ -224,6 +224,39 @@ class SelfEvaluation:
         self._merge_report({"time_horizon": out})
         return out
 
+    # ── R23/R28 TRENDING: append a compact snapshot each cron tick ─────────────
+    def snapshot_history(self, *, run_parity: bool = False, now: float | None = None,
+                         cap: int = 90) -> dict:
+        """The standing cron's unit of work: append a compact metrics snapshot so
+        genius-use / accumulation / parity / time-horizon TREND over time instead of only
+        showing 'now'. Cheap metrics every call; llm_parity only when run_parity (it costs
+        an LLM round-trip — the caller gates its cadence). Honest: every value is measured."""
+        ts = time.time() if now is None else float(now)
+        gu = self.genius_use()
+        acc = self.accumulation(now=now)
+        th = self.time_horizon(now=now)
+        st = self.store.status()
+        snap = {"ts": round(ts, 2),
+                "knowledge_use_rate": gu.get("knowledge_use_rate"),
+                "neurons_ever_used": gu.get("neurons_ever_used"),
+                "neurons": st.get("neurons"), "links": st.get("links"),
+                "neurons_last7d": acc.get("neurons_last7d"),
+                "longest_run_secs": th.get("longest_run_secs") if th.get("ok") else None}
+        if run_parity:
+            lp = self.llm_parity(now=now)
+            if lp.get("ok"):
+                snap["parity_brain"] = lp.get("brain_score")
+                snap["parity_llm"] = lp.get("llm_score")
+
+        def _append(d):
+            d = d or {}
+            hist = list(d.get("history", []))
+            hist.append(snap)
+            d["history"] = hist[-cap:]
+            return d
+        state.mutate_json(REPORT_FILE, _append, default={})
+        return snap
+
     # ── the standing report ────────────────────────────────────────────────────
     def full_report(self, *, now: float | None = None) -> dict:
         return {"genius_use": self.genius_use(),

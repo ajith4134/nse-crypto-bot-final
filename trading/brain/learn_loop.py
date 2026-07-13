@@ -247,6 +247,29 @@ class LearnLoop:
                                       f"promoted={len(evo['promotions'])}")
         except Exception:
             pass
+        # Self-eval history tick (R23/R28 trending): append a compact metrics snapshot so
+        # genius-use / accumulation / time-horizon / parity TREND over time. Time-gated to
+        # BRAIN_SELFEVAL_INTERVAL_H (default 6h); the LLM-costing parity is gated separately
+        # to BRAIN_PARITY_INTERVAL_H (default 24h). Cheap otherwise; never breaks the loop.
+        try:
+            from trading import state as _ses
+            rpt = _ses.load_json("self_evaluation.json", {}) or {}
+            hist = rpt.get("history", [])
+            last_ts = hist[-1]["ts"] if hist else 0.0
+            if time.time() - float(last_ts or 0.0) > \
+                    float(os.environ.get("BRAIN_SELFEVAL_INTERVAL_H", 6)) * 3600:
+                last_parity = next((h["ts"] for h in reversed(hist)
+                                    if h.get("parity_brain") is not None), 0.0)
+                run_par = time.time() - float(last_parity or 0.0) > \
+                    float(os.environ.get("BRAIN_PARITY_INTERVAL_H", 24)) * 3600
+                from memory.neurons import get_store
+                from trading.brain.self_evaluation import SelfEvaluation
+                snap = SelfEvaluation(get_store()).snapshot_history(run_parity=run_par)
+                st["last_selfeval"] = {"ts": snap["ts"],
+                                       "use_rate": snap.get("knowledge_use_rate"),
+                                       "neurons": snap.get("neurons")}
+        except Exception:
+            pass
         # Brain-OS attention tick (OS-3): advance the resident kernel's scheduler each
         # cycle so the process table shows which lobe the brain attends next (focus-driven,
         # fairness-balanced). Advisory + cheap; never gates trading.
