@@ -365,6 +365,17 @@ class BrainExecutor:
                     _reads.append((_dm.SOURCE, _pm))
             except Exception:
                 pass
+            try:                                          # proposal E: the bull/bear/risk debate
+                if os.environ.get("DEBATE_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on") \
+                        and _reads:                       # CONTESTS the preliminary lean
+                    from trading.brain import debate_gate as _dbg
+                    _prelim = "long" if (sum(p for _, p in _reads) / len(_reads)) >= 0.5 else "short"
+                    _dc = _dbg.get_debate_gate().contest(
+                        _psym, _prelim, features=_asig.feature_dict(_col["signals"]))
+                    if _dc.get("direction") != "neutral":
+                        _reads.append(("debate", _dc["p_up"]))
+            except Exception:
+                pass
             out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
                              symbol=_psym, coverage=_col["coverage"])

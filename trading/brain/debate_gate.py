@@ -87,6 +87,46 @@ class DebateGate:
                 "decision_snapshot": snapshot}
 
 
+    _contest_cache: dict = {}                                    # (sym,dir) -> (ts, result)
+
+    def contest(self, symbol: str, proposed_direction: str, *,
+                features: dict | None = None) -> dict:
+        """ContestTrade-style (proposal E): the bull/bear/risk debate CONTESTS the proposed
+        side and returns a DIRECTIONAL verdict — not just approve/reject. A single debate
+        already encodes the contest (verdict on the side + how split the room was), so we
+        convert it to a p_up without a second LLM round: consensus×verified-reward is the
+        strength; if the debate rejects the proposed side, the lean flips to the other side.
+        Returns {direction, p_up, verdict, flip_rate, strength, thesis} — p_up feeds
+        learned_direction.decide() as the `debate` source, so the room's conviction earns its
+        own measured edge and shows in the Direction X-Ray."""
+        import time as _t
+        d = (proposed_direction or "").lower()
+        base = "long" if d not in ("long", "short") else d
+        ck = (str(symbol), base)
+        hit = self._contest_cache.get(ck)
+        if hit and _t.time() - hit[0] < 60.0:            # 60s cache: bound debate cost on the hot path
+            return hit[1]
+        a = self.assess(symbol, base, features=features)
+        snap = a.get("decision_snapshot") or {}
+        supports = snap.get("debate_verdict") == "yes"
+        _flip = snap.get("flip_rate")                            # 0.0 is VALID (unanimous) —
+        flip = float(_flip) if _flip is not None else 0.5       # don't let `or` swallow it
+        _rw = snap.get("process_reward")
+        reward = float(_rw) if _rw is not None else 0.5
+        strength = max(0.0, min(1.0, (1.0 - flip) * reward))     # consensus × verified quality
+        lean = strength if supports else -strength               # reject → flip to the other side
+        signed = lean if base == "long" else -lean               # orient to LONG-probability
+        p_up = round(min(0.98, max(0.02, 0.5 + 0.5 * signed)), 4)
+        direction = "long" if p_up > 0.55 else "short" if p_up < 0.45 else "neutral"
+        args = snap.get("arguments") or {}
+        thesis = (args.get("bull") if p_up >= 0.5 else args.get("bear")) or a.get("reason")
+        result = {"direction": direction, "p_up": p_up, "verdict": snap.get("debate_verdict"),
+                  "flip_rate": round(flip, 3), "strength": round(strength, 3),
+                  "thesis": str(thesis)[:200]}
+        self._contest_cache[ck] = (_t.time(), result)
+        return result
+
+
 _GATE: DebateGate | None = None
 
 

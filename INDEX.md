@@ -1997,6 +1997,12 @@ _Tests for the per-broker public↔account data-source switch (data_sources + sc
 - **classes:** _IsolatedState, TestSwitch, TestScreenAllGating, TestAccountScreenRequiresLogin
 - **imports:** __future__, pathlib, tempfile, trading.broker_sense, trading.state, unittest
 
+## `tests/test_debate_contest.py`
+_Tests for debate_gate.contest() — the debate as a DIRECTIONAL contest (proposal E)._
+- **classes:** DebateContestTest
+- **functions:** `_assess(verdict, flip, reward)`
+- **imports:** trading.brain.debate_gate, unittest
+
 ## `tests/test_debate_verifier_p18.py`
 _Pillar 18 — adversarial debate + verifier-guided reasoning. Deterministic via injected_
 - **classes:** TestVerifier, TestDebateGate
