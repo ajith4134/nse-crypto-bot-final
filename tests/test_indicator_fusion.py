@@ -126,14 +126,32 @@ class TestFuse(unittest.TestCase):
         self.assertEqual(r["direction"], "neutral")
         self.assertEqual(r["p_up"], 0.5)
 
-    def test_vision_disagreement_shrinks_conviction(self):
-        # numeric = strong long, vision = strong short → conviction shrinks vs vision-agree case
+    def test_vision_no_longer_votes_by_default(self):
+        # Item 3 (2026-07-13): VLM chart reads are ~coin-flip on direction, so by DEFAULT they
+        # cast NO direction vote — a long-vision and a short-vision read leave confluence equal
+        # (vision is context only). vision_agree is still surfaced for telemetry.
+        import os
+        os.environ.pop("VISION_PREDICTS_DIRECTION", None)
         with self._patch_fetch(0.004):
             agree = IF.fuse("BTC/USDT", "crypto",
                             vision={"5m": {"p_up": 0.9, "direction": "long"}})
             disagree = IF.fuse("BTC/USDT", "crypto",
                                vision={"5m": {"p_up": 0.1, "direction": "short"}})
-        self.assertGreater(agree["confluence"], disagree["confluence"])
+        self.assertEqual(agree["confluence"], disagree["confluence"])   # vision didn't move it
+
+    def test_vision_blend_restored_by_flag(self):
+        # VISION_PREDICTS_DIRECTION=1 restores the old 35% blend (disagreement shrinks conviction)
+        import os
+        os.environ["VISION_PREDICTS_DIRECTION"] = "1"
+        try:
+            with self._patch_fetch(0.004):
+                agree = IF.fuse("BTC/USDT", "crypto",
+                                vision={"5m": {"p_up": 0.9, "direction": "long"}})
+                disagree = IF.fuse("BTC/USDT", "crypto",
+                                   vision={"5m": {"p_up": 0.1, "direction": "short"}})
+            self.assertGreater(agree["confluence"], disagree["confluence"])
+        finally:
+            os.environ.pop("VISION_PREDICTS_DIRECTION", None)
 
 
 if __name__ == "__main__":

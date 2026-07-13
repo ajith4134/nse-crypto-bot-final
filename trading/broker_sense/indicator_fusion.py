@@ -428,13 +428,19 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
         if vs:
             vw = sum(w for w, _ in vs) or 1
             vision_dir = sum(w * x for w, x in vs) / vw
+    # Item 3 (adopt-plan, 2026-07-13): vision LLMs read charts at ~coin-flip for DIRECTION and
+    # ~0 for patterns (independent 4-model benchmark incl. Opus 4.7, and our own truth ledger).
+    # So a chart read NO LONGER casts a hardcoded direction vote by default — it stays a CONTEXT
+    # lens (recorded for display + as a truth-ledger source that learned_direction weights ONLY
+    # to its MEASURED reliability). Set VISION_PREDICTS_DIRECTION=1 to restore the old 35% blend.
+    _vision_votes = os.getenv("VISION_PREDICTS_DIRECTION", "0") in ("1", "true", "TRUE", "yes", "on")
     if vision_dir is not None:
-        agree = (vision_dir * confluence) >= 0
-        blended = 0.65 * confluence + 0.35 * vision_dir
-        if not agree:
-            blended *= 0.6                              # disagreement → shrink conviction
-        confluence = _clamp(blended, -1.0, 1.0)
-        vision_agree = agree
+        vision_agree = (vision_dir * confluence) >= 0    # still surfaced (display/telemetry)
+        if _vision_votes:
+            blended = 0.65 * confluence + 0.35 * vision_dir
+            if not vision_agree:
+                blended *= 0.6                           # disagreement → shrink conviction
+            confluence = _clamp(blended, -1.0, 1.0)
     else:
         vision_agree = None
 
@@ -566,6 +572,21 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
     p_up = round(_clamp((1 + confluence) / 2, 0.02, 0.98), 4)
     direction = "long" if p_up > 0.56 else "short" if p_up < 0.44 else "neutral"
 
+    # 4j ── NEURON MEMORY lens (Brain Ultra Upgrade R22): consult the web of neurons for
+    # this symbol/regime — past episodes, lessons, strategy notes — record the USE, and
+    # ride the ids + action facets in the snapshot. NO confluence tilt yet: recall must
+    # EARN a tilt with close-graded evidence first (freqtrade_ingest grades these ids on
+    # trade close, so the evidence accumulates from day one). Guarded, never raises.
+    neurons = None
+    try:
+        from trading.brain import consult as _consult
+        neurons = _consult.consult(
+            f"{symbol} {direction} {regime} {market}", domain="trading", k=3)
+        if not neurons["ids"]:
+            neurons = None
+    except Exception:
+        neurons = None
+
     # 6 ── triple-barrier geometry off the trigger TF's ATR
     trig_tf = next((tf for tf in _TRIGGER_TFS if tf in avail), next(iter(avail)))
     trig = avail[trig_tf]
@@ -608,6 +629,7 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,
         "sectors": sectors, "options_regime": options_regime, "ai_select": ai_select,
         "volume_profile": vp_profile, "chart_yolo": yolo, "direction_equation": direction_eq,
+        "neurons": neurons,
         "onchain": onchain,
         "per_tf": {tf: ({"available": False} if not d.get("available") else
                         {"available": True, "vote": d["vote"], "regime": d["regime"], "rsi": d["rsi"],
