@@ -579,8 +579,8 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
     # trade close, so the evidence accumulates from day one). Guarded, never raises.
     neurons = None
     try:
-        from trading.brain import consult as _consult
-        neurons = _consult.consult(
+        from trading.brain import brain_os as _bos       # OS-4: one kernel-routed surface
+        neurons = _bos.consult(
             f"{symbol} {direction} {regime} {market}", domain="trading", k=3)
         if not neurons["ids"]:
             neurons = None

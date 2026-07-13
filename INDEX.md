@@ -2970,7 +2970,7 @@ _trading/brain/boss.py — the BOSS COMMAND ENGINE: talk to the brain like a bos
 ## `trading/brain/brain_os.py`
 _trading/brain/brain_os.py — the Brain-OS kernel + its own RAM (OS-1)._
 - **classes:** WorkingMemory, BrainKernel
-- **functions:** `_sizeof(obj) -> int`; `_file_age(fname, now) -> float | None`; `_proc_state(age, budget) -> str`; `_focus_match(lobe, focus) -> bool`; `get_kernel() -> BrainKernel`; `ensure_kernel() -> BrainKernel`
+- **functions:** `_sizeof(obj) -> int`; `_file_age(fname, now) -> float | None`; `_proc_state(age, budget) -> str`; `_focus_match(lobe, focus) -> bool`; `get_kernel() -> BrainKernel`; `ensure_kernel() -> BrainKernel`; `consult(query) -> dict`; `grade(ids) -> int`
 - **imports:** __future__, collections, json, threading, time
 
 ## `trading/brain/briefing.py`

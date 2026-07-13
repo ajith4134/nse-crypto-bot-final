@@ -114,8 +114,8 @@ class AutonomousResearcher:
         # (and the researcher's own prompt) can build on prior knowledge, not restart it.
         known = None
         try:
-            from trading.brain import consult as _consult
-            known = _consult.consult(query, domain="research", k=3)
+            from trading.brain import brain_os as _bos       # OS-4: kernel-routed surface
+            known = _bos.consult(query, domain="research", k=3)
             if not known["ids"]:
                 known = None
         except Exception:

@@ -415,3 +415,26 @@ def ensure_kernel() -> BrainKernel:
     """Boot the resident kernel at dashboard startup (idempotent) — so the brain OS is
     already RAM-resident before any request thread touches it (never boot in-request)."""
     return get_kernel()
+
+
+# ── OS-4: the single call surface lobes use instead of importing peers ad-hoc ──
+# Every lobe that touches shared knowledge routes through the OS here, so consults land
+# in the kernel's RAM working memory (observability) and there is ONE surface to evolve.
+# Behavior-preserving: if the kernel is unavailable for any reason, fall back to the
+# direct consult bridge — the hot trading path must never regress.
+def consult(query: str, *, domain: str, k: int = 3, kind: str | None = None) -> dict:
+    """Kernel-routed recall+record_use. Same shape as trading.brain.consult.consult."""
+    try:
+        return get_kernel().syscall("consult", query=query, domain=domain, k=k, kind=kind)
+    except Exception:
+        from trading.brain import consult as _c
+        return _c.consult(query, domain=domain, k=k, kind=kind)
+
+
+def grade(ids, *, win: bool, pnl: float = 0.0, domain: str = "") -> int:
+    """Kernel-routed outcome credit for previously-consulted neurons."""
+    try:
+        return get_kernel().syscall("grade", ids=ids, win=win, pnl=pnl, domain=domain)
+    except Exception:
+        from trading.brain import consult as _c
+        return _c.grade(ids, win=win, pnl=pnl, domain=domain)

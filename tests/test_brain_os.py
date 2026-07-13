@@ -152,6 +152,38 @@ class BrainKernelTest(unittest.TestCase):
         self.assertIn("scheduler", k.top())
         self.assertIn("ranking", k.top()["scheduler"])
 
+    # ── OS-4: single kernel-routed call surface ───────────────────────────────
+    def test_os4_consult_routes_through_kernel(self):
+        import trading.brain.brain_os as bos
+        seen = {}
+
+        class FakeK:
+            def syscall(self, name, **kw):
+                seen["name"] = name; seen.update(kw); return {"ids": ["x"]}
+        with mock.patch.object(bos, "get_kernel", lambda: FakeK()):
+            out = bos.consult("q", domain="trading", k=2)
+        self.assertEqual(seen["name"], "consult")
+        self.assertEqual(seen["domain"], "trading")
+        self.assertEqual(out, {"ids": ["x"]})
+
+    def test_os4_falls_back_to_direct_bridge_when_kernel_down(self):
+        import trading.brain.brain_os as bos
+        import trading.brain.consult as c
+
+        def boom():
+            raise RuntimeError("no kernel")
+        with mock.patch.object(bos, "get_kernel", boom), \
+             mock.patch.object(c, "consult", lambda q, **kw: {"ids": ["fb"], "via": "direct"}):
+            out = bos.consult("q", domain="trading")
+        self.assertEqual(out["via"], "direct")           # hot path never regresses
+
+    def test_os4_grade_routes_and_falls_back(self):
+        import trading.brain.brain_os as bos
+        import trading.brain.consult as c
+        with mock.patch.object(bos, "get_kernel", lambda: (_ for _ in ()).throw(RuntimeError())), \
+             mock.patch.object(c, "grade", lambda ids, **kw: 7):
+            self.assertEqual(bos.grade(["a"], win=True, domain="trading"), 7)
+
 
 if __name__ == "__main__":
     unittest.main()

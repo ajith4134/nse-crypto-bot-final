@@ -121,8 +121,8 @@ class NavBrain:
         trace: list[dict] = []
         sigs: list[str] = []
         try:
-            from trading.brain import consult as _consult
-            self._consulted = _consult.consult(
+            from trading.brain import brain_os as _bos       # OS-4: kernel-routed surface
+            self._consulted = _bos.consult(
                 f"navigate {self.market} {goal}", domain="navigation", k=3)
         except Exception:
             self._consulted = None
