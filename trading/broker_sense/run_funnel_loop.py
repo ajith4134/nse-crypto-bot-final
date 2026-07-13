@@ -258,6 +258,28 @@ def main() -> int:
                           f"entered={ex.get('entered')} took={rep['took_s']}s "
                           f"(budget ok={rep['completed_within_budget']} "
                           f"next_n={rep['next_shortlist_n']})", flush=True)
+                    # Binance-filter TOP-N breadth lane (Stage 1b, owner idea 2026-07-12): a
+                    # PARALLEL candidate lane — rank the whole UI-captured universe by the active
+                    # filter preset and open the adaptive top-N (side via learned_direction).
+                    # Kill-switched (BINANCE_FILTER_LANE=0 → zero cost). Crypto only; never kills
+                    # the loop. This is the motto-pure breadth fix for the 40-vs-10 collapse.
+                    if market == "crypto":
+                        try:
+                            from trading.broker_sense import binance_filter_lane as _bfl
+                            if _bfl.enabled():
+                                _flr = funnel.executor(seg).open_filter_lane(
+                                    allow_live=allow_live,
+                                    deadline=time.monotonic() + float(
+                                        os.environ.get("BROKER_SENSE_BUDGET", "120") or 120))
+                                if _flr.get("entered") or _flr.get("error"):
+                                    print(f"[filter-lane:{market}:{seg}] "
+                                          f"preset={_flr.get('preset')} "
+                                          f"ranked={_flr.get('ranked')} "
+                                          f"entered={_flr.get('entered')} "
+                                          f"skipped={_flr.get('skipped')} "
+                                          f"err={_flr.get('error')}", flush=True)
+                        except Exception as _e:
+                            print(f"[filter-lane:{market}:{seg}] error: {_e!r}", flush=True)
                 except Exception as e:               # a cycle error never kills the loop
                     print(f"[funnel:{market}:{seg}] cycle error: {e!r}", flush=True)
             if market == "crypto":

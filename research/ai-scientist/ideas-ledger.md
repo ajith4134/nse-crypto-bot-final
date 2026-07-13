@@ -302,3 +302,48 @@ binance_ai_select.py reads Binance's built-in recommender directly (reliable, no
 fusion ai_select block + screener +0.12 discovery boost + snapshot/panel. Only Token Unlock remains
 deferred (DefiLlama paywalled). Verified: the new fusion signals (order_flow/sectors/catalyst/
 options/ai_select) are USED — they move confluence (Δ measured) AND land in real journaled trades.
+
+## 2026-07-12 — MOTTO level-up: web-nav + local-vision + RAM, seconds-fast data (proposed)
+Motto: CPU=ML only · API=exec only · DATA=Binance/Upstox web-nav + qwen2.5-vl vision + RAM. Goal: per-cycle data in SECONDS.
+1. [proposed] WS in-RAM mirror via BROWSER WS-tap (keystone) — CDP-intercept the Binance web app's OWN wss klines/depth/ticker frames → RAM ring buffer. Extends ocular interception + WS-mirror. Kills per-symbol fetch → RAM microseconds.
+2. [proposed] Screener-as-universe — scrape Binance's built-in movers/screener as the universe+ranking. Replaces freqtrade VolumePairList (the #1 418 ban source) + local ranking. Extends broker_features.
+3. [proposed] Shared-memory market bus — mirror in multiprocessing.shared_memory/Arrow; freqtrade+funnel+live_loop read ONE mirror. Kills duplicate cross-process fetching.
+4. [proposed] Per-bar vision indicator cache — qwen2.5-vl reads the app's rendered indicators once/bar → RAM-served. Extends today's ocular per-bar memo.
+5. [proposed] Frame-diff-gated + batched VLM — perceptual-hash skip unchanged charts; batch screenshots per VLM call. Cuts vision 5-10×. Extends vision_worker.
+6. [proposed] freqtrade VolumePairList → StaticPairList fed by the mirror (migration). Kills ban burst.
+7. [proposed] Predictive/speculative navigation — nav_brain pre-opens next-cycle shortlist charts so data is warm in RAM. Extends nav_brain.
+8. [proposed] Faster local VLM scan — evaluate MiniCPM-V 2.6 / InternVL2 / Moondream2 vs qwen2.5-vl:7b for chart-read speed. Migration: core/llm local vision provider.
+9. [proposed] Event-driven reflex from the mirror — mirror emits price/book events; brain reacts (reflex lane) instead of polling. Seconds→ms reaction.
+
+## 2026-07-12 (session: motto web-data) — candle coverage + exit logic
+
+### Candle coverage (broad+deep web-nav)
+- [proposed] BULK-CANDLE DOOR: navigate the Binance markets/movers page → interception captures the app's
+  OWN single bulk request that returns hundreds of symbols' recent candles/sparklines at once (the
+  ticker-door trick applied to candles). Breadth for SCREEN; deep parked tabs only for the VERIFY shortlist.
+  Reuse: interception + ui_market. Impact: HIGH (10→hundreds of screenable symbols, ~0 extra tabs).
+- [proposed] TWO-TIER: bulk sparklines = direction screen for the universe; deep multi-TF parked tabs =
+  fusion/strategy decision on the top-K only. Mirrors the funnel SCREEN(breadth)/VERIFY(depth) split.
+
+### Exit logic (better than fixed net<=-2 + 3% tailgate)
+- [proposed] ATR/VOL-SCALED BARRIERS: use fusion's already-computed ATR triple-barrier (entry/stop/target)
+  for the exit instead of fixed %. High-vol coin = wider, low-vol = tighter. HIGH impact, LOW effort (wire
+  existing fusion.barriers to the exit path). LdP meta-labeling exit.
+- [proposed] REGIME-AWARE EXIT: trend regime → loose trailing (ride); chop regime → tight target (grab).
+  fusion already computes `regime`; the tailgate's stated "tighter in chop, looser in trends" made real.
+- [proposed] PARTIAL/SCALE-OUT: exit 1/3 at target, trail the rest. Locks profit + lets winners run.
+- [proposed] VISION-READ EXIT (motto-native, novel): local qwen2.5-vl reads the open position's real app
+  chart for exhaustion/reversal → exit signal. CPU=brain intelligence reading the web chart. vision_worker
+  already reads charts; add a per-position exit read. HIGH novelty.
+- [proposed] META-LABELER EXIT: mid-trade, if D6 meta P(direction correct) drops below threshold → exit.
+- [APPROVED 2026-07-12, owner idea] BINANCE-FILTER TOP-N LANE (breadth engine, motto-pure UI data):
+  open Binance segment market page → read the FULL sorted market table via the app's own filters/sort
+  (24h%, volume, funding, OI, long/short, taker — all ALREADY captured by ui_market: ticker()/funding()/
+  open_interest()/long_short()/taker()/movers()) → a LEARNED combo-selector (truth_ledger-scored per regime;
+  reuse autoresearch.py "breed strategies over Binance filter data" + PresetStore rotation) picks the best
+  filter combination → take adaptive TOP-N (start 20, grow to 50/100 as the edge holds) → learned_direction
+  sets each side → executor opens until wallet/min-score gate. Fixes the 40-vs-10 breadth collapse the
+  UI-only way (hundreds of pre-ranked candidates per page read vs ~37 screened/cycle). ROLLOUT: NEW PARALLEL
+  LANE (kill-switchable), not a replacement. Stages: (1) ranker over ui_market filters + top-N open on a
+  default preset; (2) learned combo-selector; (3) per-pick learned direction + regime rotation. Reuses
+  ~80%; new = binance_filter_lane.py ranker + combo-selector. [[direction-driver-replaces-vote]]

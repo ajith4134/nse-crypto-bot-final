@@ -507,6 +507,42 @@ def hit_rates(*, min_n: int = 1) -> list[dict]:
     return rows
 
 
+def source_reliability(source: str, *, regime: str | None = None,
+                       horizon: str | None = None, min_n: int = 1) -> dict:
+    """Measured accuracy of one directional SOURCE, aggregated across the buckets that match.
+
+    Reads the same live aggregate `hit_rates()` serves, but rolls a single source up into ONE
+    honest number the direction driver can weight by: sums (n, correct) over every bucket whose
+    source matches (optionally filtered to a regime and/or horizon), then Wilson-bounds it.
+
+    Returns {n, correct, rate, ci_low, ci_high, edge} where `edge = rate - 0.5` (signed: negative
+    means the source is measured WRONG more than half the time → the caller should invert it).
+    Empty/absent source → n=0 (caller treats as unproven). Never raises, no network.
+    """
+    agg = state.load_json(_AGG, {})
+    n = c = 0
+    reg = (regime or "").lower() or None
+    for key, b in (agg.get("buckets") or {}).items():
+        try:
+            s, r, h = key.rsplit("|", 2)
+        except ValueError:
+            continue
+        if s != source:
+            continue
+        if reg is not None and r.lower() != reg:
+            continue
+        if horizon is not None and h != horizon:
+            continue
+        n += int(b.get("n", 0))
+        c += int(b.get("correct", 0))
+    if n < min_n:
+        return {"n": n, "correct": c, "rate": None, "ci_low": None,
+                "ci_high": None, "edge": None}
+    rate, lo, hi = _wilson(c, n)
+    return {"n": n, "correct": c, "rate": round(rate, 4), "ci_low": round(lo, 4),
+            "ci_high": round(hi, 4), "edge": round(rate - 0.5, 4)}
+
+
 def status() -> dict:
     """Dashboard snapshot: overall + rollups + best/worst sources + pipeline health."""
     agg = state.load_json(_AGG, {})

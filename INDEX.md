@@ -923,7 +923,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `_state_json(name, default)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `_state_json(name, default)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`; `handle_neurons(h)`; `handle_neurons_graph(h)`; `handle_neurons_search(h)`; `handle_brain_flow(h)`; `handle_selfeval_report(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -933,7 +933,7 @@ _Extracted network / state / knowledge HTTP routes (dashboard/server.py split �
 
 ## `dashboard/routes/post_ext.py`
 _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
-- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`; `handle_chat_stream(h)`; `handle_agui(h)`; `handle_crypto_params(h)`; `handle_closedtrades_reset(h)`; `handle_crypto_mode(h)`; `handle_online_control(h)`; `handle_gui_action(h)`; `handle_broker_sense_post(h)`
+- **functions:** `_srv(h)`; `handle_practice_start(h)`; `handle_brain_discovery_run(h)`; `handle_credentials_post(h)`; `handle_brain_learn(h)`; `handle_brain_web(h)`; `handle_chat(h)`; `handle_brain_agent(h)`; `handle_brain_ultra_remember(h)`; `handle_chat_stream(h)`; `handle_agui(h)`; `handle_crypto_params(h)`; `handle_closedtrades_reset(h)`; `handle_crypto_mode(h)`; `handle_online_control(h)`; `handle_gui_action(h)`; `handle_broker_sense_post(h)`; `handle_school_exam(h)`; `handle_selfeval_run(h)`
 - **imports:** json, os, sys, threading
 
 ## `dashboard/routes/trading_ext.py`
@@ -1055,6 +1055,18 @@ _memory/librarian.py — self-feeding internet: the brain reads on its own (Phas
 - **classes:** Librarian
 - **functions:** `_ddgs_search(query, max_results) -> list[dict]`; `_rss_fetch(url, limit) -> list[dict]`; `_arxiv_search(query, max_results) -> list[dict]`; `_trafilatura_extract(url) -> str`; `_count_by(items, key) -> dict`
 - **imports:** __future__, dataclasses, hashlib, json, os
+
+## `memory/neuron_web.py`
+_memory/neuron_web.py — converters: EVERY existing brain store → the web of neurons (R15)._
+- **classes:** NeuronWeb
+- **functions:** `_det_id(source, key) -> str`; `_load(name)`; `_num(v, nd)`; `backfill(store) -> dict`
+- **imports:** __future__, collections, hashlib, json, memory.neurons, pathlib, re, time
+
+## `memory/neurons.py`
+_memory/neurons.py — the ONE common language: instruction-shaped Neurons (Brain Ultra Upgrade, Pillar 1)._
+- **classes:** Neuron, NeuronStore
+- **functions:** `_words(text) -> set[str]`; `_jaccard(a, b) -> float`; `_nid() -> str`; `get_store(root) -> NeuronStore`
+- **imports:** __future__, dataclasses, json, os, pathlib, re, sqlite3, threading, time, uuid
 
 ## `memory/self_quiz.py`
 _memory/self_quiz.py — proof the brain gets smarter (Phase P4.4)._
@@ -1726,6 +1738,12 @@ _WS-mirror order-book depth (2026-07-12): the binance_stream mirror now streams 
 - **classes:** TestBinanceDepthMirror
 - **imports:** time, trading.broker_sense, unittest
 
+## `tests/test_binance_filter_lane.py`
+_Tests for the Binance-filter TOP-N breadth lane ranker (Stage 1)._
+- **classes:** BinanceFilterLaneTest
+- **functions:** `_row(sym, pct, vol, funding, taker)`
+- **imports:** trading.broker_sense, unittest
+
 ## `tests/test_binance_options.py`
 _tests/test_binance_options.py — Binance options IV/skew regime gauge._
 - **classes:** TestOptions
@@ -2081,6 +2099,16 @@ _Tests for memory/file_memory.py — Claude-style durable file memory (Phase B).
 - **functions:** `test_write_creates_note_and_index(tmp_path)`; `test_persists_across_processes_and_recalls(tmp_path)`; `test_keyword_fallback_without_associative(tmp_path)`
 - **imports:** memory.associative, memory.file_memory
 
+## `tests/test_filter_lane_executor.py`
+_Integration test for BrainExecutor.open_filter_lane (Stage 1b) — the Binance-filter TOP-N lane_
+- **classes:** FakeCli, FilterLaneExecutorTest
+- **imports:** os, trading.broker_sense, trading.crypto.freqtrade, trading.direction, unittest
+
+## `tests/test_flow_health.py`
+_Tests for trading/brain/flow_health.py — loop stitch monitor (R1)._
+- **classes:** FlowHealthTest
+- **imports:** os, tempfile, time, trading, trading.brain, unittest
+
 ## `tests/test_foundation_nodes.py`
 _Tier-1 foundation / SOTA model nodes (nodes/foundation_nodes.py, groups A–F)._
 - **classes:** TestFoundationNodes
@@ -2172,6 +2200,12 @@ _Tests for the ultra-advanced multi-timeframe indicator-fusion engine (offline, 
 - **functions:** `_series(trend, n, start, noise) -> list`
 - **imports:** __future__, math, trading.broker_sense, unittest
 
+## `tests/test_instructions.py`
+_Tests for trading/brain/instructions.py — instruction lifecycle (R7-R9, R26)._
+- **classes:** InstructionsTest
+- **functions:** `_fake_llm(reply)`
+- **imports:** json, memory.neurons, tempfile, trading, trading.brain.instructions, unittest
+
 ## `tests/test_interception.py`
 _Tests for the network-interception recorder + endpoint registry (offline, no browser)._
 - **classes:** _IsolatedState, TestUrlPattern, TestClassify, TestRegistry, _FakeRequest, _FakeResponse, TestRecorder
@@ -2204,6 +2238,12 @@ _Continuous learning loop (trading/brain/learn_loop.py) — deterministic unit t
 - **classes:** _StubLearner
 - **functions:** `_fresh_loop()`; `test_queue_topic_learned_first_then_curriculum()`; `test_errors_recorded_and_status_honest()`; `test_self_eval_fires_on_schedule()`; `test_enabled_flag_persists_across_instances()`
 - **imports:** pathlib, tempfile, trading.state
+
+## `tests/test_learned_direction.py`
+_Tests for trading/direction/learned_direction.py — the learned direction driver._
+- **classes:** LearnedDirectionTest
+- **functions:** `_rel(rate, n, half_ci)`
+- **imports:** trading.direction, unittest
 
 ## `tests/test_librarian.py`
 _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & deterministic._
@@ -2317,6 +2357,18 @@ _Tests for trading/broker_sense/nav_brain.py — Planner-Actor-Validator navigat
 _Tests for the navigation segment-gate fix (2026-07-11) — the brain must NOT navigate to / drive_
 - **classes:** SegmentGateTest
 - **imports:** __future__, pathlib, tempfile, trading, unittest
+
+## `tests/test_neuron_web.py`
+_Tests for memory/neuron_web.py — converters + idempotent backfill (R15)._
+- **classes:** NeuronWebTest
+- **functions:** `_fixture_state(tmp) -> None`
+- **imports:** json, memory.neuron_web, memory.neurons, pathlib, tempfile, unittest
+
+## `tests/test_neurons.py`
+_Tests for memory/neurons.py — the instruction-shaped Neuron store (R15/R16/R24)._
+- **classes:** NeuronStoreTest
+- **functions:** `_store()`
+- **imports:** memory.neurons, tempfile, unittest
 
 ## `tests/test_news_ingest.py`
 _tests/test_news_ingest.py — free-RSS → symbol-linked brain news memory (2026-07-10)._
@@ -2467,6 +2519,12 @@ _Hot-path regression (2026-07-12): the numba rolling-Volume-Profile kernel (nati
 - **classes:** TestRollingVPFast
 - **imports:** numpy, pandas, unittest
 
+## `tests/test_school.py`
+_Tests for trading/brain/school.py — dual-track curriculum + exams (R2, R21, R27)._
+- **classes:** SchoolTest
+- **functions:** `_seed(store, n)`
+- **imports:** memory.neurons, random, tempfile, trading, trading.brain.school, unittest
+
 ## `tests/test_scorecard.py`
 _Regression tests for the segment scorecard's (market, segment) derivation_
 - **classes:** TestTradeSegment
@@ -2498,6 +2556,11 @@ _Phase 1 regression: NSE `fno` segment split into `futures` + `options`._
 _Phase P4.7 (Autonomy + self-coding) acceptance tests — fully offline & sandboxed._
 - **classes:** TestProposer, TestSandbox, TestGate, TestLoop, TestDemo
 - **imports:** __future__, cognition.self_coding, unittest, warnings
+
+## `tests/test_self_evaluation.py`
+_Tests for trading/brain/self_evaluation.py (R3, R22, R23, R28, time horizon)._
+- **classes:** _FakeLibrarian, SelfEvaluationTest
+- **imports:** memory.neurons, tempfile, trading, trading.brain.self_evaluation, unittest
 
 ## `tests/test_self_evolve.py`
 _tests/test_self_evolve.py — lifelong self-evolving strategy loop._
@@ -2947,6 +3010,11 @@ _trading/brain/experience.py — episodic experience bank + CBR recall (T8.4)._
 - **functions:** `_num(v) -> float`; `_as_dict(trade) -> dict`; `trade_vector(trade) -> list[float]`; `_outcome(trade) -> dict`
 - **imports:** __future__, dataclasses, datetime, math, numpy
 
+## `trading/brain/flow_health.py`
+_trading/brain/flow_health.py — proves the ONE cognitive loop actually flows (R1)._
+- **functions:** `_age(path, now) -> float | None`; `flow_status() -> dict`
+- **imports:** __future__, memory.neurons, pathlib, time, trading
+
 ## `trading/brain/gate_tuner.py`
 _trading/brain/gate_tuner.py — off-policy gate threshold tuning (2026-07-10)._
 - **functions:** `_current_levers() -> dict`; `_dig(r)`; `_score_of(row, signal)`; `sweep(rows, signal) -> dict | None`; `tune_once(lookback) -> dict`; `status() -> dict`
@@ -3002,6 +3070,12 @@ _trading/brain/hypothesis.py — the brain's hypothesis → experiment → belie
 - **classes:** Hypothesis, ExperimentRunner, HypothesisLedger, HypothesisNode
 - **functions:** `_metric_values(trades, metric) -> np.ndarray`; `_win_rate(vals) -> float`; `_bayes_ab(cond, ctrl, draws, seed) -> float`; `register_hypothesis_ledger(ledger) -> HypothesisNode`
 - **imports:** __future__, core.node_protocol, dataclasses, hashlib, numpy
+
+## `trading/brain/instructions.py`
+_trading/brain/instructions.py — the instruction lifecycle: follow, grade, edit,_
+- **classes:** InstructionEngine
+- **functions:** `_default_llm(prompt) -> str | None`; `parse_steps(text) -> list[str]`
+- **imports:** __future__, collections, json, memory.neurons, re, time, trading
 
 ## `trading/brain/learn_loop.py`
 _trading/brain/learn_loop.py — CONTINUOUS autonomous learning loop._
@@ -3108,6 +3182,17 @@ _trading/brain/rl_exit.py — Phase-T8 deferred A3: RL exit policy (tabular Q-le
 _trading/brain/rnd.py — the AUTONOMOUS R&D DRIVE: the brain invents its own new_
 - **functions:** `_load() -> dict`; `_save(d) -> None`; `_interval() -> float`; `_pick_topic(d) -> tuple[str, str]`; `_invent_from(topic, summary) -> dict`; `run_once() -> dict`; `maybe_run() -> dict | None`; `status() -> dict`
 - **imports:** __future__, json, os, random, re, time, trading.brain
+
+## `trading/brain/school.py`
+_trading/brain/school.py — the School: dual-track curriculum L0→L6 with real exams_
+- **classes:** _Student, School
+- **imports:** __future__, memory.neurons, memory.self_quiz, random, time, trading
+
+## `trading/brain/self_evaluation.py`
+_trading/brain/self_evaluation.py — the brain grades ITSELF, honestly_
+- **classes:** SelfEvaluation
+- **functions:** `_default_llm(prompt) -> str | None`
+- **imports:** __future__, memory.neurons, time, trading
 
 ## `trading/brain/selfeval.py`
 _trading/brain/selfeval.py — auto-quiz + Reflexion self-critique (T8.5)._
@@ -3230,6 +3315,11 @@ _trading/broker_sense/binance_ai_select.py — Binance's built-in "AI Select" re
 _trading/broker_sense/binance_catalysts.py — Binance-native event catalysts (P2, compute-offload)._
 - **functions:** `enabled() -> bool`; `_get_json(url)`; `_articles(cat, n)`; `announcements(cat, n) -> list[dict]`; `_extract_symbols(title) -> list[str]`; `_seen_path()`; `_load_seen() -> dict`; `_save_seen(seen) -> None`; `refresh_new_listings() -> dict`; `new_listings(max_age_s) -> list[dict]`; `catalyst(symbol) -> dict`
 - **imports:** __future__, json, os, re, time, trading, urllib.request
+
+## `trading/broker_sense/binance_filter_lane.py`
+_trading/broker_sense/binance_filter_lane.py — the Binance-filter TOP-N breadth lane._
+- **functions:** `to_pair(flat, segment) -> str`; `_f(v, default)`; `features(symbol, ticker_row) -> dict`; `presets() -> list[str]`; `_components(row) -> dict`; `score(row, preset) -> float`; `rank(rows, preset, n) -> list[dict]`; `adaptive_n() -> int`; `enabled() -> bool`; `universe(segment) -> list[dict]`; `top_picks(segment, preset, n) -> list[dict]`
+- **imports:** __future__, os, re, trading.broker_sense
 
 ## `trading/broker_sense/binance_options.py`
 _trading/broker_sense/binance_options.py — Binance options IV/skew regime gauge (P4)._
@@ -4099,6 +4189,11 @@ _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 2
 - **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str | None`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
 - **imports:** __future__, os
 
+## `trading/direction/learned_direction.py`
+_trading/direction/learned_direction.py — D10: the learned direction DRIVER (goal Pillar 27)._
+- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
+- **imports:** __future__, math, os, time, trading.direction
+
 ## `trading/direction/meta_challenger.py`
 _trading/direction/meta_challenger.py — TabPFN challenger for the D6 meta-labeler._
 - **functions:** `_env_f(name, default) -> float`; `_load_rows(max_rows) -> list[dict]`; `_encoded(rows)`; `_holdout_scores(fit_predict, X, y, cut) -> dict`; `_lgbm_fit_predict(cat_idx)`; `_tabpfn_fit_predict(cat_idx)`; `challenge(max_rows) -> dict`; `maybe_challenge() -> dict | None`; `status() -> dict`
@@ -4137,7 +4232,7 @@ _trading/direction/regime.py — D5: the direction regime classifier (goal Pilla
 
 ## `trading/direction/truth_ledger.py`
 _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._
-- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit) -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `status() -> dict`
+- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit) -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, fcntl, json, math, os, pathlib, time, trading
 
 ## `trading/evidence.py`

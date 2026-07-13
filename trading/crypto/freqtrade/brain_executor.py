@@ -269,11 +269,47 @@ class BrainExecutor:
                         print(f"[pullback-drop:{self.segment}] {_row['symbol']} "
                               f"src={_row.get('source')} reason=not_tradeable", flush=True)
                         continue
+                    # D10 Learned Direction on the REFLEX lane (owner 2026-07-12): the fast lane is
+                    # the real live driver, but it fires the pullback's ARMED direction as-is. Gate
+                    # it here — invert when the arming source is measured reliably WRONG (same
+                    # Wilson-honest bar as the selective loop); a no-edge source still opens
+                    # (exploration), so trade flow is never reduced. Flip is re-tagged + recorded so
+                    # it earns its own measured track record.
+                    _dir = _row["direction"]
+                    _ltag = str(_row.get("source") or "pullback")
+                    if os.environ.get("LEARNED_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on"):
+                        try:
+                            from trading.direction import learned_direction as _ld
+                            from trading.direction.regime import classify as _ldrg
+                            _lreg = (_ldrg(_row["symbol"]) or {}).get("regime")
+                            _cd, _ci = _ld.correct_direction(
+                                _dir, source=_ltag, market="CRYPTO",
+                                segment=self.segment or "futures", regime=_lreg)
+                            if _ci.get("action") == "invert":
+                                # teach the ledger: the ORIGINAL source's own (overridden) call is
+                                # recorded as a SKIPPED claim so it earns its honest track record —
+                                # the very signal that proved it wrong keeps sharpening. The entered
+                                # (inverted) claim is recorded taken=True below under the
+                                # "learned_direction" tag. No double-count, no mis-attribution.
+                                try:
+                                    from trading.direction import truth_ledger as _ldtl
+                                    _ldtl.record(symbol=_row["symbol"], market="CRYPTO",
+                                                 segment=self.segment or "futures",
+                                                 direction=_ci.get("from"), source=_ltag,
+                                                 taken=False, regime=_lreg)
+                                except Exception:
+                                    pass
+                                print(f"[reflex-learned:{self.segment}] {_row['symbol']} "
+                                      f"{_ci.get('from')}→{_cd} (src={_ci.get('source')} "
+                                      f"rate={_ci.get('rate')} n={_ci.get('n')})", flush=True)
+                                _dir, _ltag = _cd, "learned_direction"
+                        except Exception:
+                            pass
                     _res = cli.place_order(
                         symbol=_psym, action="BUY",
-                        side=("long" if _row["direction"] == "LONG" else "short"),
+                        side=("long" if _dir == "LONG" else "short"),
                         allow_live=allow_live,
-                        enter_tag=str(_row.get("source") or "pullback"),
+                        enter_tag=_ltag,
                         segment=self.segment)
                     if isinstance(_res, dict) and _res.get("ok") is False:
                         print(f"[pullback-drop:{self.segment}] {_psym} src={_row.get('source')} "
@@ -285,7 +321,7 @@ class BrainExecutor:
                     else:
                         rep["entered"].append(_psym)
                     self._record_entry_meta(
-                        _psym, _row["direction"], _row.get("source"),
+                        _psym, _dir, _ltag,
                         {"pullback": {k: _row.get(k) for k in
                                       ("ref_price", "entry_ref", "atr",
                                        "armed_ts")}}, None, explore=True)
@@ -293,6 +329,98 @@ class BrainExecutor:
                     continue
         except Exception:
             pass
+        return rep
+
+    def _filter_side(self, pick: dict, preset: str) -> str:
+        """Initial SIDE for a Binance-filter pick, BEFORE learned_direction correction. momentum =
+        continue the move (sign of %chg); funding_extreme = fade the crowded funding; default long."""
+        pct = pick.get("pct_change")
+        fund = pick.get("funding_rate")
+        if preset == "funding_extreme" and fund is not None:
+            return "SHORT" if float(fund) > 0 else "LONG"      # longs pay funding → fade
+        if pct is not None:
+            return "LONG" if float(pct) >= 0 else "SHORT"
+        return "LONG"
+
+    def open_filter_lane(self, *, allow_live: bool = False,
+                         deadline: float | None = None) -> dict:
+        """Stage 1b — the Binance-filter TOP-N breadth lane (owner idea, APPROVED 2026-07-12).
+
+        Reads the WHOLE UI-captured universe (ui_market), ranks it by the active filter preset, and
+        opens the adaptive top-N that aren't already open. Each pick's SIDE is derived from the
+        filter then passed through learned_direction.correct_direction, so a preset measured
+        reliably-wrong is inverted and every preset earns its own truth-ledger track record (the
+        input Stage 2's learned combo-selector will rank on). A NEW PARALLEL lane, kill-switched by
+        BINANCE_FILTER_LANE — it never touches the funnel screen. Never raises. Paper-first."""
+        rep: dict = {"entered": [], "skipped": 0, "preset": None, "ranked": 0}
+        try:
+            from trading.broker_sense import binance_filter_lane as _bfl
+            if not _bfl.enabled():
+                return rep
+            preset = os.environ.get("BINANCE_FILTER_PRESET", "momentum")
+            picks = _bfl.top_picks(self.segment or "futures", preset=preset)
+            rep["preset"], rep["ranked"] = preset, len(picks)
+            cli = self.client()
+            try:
+                open_pairs = set(cli.open_pairs(segment=self.segment))
+            except Exception:
+                open_pairs = set()
+            from trading.direction import learned_direction as _ld
+            from trading.direction.regime import classify as _rgc
+            for pick in picks:
+                if deadline is not None and time.monotonic() > deadline:
+                    break
+                sym = pick.get("symbol")
+                if not sym:
+                    continue
+                # the eyes surface FLAT tickers ('DODOXUSDT'); the engine trades slashed pairs —
+                # bridge before the tradeability check or every pick is silently dropped.
+                _psym = cli.tradeable_form(_bfl.to_pair(sym, self.segment or "futures"),
+                                           self.segment)
+                if _psym is None or _psym in open_pairs:
+                    rep["skipped"] += 1
+                    continue
+                src = f"filter:{preset}"
+                _reg = (_rgc(sym) or {}).get("regime")
+                _side, _info = _ld.correct_direction(
+                    self._filter_side(pick, preset), source=src, market="CRYPTO",
+                    segment=self.segment or "futures", regime=_reg)
+                _tag = src
+                if _info.get("action") == "invert":
+                    # the preset's own (overridden) call recorded taken=False so it earns its honest
+                    # track record; the entered inverted claim is recorded taken=True below via meta.
+                    try:
+                        from trading.direction import truth_ledger as _tl
+                        _tl.record(symbol=sym, market="CRYPTO",
+                                   segment=self.segment or "futures",
+                                   direction=_info.get("from"), source=src,
+                                   taken=False, regime=_reg)
+                    except Exception:
+                        pass
+                    _tag = "learned_direction"
+                _res = cli.place_order(
+                    symbol=_psym, action="BUY",
+                    side=("long" if _side == "LONG" else "short"),
+                    allow_live=allow_live, enter_tag=_tag, segment=self.segment)
+                if isinstance(_res, dict) and _res.get("ok") is False:
+                    print(f"[filter-lane-drop:{self.segment}] {_psym} preset={preset} "
+                          f"reason=refused:{(_res.get('reason') or _res.get('error') or _res)!s:.60}",
+                          flush=True)
+                    rep["skipped"] += 1
+                    continue
+                rep["entered"].append(_psym)
+                open_pairs.add(_psym)
+                self._record_entry_meta(
+                    _psym, _side, _tag,
+                    {"filter": {k: pick.get(k) for k in
+                                ("filter_preset", "filter_score", "pct_change",
+                                 "funding_rate")}}, None, explore=True)
+            if rep["ranked"]:            # ALWAYS log when the lane ran (an all-skipped cycle must
+                                         # never look identical to a dead lane — debug-error lesson)
+                print(f"[filter-lane:{self.segment}] preset={preset} ranked={rep['ranked']} "
+                      f"entered={rep['entered']} skipped={rep['skipped']}", flush=True)
+        except Exception as e:
+            rep["error"] = str(e)[:150]
         return rep
 
     def run_once(self, *, allow_live: bool = False, deadline: float | None = None) -> dict:
@@ -516,6 +644,47 @@ class BrainExecutor:
                     else:
                         act = "LONG"                     # gainers/movers/unknown → explore long
                     tag = tag or "explore_open_all"
+                # D10 Learned Direction Driver (Pillar 27, owner 2026-07-12: "the votes are
+                # unreliable — replace them with something that learns from being wrong"):
+                # re-decide the side from the per-symbol lenses (vote + indicator_fusion +
+                # strategy_library) weighted by each source's MEASURED truth-ledger edge, regime-
+                # aware. The ~47% mtf vote (an anti-signal in trends) is ignored or INVERTED; a
+                # lens is trusted only once its Wilson CI clears chance. Overrides the chosen side
+                # ONLY on a confident, significant read; abstains → the existing decision stands,
+                # so exploration/trade-flow is never starved. Tagged "learned_direction" so the
+                # flip earns its own measured track record (never grades its own homework).
+                if os.environ.get("LEARNED_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on") \
+                        and sym not in open_pairs:
+                    try:
+                        from trading.direction import learned_direction as _ld
+                        from trading.direction.regime import classify as _ldrg
+                        _lsig = (getattr(self, "extra_signals", {}) or {}).get(sym, {}) or {}
+                        _lreg = (_ldrg(sym) or {}).get("regime")
+                        _reads = []
+                        _lv = _lsig.get("vote") or {}
+                        if _lv.get("p_up") is not None:
+                            _reads.append(("funnel_mtf_vote", _lv.get("p_up")))
+                        for _lsrc in ("indicator_fusion", "strategy_library"):
+                            _ll = _lsig.get(_lsrc) or {}
+                            if _ll.get("available") and _ll.get("p_up") is not None:
+                                _reads.append((_lsrc, _ll.get("p_up")))
+                        _ldo = _ld.decide(_reads, market="CRYPTO",
+                                          segment=self.segment or "futures", regime=_lreg)
+                        if not _ldo.get("abstained") and _ldo.get("direction") in ("long", "short"):
+                            _lact = _ldo["direction"].upper()
+                            try:
+                                from trading.direction import truth_ledger as _ldtl
+                                _ldtl.record(symbol=sym, market="CRYPTO",
+                                             segment=self.segment or "futures",
+                                             direction=_lact, source="learned_direction",
+                                             confidence=_ldo.get("p_up"), regime=_lreg)
+                            except Exception:
+                                pass
+                            brain = {**brain, "learned_direction": _ldo}
+                            act = _lact
+                            tag = tag or "learned_direction"
+                    except Exception:
+                        pass
                 # D2 Mirror Gate (Pillar 27): every selective entry direction passes the
                 # measured per-source gate — invert the reliably-wrong, skip proven noise.
                 if act in ("LONG", "SHORT") and sym not in open_pairs:

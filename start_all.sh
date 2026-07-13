@@ -41,6 +41,14 @@ export UQ_GATE="${UQ_GATE:-0}"
 export CRYPTO_MIN_SCORE="${CRYPTO_MIN_SCORE:-0.25}"
 export CRYPTO_MIN_PSR="${CRYPTO_MIN_PSR:-0.10}"
 export PROFIT_TAILGATE="${PROFIT_TAILGATE:-1}"
+# Direction-driver + vision-exit + Binance-filter TOP-N breadth lane (owner 2026-07-12).
+# Exported HERE so every respawn (loop_keeper included) carries them, not just manual restarts.
+# See memory: direction-driver-replaces-vote, binance-filter-topn-lane.
+export VISION_EXIT="${VISION_EXIT:-trade}"                 # vision-read exit acts (not shadow)
+export LEARNED_DIRECTION="${LEARNED_DIRECTION:-1}"         # reliability-weighted direction gate
+export BINANCE_FILTER_LANE="${BINANCE_FILTER_LANE:-1}"     # top-N breadth lane ON (kill: =0)
+export BINANCE_FILTER_PRESET="${BINANCE_FILTER_PRESET:-momentum}"
+export BINANCE_FILTER_TOPN="${BINANCE_FILTER_TOPN:-20}"
 # UI-ONLY DATA (owner goal 2026-07-07): 1 = the eyes' captured trading-app payloads are
 # the ONLY market-data source (every free-API poll/fallback disabled; misses are honest
 # data-failures in the evidence lane). Flip to 1 once /api/trading/ui_data shows the
