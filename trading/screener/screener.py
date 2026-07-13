@@ -181,6 +181,43 @@ def screen_nse_options(source: Any, *, limit: int = 5, filters: dict | None = No
         return []
 
 
+def screen_nse_ui(segment: str = "intraday", *, limit: int = 20) -> list[dict]:
+    """NSE candidates from the Upstox UI ONLY (owner 2026-07-13, NSE_UI_ONLY / motto): the
+    Upstox app's OWN movers screener, captured by the eyes into ui_market from the logged-in
+    web app — no nselib, no OpenAlgo, no API. `ui_market.movers()` ranks the captured tickers
+    by |%chg|; we keep only NSE-shaped symbols (crypto pairs excluded via market_guard). An
+    empty return is an HONEST ABSTAIN (the eyes haven't fed NSE tickers fresh enough) — the
+    caller must NOT fall back to a stub or an API. Options/commodities candidates come from the
+    option-chain UI (a later seam); this composable serves the equity/futures segments."""
+    try:
+        from trading.broker_sense import ui_market
+        from trading.market_guard import CRYPTO, market_of_symbol
+    except Exception:
+        return []
+    seg = (segment or "intraday").lower()
+    if seg in ("options", "commodities"):
+        return []                                    # sourced from option-chain/commodities UI
+    out: list[dict] = []
+    for r in ui_market.movers(n=max(limit * 3, 60)):
+        sym = str(r.get("symbol") or "").upper()
+        if not sym or market_of_symbol(sym) == CRYPTO:   # keep NSE-shaped names only
+            continue
+        pct = r.get("pct_change")
+        try:
+            pct = float(pct)
+        except (TypeError, ValueError):
+            continue
+        out.append(_cand(sym, seg, "NSE", abs(pct),
+                         f"Upstox UI movers {pct:+.2f}%",
+                         {"pct_change": round(pct, 3), "last": r.get("last"),
+                          "ui_only": True}, "ui:upstox-movers"))
+        if len(out) >= limit:
+            break
+    for i, c in enumerate(out):                       # normalize score 1..0.5 by rank
+        c["score"] = round(1.0 - i / max(len(out), 1) * 0.5, 6)
+    return out
+
+
 # ── standalone crypto composables ─────────────────────────────────────────────
 def _ticker_rows(tickers: dict, markets: dict | None = None,
                  want: str | None = None) -> list[dict]:
@@ -376,6 +413,16 @@ class Screener:
         if s == "fno":
             s = "futures"   # legacy alias: the old combined F&O segment == futures now
         if m == "NSE":
+            # NSE_UI_ONLY (owner 2026-07-13): NSE candidates come ONLY from the Upstox UI —
+            # no nselib / OpenAlgo screener. Empty = honest abstain (never a stub/API fallback).
+            # Options route through screen_nse_options (internally UI-gated: underlying LTP +
+            # option-chain freshness from the Upstox UI; broker search only resolves the exact
+            # tradable symbol, which is execution-path). Equity/futures use the UI movers.
+            from trading.broker_sense.ui_data import nse_ui_only
+            if nse_ui_only():
+                if s == "options":
+                    return screen_nse_options(self.nse, limit=limit, filters=filters)
+                return screen_nse_ui(s, limit=limit)
             if s in ("intraday", "mtf"):
                 return screen_nse_movers(self.nse, s, limit=limit, filters=filters)
             if s == "futures":
@@ -409,8 +456,17 @@ class Screener:
         if s not in SEGMENTS.get(m, []):
             self._last[key] = "invalid"
             return []
+        # NSE_UI_ONLY (owner 2026-07-13): the Upstox-UI path runs even without an nse API
+        # source, and an empty result is a HARD ABSTAIN — never the fake stub, never an API.
+        nse_ui = False
+        if m == "NSE":
+            try:
+                from trading.broker_sense.ui_data import nse_ui_only
+                nse_ui = nse_ui_only()
+            except Exception:
+                nse_ui = False
         live: list[dict] = []
-        if self.nse is not None or self.crypto is not None:
+        if nse_ui or self.nse is not None or self.crypto is not None:
             try:
                 live = self._live(m, s, limit, filters)
             except Exception:
@@ -418,6 +474,9 @@ class Screener:
         if live:
             self._last[key] = "live"
             return live[:limit]
+        if nse_ui:
+            self._last[key] = "ui-abstain"       # eyes haven't fed NSE candidates → no trade
+            return []
         self._last[key] = "stub"
         return stub_candidates(m, s, limit=limit)
 

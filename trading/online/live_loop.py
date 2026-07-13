@@ -162,15 +162,17 @@ class BrainDecider:
                 df = pd.DataFrame(raw, columns=["ts", "open", "high", "low", "close", "volume"])
                 df = df[self._COLS].astype(float)
             else:
-                import datetime as _dt
-                from trading.openalgo_client import OpenAlgoClient
-                end = _dt.date.today()
-                start = end - _dt.timedelta(days=10)
-                h = OpenAlgoClient()._client().history(
-                    symbol=symbol, exchange="NSE", interval="5m",
-                    start_date=start.isoformat(), end_date=end.isoformat())
-                df = pd.DataFrame(h)
-                df = df[[c for c in self._COLS if c in df.columns]].astype(float)
+                # NSE candles via data_failsafe, which is UI-gated (NSE_UI_ONLY, 2026-07-13):
+                # under the hard gate it returns the Upstox UI / vision-read candles or None
+                # (→ empty frame the live ticks grow); off the gate it uses OpenAlgo history.
+                from trading.broker_sense import data_failsafe
+                raw = data_failsafe.ohlcv(symbol, "NSE", timeframe="5m", limit=self._MAXLEN)
+                if raw:
+                    df = pd.DataFrame(raw, columns=["ts", "open", "high", "low",
+                                                    "close", "volume"])
+                    df = df[[c for c in self._COLS if c in df.columns]].astype(float)
+                else:
+                    df = None                        # UI-only miss → abstain (empty window)
         except Exception:
             df = None
         if df is None or len(df) == 0:
@@ -419,6 +421,14 @@ class LiveTradeLoop:
             # NSE — live quote only when the session says LIVE (market open)
             if self._nse_price is not None:
                 return float(self._nse_price(symbol))
+            # HARD UI-only (NSE_UI_ONLY, owner 2026-07-13, motto): the NSE price comes ONLY
+            # from the Upstox web UI feed (ui_market ticker / captured candle close) — never
+            # OpenAlgo. A miss is an honest None → the loop ABSTAINS on this symbol.
+            from trading.broker_sense.ui_data import nse_ui_only
+            if nse_ui_only():
+                from trading.broker_sense import data_failsafe
+                q = data_failsafe.quote(symbol, "nse")   # gated → ui_market/ui_data or None
+                return float(q["last"]) if q and q.get("last") is not None else None
             if mode != "LIVE":
                 return None                         # off-hours: no live NSE feed → skip
             if self.ticks < self._nse_skip_until:   # backing off after a broker-auth failure

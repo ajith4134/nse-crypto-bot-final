@@ -83,12 +83,14 @@ def _base(symbol: str) -> str:
     return symbol.split(":")[0] if ":" in symbol else symbol
 
 
-def _ui_only() -> bool:
-    """Owner 2026-07-07: UI_ONLY_DATA=1 disables EVERY API fallback in this module —
-    the eyes' captured app data (ui_data) is the sole market-data source; misses are
-    honest Nones (recorded upstream), never silent API polls."""
+def _ui_only(market: str = "") -> bool:
+    """Owner 2026-07-07 (global) + 2026-07-13 (NSE hard): UI-only mode disables EVERY API
+    fallback in this module — the eyes' captured app data (ui_data/ui_market) is the sole
+    market-data source; misses are honest Nones (recorded upstream), never silent API polls.
+    Market-aware: the global governor covers both markets; NSE_UI_ONLY=1 hard-gates NSE
+    alone (so the Upstox side is UI-only even while crypto still allows an API failsafe)."""
     from trading.broker_sense import ui_data
-    return ui_data.enabled()
+    return ui_data.ui_only_for(market)
 
 
 def quote(symbol: str, market: str) -> dict | None:
@@ -110,7 +112,7 @@ def quote(symbol: str, market: str) -> dict | None:
                     "ask": (bk or {}).get("ask"), "source": "ui:capture"}
     except Exception:
         pass
-    if _ui_only():
+    if _ui_only(market):
         from trading.broker_sense import ui_data
         rows = ui_data.ui_ohlcv(symbol, timeframe="1m", limit=2) or \
             ui_data.ui_ohlcv(symbol, timeframe="5m", limit=2)
@@ -146,7 +148,7 @@ def top_of_book(symbol: str, market: str) -> dict | None:
             return {"bid": bk.get("bid"), "ask": bk.get("ask"), "source": "ui:capture"}
     except Exception:
         pass
-    if _ui_only():
+    if _ui_only(market):
         return None
     def _get():
         try:
@@ -173,7 +175,7 @@ def ohlcv(symbol: str, market: str, timeframe: str = "5m", limit: int = 24) -> l
     could be captured. crypto → Freqtrade's own candles, then ccxt. NSE has no public
     candle API here → None (the chart chain then uses the TradingView public chart).
     UI-only mode: the eyes' captured candles or an honest None — no API path at all."""
-    if _ui_only():
+    if _ui_only(market):
         from trading.broker_sense import ui_data
         return ui_data.ui_ohlcv(symbol, timeframe=timeframe, limit=limit)
     def _get():

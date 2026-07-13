@@ -115,29 +115,33 @@ def read_symbol(symbol: str, market: str = "crypto", timeframes=_DEFAULT_TFS,
     for tf in timeframes:
         try:
             rows = data_failsafe.ohlcv(symbol, market, timeframe=tf, limit=chart_render.ANNOT_BARS)
-            if not rows:
+            # THE MOTTO tenet 4 (2026-07-12): prefer the REAL app chart pixels — a fresh
+            # parked-tab screenshot (tab_pool) IS the chart the app drew, indicators and
+            # all; the local render from door candles is the fallback. App shots are owned
+            # by the pool: never deleted here.
+            app_shot = None
+            try:
+                from trading.broker_sense import tab_pool
+                app_shot = tab_pool.latest_shot(symbol, tf)
+            except Exception:
+                app_shot = None
+            # SCREENSHOT-ONLY read (owner 2026-07-13, NSE_UI_ONLY): under hard UI-only the door
+            # candles can be absent (no API, WS feed gap) yet the Upstox app chart screenshot
+            # still exists — read THAT directly with the local vision LLM. Only truly nothing
+            # (no candles AND no shot) is skipped.
+            if not rows and not app_shot:
                 continue
-            bar_ts = int(rows[-1][0])
+            bar_ts = int(rows[-1][0]) if rows else int(os.path.getmtime(app_shot) * 1000)
             key = f"{symbol}|{tf}"
             prev = cache.get(key)
             if prev and prev.get("bar_ts") == bar_ts:        # same bar already read → skip (cheap)
                 got[tf] = prev.get("read")
                 continue
-            # THE MOTTO tenet 4 (2026-07-12): prefer the REAL app chart pixels — a fresh
-            # parked-tab screenshot (tab_pool) IS the chart the app drew, indicators and
-            # all; the local render from door candles is the fallback. The shot must be
-            # from the CURRENT bar (mtime ≥ bar open) or the cached read would pin a
-            # stale chart to a new bar_ts. App shots are owned by the pool: never
-            # deleted here.
-            app_shot = None
-            try:
-                from trading.broker_sense import tab_pool
-                app_shot = tab_pool.latest_shot(symbol, tf)
-                if app_shot and os.path.getmtime(app_shot) < bar_ts / 1000.0:
-                    app_shot = None              # older than this bar → render instead
-            except Exception:
+            # a shot OLDER than the current door bar is stale → render from candles instead
+            # (only possible when we HAVE candles; a screenshot-only symbol keeps its shot).
+            if app_shot and rows and os.path.getmtime(app_shot) < bar_ts / 1000.0:
                 app_shot = None
-            path = app_shot or chart_render.annotated(rows, symbol, tf)
+            path = app_shot or (chart_render.annotated(rows, symbol, tf) if rows else None)
             if not path:
                 continue
             # FRAME-DIFF GATE (#5): if the freshly-rendered chart is pixel-identical to the last
@@ -157,7 +161,7 @@ def read_symbol(symbol: str, market: str = "crypto", timeframes=_DEFAULT_TFS,
                 continue
             ctx = None
             try:
-                vpf = volume_profile.features(rows, market)
+                vpf = volume_profile.features(rows, market) if rows else {"available": False}
                 if vpf.get("available"):
                     fa = vpf["failed_auction"]
                     ctx = (f"POC={vpf['poc']} VAH={vpf['vah']} VAL={vpf['val']} zone={vpf['zone']} "

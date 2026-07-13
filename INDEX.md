@@ -2390,6 +2390,11 @@ _Trading Phase T8.7 (Autonomous news research + sentiment) acceptance tests — 
 - **classes:** TestSentimentScorer, TestNewsItem, TestNewsResearcher, TestNewsSentimentNode
 - **imports:** __future__, core.node_protocol, os, trading.brain.news, trading.brain.sentiment, unittest, warnings
 
+## `tests/test_nse_ui_only.py`
+_Tests for NSE_UI_ONLY — the hard, NSE-scoped UI-only data mode (owner 2026-07-13, motto)._
+- **classes:** _Iso, TestGate, TestDataFailsafeNSE, TestScreenerNSE, TestOptionsNSE
+- **imports:** os, pathlib, tempfile, time, trading, trading.broker_sense, unittest
+
 ## `tests/test_ocular_cortex.py`
 _Tests for the Ocular Cortex (trading/brain/vision/ocular_cortex) — offline, no browser._
 - **classes:** _IsolatedState, TestPerceptualFrame, TestLayoutMemory, TestOcularCortex
@@ -3427,7 +3432,7 @@ _trading/broker_sense/curiosity.py — curiosity-driven feature discovery on app
 
 ## `trading/broker_sense/data_failsafe.py`
 _trading/broker_sense/data_failsafe.py — the owner's rule 4: NEVER skip a trade for data._
-- **functions:** `_rss_bytes() -> int`; `_guard_ram()`; `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `_ui_only() -> bool`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
+- **functions:** `_rss_bytes() -> int`; `_guard_ram()`; `_cached(kind, symbol, fn)`; `_ccxt_ex()`; `_base(symbol) -> str`; `_ui_only(market) -> bool`; `quote(symbol, market) -> dict | None`; `top_of_book(symbol, market) -> dict | None`; `ohlcv(symbol, market, timeframe, limit) -> list | None`; `_nse_ohlcv(symbol, timeframe, limit) -> list | None`; `consistent(gui_value, api_value, tol_pct) -> bool`
 - **imports:** __future__, os, time
 
 ## `trading/broker_sense/data_sources.py`
@@ -3581,7 +3586,7 @@ _trading/broker_sense/ui_crawl.py — the EYES' symbol-page crawl (owner goal_
 
 ## `trading/broker_sense/ui_data.py`
 _trading/broker_sense/ui_data.py — UI-ONLY market data (owner goal 2026-07-07)._
-- **functions:** `enabled() -> bool`; `_fresh_shortlist_cov(shortlist, fresh_s) -> float | None`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `feed_ws_kline(broker, url, frame) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`; `_write_rows_snapshot(rows, path) -> None`; `_hydrate_from_snapshot() -> None`
+- **functions:** `enabled() -> bool`; `nse_ui_only() -> bool`; `ui_only_for(market) -> bool`; `_fresh_shortlist_cov(shortlist, fresh_s) -> float | None`; `maybe_auto_flip(shortlist, min_hit_rate, min_symbols) -> dict`; `_norm_symbol(raw) -> str`; `_interval_from(params, url) -> str | None`; `_parse_rows(body) -> list | None`; `feed_capture(broker, url, body) -> bool`; `feed_ws_kline(broker, url, frame) -> bool`; `_candidates(symbol) -> list[str]`; `ui_ohlcv(symbol, timeframe, limit) -> list | None`; `coverage() -> dict`; `_maybe_snapshot() -> None`; `_write_rows_snapshot(rows, path) -> None`; `_hydrate_from_snapshot() -> None`
 - **imports:** __future__, os, re, time, trading
 
 ## `trading/broker_sense/ui_health.py`
@@ -4598,7 +4603,7 @@ _trading/screener/filters.py — standalone, composable screener filter algorith
 
 ## `trading/screener/options.py`
 _trading/screener/options.py — single-leg NSE option (CE/PE) candidate generation._
-- **functions:** `atm_strike(ltp, strikes) -> Optional[float]`; `_strike_step(strikes) -> float`; `nearest_expiry(expiries) -> Optional[str]`; `pick_contracts(rows, ltp, mode, otm_depth, chain_cap) -> list[dict]`; `_norm_rows(raw) -> list[dict]`; `_broker()`; `_spot_exch(underlying) -> str`; `_opt_exch(underlying) -> str`; `_ltp(client, underlying) -> float`; `_search_options(client, underlying, exchange) -> list[dict]`; `screen_nse_options(source) -> list[dict]`
+- **functions:** `atm_strike(ltp, strikes) -> Optional[float]`; `_strike_step(strikes) -> float`; `nearest_expiry(expiries) -> Optional[str]`; `pick_contracts(rows, ltp, mode, otm_depth, chain_cap) -> list[dict]`; `_norm_rows(raw) -> list[dict]`; `_broker()`; `_spot_exch(underlying) -> str`; `_opt_exch(underlying) -> str`; `_ui_ltp(underlying) -> float`; `_ui_option_chain_fresh(underlying) -> bool`; `_ltp(client, underlying) -> float`; `_search_options(client, underlying, exchange) -> list[dict]`; `screen_nse_options(source) -> list[dict]`
 - **imports:** __future__, typing
 
 ## `trading/screener/prediction.py`
@@ -4609,7 +4614,7 @@ _Prediction-market screener — scans ALL live event markets and ranks them for 
 ## `trading/screener/screener.py`
 _trading/screener/screener.py — per-segment ranked screeners (the live-loop entry)._
 - **classes:** Screener
-- **functions:** `_cand(symbol, segment, market, score, reason, metrics, source) -> dict`; `screen_nse_movers(source, segment) -> list[dict]`; `screen_nse_fno(source) -> list[dict]`; `screen_nse_options(source) -> list[dict]`; `_ticker_rows(tickers, markets, want) -> list[dict]`; `screen_crypto_spot(source) -> list[dict]`; `screen_crypto_futures(source) -> list[dict]`; `screen_crypto_options(source) -> list[dict]`; `build_demo_screener() -> Screener`
+- **functions:** `_cand(symbol, segment, market, score, reason, metrics, source) -> dict`; `screen_nse_movers(source, segment) -> list[dict]`; `screen_nse_fno(source) -> list[dict]`; `screen_nse_options(source) -> list[dict]`; `screen_nse_ui(segment) -> list[dict]`; `_ticker_rows(tickers, markets, want) -> list[dict]`; `screen_crypto_spot(source) -> list[dict]`; `screen_crypto_futures(source) -> list[dict]`; `screen_crypto_options(source) -> list[dict]`; `build_demo_screener() -> Screener`
 - **imports:** __future__, os, trading.screener, trading.screener.stubs, typing
 
 ## `trading/screener/sources.py`

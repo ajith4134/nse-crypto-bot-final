@@ -152,7 +152,31 @@ def _opt_exch(underlying: str) -> str:
     return INDEX_EXCHANGES.get(underlying.upper(), (None, "NFO"))[1] or "NFO"
 
 
+def _ui_ltp(underlying: str) -> float:
+    """Underlying LTP from the Upstox UI feed ONLY (NSE_UI_ONLY). 0.0 → abstain."""
+    try:
+        from trading.broker_sense import ui_market
+        t = ui_market.ticker(underlying) or {}
+        return float(t.get("last") or t.get("ltp") or 0) or 0.0
+    except Exception:
+        return 0.0
+
+
+def _ui_option_chain_fresh(underlying: str) -> bool:
+    """True when the Upstox UI has a FRESH option-chain capture for `underlying` — the
+    brain only screens options it is actually LOOKING at in the Upstox app (NSE_UI_ONLY)."""
+    try:
+        from trading.broker_sense import ui_market
+        return ui_market.option_chain(underlying) is not None
+    except Exception:
+        return False
+
+
 def _ltp(client: Any, underlying: str) -> float:
+    # NSE_UI_ONLY (owner 2026-07-13): the underlying LTP comes from the Upstox UI feed only.
+    from trading.broker_sense.ui_data import nse_ui_only
+    if nse_ui_only():
+        return _ui_ltp(underlying)
     # REST quotes(), NOT get_ltp(): the SDK's get_ltp is the websocket-stream helper and
     # returns {'ltp': {}} without a live subscription — which made every ATM strike
     # uncomputable and the options screener return [] forever.
@@ -206,9 +230,18 @@ def screen_nse_options(source: Any, *, limit: int = 5, filters: dict | None = No
     except Exception:
         pass
 
+    from trading.broker_sense.ui_data import nse_ui_only
+    ui_only = nse_ui_only()
     out: list[dict] = []
     for u in underlyings:
+        # NSE_UI_ONLY: only screen an underlying whose option chain the eyes are actually
+        # watching in the Upstox app (fresh option_chain capture), else ABSTAIN it — no
+        # blind API-driven option candidates.
+        if ui_only and not _ui_option_chain_fresh(u):
+            continue
         ltp = _ltp(client, u)
+        if ui_only and ltp <= 0:
+            continue                                         # no UI LTP → can't place ATM → skip
         opt_exch = _opt_exch(u)                              # NFO (NSE) or BFO (BSE)
         rows = _search_options(client, u, exchange=opt_exch)
         picks = pick_contracts(rows, ltp, mode)

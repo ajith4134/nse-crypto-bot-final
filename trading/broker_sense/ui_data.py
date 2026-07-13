@@ -56,6 +56,37 @@ def enabled() -> bool:
         return False
 
 
+def nse_ui_only() -> bool:
+    """HARD, NSE-SCOPED UI-only data mode (owner 2026-07-13, motto): when NSE_UI_ONLY=1 the
+    NSE/Upstox side takes ALL its market data from the Upstox web UI (its own screeners/
+    option-chain/WS feed + vision-read chart screenshots) and NEVER from a broker/data API
+    (OpenAlgo, nselib). A miss is an honest None → the brain ABSTAINS on that NSE symbol
+    rather than fall back to an API. Independent of the global `enabled()` governor (which
+    also covers crypto) and of coverage — it is HARD, kill-switchable via the env flag.
+    Default OFF in code (staged rollout). Activate via EITHER the NSE_UI_ONLY env flag OR the
+    durable state flag `nse_ui_only.json` {"enabled": true} — the state flag lets the owner flip
+    it live for every running process with no restart (same pattern as the global `enabled()`
+    governor). Env "0"/"false" is an explicit OFF override that wins over the state flag."""
+    env = os.environ.get("NSE_UI_ONLY", "")
+    if env in ("1", "true", "TRUE", "yes", "on"):
+        return True
+    if env in ("0", "false", "FALSE", "no", "off"):
+        return False                                  # explicit env OFF wins (kill-switch)
+    try:
+        return bool(state.load_json("nse_ui_only.json", {}).get("enabled"))
+    except Exception:
+        return False
+
+
+def ui_only_for(market: str) -> bool:
+    """UI-only mode as it applies to ONE market: the global governor (`enabled()`, both
+    markets) OR the hard NSE-scoped gate (`nse_ui_only()`, NSE only). The single predicate
+    every market-data accessor should consult so NSE can be hard-UI while crypto is not."""
+    if enabled():
+        return True
+    return (market or "").upper() in ("NSE", "BSE", "MCX") and nse_ui_only()
+
+
 def _fresh_shortlist_cov(shortlist: list[str], fresh_s: float) -> float | None:
     """Fraction of the shortlist with at least one capture YOUNGER than fresh_s.
     Presence alone lied (2026-07-07 flip: 'coverage 1.0' from days-old captures,
