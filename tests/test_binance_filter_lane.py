@@ -54,11 +54,37 @@ class BinanceFilterLaneTest(unittest.TestCase):
         self.assertEqual(r[0]["symbol"], "B")               # liquidity → most volume wins
 
     def test_adaptive_n_default(self):
-        self.assertEqual(bfl.adaptive_n(), 20)
+        # test the CODE default (20) with the env override removed — .env now sets
+        # BINANCE_FILTER_TOPN=50 for the live breadth config and autoloads into os.environ.
+        import os
+        old = os.environ.pop("BINANCE_FILTER_TOPN", None)
+        try:
+            self.assertEqual(bfl.adaptive_n(), 20)
+        finally:
+            if old is not None:
+                os.environ["BINANCE_FILTER_TOPN"] = old
 
     def test_score_never_crashes_on_missing(self):
         self.assertEqual(bfl.score({"symbol": "X"}, "momentum"), 0.0)
         self.assertEqual(bfl.score({"symbol": "X"}, "squeeze"), 0.0)
+
+    def test_direction_signals_momentum(self):
+        sigs = dict(bfl.direction_signals(_row("A", pct=10.0, vol=1_000)))
+        self.assertIn("filter:momentum", sigs)
+        self.assertGreater(sigs["filter:momentum"], 0.5)          # up move → long lean
+        down = dict(bfl.direction_signals(_row("B", pct=-10.0, vol=1_000)))
+        self.assertLess(down["filter:momentum"], 0.5)             # down move → short lean
+
+    def test_direction_signals_funding_fade(self):
+        sigs = dict(bfl.direction_signals(_row("A", pct=1.0, funding=0.02)))  # crowded longs
+        self.assertLess(sigs["filter:funding"], 0.5)             # → short lean (fade)
+
+    def test_direction_signals_taker_follow(self):
+        sigs = dict(bfl.direction_signals(_row("A", pct=1.0, taker=0.8)))     # buy-heavy flow
+        self.assertGreater(sigs["filter:taker"], 0.5)           # → long lean
+
+    def test_direction_signals_empty_when_no_data(self):
+        self.assertEqual(bfl.direction_signals({"symbol": "X"}), [])
 
     def test_to_pair_bridges_flat_to_tradeable(self):
         self.assertEqual(bfl.to_pair("DODOXUSDT", "futures"), "DODOX/USDT:USDT")
