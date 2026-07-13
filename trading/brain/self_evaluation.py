@@ -302,6 +302,46 @@ class SelfEvaluation:
         self._merge_report({"apply_lift": out})
         return out
 
+    # ── per-market scorecard: crypto vs NSE, kept distinct (audit #5) ──────────
+    def market_scorecard(self, *, lookback: int = 3000) -> dict:
+        """Crypto and NSE are different markets — score them SEPARATELY. Per market:
+        trade count + win-rate + net PnL (from the journal, classified by symbol) and the
+        brain's instruction-use in that market (from the market-scoped genius-use domains
+        trade:crypto / trade:nse). Makes the two markets' performance visibly distinct."""
+        rows = (state.load_json("journal.json", []) or [])[-int(lookback):]
+        try:
+            from trading import market_guard as _mg
+        except Exception:
+            _mg = None
+        per = {"crypto": {"trades": 0, "wins": 0, "pnl": 0.0},
+               "nse": {"trades": 0, "wins": 0, "pnl": 0.0}}
+        for r in rows:
+            sym = str(r.get("symbol") or "")
+            if not sym:
+                continue
+            is_crypto = bool(_mg and str(_mg.market_of_symbol(sym) or "").upper() == "CRYPTO")
+            m = "crypto" if is_crypto else "nse"
+            per[m]["trades"] += 1
+            if (r.get("net_pnl") or 0) > 0:
+                per[m]["wins"] += 1
+            per[m]["pnl"] += float(r.get("net_pnl") or 0.0)
+        dom = {"crypto": {"uses": 0, "neurons": 0}, "nse": {"uses": 0, "neurons": 0}}
+        for n in self.store.all_neurons():
+            for key, rec in (n.stats.get("by_domain") or {}).items():
+                if key in ("trade:crypto", "trade:nse") and isinstance(rec, dict):
+                    mk = key.split(":", 1)[1]
+                    dom[mk]["uses"] += int(rec.get("uses", 0))
+                    dom[mk]["neurons"] += 1
+        out = {}
+        for m in ("crypto", "nse"):
+            t = per[m]
+            out[m] = {"trades": t["trades"],
+                      "win_rate": round(t["wins"] / t["trades"], 4) if t["trades"] else None,
+                      "net_pnl": round(t["pnl"], 2),
+                      "instruction_uses": dom[m]["uses"], "instructions": dom[m]["neurons"]}
+        self._merge_report({"market_scorecard": out})
+        return out
+
     # ── the standing report ────────────────────────────────────────────────────
     def full_report(self, *, now: float | None = None) -> dict:
         return {"genius_use": self.genius_use(),

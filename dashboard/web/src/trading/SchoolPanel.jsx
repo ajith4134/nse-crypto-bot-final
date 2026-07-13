@@ -150,6 +150,22 @@ function SelfEval({ ev, onRun, running }) {
           </div>
         )
       })()}
+      {ev?.market_scorecard && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 10, color: T.muted,
+                      border: `1px solid ${T.border}`, borderRadius: 8, padding: 8 }}>
+          <span style={{ fontWeight: 700, color: T.text }}>per-market (crypto ≠ NSE)</span>
+          {['crypto', 'nse'].map((m) => {
+            const s = ev.market_scorecard[m] || {}
+            return (
+              <span key={m} style={{ border: `1px solid ${T.border}`, borderRadius: 6, padding: '2px 8px' }}>
+                <b style={{ color: m === 'crypto' ? '#f0b90b' : '#4cc2ff' }}>{m}</b>{' '}
+                {s.trades ? <>win {pct(s.win_rate)} · {s.trades} trades · pnl {s.net_pnl}</> : 'no trades'}
+                {s.instruction_uses > 0 && <> · {s.instruction_uses} instr-uses</>}
+              </span>
+            )
+          })}
+        </div>
+      )}
       {ev?.history?.length > 1 && <TrendRow history={ev.history} />}
       {il && (
         <div style={{ fontSize: 11, border: `1px solid ${T.border}`, borderRadius: 8, padding: 8 }}>

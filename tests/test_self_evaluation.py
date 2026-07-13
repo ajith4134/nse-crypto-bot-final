@@ -70,6 +70,19 @@ class SelfEvaluationTest(unittest.TestCase):
         self.assertEqual(al["baseline_win_rate"], round(3 / 6, 4))       # 3 of 6 overall
         self.assertIn("lift", al)
 
+    def test_market_scorecard_separates_crypto_and_nse(self):
+        rows = [
+            {"symbol": "BTC/USDT:USDT", "net_pnl": 5}, {"symbol": "ETHUSDT", "net_pnl": -2},
+            {"symbol": "RELIANCE", "net_pnl": 10}, {"symbol": "RELIANCE", "net_pnl": 20},
+            {"symbol": "NIFTY", "net_pnl": -5},
+        ]
+        (state.STATE_DIR / "journal.json").write_text(json.dumps(rows))
+        sc = SelfEvaluation(self.store, llm=lambda p: None).market_scorecard()
+        self.assertEqual(sc["crypto"]["trades"], 2)                 # BTC + ETH
+        self.assertEqual(sc["crypto"]["win_rate"], 0.5)
+        self.assertEqual(sc["nse"]["trades"], 3)                    # 2 RELIANCE + NIFTY
+        self.assertEqual(sc["nse"]["win_rate"], round(2 / 3, 4))
+
     def test_snapshot_history_parity_gated(self):
         # rich neurons so llm_parity can run; a fake LLM keeps it deterministic + offline
         for i in range(4):
