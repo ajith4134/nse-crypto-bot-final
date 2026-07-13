@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import BrainPage from './BrainPage.jsx'
 import TradingDashboard from './trading/TradingDashboard.jsx'
+import MissionControl from './MissionControl.jsx'
 import MarketWindow from './trading/MarketWindow.jsx'
 
 // The brain page is the LIVING CORTEX view: real trained routing graph from
@@ -32,7 +33,7 @@ export default function App() {
     return <MarketWindow market="crypto" />
   }
 
-  const [view, setView] = useState('brain')   // 'brain' | 'trading'
+  const [view, setView] = useState('cockpit')   // 'cockpit' | 'brain' | 'trading'
   // CORTEX header state: real network_state.json (real candles, real weights).
   const [net, setNet] = useState(null)
   useEffect(() => {
@@ -53,6 +54,9 @@ export default function App() {
   ]
   const TabBar = () => (
     <div className="chips" style={{ gap: 8, flexWrap: 'wrap' }}>
+      <span className={`chip${view === 'cockpit' ? ' active' : ''}`}
+        style={{ cursor: 'pointer', borderColor: view === 'cockpit' ? '#4da3ff' : undefined }}
+        onClick={() => setView('cockpit')}>🎯 Mission Control</span>
       <span className={`chip${view === 'brain' ? ' active' : ''}`}
         style={{ cursor: 'pointer', borderColor: view === 'brain' ? '#4da3ff' : undefined }}
         onClick={() => setView('brain')}>🧠 Brain</span>
@@ -66,6 +70,24 @@ export default function App() {
       ))}
     </div>
   )
+
+  if (view === 'cockpit') {
+    return (
+      <div className="app">
+        <header className="top">
+          <div className="brand">
+            <span className="dot" />
+            <div><h1>🎯 Mission Control</h1><small>direction · markets · brain · one command surface</small></div>
+          </div>
+          <TabBar />
+          <div className="spacer" />
+        </header>
+        <div style={{ padding: '0 16px 24px' }}>
+          <MissionControl />
+        </div>
+      </div>
+    )
+  }
 
   if (view === 'trading') {
     return (
