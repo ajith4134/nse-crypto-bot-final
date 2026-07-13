@@ -40,6 +40,8 @@ _WS_URL = ("wss://fstream.binance.com/market/stream?streams="
            "!markPrice@arr@1s/!ticker@arr/!forceOrder@arr")
 _STALE_AFTER_S = 15.0            # a push field older than this is flagged stale (streams tick ~1–3s)
 _MAX_LIQS = 500
+_HIST_EVERY_S = 15.0            # sample the price history at most this often per symbol
+_HIST_MAXLEN = 320             # ~80 min of history per symbol (covers every direction horizon)
 # DEPTH mirror (2026-07-12): per-symbol 20-level partial book for the top-N movers, pushed at 500ms,
 # so psychology (OBI/microprice/walls) reads depth from RAM instead of a ~300ms REST fetch_order_book
 # per symbol × the shortlist (the funnel EXECUTE hotspot). Bounded: N streams in one connection,
@@ -63,6 +65,11 @@ class BinanceUniverseMirror:
     def __init__(self):
         self._mark: dict[str, dict] = {}        # symbol -> {mark, funding_rate, next_funding_ts, ts}
         self._ticker: dict[str, dict] = {}       # symbol -> {last, pct_change, high, low, quote_volume, count, ts}
+        # rolling price history (2026-07-13): the all-market stream carries EVERY perp's mark
+        # price every 1s → keep a throttled per-symbol time-series so the truth-ledger can look
+        # up the price at ANY horizon and resolve 100% of claims (not just BTC/ETH). Bounded.
+        self._hist: dict[str, deque] = {}        # symbol -> deque[(ts, mark)]
+        self._hist_last: dict[str, float] = {}   # symbol -> last-append ts (throttle)
         self._book: dict[str, dict] = {}         # symbol -> {bids:[[p,q]], asks:[[p,q]], ts} (20-lvl depth)
         self._liqs: deque = deque(maxlen=_MAX_LIQS)   # recent liquidation events (all symbols)
         self._lock = threading.RLock()
@@ -93,12 +100,20 @@ class BinanceUniverseMirror:
                         s = d.get("s")
                         if not s:
                             continue
+                        mk = _f(d.get("p"))
                         self._mark[s] = {
-                            "mark": _f(d.get("p")),
+                            "mark": mk,
                             "funding_rate": _f(d.get("r")),
                             "next_funding_ts": _i(d.get("T")),
                             "ts": now,
                         }
+                        # throttled price history (every _HIST_EVERY_S) for horizon resolution
+                        if mk is not None and now - self._hist_last.get(s, 0.0) >= _HIST_EVERY_S:
+                            h = self._hist.get(s)
+                            if h is None:
+                                h = self._hist[s] = deque(maxlen=_HIST_MAXLEN)
+                            h.append((now, mk))
+                            self._hist_last[s] = now
             elif stream.startswith("!ticker") and isinstance(data, list):
                 applied = True
                 with self._lock:
@@ -278,6 +293,22 @@ class BinanceUniverseMirror:
 
     def mark(self, symbol: str) -> dict | None:
         return self.funding(symbol)
+
+    def price_at(self, symbol: str, epoch: float, *, tol_s: float = 240.0) -> float | None:
+        """The mark price closest to `epoch` from the rolling history (within tol_s), for
+        100% truth-ledger resolution of ANY perp. None when out of coverage/history."""
+        s = symbol.upper()
+        with self._lock:
+            h = self._hist.get(s)
+            if not h:
+                v = self._mark.get(s)                 # no history yet → latest, if close enough
+                return v.get("mark") if v and abs(v.get("ts", 0) - epoch) <= tol_s else None
+            best, bestd = None, tol_s
+            for ts, mk in h:
+                d = abs(ts - epoch)
+                if d <= bestd:
+                    best, bestd = mk, d
+            return best
 
     def ticker(self, symbol: str) -> dict | None:
         with self._lock:

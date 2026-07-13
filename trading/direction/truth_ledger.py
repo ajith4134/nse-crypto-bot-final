@@ -270,6 +270,18 @@ def _fold(agg: dict, row: dict, horizon: str, correct: bool, method: str) -> Non
     m[method] = m.get(method, 0) + 1
 
 
+def _mirror_price(symbol: str, epoch: float) -> float | None:
+    """100% price coverage (2026-07-13): the binance_stream all-market mirror holds EVERY
+    perp's mark price with a rolling history — read it so ANY claimed symbol resolves, not
+    just the handful with local feather candles. Flat-symbol keyed; fail-open."""
+    try:
+        from trading.broker_sense.binance_stream import get_mirror
+        flat = str(symbol or "").upper().split(":", 1)[0].replace("/", "")
+        return get_mirror().price_at(flat, epoch)
+    except Exception:
+        return None
+
+
 def _resolve_row(row: dict, now: float) -> tuple[list[tuple[str, bool, str]], bool]:
     """→ ([(horizon, correct, method)…], done). done=True once every horizon is either
     labeled or permanently unresolvable (expired) — the row then leaves pending."""
@@ -280,6 +292,8 @@ def _resolve_row(row: dict, now: float) -> tuple[list[tuple[str, bool, str]], bo
     ref = row.get("ref_price")
     if ref is None and path is not None:
         ref = _price_at(path, ts)
+    if ref is None:                                    # 100% coverage: all-market mirror history
+        ref = _mirror_price(row["symbol"], ts)
     pending_left = False
     for hz, mins in HORIZONS.items():
         if hz in labeled:
@@ -293,6 +307,10 @@ def _resolve_row(row: dict, now: float) -> tuple[list[tuple[str, bool, str]], bo
         if path is not None and ref is not None:
             target = _price_at(path, due, after=True)
             method = f"feather:{basis}"
+        if target is None and ref is not None:         # 100% coverage: mirror price @ horizon
+            mp = _mirror_price(row["symbol"], due)
+            if mp is not None:
+                target, method = mp, "mirror:markprice"
         if target is None and ref is not None:
             if abs(now - due) <= _PROBE_TOL_MIN[hz] * 60:
                 try:                                # one cheap cached quote, in-window
