@@ -334,33 +334,62 @@ def handle_strategy_library(h):
                    "application/json")
 
 
-def handle_evolution_status(h):
-    """GET /api/trading/evolution/status — honest T8.3 DEAP NSGA-II evolution snapshot (CRYPTO
-    genomes evolved over a few generations on seeded synthetic OHLCV, guardrail-gated survivors
-    promoted to StrategyNodes). Genetic evolution is GATED OFF; this is the offline demo."""
-    def _p_evolution():
+_EVO_DEMO_FILE = "evolution_demo.json"
+_EVO_DEMO_TTL = 6 * 3600
+_evo_building = False
+_evo_lock = __import__("threading").Lock()
+
+
+def _evo_demo_build():
+    """Run the heavy DEAP demo evolution ONCE in its own thread and persist it. This must
+    NEVER run in the request/warmer thread — the DEAP+pandas run holds the GIL for seconds
+    and wedged every dashboard endpoint (000 across the whole server) post-restart."""
+    global _evo_building
+    import time as _t
+    try:
         from run_strategy_t8 import build_demo_evolution
         from trading.strategy.control import evolution_enabled
+        from trading import state as _state
         snap = build_demo_evolution()
-        return {
-            "history": snap["history"],
-            "n_evaluated": snap["n_evaluated"],
-            "pareto_size": snap["pareto_size"],
-            "n_promoted": snap["n_promoted"],
-            "best": snap["best"],
-            "registry": snap["registry"],
-            "demo": True,
-            "enabled": bool(evolution_enabled()),
-            "gate_note": ("Strategy creation/mutation/evolution is GATED OFF for this "
-                          "phase (trading.strategy.control). The Strategy Library is the "
-                          "active feature (/api/trading/strategy/library). This snapshot "
-                          "is the offline demo (force=True) kept for reference."),
-            "note": ("offline demo evolution loop (run_strategy_t8 seeded synthetic "
-                     "CRYPTO OHLCV, pop=16/gens=4); real μ+λ NSGA-II over the strategy "
-                     "genome with OUT-OF-SAMPLE multi-objective fitness, T8.2 guardrail "
-                     "gate, and survivors promoted to routable NodeProtocol "
-                     "StrategyNodes — no live market loop wired yet"),
-        }
+        _state.save_json(_EVO_DEMO_FILE, {
+            "history": snap["history"], "n_evaluated": snap["n_evaluated"],
+            "pareto_size": snap["pareto_size"], "n_promoted": snap["n_promoted"],
+            "best": snap["best"], "registry": snap["registry"], "demo": True,
+            "enabled": bool(evolution_enabled()), "_built_at": _t.time(),
+            "gate_note": ("Strategy creation/mutation/evolution is GATED OFF for this phase "
+                          "(trading.strategy.control). The Strategy Library is the active "
+                          "feature. This snapshot is the offline demo kept for reference."),
+            "note": ("offline demo evolution loop (run_strategy_t8 seeded synthetic CRYPTO "
+                     "OHLCV, pop=16/gens=4); real μ+λ NSGA-II with OUT-OF-SAMPLE fitness + "
+                     "T8.2 guardrail gate, survivors promoted to StrategyNodes."),
+        })
+    except Exception:
+        pass
+    finally:
+        _evo_building = False
+
+
+def handle_evolution_status(h):
+    """GET /api/trading/evolution/status — honest T8.3 DEAP NSGA-II evolution snapshot.
+    STATE-FILE-ONLY: the heavy demo build runs in a background thread and persists to
+    evolution_demo.json; the request/warmer only READS the file (so the DEAP run can never
+    hold the GIL in the warmer and wedge the server — 2026-07-13 fix)."""
+    def _p_evolution():
+        global _evo_building
+        import time as _t
+        from trading import state as _state
+        cached = _state.load_json(_EVO_DEMO_FILE, None)
+        stale = (not cached) or (_t.time() - float(cached.get("_built_at", 0)) > _EVO_DEMO_TTL)
+        if stale and not _evo_building:
+            with _evo_lock:
+                if not _evo_building:
+                    _evo_building = True
+                    __import__("threading").Thread(
+                        target=_evo_demo_build, daemon=True, name="evo-demo-build").start()
+        if cached:
+            return cached
+        return {"warming": True, "demo": True,
+                "note": "evolution demo precomputing in a background thread — refresh shortly."}
     return h._send(200, _srv(h)._bg_snapshot("evolution", _p_evolution), "application/json")
 
 
@@ -1111,7 +1140,15 @@ def handle_brain_predict(h):
             from trading.online.live_loop import get_loop
             net = _srv(h)._trade_outcome_net()
             if net is None:
-                raise RuntimeError("trading stack not importable")
+                # net is None = the TradeOutcomeNet is still training in its background
+                # thread (or the journal has <12 closed trades) — NOT an import failure.
+                # Report that honestly so the panel shows "warming", not a broken feature.
+                return json.dumps({
+                    "available": False, "warming": True,
+                    "note": ("TradeOutcomeNet is training in the background (rebuilds when "
+                             "the closed-trade count changes; needs ≥12 closed trades) "
+                             "— retry shortly."),
+                }).encode()
             live = get_loop().open_positions()
             open_preds = net.predict(live)
             # replay recent closed trades (predicted p_win vs actual outcome)
