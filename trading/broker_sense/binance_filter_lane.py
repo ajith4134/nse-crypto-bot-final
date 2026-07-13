@@ -64,7 +64,10 @@ def features(symbol: str, ticker_row: dict | None = None) -> dict:
     last = _f(t.get("last"))
     pct = _f(t.get("pct_change"))
     vol = _f(t.get("volume") or t.get("qv") or t.get("v"))
-    funding = _f(fu.get("funding_rate"))
+    # funding: prefer the eyes' capture, else the mirror's pushed funding_rate on the ticker_row
+    # (so the funding_extreme preset works over the full RAM universe, not just eyes-captured symbols).
+    funding = _f(fu.get("funding_rate") if fu.get("funding_rate") is not None
+                 else t.get("funding_rate"))
     oi_val = _f(oi.get("open_interest") or oi.get("oi"))
     ls_ratio = _f(ls.get("ratio") or ls.get("long_short_ratio"))
     taker_buy = _f(tk.get("buy") or tk.get("buy_vol"))
@@ -95,6 +98,40 @@ _PRESETS = {
 
 def presets() -> list[str]:
     return list(_PRESETS)
+
+
+# ── Stage 3: cheap per-pick DIRECTION mini-lenses (no heavy fusion → breadth preserved) ─
+def _sig(p: float) -> float:
+    return max(0.02, min(0.98, p))
+
+
+def direction_signals(row: dict) -> list:
+    """Directional mini-lenses for one pick, built ONLY from the UI-captured filters the row
+    already holds (zero extra cost). Each is a (truth-ledger source, p_up) the learned decider
+    weights by its MEASURED reliability — so the lane's SIDE stops being raw momentum and becomes
+    'whichever of these signals has actually predicted direction'. Returns [] when nothing is read.
+
+      filter:momentum   — ride the 24h move (sign of %chg)
+      filter:funding    — fade crowded funding (high +funding = crowded longs → short lean)
+      filter:taker      — follow the aggressor (buy-heavy taker flow → long)
+      filter:longshort  — mild contrarian on extreme crowd positioning
+    """
+    import math
+    out = []
+    pct = row.get("pct_change")
+    if pct is not None:
+        out.append(("filter:momentum", _sig(1.0 / (1.0 + math.exp(-float(pct) / 5.0)))))
+    fund = row.get("funding_rate")
+    if fund is not None:
+        out.append(("filter:funding", _sig(0.5 - max(-0.4, min(0.4, float(fund) * 40.0)))))
+    taker = row.get("taker_imbalance")
+    if taker is not None:
+        out.append(("filter:taker", _sig(0.5 + float(taker) / 2.0)))
+    ls = row.get("long_short_ratio")
+    if ls is not None and float(ls) > 0:
+        out.append(("filter:longshort",
+                    _sig(0.5 - max(-0.3, min(0.3, (float(ls) - 1.0) * 0.3)))))
+    return out
 
 
 def _components(row: dict) -> dict:
@@ -154,7 +191,23 @@ def universe(segment: str = "futures", *, min_rows: int = 1) -> list[dict]:
     """The full UI-captured Binance universe as filter feature rows. Seeded from ui_market.movers()
     (which enumerates every symbol with a fresh ticker capture), each enriched with funding/OI/
     long-short/taker. Empty when the eyes haven't fed tickers fresh — honest, never faked."""
-    base = _um.movers(n=10_000) or []
+    # BREADTH (owner 2026-07-13): the RAM WS mirror carries the FULL perp universe (~400 symbols,
+    # Binance-pushed) independent of browser/eyes state — so the filter lane ranks the WHOLE market,
+    # not just the handful the eyes captured (which is thin right after a restart / browser logout).
+    # Prefer it when warm; fall back to ui_market.movers when the mirror is cold. Each row is still
+    # enriched per-symbol via features() (ui_market funding/OI/LS/taker where the eyes have them).
+    base: list[dict] = []
+    try:
+        from trading.broker_sense.binance_stream import get_mirror as _gm
+        _m = _gm()
+        if _m.enabled() and not _m.is_stale("BTCUSDT"):
+            base = [{"symbol": r.get("raw"), "pct_change": r.get("pct_change"),
+                     "qv": r.get("quote_volume"), "funding_rate": r.get("funding_rate")}
+                    for r in (_m.futures_rows() or []) if r.get("raw")]
+    except Exception:
+        base = []
+    if len(base) < 50:                                  # mirror cold → the eyes' captured universe
+        base = _um.movers(n=10_000) or base or []
     out = []
     for m in base:
         sym = m.get("symbol")
