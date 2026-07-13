@@ -40,9 +40,20 @@ def last_resort() -> bool:
     """LAST-RESORT mode (recommended): UI-TARS runs ONLY after DOM/OCR + OmniParser(local+SoM) +
     the cloud grid-guess have ALL missed — a rare total miss, off the trade-loop hot path. Its
     ~tens-of-seconds CPU cost is paid only on those rare misses, buying accuracy without stalling
-    normal navigation. Enabled by UITARS_LAST_RESORT=1 (or implied by the aggressive GROUNDER=uitars)."""
-    if os.environ.get("UITARS_LAST_RESORT", "0") in ("1", "true", "TRUE", "yes", "on"):
+    normal navigation. Enabled by the UITARS_LAST_RESORT env flag OR the durable state flag
+    `uitars_last_resort.json` {"enabled": true} (so it goes live for every running process with no
+    restart — same pattern as the NSE_UI_ONLY governor), or implied by aggressive GROUNDER=uitars."""
+    env = os.environ.get("UITARS_LAST_RESORT", "")
+    if env in ("1", "true", "TRUE", "yes", "on"):
         return True
+    if env in ("0", "false", "FALSE", "no", "off"):
+        return enabled()                              # explicit env off → only aggressive mode counts
+    try:
+        from trading import state
+        if bool(state.load_json("uitars_last_resort.json", {}).get("enabled")):
+            return True
+    except Exception:
+        pass
     return enabled()
 
 
