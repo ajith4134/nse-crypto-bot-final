@@ -62,5 +62,52 @@ class MirrorPriceTest(unittest.TestCase):
             mp2.assert_not_called()
 
 
+class CandleAggregationTest(unittest.TestCase):
+    def test_roll_candles_buckets_ohlc_by_timeframe(self):
+        m = BinanceUniverseMirror()
+        # three ticks inside the same 60s bucket (999_960 = 999_960..1_000_019), then next bucket
+        m._roll_candles("BTCUSDT", 100.0, 999_960.0)     # bucket 999_960, open
+        m._roll_candles("BTCUSDT", 105.0, 999_970.0)     # high
+        m._roll_candles("BTCUSDT", 98.0, 999_980.0)      # low, close
+        bars = m.candles("BTCUSDT", tf=60, n=10)
+        self.assertEqual(len(bars), 1)
+        ts, o, h, l, c = bars[-1]
+        self.assertEqual((ts, o, h, l, c), (999_960, 100.0, 105.0, 98.0, 98.0))
+        m._roll_candles("BTCUSDT", 110.0, 1_000_030.0)   # next 60s bucket (1_000_020)
+        bars = m.candles("BTCUSDT", tf=60, n=10)
+        self.assertEqual(len(bars), 2)
+        self.assertEqual(bars[-1][1], 110.0)             # new bar opens at 110
+        self.assertEqual(bars[-2][3], 98.0)              # prior bar low preserved
+
+    def test_candles_unknown_symbol_or_tf_returns_empty(self):
+        m = BinanceUniverseMirror()
+        self.assertEqual(m.candles("NOPEUSDT", tf=60), [])
+        m._roll_candles("BTCUSDT", 100.0, 1_000_000.0)
+        self.assertEqual(m.candles("BTCUSDT", tf=99999), [])   # untracked tf
+
+
+class LiquidationNormalizationTest(unittest.TestCase):
+    def test_signals_reads_liquidations_from_mirror_with_correct_side(self):
+        from trading.direction import app_signals as A
+        m = BinanceUniverseMirror()
+        # Binance forceOrder S="BUY" = a SHORT was force-bought (short liquidation)
+        m._liqs.extend([
+            {"symbol": "BTCUSDT", "side": "BUY", "pos_side": "short"},
+            {"symbol": "BTCUSDT", "side": "BUY", "pos_side": "short"},
+            {"symbol": "BTCUSDT", "side": "SELL", "pos_side": "long"},
+        ])
+        # ui_market returns nothing → signals() must fall back to the mirror
+        fake_um = mock.MagicMock()
+        fake_um.recent_liquidations.return_value = []
+        for meth in ("funding", "taker", "book", "long_short", "open_interest", "option_chain"):
+            getattr(fake_um, meth).return_value = None
+        with mock.patch.dict("sys.modules", {"trading.broker_sense.ui_market": fake_um}), \
+             mock.patch("trading.broker_sense.binance_stream.get_mirror", return_value=m):
+            sigs = dict(A.signals("BTCUSDT", market="crypto", row={}))
+        # 2 shorts liquidated of 3 → short-cascade → bullish lean p_up > 0.5
+        self.assertIn("filter:liquidations", sigs)
+        self.assertGreater(sigs["filter:liquidations"], 0.5)
+
+
 if __name__ == "__main__":
     unittest.main()

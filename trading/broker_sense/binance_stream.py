@@ -42,6 +42,12 @@ _STALE_AFTER_S = 15.0            # a push field older than this is flagged stale
 _MAX_LIQS = 500
 _HIST_EVERY_S = 15.0            # sample the price history at most this often per symbol
 _HIST_MAXLEN = 320             # ~80 min of history per symbol (covers every direction horizon)
+# In-RAM multi-timeframe OHLC candles (2026-07-13): built live from the same all-market
+# markPrice@1s stream — every perp gets multi-TF candles WITHOUT an API/kline call (motto:
+# data off the browser/WS surface, RAM for speed). Mark-price OHLC (no volume); the CoinGecko
+# bulk door + per-symbol kline WS remain the complements for traded OHLCV / deep history.
+_CANDLE_TFS = tuple(int(x) for x in (os.getenv("BINANCE_CANDLE_TFS", "60,300,900")).split(",") if x)
+_CANDLE_MAXLEN = int(os.getenv("BINANCE_CANDLE_MAXLEN", "240") or 240)   # bars kept per (sym,tf)
 # DEPTH mirror (2026-07-12): per-symbol 20-level partial book for the top-N movers, pushed at 500ms,
 # so psychology (OBI/microprice/walls) reads depth from RAM instead of a ~300ms REST fetch_order_book
 # per symbol × the shortlist (the funnel EXECUTE hotspot). Bounded: N streams in one connection,
@@ -70,6 +76,7 @@ class BinanceUniverseMirror:
         # up the price at ANY horizon and resolve 100% of claims (not just BTC/ETH). Bounded.
         self._hist: dict[str, deque] = {}        # symbol -> deque[(ts, mark)]
         self._hist_last: dict[str, float] = {}   # symbol -> last-append ts (throttle)
+        self._candles: dict[str, dict] = {}      # symbol -> {tf_s -> deque[[bar_ts,o,h,l,c]]}
         self._book: dict[str, dict] = {}         # symbol -> {bids:[[p,q]], asks:[[p,q]], ts} (20-lvl depth)
         self._liqs: deque = deque(maxlen=_MAX_LIQS)   # recent liquidation events (all symbols)
         self._lock = threading.RLock()
@@ -107,13 +114,16 @@ class BinanceUniverseMirror:
                             "next_funding_ts": _i(d.get("T")),
                             "ts": now,
                         }
-                        # throttled price history (every _HIST_EVERY_S) for horizon resolution
-                        if mk is not None and now - self._hist_last.get(s, 0.0) >= _HIST_EVERY_S:
-                            h = self._hist.get(s)
-                            if h is None:
-                                h = self._hist[s] = deque(maxlen=_HIST_MAXLEN)
-                            h.append((now, mk))
-                            self._hist_last[s] = now
+                        if mk is not None:
+                            # throttled price history (every _HIST_EVERY_S) for horizon resolution
+                            if now - self._hist_last.get(s, 0.0) >= _HIST_EVERY_S:
+                                h = self._hist.get(s)
+                                if h is None:
+                                    h = self._hist[s] = deque(maxlen=_HIST_MAXLEN)
+                                h.append((now, mk))
+                                self._hist_last[s] = now
+                            # live multi-TF OHLC candles from the SAME stream (no API call)
+                            self._roll_candles(s, mk, now)
             elif stream.startswith("!ticker") and isinstance(data, list):
                 applied = True
                 with self._lock:
@@ -134,9 +144,17 @@ class BinanceUniverseMirror:
                 applied = True
                 o = (data or {}).get("o") if isinstance(data, dict) else None
                 if isinstance(o, dict) and o.get("s"):
+                    _S = o.get("S")
                     with self._lock:
                         self._liqs.append({
-                            "symbol": o.get("s"), "side": o.get("S"),
+                            "symbol": o.get("s"), "side": _S,
+                            # normalized POSITION side liquidated: a Binance forceOrder SELL
+                            # force-sells a LONG (long liquidation), BUY force-buys a SHORT
+                            # (short liquidation) — the opposite of the order side. Stamping
+                            # pos_side here lets signals() count short/long cascades correctly
+                            # regardless of the source's convention (2026-07-13 coverage lane).
+                            "pos_side": ("long" if _S == "SELL" else
+                                         "short" if _S == "BUY" else None),
                             "qty": _f(o.get("q")), "price": _f(o.get("p")),
                             "ts": _i(o.get("T")) / 1000.0 if o.get("T") else now,
                         })
@@ -368,6 +386,43 @@ class BinanceUniverseMirror:
                 "funding_rate": (mark.get(s) or {}).get("funding_rate"),
             })
         return out
+
+    def _roll_candles(self, s: str, price: float, now: float) -> None:
+        """Fold one live mark into every timeframe's current OHLC bar. Called under _lock
+        from the markPrice loop; O(len(_CANDLE_TFS)) per tick — cheap. Never raises."""
+        cs = self._candles.get(s)
+        if cs is None:
+            cs = self._candles[s] = {tf: deque(maxlen=_CANDLE_MAXLEN) for tf in _CANDLE_TFS}
+        for tf in _CANDLE_TFS:
+            dq = cs[tf]
+            bar_ts = int(now // tf) * tf
+            if dq and dq[-1][0] == bar_ts:            # same bucket → update H/L/C
+                bar = dq[-1]
+                if price > bar[2]:
+                    bar[2] = price
+                if price < bar[3]:
+                    bar[3] = price
+                bar[4] = price
+            else:                                     # new bucket → open a bar [ts,o,h,l,c]
+                dq.append([bar_ts, price, price, price, price])
+
+    def candle_timeframes(self) -> tuple:
+        """The timeframes (seconds) currently aggregated in RAM for every symbol."""
+        return _CANDLE_TFS
+
+    def candles(self, symbol: str, tf: int = 60, n: int = 100) -> list[list]:
+        """In-RAM OHLC bars for ANY perp, aggregated live from the all-market markPrice
+        stream — no API/kline request. `tf` seconds (must be one of candle_timeframes()).
+        Returns [[bar_ts, open, high, low, close], …] newest last, or [] if unavailable."""
+        try:
+            tf = int(tf)
+            with self._lock:
+                cs = self._candles.get(symbol.upper())
+                if not cs or tf not in cs:
+                    return []
+                return [list(b) for b in list(cs[tf])[-int(n):]]
+        except Exception:
+            return []
 
     def recent_liquidations(self, symbol: str | None = None, n: int = 50) -> list[dict]:
         with self._lock:

@@ -103,9 +103,23 @@ def signals(symbol: str, *, market: str = "crypto", row: dict | None = None) -> 
         liqs = um.recent_liquidations(symbol, n=50) or []
     except Exception:
         liqs = []
+    if not liqs and (market or "crypto").lower() == "crypto":
+        # all-market coverage (2026-07-13): the WS mirror streams EVERY perp's liquidation
+        # via !forceOrder@arr — read it so filter:liquidations records for any symbol, not
+        # only the few the browser captured. Zero extra network (already streamed).
+        try:
+            from trading.broker_sense.binance_stream import get_mirror
+            liqs = get_mirror().recent_liquidations(symbol, n=50) or []
+        except Exception:
+            liqs = []
     if liqs:
-        short_liq = sum(1 for x in liqs if str((x or {}).get("side", "")).lower() in ("short", "sell"))
-        long_liq = sum(1 for x in liqs if str((x or {}).get("side", "")).lower() in ("long", "buy"))
+        def _is_short(x):                     # prefer normalized pos_side; else side heuristic
+            ps = str((x or {}).get("pos_side", "")).lower()
+            if ps in ("short", "long"):
+                return ps == "short"
+            return str((x or {}).get("side", "")).lower() in ("short", "sell")
+        short_liq = sum(1 for x in liqs if _is_short(x))
+        long_liq = len(liqs) - short_liq
         if short_liq + long_liq > 0:
             out.append(("filter:liquidations", _sig(short_liq / (short_liq + long_liq))))
 
