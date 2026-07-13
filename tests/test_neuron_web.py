@@ -69,6 +69,20 @@ class NeuronWebTest(unittest.TestCase):
         failed = self.store.search("friday always red", kind="lesson")[0]
         self.assertIn("Do NOT trade on this", failed["action"])
 
+    def test_features_stitched_as_skill_neurons_with_actions(self):
+        # R1 stitch: every shipped feature becomes a skill neuron carrying a how-to-use
+        # action facet, so the brain KNOWS and can USE its own capabilities.
+        r = nw.NeuronWeb(self.store)._run(nw.NeuronWeb(self.store).conv_features)
+        self.assertEqual(r["added"], len(nw._FEATURE_CATALOG))
+        for key in ("patchright_stealth", "feed_selfheal", "uitars_last_resort",
+                    "brain_os"):
+            n = self.store.get(nw._det_id("features", key))
+            self.assertIsNotNone(n, key)
+            self.assertEqual(n.kind, "skill")
+            self.assertTrue(n.action.strip())                         # R24 action facet
+        r2 = nw.NeuronWeb(self.store)._run(nw.NeuronWeb(self.store).conv_features)
+        self.assertEqual(r2["added"], 0)                             # idempotent
+
     def test_changed_row_updates_in_place(self):
         nw.backfill(self.store)
         j = json.loads((self.state / "journal.json").read_text())

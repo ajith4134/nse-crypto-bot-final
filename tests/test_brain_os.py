@@ -127,6 +127,31 @@ class BrainKernelTest(unittest.TestCase):
         self.assertEqual(_proc_state(200, 100), "SLEEPING")
         self.assertEqual(_proc_state(400, 100), "DEAD")
 
+    # ── OS-3: attention scheduler ─────────────────────────────────────────────
+    def test_scheduler_follows_focus(self):
+        k = BrainKernel(self.store); k.boot()
+        k.syscall("focus", segment="crypto")
+        self.assertEqual(k.next_lobe()["next"], "crypto-funnel")   # focus wins
+        k.syscall("focus", segment="nse")
+        self.assertEqual(k.next_lobe()["next"], "nse-funnel")      # order CHANGES with focus
+
+    def test_tick_advances_and_records(self):
+        k = BrainKernel(self.store); k.boot()
+        t1 = k.tick()
+        self.assertEqual(t1["tick"], 1)
+        self.assertIsNotNone(t1["next"])
+        self.assertEqual(k.wm.read("scheduler")["msg"]["next"], t1["next"])  # posted to blackboard
+
+    def test_fairness_rotates_without_focus(self):
+        k = BrainKernel(self.store); k.boot()          # no focus → fairness drives rotation
+        picks = {k.tick()["next"] for _ in range(12)}
+        self.assertGreater(len(picks), 1)              # not stuck on one lobe
+
+    def test_scheduler_in_top(self):
+        k = BrainKernel(self.store); k.boot()
+        self.assertIn("scheduler", k.top())
+        self.assertIn("ranking", k.top()["scheduler"])
+
 
 if __name__ == "__main__":
     unittest.main()

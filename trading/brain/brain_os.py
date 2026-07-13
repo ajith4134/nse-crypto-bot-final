@@ -181,6 +181,26 @@ def _proc_state(age: float | None, budget: float) -> str:
     return "DEAD"                                      # long past budget (loop_keeper may respawn)
 
 
+# ── attention scheduler (OS-3): pick the next lobe to attend by focus + fairness ──
+# The brain can't be everywhere at once; tick() ranks its lobes and picks ONE to attend
+# next. A lobe matching the current focus is boosted; a lobe not attended in a while is
+# boosted too (round-robin fairness) so nothing starves. This is advisory scheduling —
+# the in-process learn-loop ticks it live; cross-process funnels read next_lobe() to yield.
+FOCUS_BOOST = 10.0
+FAIRNESS = 0.5
+SCHED_LOBES = [
+    {"name": "crypto-funnel", "match": {"segment": "crypto"}, "base": 2.0},
+    {"name": "nse-funnel", "match": {"segment": "nse"}, "base": 2.0},
+    {"name": "learn-loop", "match": {"topic": "learn"}, "base": 1.5},
+    {"name": "school", "match": {"topic": "study"}, "base": 1.0},
+    {"name": "evolution", "match": {"topic": "evolve"}, "base": 1.0},
+]
+
+
+def _focus_match(lobe: dict, focus: dict) -> bool:
+    return bool(lobe["match"]) and all(focus.get(k) == v for k, v in lobe["match"].items())
+
+
 class BrainKernel:
     """Resident kernel: one working memory + one syscall surface over the lobes."""
 
@@ -190,6 +210,8 @@ class BrainKernel:
         self.wm = WorkingMemory(max_bytes=max_bytes)
         self.booted_ts: float | None = None
         self.boots = 0
+        self.tick_no = 0
+        self.last_sched: dict = {}                      # lobe -> tick it was last attended
         self._lock = threading.RLock()
 
     # ── lazy access to the existing singletons (reuse-first) ──────────────────
@@ -287,6 +309,44 @@ class BrainKernel:
     def _sys_top(self):
         return self.top()
 
+    def _sys_tick(self):
+        return self.tick()
+
+    def _sys_next(self):
+        return self.next_lobe()
+
+    # ── attention scheduler (OS-3) ────────────────────────────────────────────
+    def schedule_ranking(self) -> list[dict]:
+        """Score every lobe by focus-match + fairness (ticks since last attended)."""
+        focus = self.wm.focus
+        out = []
+        for lobe in SCHED_LOBES:
+            fair = FAIRNESS * (self.tick_no - self.last_sched.get(lobe["name"], 0))
+            focus_hit = _focus_match(lobe, focus)
+            score = lobe["base"] + fair + (FOCUS_BOOST if focus_hit else 0.0)
+            out.append({"name": lobe["name"], "score": round(score, 3),
+                        "focus_match": focus_hit,
+                        "last_attended_tick": self.last_sched.get(lobe["name"], 0)})
+        out.sort(key=lambda x: x["score"], reverse=True)
+        return out
+
+    def tick(self) -> dict:
+        """Advance one scheduling step: pick the top-ranked lobe to attend next."""
+        with self._lock:
+            self.tick_no += 1
+            ranking = self.schedule_ranking()
+            nxt = ranking[0]["name"] if ranking else None
+            if nxt is not None:
+                self.last_sched[nxt] = self.tick_no
+            self.wm.post("scheduler", {"tick": self.tick_no, "next": nxt})
+        return {"tick": self.tick_no, "next": nxt, "ranking": ranking}
+
+    def next_lobe(self) -> dict:
+        """The current pick WITHOUT advancing (cross-process lobes poll this to yield)."""
+        ranking = self.schedule_ranking()
+        return {"tick": self.tick_no, "next": ranking[0]["name"] if ranking else None,
+                "ranking": ranking}
+
     # ── process table (OS-2): kernel + in-process threads + file-heartbeat lobes ──
     def ps(self, *, now: float | None = None) -> list[dict]:
         now = time.time() if now is None else float(now)
@@ -319,6 +379,7 @@ class BrainKernel:
                 "uptime_secs": self.uptime_secs(),
                 "working_memory": self.wm.snapshot(),
                 "processes": self.ps(),
+                "scheduler": self.next_lobe(),             # OS-3: who the brain attends next
                 "store": {"neurons": store_status.get("neurons"),
                           "links": store_status.get("links"),
                           "ram_resident": True},           # NeuronStore is RAM-cached

@@ -58,6 +58,81 @@ def _num(v, nd=2):
         return None
 
 
+# ── FEATURE CATALOG: the brain's own capabilities as instruction-shaped skills ──
+# Every shipped feature the brain can USE. Each carries a mandatory action facet (R24):
+# when it applies, how to activate it, how to verify it helped. Append new features here.
+_FEATURE_CATALOG = [
+    # ── web-data / perception resilience (sibling adopt-plan, live 2026-07-13) ──
+    {"key": "feed_selfheal", "title": "Feed schema-drift self-heal",
+     "body": "Auto-repairs web-feed decoding when a broker silently changes its wire "
+             "schema — Upstox protobuf field shifts + Binance JSON key renames. Wired in "
+             "upstox_feed + binance_stream; loads in the funnel.",
+     "action": "Rely on it when a live feed starts returning empty/garbled ticks after a "
+               "broker update — it re-derives the mapping instead of going blind. Verify: "
+               "tick flow resumes without a code change; check the self-heal log entry.",
+     "ref": "trading/broker_sense (upstox_feed, binance_stream)"},
+    {"key": "vision_is_context", "title": "Vision = context, not a direction vote",
+     "body": "Local chart vision supplies CONTEXT (regime, structure, notable levels) to "
+             "fuse(); it does NOT emit a hardcoded long/short vote. Prevents a single "
+             "vision call from overriding the learned direction driver.",
+     "action": "Read vision output as situational context that weights other lenses; never "
+               "treat it as a standalone entry signal. Verify: fuse() confluence shifts "
+               "with vision context but direction still comes from learned_direction.",
+     "ref": "trading/broker_sense/indicator_fusion.fuse"},
+    {"key": "endpoint_discovery", "title": "Endpoint discovery over capture registry",
+     "body": "Discovers usable broker/data API endpoints by mining our own captured-traffic "
+             "registry (both markets) — finds the real data doors the UI actually calls.",
+     "action": "Use to locate a data endpoint for a needed kind before hardcoding a URL; "
+               "prefer a discovered endpoint over a guess. Verify: discovered endpoint "
+               "returns the expected payload shape on a live probe.",
+     "ref": "endpoint discovery (both markets)"},
+    {"key": "patchright_stealth", "title": "Patchright stealth browser (flagged)",
+     "body": "A stealth-hardened browser backend for Binance + Upstox logins, behind a flag. "
+             "Off by default (active engine = playwright).",
+     "action": "Flip STEALTH_BROWSER=patchright ONLY when a login is being bot-detected/"
+               "challenged on playwright; leave default otherwise. Verify: the flagged login "
+               "advances past the challenge that blocked playwright.",
+     "ref": "STEALTH_BROWSER=patchright"},
+    {"key": "tv_feed", "title": "TradingView-WS supplementary data lane (flagged)",
+     "body": "An optional TradingView websocket lane for supplementary market data. Off by "
+             "default.",
+     "action": "Enable only as a supplementary cross-check when a primary venue feed is "
+               "degraded; it is not a primary execution-data source (motto: data = web nav). "
+               "Verify: lane delivers frames and agrees with the primary feed.",
+     "ref": "tv_feed (default off)"},
+    {"key": "uitars_last_resort", "title": "UI-TARS visual grounder (selective last-resort)",
+     "body": "A vision grounder that locates UI targets from a screenshot, wired as a "
+             "SELECTIVE last-resort OFF the hot path — used only when DOM/registry locating "
+             "fails. State-flag activated (last_resort()=True, model pulled).",
+     "action": "Fall back to it only when normal element-locating fails on a broker screen; "
+               "never on the hot path (it is slow). Verify: it returns coordinates that "
+               "click the intended control; a funnel started before activation needs a "
+               "restart to read the flag.",
+     "ref": "UI-TARS grounder (state-flag activated)"},
+    # ── brain-ultra-upgrade + brain-os core (this workstream) ──
+    {"key": "neuron_web", "title": "Web of neurons — one common language",
+     "body": "Every kind of brain data (strategies, research, news, findings, lessons, "
+             "episodes, features) is one instruction-shaped Neuron in one graph.",
+     "action": "Store any new knowledge as a neuron with a how-to-use action facet; recall "
+               "via consult() before acting. Verify: /api/brain/neurons count grows and "
+               "action_coverage stays 1.0.",
+     "ref": "memory/neurons.py"},
+    {"key": "instruction_evolution", "title": "Instruction evolution loop",
+     "body": "Underperforming instruction neurons are mutated; a child that beats its parent "
+             "on graded evidence is promoted and the parent retired (lineage kept).",
+     "action": "Let the learn-loop evolve instructions; consult the Pareto archive for the "
+               "best current variant. Verify: /api/brain/evolution shows proven lineages.",
+     "ref": "trading/brain/evolution.py"},
+    {"key": "brain_os", "title": "Brain-OS — resident kernel with its own RAM",
+     "body": "A resident kernel holds working memory in RAM, runs a process table of the "
+             "lobes, an attention scheduler, and one syscall surface.",
+     "action": "Route recall/remember/consult/evolve through kernel.syscall(); read "
+               "next_lobe() to know what to attend. Verify: /api/brain/os shows RESIDENT + "
+               "an honest process table.",
+     "ref": "trading/brain/brain_os.py"},
+]
+
+
 class NeuronWeb:
     """Runs all converters against a NeuronStore and weaves the links."""
 
@@ -283,6 +358,20 @@ class NeuronWeb:
                 now=float(it["ts"]) if it.get("ts") else None)
 
     # ── the full migration ─────────────────────────────────────────────────────
+    def conv_features(self):
+        """Implemented brain/trading FEATURES → skill neurons (R1 stitch, R24 action facet).
+
+        The brain can only USE a capability it knows exists. This registers each shipped
+        feature as an instruction-shaped skill neuron: what it is, and — the mandatory
+        action facet — when to use it, how to activate it (flag), and how to verify. New
+        features get appended here as they land so the web of neurons stays the single
+        source of 'what this brain can do'."""
+        for f in _FEATURE_CATALOG:
+            yield self._upsert(
+                "features", f["key"], "skill", f["title"][:200], f["body"],
+                f["action"], origin="feature-registry", ref=f.get("ref", ""),
+                confidence=0.6)
+
     def convert_all(self) -> dict:
         t0 = time.time()
         report = {name.removeprefix("conv_"): self._run(fn) for name, fn in [
@@ -295,6 +384,7 @@ class NeuronWeb:
             ("conv_decision_episodes", self.conv_decision_episodes),
             ("conv_research_docs", self.conv_research_docs),
             ("conv_learning_log", self.conv_learning_log),
+            ("conv_features", self.conv_features),
         ]}
         report["secs"] = round(time.time() - t0, 2)
         report["store"] = self.store.status()

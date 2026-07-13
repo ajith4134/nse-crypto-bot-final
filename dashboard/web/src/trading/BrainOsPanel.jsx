@@ -93,6 +93,7 @@ export default function BrainOsPanel({ intervalMs = 10000 }) {
         <div style={{ fontSize: 10, color: T.muted, marginTop: 3 }}>
           store: {d.store?.neurons?.toLocaleString()} neurons RAM-resident · {d.store?.links?.toLocaleString()} links
           {wm.focus?.segment && <> · focus <b style={{ color: T.accent }}>{wm.focus.segment}</b></>}
+          {d.scheduler?.next && <> · attends next <b style={{ color: T.good }}>{d.scheduler.next}</b> (tick {d.scheduler.tick})</>}
         </div>
       </div>
 

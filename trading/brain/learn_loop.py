@@ -247,6 +247,14 @@ class LearnLoop:
                                       f"promoted={len(evo['promotions'])}")
         except Exception:
             pass
+        # Brain-OS attention tick (OS-3): advance the resident kernel's scheduler each
+        # cycle so the process table shows which lobe the brain attends next (focus-driven,
+        # fairness-balanced). Advisory + cheap; never gates trading.
+        try:
+            from trading.brain.brain_os import get_kernel
+            get_kernel().tick()
+        except Exception:
+            pass
         # Pillar 17: nightly-grade conformal recalibration (time-gated to every 6h
         # inside maybe_recalibrate — the loop runs each 30m cycle, the refit doesn't).
         try:

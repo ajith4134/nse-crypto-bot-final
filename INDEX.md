@@ -2315,7 +2315,7 @@ _tests/test_loop_keeper.py — runtime self-heal keeper (2026-07-10)._
 
 ## `tests/test_market_guard.py`
 _Tests for trading/market_guard + the two execution doors — multi-market isolation_
-- **classes:** TestClassify, TestMatch, TestExecAdapterDoor
+- **classes:** TestClassify, TestMatch, TestExecAdapterDoor, TestInstrumentKey
 - **imports:** trading.market_guard, unittest
 
 ## `tests/test_memory_assoc.py`
@@ -2585,7 +2585,7 @@ _Tests for trading/broker_sense/screen_mirror.py — the Brain Screen Mirror sto
 ## `tests/test_screener.py`
 _tests/test_screener.py — per-segment screener: offline-safe, deterministic._
 - **classes:** FakeNSESource, FakeCryptoSource, FakeMCXClient
-- **functions:** `test_percent_change_filter_sorts_and_clips()`; `test_volume_filter_ranks_desc_with_min()`; `test_relative_volume_detects_spike()`; `test_realized_volatility_and_range_stability()`; `test_oi_buildup_classification()`; `test_apply_technical_filters_on_synthetic_ohlc()`; `test_apply_technical_filters_handles_garbage()`; `test_screen_nse_movers_ranks_and_scores()`; `test_screen_crypto_spot_filters_quote_and_ranks()`; `test_candidates_uses_live_source_when_available()`; `test_candidates_falls_back_to_stub_when_source_empty(monkeypatch)`; `test_invalid_segment_returns_empty()`; `test_demo_screener_is_pure_offline_stub_all_segments()`; `test_stub_candidates_known_symbols()`; `test_watchlist_dedupes_and_sorts_across_segments()`; `test_status_snapshot_shape()`; `test_resolve_near_month_fut_picks_nearest_and_exact_base(monkeypatch)`; `test_screen_mcx_commodities_emits_dated_fut_symbols(monkeypatch)`
+- **functions:** `_classic_screener_mode(monkeypatch)`; `test_percent_change_filter_sorts_and_clips()`; `test_volume_filter_ranks_desc_with_min()`; `test_relative_volume_detects_spike()`; `test_realized_volatility_and_range_stability()`; `test_oi_buildup_classification()`; `test_apply_technical_filters_on_synthetic_ohlc()`; `test_apply_technical_filters_handles_garbage()`; `test_screen_nse_movers_ranks_and_scores()`; `test_screen_crypto_spot_filters_quote_and_ranks()`; `test_candidates_uses_live_source_when_available()`; `test_candidates_falls_back_to_stub_when_source_empty(monkeypatch)`; `test_invalid_segment_returns_empty()`; `test_demo_screener_is_pure_offline_stub_all_segments()`; `test_stub_candidates_known_symbols()`; `test_watchlist_dedupes_and_sorts_across_segments()`; `test_status_snapshot_shape()`; `test_resolve_near_month_fut_picks_nearest_and_exact_base(monkeypatch)`; `test_screen_mcx_commodities_emits_dated_fut_symbols(monkeypatch)`
 - **imports:** __future__, math, pytest, trading.screener, trading.screener.screener
 
 ## `tests/test_segment_split.py`
@@ -2970,7 +2970,7 @@ _trading/brain/boss.py — the BOSS COMMAND ENGINE: talk to the brain like a bos
 ## `trading/brain/brain_os.py`
 _trading/brain/brain_os.py — the Brain-OS kernel + its own RAM (OS-1)._
 - **classes:** WorkingMemory, BrainKernel
-- **functions:** `_sizeof(obj) -> int`; `_file_age(fname, now) -> float | None`; `_proc_state(age, budget) -> str`; `get_kernel() -> BrainKernel`; `ensure_kernel() -> BrainKernel`
+- **functions:** `_sizeof(obj) -> int`; `_file_age(fname, now) -> float | None`; `_proc_state(age, budget) -> str`; `_focus_match(lobe, focus) -> bool`; `get_kernel() -> BrainKernel`; `ensure_kernel() -> BrainKernel`
 - **imports:** __future__, collections, json, threading, time
 
 ## `trading/brain/briefing.py`
@@ -4503,7 +4503,7 @@ _Barrier-style 3-class labeling for CORTEX lanes (CANON-28; PNP-14/PNP-15)._
 ## `trading/market_guard.py`
 _trading/market_guard.py — the ONE structural boundary between markets._
 - **classes:** MarketSymbolMismatch
-- **functions:** `market_of_symbol(symbol) -> str | None`; `market_matches(market, symbol) -> bool`; `assert_market_symbol(market, symbol) -> None`
+- **functions:** `is_instrument_key(symbol) -> bool`; `market_of_symbol(symbol) -> str | None`; `market_matches(market, symbol) -> bool`; `assert_market_symbol(market, symbol) -> None`
 - **imports:** __future__
 
 ## `trading/market_toggle.py`
