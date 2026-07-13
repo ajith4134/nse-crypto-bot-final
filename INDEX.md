@@ -2048,6 +2048,11 @@ _Phase P4.8 (Multimodal + identity + society + affect) acceptance tests._
 - **classes:** TestAffect, TestIdentity, TestSociety, TestSensesDegrade, TestEmbodiment, TestDemo
 - **imports:** __future__, cognition.affect, cognition.embodiment, cognition.identity, cognition.society, os, tempfile, unittest, warnings
 
+## `tests/test_endpoint_discovery.py`
+_Tests for endpoint_discovery (adopt item 4) — surface unmapped web-app data endpoints._
+- **classes:** TestDiscover
+- **imports:** pathlib, tempfile, trading, trading.broker_sense, unittest
+
 ## `tests/test_entry_meta_cache.py`
 _Regression: entry_meta.lookup must parse the sidecar file ONCE per file change._
 - **classes:** EntryMetaCacheTest
@@ -3483,6 +3488,11 @@ _trading/broker_sense/data_sources.py — per-broker PUBLIC-vs-ACCOUNT data-sour
 _trading/broker_sense/direct_feeds.py — record market-data routes for WEBSOCKET-ONLY feeds that a_
 - **functions:** `has_feed(broker, kind) -> bool`; `verify_and_record(broker, kind, app_map) -> bool`
 - **imports:** __future__, asyncio, json
+
+## `trading/broker_sense/endpoint_discovery.py`
+_trading/broker_sense/endpoint_discovery.py — surface UNMAPPED web-app data endpoints (adopt item 4)._
+- **functions:** `_is_noise(pattern) -> bool`; `_looks_like_market_data(row) -> bool`; `discover(broker) -> dict`; `report(broker) -> str`
+- **imports:** __future__, json, trading, typing
 
 ## `trading/broker_sense/exec_adapter.py`
 _trading/broker_sense/exec_adapter.py — APIs are used ONLY here (owner's step 8)._
