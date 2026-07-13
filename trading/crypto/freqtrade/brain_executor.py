@@ -724,8 +724,18 @@ class BrainExecutor:
                             _ll = _lsig.get(_lsrc) or {}
                             if _ll.get("available") and _ll.get("p_up") is not None:
                                 _reads.append((_lsrc, _ll.get("p_up")))
+                        try:                          # B fix: the direction model as a source
+                            from trading.direction import direction_model as _dmod   # HERE its
+                            from trading.direction import meta_labeler as _mlab       # f_* features
+                            _ff = _mlab.lens_features(_lsig.get("indicator_fusion"))  # exist
+                            _pmf = _dmod.predict(_ff)
+                            if _pmf is not None:
+                                _reads.append((_dmod.SOURCE, _pmf))
+                        except Exception:
+                            pass
                         _ldo = _ld.decide(_reads, market="CRYPTO",
-                                          segment=self.segment or "futures", regime=_lreg)
+                                          segment=self.segment or "futures", regime=_lreg,
+                                          symbol=sym)
                         if not _ldo.get("abstained") and _ldo.get("direction") in ("long", "short"):
                             _lact = _ldo["direction"].upper()
                             try:

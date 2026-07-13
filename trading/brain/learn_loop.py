@@ -270,6 +270,17 @@ class LearnLoop:
                                        "neurons": snap.get("neurons")}
         except Exception:
             pass
+        # Truth-resolution CATCH-UP (2026-07-13 fix): the funnel's inline tick(15s) can't keep
+        # up with the pending-claim backlog, so claims age past their live-quote probe window
+        # and expire as no_data — leaving every direction source unproven (n=0). Run a bigger
+        # budget here each cycle so fresh claims RESOLVE promptly and sources earn their edge.
+        try:
+            from trading.direction import truth_ledger as _tl
+            tr = _tl.tick(budget_s=float(os.environ.get("TRUTH_CATCHUP_BUDGET_S", "45")))
+            if tr.get("resolved"):
+                st["last_truth_catchup"] = {"ts": time.time(), **tr}
+        except Exception:
+            pass
         # Direction model tick (proposal B): retrain the direction-aware GBM on the truth
         # ledger's resolved outcomes so it sharpens as microstructure-featured examples
         # accumulate. Time-gated to BRAIN_DIRMODEL_INTERVAL_H (default 6h); CPU-only.
