@@ -229,3 +229,4 @@ alphalens-reloaded      # factor IC scorer (offline eval utility, not a node —
 #   OU/Bollinger mean-reversion, market-factor/betting-against-beta (FF replacement from panel).
 # Black-Litterman NOT built: needs subjective investor views (not price-derivable). alphalens
 #   used as offline scorer only (forward-return based -> would leak as a node feature).
+protobuf-inspector  # web-feed schema-drift diagnosis (feed_selfheal)

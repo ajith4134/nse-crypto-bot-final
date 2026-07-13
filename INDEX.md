@@ -2110,6 +2110,11 @@ _HumanUI.navigate() — the fast_nav wiring (ledger #10): plan → try → recor
 - **functions:** `_ui(page)`
 - **imports:** pathlib, unittest
 
+## `tests/test_feed_selfheal.py`
+_Tests for feed_selfheal (adopt item 2) — web-feed schema-drift detection + diagnosis._
+- **classes:** _Base, TestProtobuf, TestJson
+- **imports:** trading.broker_sense, unittest
+
 ## `tests/test_file_memory.py`
 _Tests for memory/file_memory.py — Claude-style durable file memory (Phase B)._
 - **functions:** `test_write_creates_note_and_index(tmp_path)`; `test_persists_across_processes_and_recalls(tmp_path)`; `test_keyword_fallback_without_associative(tmp_path)`
@@ -3489,6 +3494,11 @@ _trading/broker_sense/fast_candles.py — direction from OHLCV DATA, not chart s
 - **functions:** `_ema(vals, n) -> float`; `_rsi(closes, n) -> float`; `_clamp(x, lo, hi) -> float`; `direction_from_ohlcv(rows) -> dict`; `_tf_seconds(tf) -> int`; `_ohlcv_fast(sym, market, tf) -> list | None`; `read(picks, market, timeframes, deadline) -> dict[str, dict[str, dict]]`
 - **imports:** __future__, os, time, trading.broker_sense
 
+## `trading/broker_sense/feed_selfheal.py`
+_trading/broker_sense/feed_selfheal.py — detect + diagnose web-feed SCHEMA DRIFT (adopt item 2)._
+- **functions:** `_enabled() -> bool`; `_st(broker) -> dict`; `inspect_protobuf(raw) -> str`; `_alert(broker, st, detail) -> None`; `note(broker) -> None`; `note_json(broker, msg) -> None`; `status() -> dict`
+- **imports:** __future__, os, re, subprocess, sys, threading, time, typing
+
 ## `trading/broker_sense/funnel.py`
 _trading/broker_sense/funnel.py — the cascade orchestrator (savers B + I: every cycle_
 - **classes:** BrokerSenseFunnel
@@ -3635,7 +3645,7 @@ _trading/broker_sense/ui_market.py — UI-ONLY market data for EVERYTHING beyond
 
 ## `trading/broker_sense/upstox_feed.py`
 _trading/broker_sense/upstox_feed.py — decode the Upstox web app's protobuf WS frames._
-- **functions:** `_pb_modules() -> list`; `matches(url) -> bool`; `_parse(raw)`; `_feed_parts(feed)`; `_q(quote) -> float`; `decode_frame(broker, url, raw) -> int`
+- **functions:** `_pb_modules() -> list`; `matches(url) -> bool`; `_parse(raw)`; `_feed_parts(feed)`; `_q(quote) -> float`; `decode_frame(broker, url, raw) -> int`; `_selfheal(broker, url, stored, raw) -> None`
 - **imports:** __future__, pathlib, sys, time
 
 ## `trading/broker_sense/vision_worker.py`

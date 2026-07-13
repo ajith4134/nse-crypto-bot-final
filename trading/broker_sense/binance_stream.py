@@ -80,12 +80,14 @@ class BinanceUniverseMirror:
     # ── frame parsing (PURE — unit-testable without a socket) ────────────────
     def _apply_frame(self, msg: dict) -> None:
         """Apply one combined-stream frame ({"stream","data"}) to the in-RAM snapshot. Never raises."""
+        applied = False
         try:
             stream = msg.get("stream", "")
             data = msg.get("data")
             now = time.time()
             self._last_msg_ts = now
             if stream.startswith("!markPrice") and isinstance(data, list):
+                applied = True
                 with self._lock:
                     for d in data:
                         s = d.get("s")
@@ -98,6 +100,7 @@ class BinanceUniverseMirror:
                             "ts": now,
                         }
             elif stream.startswith("!ticker") and isinstance(data, list):
+                applied = True
                 with self._lock:
                     for d in data:
                         s = d.get("s")
@@ -113,6 +116,7 @@ class BinanceUniverseMirror:
                             "ts": now,
                         }
             elif stream.startswith("!forceOrder"):
+                applied = True
                 o = (data or {}).get("o") if isinstance(data, dict) else None
                 if isinstance(o, dict) and o.get("s"):
                     with self._lock:
@@ -121,6 +125,14 @@ class BinanceUniverseMirror:
                             "qty": _f(o.get("q")), "price": _f(o.get("p")),
                             "ts": _i(o.get("T")) / 1000.0 if o.get("T") else now,
                         })
+        except Exception:
+            pass
+        # JSON schema-drift watcher (adopt item 2): only DATA frames (those carrying a
+        # "stream") count — subscription acks / pings must not look like a decode failure.
+        try:
+            if isinstance(msg, dict) and msg.get("stream"):
+                from trading.broker_sense import feed_selfheal
+                feed_selfheal.note_json("binance", msg, ok=applied)
         except Exception:
             pass
 

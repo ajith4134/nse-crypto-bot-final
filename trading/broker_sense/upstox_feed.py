@@ -124,6 +124,7 @@ def decode_frame(broker: str, url: str, raw: bytes) -> int:
         return 0
     fr = _parse(raw)
     if fr is None:
+        _selfheal(broker, url, 0, raw)      # frame arrived but decoded to nothing → maybe drift
         return 0
     from trading.broker_sense import ui_data, ui_market
     stored = 0
@@ -169,4 +170,16 @@ def decode_frame(broker: str, url: str, raw: bytes) -> int:
                     "ts": time.time()})
         except Exception:
             continue
+    _selfheal(broker, url, stored, raw)
     return stored
+
+
+def _selfheal(broker: str, url: str, stored: int, raw: bytes) -> None:
+    """Feed the schema-drift watcher (adopt item 2) — only for real Upstox feed URLs, so a
+    non-Upstox binary frame that legitimately decodes to 0 never trips a false drift alert."""
+    try:
+        if matches(url):
+            from trading.broker_sense import feed_selfheal
+            feed_selfheal.note(broker, stored=stored, raw=raw)
+    except Exception:
+        pass
