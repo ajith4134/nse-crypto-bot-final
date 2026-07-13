@@ -122,9 +122,16 @@ class SelfEvaluation:
             return None
 
     # ── R22: genius-use on ALL the things ──────────────────────────────────────
+    # kinds meant to inform live decisions — the honest denominator for genius-use.
+    # (episode/source/exam are historical/provenance records rarely re-consulted, so
+    # including them in the denominator deflates the metric misleadingly.)
+    ACTIONABLE_KINDS = {"strategy", "instruction", "finding", "lesson", "skill", "concept",
+                        "fact"}
+
     def genius_use(self) -> dict:
         by_domain: dict[str, dict] = {}
         used = total = 0
+        act_used = act_total = 0
         for n in self.store.all_neurons():
             if n.kind == "exam":
                 continue
@@ -132,6 +139,10 @@ class SelfEvaluation:
             tu = int(n.stats.get("times_used", 0))
             if tu:
                 used += 1
+            if n.kind in self.ACTIONABLE_KINDS:            # honest denominator
+                act_total += 1
+                if tu:
+                    act_used += 1
             for dom, rec in (n.stats.get("by_domain") or {}).items():
                 if not isinstance(rec, dict):         # legacy int = uses only
                     rec = {"uses": int(rec or 0), "wins": 0, "losses": 0}
@@ -142,8 +153,9 @@ class SelfEvaluation:
                 d["wins"] += int(rec.get("wins", 0))      # per-domain outcomes only —
                 d["losses"] += int(rec.get("losses", 0))  # never the neuron's totals
         out = {"knowledge_use_rate": round(used / total, 4) if total else 0.0,
+               "actionable_use_rate": round(act_used / act_total, 4) if act_total else 0.0,
                "neurons_ever_used": used, "neurons_total": total,
-               "by_domain": by_domain}
+               "actionable_total": act_total, "by_domain": by_domain}
         self._merge_report({"genius_use": out})
         return out
 

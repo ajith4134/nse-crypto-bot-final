@@ -96,9 +96,14 @@ class SelfEvaluationTest(unittest.TestCase):
         n2 = self.store.add("instruction", "nav route", "1) x", "act", auto_link=False)
         self.store.record_use(n1.id, win=True, domain="trading")
         self.store.record_use(n2.id, win=True, domain="navigation")
+        self.store.add("episode", "old trade", "b" * 50, "act", auto_link=False)  # not actionable
         out = SelfEvaluation(self.store, llm=lambda p: None).genius_use()
         self.assertEqual(set(out["by_domain"]), {"trading", "navigation"})
         self.assertEqual(out["neurons_ever_used"], 2)
+        # honest denominator: episode excluded from actionable → fact+instruction = 2 actionable
+        self.assertEqual(out["actionable_total"], 2)
+        self.assertEqual(out["actionable_use_rate"], 1.0)          # both actionable were used
+        self.assertLess(out["knowledge_use_rate"], 1.0)           # raw diluted by the episode
 
     def test_llm_parity_r23(self):
         for i in range(4):

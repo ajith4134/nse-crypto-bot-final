@@ -226,6 +226,33 @@ class NeuronWeb:
                                str(spec.get("name") or sid)[:200], body, action,
                                origin="book", ref="trading/state/strategy_foundry.json")
 
+    def conv_strategy_recipes(self):
+        """The institutional strategy specs → FOLLOWABLE, market-scoped INSTRUCTION neurons
+        (R7). Each strategy becomes a how-to-trade recipe the brain can APPLY (apply.select)
+        and the evolver can MUTATE — so the instruction library has real actionable material
+        from day one instead of waiting for induced trade recipes to accumulate. Market is
+        part of the identity (crypto vs nse never mix)."""
+        d = _load("strategy_foundry.json") or {}
+        for spec in d.get("specs", []):
+            name = spec.get("name") or spec.get("sid")
+            if not name:
+                continue
+            seg = str(spec.get("segment") or "").lower()
+            market = "crypto" if "crypto" in seg else "nse"
+            idea = str(spec.get("idea") or "")
+            family = spec.get("family") or "its"
+            body = (f"1) Confirm the market is {market} and the {family} regime fits.\n"
+                    f"2) Set up '{name}': {idea[:220] or 'see the strategy library'}\n"
+                    f"3) Confirm required data is available: {spec.get('data_req')}.\n"
+                    f"4) Size within the {market} risk cap and enter per the setup's trigger.")
+            action = (f"Use ONLY in the {market} market when the {family} family matches the "
+                      f"regime; follow '{name}'. Verify: the entry trigger fired and p_win "
+                      f"clears the gate. Do NOT apply to any other market.")
+            yield self._upsert("strat_recipe", f"{market}:{name}", "instruction",
+                               f"Trade recipe [{market}]: {name}"[:200], body, action,
+                               origin="book", ref=f"trade:{market}:strategy-library",
+                               confidence=0.5)
+
     def conv_hypotheses(self):
         """hypotheses.json (hypothesis ledger) → finding (tested) / lesson (failed)."""
         d = _load("hypotheses.json") or {}
@@ -378,6 +405,7 @@ class NeuronWeb:
             ("conv_file_memory", self.conv_file_memory),
             ("conv_skill_library", self.conv_skill_library),
             ("conv_strategy_foundry", self.conv_strategy_foundry),
+            ("conv_strategy_recipes", self.conv_strategy_recipes),
             ("conv_hypotheses", self.conv_hypotheses),
             ("conv_news", self.conv_news),
             ("conv_journal", self.conv_journal),

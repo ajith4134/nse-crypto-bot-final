@@ -117,9 +117,9 @@ function SelfEval({ ev, onRun, running }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
-        <Tile label="genius-use (all the things, R22)" value={pct(gu?.knowledge_use_rate, 2)}
-              sub={`${gu?.neurons_ever_used ?? 0}/${gu?.neurons_total ?? 0} neurons ever used · domains: ${Object.keys(gu?.by_domain || {}).join(', ') || 'none yet'}`}
-              color={scoreCol(gu?.knowledge_use_rate)} />
+        <Tile label="genius-use (actionable, R22)" value={pct(gu?.actionable_use_rate, 1)}
+              sub={`${gu?.neurons_ever_used ?? 0}/${gu?.actionable_total ?? 0} actionable used (raw ${pct(gu?.knowledge_use_rate, 1)} incl. episodes) · ${Object.keys(gu?.by_domain || {}).join(', ') || 'none yet'}`}
+              color={scoreCol(gu?.actionable_use_rate)} />
         <Tile label="agentic time horizon" value={th?.ok ? `${Math.round((th.current_run_secs || 0) / 60)}m` : '—'}
               sub={th?.ok ? `longest run ${Math.round(th.longest_run_secs / 60)}m · last event ${th.last_event_age_secs}s ago` : th?.note}
               color={th?.current_run_secs > 0 ? T.good : T.warn} />
