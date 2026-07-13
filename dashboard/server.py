@@ -244,7 +244,9 @@ OPEN_TRADE_COLUMNS = [
     # profit-tailgate ratchet (owner 2026-07-07: every crypto AND NSE trade) — the locked
     # profit floor + the trail distance in use (brain-learned via profit_tailgate.learn)
     "Tailgate Lock", "Tailgate Trail",
-    "R-multiple", "Efficiency", "Strategy", "Exchange", "Exit Policy",
+    # Filter = the Binance-filter preset that surfaced the pick (momentum/squeeze/funding_extreme/
+    # liquidity); Strategy = the trade's strategy — kept in SEPARATE columns (owner 2026-07-13).
+    "R-multiple", "Efficiency", "Filter", "Strategy", "Exchange", "Exit Policy",
     "Liq Price", "Hold Time", "Confidence",
     # NEW brain output net (SymbolMoveNet, 2026-07-13): predicted signed price-move % (primary,
     # sign=direction) + the derived direction — this is the "what we implemented" output.

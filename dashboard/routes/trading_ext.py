@@ -720,6 +720,21 @@ def handle_skills_status(h):
     return h._send(200, body, "application/json")
 
 
+def _filter_preset_of(d: dict) -> str:
+    """The Binance-filter PRESET that surfaced a trade — its own column, separate from the strategy
+    (owner 2026-07-13). From the 'filter:<preset>' enter_tag, else the entry snapshot's
+    brain.filter.filter_preset, else '—'."""
+    tag = str(d.get("enter_tag") or d.get("strategy") or d.get("strategy_name") or "")
+    if tag.startswith("filter:"):
+        return tag.split(":", 1)[1] or "—"
+    ds = d.get("decision_snapshot")
+    if isinstance(ds, dict):
+        fp = ((ds.get("brain") or {}).get("filter") or {}).get("filter_preset")
+        if fp:
+            return str(fp)
+    return "—"
+
+
 def handle_brain_status(h):
     """GET /api/trading/brain/status — honest T8.9 FINALE end-to-end brain pipeline + safety review
     snapshot (BrainTradingPipeline drives CRYPTO + NSE off ONE path: features→regime→pattern/
@@ -1068,7 +1083,7 @@ def handle_opentrades(h):
                 **_tg_cells(p.get("tailgate_locked_profit_pct"),
                             p.get("tailgate_distance_pct")),
                 "R-multiple": rmult_txt, "Efficiency": eff_txt,
-                "Strategy": p.get("strategy", "momentum"),
+                "Filter": _filter_preset_of(p), "Strategy": p.get("strategy", "momentum"),
                 "Exchange": "binance" if p["market"] == "CRYPTO" else "NSE",
                 "Exit Policy": exit_policy, "Liq Price": liq_txt, "Hold Time": hold,
                 "Confidence": conf_txt,
@@ -1122,6 +1137,7 @@ def handle_opentrades(h):
                     "Stop": stop_txt, "Trail Stop": stop_txt,
                     **_tg_cells(_lk.get("locked"), _lk.get("dist")),
                     "R-multiple": "—", "Efficiency": "—",
+                    "Filter": _filter_preset_of(t),
                     "Strategy": t.get("enter_tag") or t.get("strategy") or "freqtrade",
                     "Exchange": t.get("exchange", "binance"),
                     "Exit Policy": "freqtrade-managed", "Liq Price": "—",
@@ -1157,7 +1173,7 @@ def handle_opentrades(h):
                     "Peak P/L": "—", "Stop": "—", "Trail Stop": "—",
                     "Tailgate Lock": "—", "Tailgate Trail": "—",
                     "R-multiple": "—", "Efficiency": "—",
-                    "Strategy": p.get("strategy") or "openalgo",
+                    "Filter": _filter_preset_of(p), "Strategy": p.get("strategy") or "openalgo",
                     "Exchange": p.get("exchange", "NSE"),
                     "Exit Policy": "openalgo-managed", "Liq Price": "—",
                     "Hold Time": "—", "Confidence": "—",
