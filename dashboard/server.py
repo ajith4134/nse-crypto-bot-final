@@ -1375,6 +1375,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/mirror/stream":              # M: LIVE MJPEG mirror (2026-07-11)
             from dashboard.routes import trading_ext
             return trading_ext.handle_mirror_stream(self)
+        if path == "/api/trading/postmortem":                 # Trade Post-Mortem & Excursion (2026-07-13)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_postmortem(self)
         if path == "/api/trading/confidence":                 # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_confidence(self)

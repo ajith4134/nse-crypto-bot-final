@@ -98,6 +98,14 @@ def _ohlcv_fast(sym: str, market: str, tf: str) -> list | None:
             return rows
     except Exception:
         pass
+    if market == "crypto":                    # RAM-first: in-RAM WS-mirror candles (motto-pure, no
+        try:                                  # API); allowed under UI-only (web-sourced) and before ccxt
+            from trading.broker_sense import binance_stream as _bs
+            mrows = _bs.ohlcv(sym, tf, _BARS)
+            if mrows is not None:
+                return mrows
+        except Exception:
+            pass
     if ui_on:
         try:
             # honest miss — data_failsafe.ohlcv re-checks the door then returns None,

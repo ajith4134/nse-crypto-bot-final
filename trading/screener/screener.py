@@ -396,7 +396,10 @@ def screen_crypto_options(source: Any, *, limit: int = 5,
 class Screener:
     """Per-segment ranked screener with offline-safe stub fallback."""
 
-    def __init__(self, nse_source: Any = None, crypto_source: Any = None):
+    def __init__(self, nse_source: Any = None, crypto_source: Any = None, *, demo: bool = False):
+        # demo=True is the ONLY way the hardcoded stub is served (offline dashboard via
+        # build_demo_screener); every live screener hard-abstains on an empty result (no fake data).
+        self._demo = demo
         # Lazy default live sources (degrade internally to []/None).
         if nse_source is None:
             try:
@@ -482,11 +485,15 @@ class Screener:
         if live:
             self._last[key] = "live"
             return live[:limit]
-        if nse_ui:
-            self._last[key] = "ui-abstain"       # eyes haven't fed NSE candidates → no trade
-            return []
-        self._last[key] = "stub"
-        return stub_candidates(m, s, limit=limit)
+        if self._demo:                           # explicit offline dashboard demo ONLY
+            self._last[key] = "stub"
+            return stub_candidates(m, s, limit=limit)
+        # HARD ABSTAIN when no live candidates (owner 2026-07-13: never seed a hardcoded/stub symbol
+        # into a real screen — that was the one HIGH demo-data path that could reach a paper trade).
+        # Crypto scans the RAM mirror (screen_crypto_futures) and NSE the Upstox UI; an empty result
+        # means "nothing qualified", which is an honest no-trade, NOT a fake fallback.
+        self._last[key] = "ui-abstain" if (nse_ui or m == "CRYPTO") else "abstain"
+        return []
 
     def watchlist(self, market: str, segments: list[str], *,
                   per_segment: int = 3, filters: dict | None = None) -> list[dict]:
@@ -518,8 +525,8 @@ class Screener:
 
 
 def build_demo_screener() -> Screener:
-    """Dashboard demo: a Screener with NO live sources → always returns stubs."""
-    sc = Screener(nse_source=None, crypto_source=None)
+    """Dashboard demo: a Screener with NO live sources → always returns stubs (demo=True opt-in)."""
+    sc = Screener(nse_source=None, crypto_source=None, demo=True)
     sc.nse = None          # force pure-offline: never touch the network
     sc.crypto = None
     return sc

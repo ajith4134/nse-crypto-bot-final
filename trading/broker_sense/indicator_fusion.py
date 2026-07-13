@@ -255,16 +255,28 @@ def _fetch(sym: str, market: str, tf: str, bars: int = _BARS) -> list | None:
     record when the eyes haven't seen this symbol/tf (never a silent API fallback).
     Flag off: ccxt direct (fast) with data_failsafe fallback, as before."""
     from trading.broker_sense import ui_data
-    if ui_data.enabled():
+    _ui = ui_data.enabled()
+    # RAM/web-first candle sources (both motto-pure — NO API): under UI_ONLY the eyes' captured
+    # kline (with real volume) is preferred; then the in-RAM WS-mirror mark-price candles for the
+    # timeframes it aggregates (1m/5m/15m). Only if BOTH miss do we consider the API paths — and
+    # under UI_ONLY the API paths stay closed (honest None).
+    if _ui:
         rows = ui_data.ui_ohlcv(sym, timeframe=tf, limit=bars)
-        if rows is None:
-            try:
-                from trading import evidence
-                evidence.record_data_failure("ui_data",
-                                             f"no fresh UI candles for {sym} {tf}")
-            except Exception:
-                pass
-        return rows
+        if rows:
+            return rows
+    if market == "crypto":
+        from trading.broker_sense import binance_stream as _bs
+        mrows = _bs.ohlcv(sym, tf, bars)               # in-RAM WS-mirror candles (no API)
+        if mrows is not None:
+            return mrows
+    if _ui:                                            # UI-only: eyes + mirror both missed → honest miss
+        try:
+            from trading import evidence
+            evidence.record_data_failure(
+                "ui_data", f"no fresh UI/mirror candles for {sym} {tf}")
+        except Exception:
+            pass
+        return None
     if market == "crypto":
         try:
             from trading.broker_sense.app_school import _ccxt_exchange
@@ -647,10 +659,58 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
         except Exception:
             options_regime = None
 
+    # ── POST-MORTEM feedback (close-the-loop, owner ask 2026-07-13): match THIS live candidate
+    # against the mined winning/losing trade patterns. When POSTMORTEM_FEEDBACK is on, a proven
+    # losing pattern shrinks size (via meta.size_mult, the existing sizing seam) and a proven
+    # winner can grow it; the historically-measured ideal-entry offset nudges the planned entry
+    # toward the better price. The signal also rides out as its OWN block so the funnel records
+    # it as the `postmortem_pattern` truth-ledger source (learned_direction then weights it by its
+    # MEASURED edge). Report-only until the flag is set; market-isolated; never raises here.
+    postmortem = None
+    try:
+        from trading.brain import postmortem as _pm
+        if _pm._enabled():
+            _mk = "NSE" if str(market).lower() in ("nse", "india", "upstox") else "CRYPTO"
+            # Only features whose live semantics EXACTLY match the mined column are passed, so a rule
+            # never matches on a wrong-scale value: p_up (fusion=P(LONG) vs mined=conformal P(net>0))
+            # and psych_fear (order_flow.fear vs journal psych_fear) are deliberately omitted.
+            _feats = {
+                "direction": direction.upper() if direction in ("long", "short") else None,
+                "regime": str(regime).lower(), "confluence": round(confluence, 4),
+            }
+            if _mk == "CRYPTO":                     # enrich with the SAME full RAM filter set + 24h
+                try:                                # volume the miner trained on (all from RAM, no API)
+                    from trading.direction import app_signals as _asig
+                    for _s, _p in (_asig.collect(symbol, market="crypto").get("signals") or []):
+                        _feats["flt_" + _s.split(":", 1)[1]] = round(float(_p), 4)
+                    from trading.broker_sense.binance_stream import get_mirror
+                    _tk = get_mirror().ticker(symbol) or {}
+                    _feats["quote_volume_24h"] = _tk.get("quote_volume")
+                    _feats["pct_change_24h"] = _tk.get("pct_change")
+                except Exception:
+                    pass
+            _sig = _pm.pattern_signal(_feats, _mk, regime)
+            _off = _pm.entry_offset(symbol, regime, _mk)
+            postmortem = {**_sig, "entry_offset": (_off or None)}
+            if _pm.feedback_enabled() and not _sig.get("abstained"):
+                _sm = _sig.get("size_mult") or 1.0
+                if _sm != 1.0:
+                    meta = {**meta, "size_mult": round((meta.get("size_mult", 1.0) or 1.0) * _sm, 3),
+                            "postmortem_size_mult": _sm}
+                _op = (_off or {}).get("offset_pct")
+                if _op and barriers and barriers.get("entry"):
+                    _adj = barriers["entry"] * (float(_op) / 100.0)
+                    _ideal = (barriers["entry"] - _adj) if direction == "long" else (barriers["entry"] + _adj)
+                    barriers = {**barriers, "entry_ideal": round(_ideal, 8),
+                                "entry_offset_pct": round(float(_op), 4)}
+    except Exception:
+        postmortem = None
+
     return {
         "symbol": symbol, "available": True, "source": "indicator_fusion",
         "direction": direction, "p_up": p_up, "confluence": round(confluence, 4),
         "regime": regime, "veto": veto, "vision_agree": vision_agree,
+        "postmortem": postmortem,
         "vision_dir": round(vision_dir, 4) if vision_dir is not None else None,
         "trigger_tf": trig_tf, "bias_tf": bias_tf,
         "barriers": barriers, "meta": meta, "order_flow": order_flow, "catalyst": catalyst,

@@ -169,20 +169,23 @@ def test_candidates_uses_live_source_when_available():
     assert sc.status()["last_modes"]["NSE:intraday"] == "live"
 
 
-def test_candidates_falls_back_to_stub_when_source_empty(monkeypatch):
-    # Commodities resolve via the OpenAlgo broker; simulate the offline case (no broker)
-    # so the deterministic stub fallback is exercised with NO network.
+def test_live_candidates_hard_abstain_when_source_empty(monkeypatch):
+    # Owner 2026-07-13: a LIVE screener NEVER serves the hardcoded stub — an empty live source
+    # is a HARD ABSTAIN (honest no-trade), so a fake symbol can never reach a real paper trade.
     from trading.screener import commodities as _C
     monkeypatch.setattr(_C, "_broker", lambda: None)
+    # the all-market mirror is a process-global singleton another test may have warmed → force the
+    # crypto screen off the mirror so this deterministically exercises the empty-live-source path.
+    monkeypatch.setenv("BINANCE_MIRROR_UNIVERSE", "0")
 
     class Empty:
         name = "empty"
         def __getattr__(self, _):
             return lambda *a, **k: []
     sc = Screener(nse_source=Empty(), crypto_source=Empty())
-    out = sc.candidates("NSE", "commodities", limit=4)
-    assert out and out[0]["metrics"]["source"] == "stub"
-    assert {c["symbol"] for c in out} & {"GOLD", "CRUDEOIL"}
+    assert sc.candidates("NSE", "commodities", limit=4) == []      # abstain, not stub
+    assert sc.candidates("CRYPTO", "futures", limit=4) == []       # crypto too
+    assert sc._last["CRYPTO:futures"] == "ui-abstain"
 
 
 def test_invalid_segment_returns_empty():

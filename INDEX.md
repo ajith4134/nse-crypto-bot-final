@@ -1772,9 +1772,9 @@ _tests/test_binance_sectors.py — Binance-native sector taxonomy + rotation._
 
 ## `tests/test_binance_stream.py`
 _tests/test_binance_stream.py — Binance all-market in-RAM mirror._
-- **classes:** TestBinanceMirror, TestScreenerMirrorMigration
+- **classes:** TestBinanceMirror, TestScreenerMirrorMigration, TestMirrorOHLCVAdapter
 - **functions:** `_mark_frame(rows)`; `_ticker_frame(rows)`; `_liq_frame(sym, side, qty, price, ts_ms)`
-- **imports:** time, trading.broker_sense.binance_stream, unittest
+- **imports:** os, time, trading.broker_sense.binance_stream, unittest
 
 ## `tests/test_boss_command.py`
 _Boss command engine (trading/brain/boss.py) + mind-event bus (mind_events.py) + R&D drive_
@@ -2637,7 +2637,7 @@ _Tests for trading/broker_sense/screen_mirror.py — the Brain Screen Mirror sto
 ## `tests/test_screener.py`
 _tests/test_screener.py — per-segment screener: offline-safe, deterministic._
 - **classes:** FakeNSESource, FakeCryptoSource, FakeMCXClient
-- **functions:** `_classic_screener_mode(monkeypatch)`; `test_percent_change_filter_sorts_and_clips()`; `test_volume_filter_ranks_desc_with_min()`; `test_relative_volume_detects_spike()`; `test_realized_volatility_and_range_stability()`; `test_oi_buildup_classification()`; `test_apply_technical_filters_on_synthetic_ohlc()`; `test_apply_technical_filters_handles_garbage()`; `test_screen_nse_movers_ranks_and_scores()`; `test_screen_crypto_spot_filters_quote_and_ranks()`; `test_candidates_uses_live_source_when_available()`; `test_candidates_falls_back_to_stub_when_source_empty(monkeypatch)`; `test_invalid_segment_returns_empty()`; `test_demo_screener_is_pure_offline_stub_all_segments()`; `test_stub_candidates_known_symbols()`; `test_watchlist_dedupes_and_sorts_across_segments()`; `test_status_snapshot_shape()`; `test_resolve_near_month_fut_picks_nearest_and_exact_base(monkeypatch)`; `test_screen_mcx_commodities_emits_dated_fut_symbols(monkeypatch)`
+- **functions:** `_classic_screener_mode(monkeypatch)`; `test_percent_change_filter_sorts_and_clips()`; `test_volume_filter_ranks_desc_with_min()`; `test_relative_volume_detects_spike()`; `test_realized_volatility_and_range_stability()`; `test_oi_buildup_classification()`; `test_apply_technical_filters_on_synthetic_ohlc()`; `test_apply_technical_filters_handles_garbage()`; `test_screen_nse_movers_ranks_and_scores()`; `test_screen_crypto_spot_filters_quote_and_ranks()`; `test_candidates_uses_live_source_when_available()`; `test_live_candidates_hard_abstain_when_source_empty(monkeypatch)`; `test_invalid_segment_returns_empty()`; `test_demo_screener_is_pure_offline_stub_all_segments()`; `test_stub_candidates_known_symbols()`; `test_watchlist_dedupes_and_sorts_across_segments()`; `test_status_snapshot_shape()`; `test_resolve_near_month_fut_picks_nearest_and_exact_base(monkeypatch)`; `test_screen_mcx_commodities_emits_dated_fut_symbols(monkeypatch)`
 - **imports:** __future__, math, pytest, trading.screener, trading.screener.screener
 
 ## `tests/test_segment_split.py`
@@ -2713,6 +2713,12 @@ _Phase P4.6 (Stream-of-Mind + observability) acceptance tests — fully offline.
 _W2 scientific-method rails tests — isolated STATE_DIR._
 - **classes:** SurfaceRailsTest
 - **imports:** pathlib, tempfile, unittest
+
+## `tests/test_symbol_move_net.py`
+_tests/test_symbol_move_net.py — the brain's multi-head OUTPUT network (owner ask 2026-07-13)._
+- **classes:** TestFeatureRow, TestTrainingAndPrediction
+- **functions:** `_trade(direction, move_pct)`
+- **imports:** math, trading.brain, unittest
 
 ## `tests/test_thinking_p45.py`
 _Phase P4.5 (Thinking + knowing-what-it-knows) acceptance tests — fully offline._
@@ -3367,6 +3373,12 @@ _trading/brain/surface.py — W2 scientific-method rails for EVERY self-tuning o
 - **functions:** `owner_of(knob) -> str | None`; `can_write(optimizer, knob) -> tuple[bool, str]`; `mode(optimizer) -> str`; `set_mode(optimizer, new_mode) -> dict`; `_window_days() -> float`; `_one_variable_enabled() -> bool`; `_scope_of(knob) -> str`; `_recent_changes(optimizer, since_s) -> list[dict]`; `_append_ledger(entry) -> None`; `record_change(optimizer) -> dict`; `status() -> dict`
 - **imports:** __future__, fnmatch, time, trading
 
+## `trading/brain/symbol_move_net.py`
+_trading/brain/symbol_move_net.py — the brain's OUTPUT network, changed on owner ask 2026-07-13._
+- **classes:** _NumpyRidge, _NumpyLogRegDir, SymbolMoveNet
+- **functions:** `enabled() -> bool`; `_market_context(trade) -> dict`; `_ram_row(trade) -> list[float]`; `move_feature_row(trade) -> list[float]`; `_move_pct(trade) -> float | None`; `get_move_net(closed_rows) -> SymbolMoveNet`; `refresh(closed_rows) -> dict`; `consult(ctx) -> dict`
+- **imports:** __future__, math, os, trading.brain.trade_features
+
 ## `trading/brain/track_record.py`
 _trading/brain/track_record.py — W7 track records + rule-of-three + meta-articles._
 - **functions:** `_store() -> dict`; `bump(actor) -> dict`; `mark_supervised_success(actor) -> dict`; `rule_of_three(actor) -> dict`; `trust(actor) -> dict`; `meta_note(actor) -> bool`; `drain_meta_queue(max_items) -> int`; `report_card() -> dict`
@@ -3490,7 +3502,7 @@ _trading/broker_sense/binance_sectors.py — Binance-native sector taxonomy + ro
 ## `trading/broker_sense/binance_stream.py`
 _trading/broker_sense/binance_stream.py — Binance all-market WEBSOCKET mirror (compute-offload)._
 - **classes:** BinanceUniverseMirror
-- **functions:** `depth_enabled() -> bool`; `enabled() -> bool`; `_f(v)`; `_i(v)`; `get_mirror() -> BinanceUniverseMirror`
+- **functions:** `depth_enabled() -> bool`; `enabled() -> bool`; `_f(v)`; `_i(v)`; `get_mirror() -> BinanceUniverseMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`
 - **imports:** __future__, asyncio, collections, json, os, threading, time, trading
 
 ## `trading/broker_sense/binance_watchlist.py`

@@ -67,6 +67,8 @@ def main() -> int:
     import threading as _threading
     _learn_ctx: dict = {"symbols": None}
 
+    _pm_last = [0.0]                                  # post-mortem re-mine throttle (off hot path)
+
     def _learn_worker():
         from trading.direction import meta_labeler as _ml
         while True:
@@ -78,6 +80,31 @@ def main() -> int:
                 mt = _ml.maybe_train()               # D6 6-hourly retrain (also off the hot path)
                 if mt:
                     print(f"[direction-meta] {mt}", flush=True)
+                # POST-MORTEM re-mine (owner ask 2026-07-13): rebuild the winning/losing
+                # trade-pattern rules + MFE/MAE excursion aggregates from the closed-trade
+                # journal so the panel and the close-the-loop feedback stay fresh. Heavy
+                # (pandas/pysubgroup, ~15s) → OFF the hot path here, throttled; the request
+                # route only ever reads the state files this writes. POSTMORTEM_MINE_S tunes.
+                _pmi = float(os.environ.get("POSTMORTEM_MINE_S", "1800") or 1800)
+                if time.time() - _pm_last[0] >= _pmi:
+                    _pm_last[0] = time.time()
+                    try:
+                        from trading.brain import postmortem as _pmod
+                        if _pmod._enabled():
+                            print(f"[postmortem] re-mined {_pmod.backfill()}", flush=True)
+                    except Exception as e:
+                        print(f"[postmortem] mine error: {e!r}", flush=True)
+                    # SYMBOL-MOVE NET (owner 2026-07-13): retrain the multi-head direction+move% net
+                    # here (GatedMoENode fit ~seconds) so the per-candidate consult() only ever does a
+                    # cheap forward pass — training NEVER touches the hot decision path (TabPFN lesson).
+                    try:
+                        from trading.brain import symbol_move_net as _smn
+                        if _smn.enabled():
+                            _si = _smn.refresh()
+                            print(f"[symbol-move-net] trained dir_acc={_si.get('dir_oof_accuracy')} "
+                                  f"move_mae%={_si.get('move_mae_pct')} n={_si.get('n_train')}", flush=True)
+                    except Exception as e:
+                        print(f"[symbol-move-net] train error: {e!r}", flush=True)
             except Exception as e:
                 print(f"[funnel-learn] error: {e!r}", flush=True)
             time.sleep(float(os.environ.get("FUNNEL_LEARN_POLL_S", "30") or 30))

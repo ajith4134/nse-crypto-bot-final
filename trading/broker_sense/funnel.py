@@ -396,6 +396,10 @@ class BrokerSenseFunnel:
                                        features=_ml0.lens_features(_fz))   # M1 stacking signal
                         except Exception:
                             pass
+                    # NB: the post-mortem block on _fz is a WIN-QUALITY signal (P(this context is a
+                    # winning trade)), NOT a directional claim — it drives sizing/entry inside fusion
+                    # (meta.size_mult + barriers.entry_ideal), so it is deliberately NOT recorded here
+                    # as a directional truth-ledger source (that would mislabel every SHORT context).
                 except Exception as e:
                     sig["indicator_fusion"] = {"available": False, "error": str(e)[:120]}
             # STRATEGY LIBRARY lens (owner 2026-07-12: "use ALL the strategy features when

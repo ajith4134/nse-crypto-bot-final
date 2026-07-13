@@ -10,6 +10,7 @@ import OrderFlowMap from './OrderFlowMap.jsx'
 import OpenTradesPanel from './OpenTradesPanel.jsx'
 import ScorecardPanel from './ScorecardPanel.jsx'
 import DirectionTruthPanel from './DirectionTruthPanel.jsx'
+import PostmortemPanel from './PostmortemPanel.jsx'
 import ClosedTradesTable from './ClosedTradesTable.jsx'
 import PnlStrip from './PnlStrip.jsx'
 import PracticePanel from './PracticePanel.jsx'
@@ -145,6 +146,10 @@ export default function TradingDashboard() {
 
       <Card title="🎯 Direction Truth — who is actually right about direction (Pillar 27)" hint="every directional decision (taken AND skipped) labeled with what price really did at 15m/1h/4h · Wilson CIs · worst sources are Mirror-Gate invert candidates">
         <DirectionTruthPanel />
+      </Card>
+
+      <Card title="🔬 Trade Post-Mortem & Excursion — why trades win vs lose + ideal entry" hint="subgroup discovery over every closed trade's entry context: the patterns winners share vs losers · plus MFE/MAE peak timing and how much better the entry could have been per symbol · feeds size + entry back into the funnel when FEEDBACK LIVE">
+        <PostmortemPanel />
       </Card>
 
       <Card title="Open Trades — unified (paper loop + Freqtrade + OpenAlgo)" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols · Trade Type column shows the engine`}

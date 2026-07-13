@@ -538,3 +538,39 @@ def get_mirror() -> BinanceUniverseMirror:
         if _MIRROR is None:
             _MIRROR = BinanceUniverseMirror()
     return _MIRROR
+
+
+# timeframe string → seconds (superset; the mirror only serves those in candle_timeframes()).
+_TF_SECONDS: dict[str, int] = {
+    "1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+    "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "12h": 43200, "1d": 86400,
+}
+
+
+def ohlcv(symbol: str, timeframe: str = "5m", limit: int = 220) -> list | None:
+    """RAM-first candles for a perp, straight off the all-market WS mirror, in ccxt OHLCV shape
+    ([ms, o, h, l, c, v]) — the motto-pure candle source: NO API/kline request, data is aggregated
+    live from the `!markPrice@arr` stream already in RAM. This is the consumer-side completion of
+    the 2026-07-13 in-RAM multi-TF candle build (the mirror aggregated them; nothing read them yet).
+
+    Mark-price OHLC, volume 0 (the mirror has no volume). Returns None — so the caller falls back to
+    its next source — when the mirror lacks the timeframe (only candle_timeframes() are aggregated,
+    default 1m/5m/15m), lacks the symbol, or hasn't warmed enough bars (<30). Crypto perps only.
+    MIRROR_CANDLES=0 disables. Never raises."""
+    if os.environ.get("MIRROR_CANDLES", "1") not in ("1", "true", "TRUE", "yes", "on"):
+        return None
+    secs = _TF_SECONDS.get(str(timeframe))
+    if secs is None:
+        return None
+    try:
+        m = get_mirror()
+        if secs not in m.candle_timeframes():
+            return None
+        flat = str(symbol).split(":")[0].replace("/", "").upper()
+        bars = m.candles(flat, secs, int(limit))
+        if not bars or len(bars) < 30:
+            return None
+        return [[int(b[0]) * 1000, float(b[1]), float(b[2]), float(b[3]), float(b[4]), 0.0]
+                for b in bars]
+    except Exception:
+        return None

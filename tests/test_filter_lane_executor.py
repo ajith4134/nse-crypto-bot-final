@@ -32,6 +32,7 @@ class FilterLaneExecutorTest(unittest.TestCase):
     def setUp(self):
         os.environ["BINANCE_FILTER_LANE"] = "1"
         os.environ["BINANCE_FILTER_PRESET"] = "momentum"
+        os.environ["DIRECTION_TRUTH"] = "0"        # no ledger writes from the test (isolate state)
         self.ex = object.__new__(be.BrainExecutor)      # skip heavy __init__
         self.ex.segment = "futures"
         self.cli = FakeCli()
@@ -52,7 +53,7 @@ class FilterLaneExecutorTest(unittest.TestCase):
         bfl.top_picks = self._orig_tp
         ld._tl.source_reliability = self._orig_rel
         ld.clear_cache()
-        for k in ("BINANCE_FILTER_LANE", "BINANCE_FILTER_PRESET"):
+        for k in ("BINANCE_FILTER_LANE", "BINANCE_FILTER_PRESET", "DIRECTION_TRUTH"):
             os.environ.pop(k, None)
 
     def test_opens_topn_with_filter_derived_side(self):

@@ -3,6 +3,7 @@
 Offline: feeds synthetic combined-stream frames into _apply_frame (the pure parser) — no socket,
 no network — and asserts the RAM read API (funding, ticker, movers, liquidations, staleness).
 """
+import os
 import time
 import unittest
 
@@ -116,6 +117,51 @@ class TestScreenerMirrorMigration(unittest.TestCase):
         syms = {c["symbol"] for c in cands}
         self.assertTrue({"BTC/USDT:USDT", "ETH/USDT:USDT"} & syms)
         self.assertTrue(all(c["metrics"]["source"] == "binance-mirror" for c in cands))
+
+
+class TestMirrorOHLCVAdapter(unittest.TestCase):
+    """binance_stream.ohlcv() serves in-RAM multi-TF candles in ccxt shape (no API)."""
+
+    def _seed(self, m, flat="ZZZUSDT", tf=60, n=60):
+        from collections import deque
+        base = 1_700_000_000
+        with m._lock:
+            m._candles[flat] = {60: deque(maxlen=240), 300: deque(maxlen=240),
+                                900: deque(maxlen=240)}
+            for i in range(n):
+                p = 100.0 + i * 0.1
+                m._candles[flat][tf].append([base + i * tf, p, p + 0.5, p - 0.5, p + 0.2])
+
+    def test_ohlcv_returns_ccxt_shape(self):
+        from trading.broker_sense import binance_stream as bs
+        os.environ["MIRROR_CANDLES"] = "1"
+        m = bs.get_mirror()
+        self._seed(m)
+        rows = bs.ohlcv("ZZZ/USDT:USDT", "1m", 220)
+        self.assertIsNotNone(rows)
+        self.assertEqual(len(rows), 60)
+        self.assertEqual(len(rows[0]), 6)                 # [ms, o, h, l, c, v]
+        self.assertEqual(rows[0][0] % 1000, 0)            # ms epoch
+        self.assertEqual(rows[0][5], 0.0)                 # mark-price candles carry no volume
+
+    def test_ohlcv_misses_fall_back_to_none(self):
+        from trading.broker_sense import binance_stream as bs
+        os.environ["MIRROR_CANDLES"] = "1"
+        m = bs.get_mirror()
+        self._seed(m)
+        self.assertIsNone(bs.ohlcv("ZZZ/USDT:USDT", "1h"))     # TF not aggregated
+        self.assertIsNone(bs.ohlcv("NOPE/USDT:USDT", "1m"))    # symbol not in RAM
+        self.assertIsNone(bs.ohlcv("ZZZ/USDT:USDT", "wat"))    # unknown TF string
+
+    def test_kill_switch(self):
+        from trading.broker_sense import binance_stream as bs
+        m = bs.get_mirror()
+        self._seed(m)
+        os.environ["MIRROR_CANDLES"] = "0"
+        try:
+            self.assertIsNone(bs.ohlcv("ZZZ/USDT:USDT", "1m"))
+        finally:
+            os.environ["MIRROR_CANDLES"] = "1"
 
 
 if __name__ == "__main__":

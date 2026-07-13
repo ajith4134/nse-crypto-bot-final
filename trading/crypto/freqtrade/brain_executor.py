@@ -88,11 +88,22 @@ class LibraryBrainDecider:
                 raw = None                        # too thin for the strategies
         except Exception:
             raw = None
+        if raw is None:
+            # RAM mirror candles (owner 2026-07-13): the in-RAM WS-mirror multi-TF OHLC — web-sourced
+            # (motto-pure, NO API) — is the last-mile decision-bar fallback BEFORE any ccxt, and is
+            # allowed under UI-only (the mirror IS the eyes' websocket feed). Only the TFs it aggregates.
+            try:
+                from trading.broker_sense import binance_stream as _bs
+                mrows = _bs.ohlcv(symbol, self._tf, self._lookback)
+                if mrows and len(mrows) >= 40:
+                    raw = mrows
+            except Exception:
+                pass
         if raw is None and ui_on:
-            return None
+            return None                           # UI-only: eyes + mirror both missed → honest FLAT
         if raw is None:
             try:
-                # OHLCV comes from the spot ccxt feed even when the bot trades futures perps.
+                # last resort only (flag off): the spot ccxt feed even when trading futures perps.
                 raw = self._client()._client().fetch_ohlcv(_spot(symbol), self._tf,
                                                            limit=self._lookback)
             except Exception:
@@ -374,6 +385,36 @@ class BrainExecutor:
                         _psym, _prelim, features=_asig.feature_dict(_col["signals"]))
                     if _dc.get("direction") != "neutral":
                         _reads.append(("debate", _dc["p_up"]))
+            except Exception:
+                pass
+            # NB: the post-mortem miner is a WIN-QUALITY / sizing signal, not a directional source,
+            # so it is intentionally NOT added to these directional readings — it closes the loop via
+            # fusion's size_mult + ideal-entry nudge instead (see indicator_fusion + postmortem.py).
+            try:                                          # SYMBOL-MOVE NET (owner 2026-07-13): the
+                from trading.brain import symbol_move_net as _smn   # multi-head net's p_up is a genuine
+                if _smn.enabled():                        # P(price up) → a real directional reading
+                    _flt = {s: p for s, p in (_col.get("signals") or [])}
+                    _mv = 0.0
+                    try:
+                        from trading.broker_sense.binance_stream import get_mirror
+                        _mv = float((get_mirror().ticker(_psym) or {}).get("quote_volume") or 0.0)
+                    except Exception:
+                        _mv = 0.0
+                    _ctx = {"symbol": _psym, "direction": "LONG", "market": "CRYPTO",
+                            "exchange": "binance", "market_regime_entry": regime,
+                            "decision_snapshot": {"market_context": {
+                                "filters": _flt, "quote_volume_24h": _mv}}}
+                    _sm = _smn.consult(_ctx)
+                    if _sm.get("p_up") is not None and _sm.get("trained"):
+                        _reads.append(("symbol_move_net", _sm["p_up"]))
+                        try:                              # measure its direction hit-rate in the ledger
+                            from trading.direction import truth_ledger as _tl3
+                            _tl3.record(symbol=_psym, market="CRYPTO",
+                                        segment=self.segment or "futures",
+                                        direction=("LONG" if _sm["p_up"] >= 0.5 else "SHORT"),
+                                        source="symbol_move_net", confidence=_sm["p_up"])
+                        except Exception:
+                            pass
             except Exception:
                 pass
             out = _ld.decide(_reads, market="CRYPTO",
@@ -1615,6 +1656,27 @@ class BrainExecutor:
                 snapshot["explore"] = True
             if self.extra_signals.get(sym):
                 snapshot["app_signals"] = self.extra_signals[sym]
+            # RAM market context (owner 2026-07-13): capture EVERY filter/screener signal we have for
+            # this symbol from RAM (app_signals: momentum/funding/taker/book_imbalance/longshort/
+            # oi_trend/liquidations/pcr) + the mirror's 24h volume/high/low/%change/trade-count — so
+            # the trade carries the FULL RAM signal set, the post-mortem miner can mine patterns over
+            # ALL filters, and NO value came from an API. Best-effort, RAM-only; never blocks entry.
+            try:
+                from trading.broker_sense.binance_stream import get_mirror
+                from trading.direction import app_signals as _asig
+                _col = _asig.collect(sym, market="crypto")
+                _tk = get_mirror().ticker(sym) or {}
+                snapshot["market_context"] = {
+                    "filters": {s: round(float(p), 4) for s, p in (_col.get("signals") or [])},
+                    "coverage": _col.get("coverage"),
+                    "quote_volume_24h": _tk.get("quote_volume"),
+                    "pct_change_24h": _tk.get("pct_change"),
+                    "high_24h": _tk.get("high"), "low_24h": _tk.get("low"),
+                    "trade_count_24h": _tk.get("count"),
+                    "source": "ram",
+                }
+            except Exception:
+                pass
             # decision-memory episode + SHAP attribution (resolved at ingest time when
             # the trade closes; episode_id travels via this sidecar)
             episode_id, attribution = "", {}

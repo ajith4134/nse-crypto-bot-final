@@ -120,11 +120,21 @@ def _frame(symbol: str, market: str, timeframe: str):
     """[[ts,o,h,l,c,v],…] → the lowercase OHLCV DataFrame the guardrail/backtest expects.
     Returns (df|None, reason). Honors UI-only mode via data_failsafe (eyes' captures or
     an honest None — never a hidden API fallback)."""
-    try:
-        from trading.broker_sense.data_failsafe import ohlcv
-        rows = ohlcv(symbol, market, timeframe=timeframe, limit=500)
-    except Exception as e:
-        return None, f"fetch error: {type(e).__name__}: {e}"[:120]
+    rows = None
+    if (market or "").lower() == "crypto":            # RAM-first: WS-mirror candles (owner 2026-07-13)
+        try:                                          # so evolved strategies fit on the SAME live RAM
+            from trading.broker_sense import binance_stream as _bs   # feed the brain trades on
+            mrows = _bs.ohlcv(symbol, timeframe, 500)
+            if mrows and len(mrows) >= _MIN_ROWS:
+                rows = mrows
+        except Exception:
+            rows = None
+    if rows is None:                                  # deep history the 240-bar mirror can't hold →
+        try:                                          # local feathers / data_failsafe (UI-only aware)
+            from trading.broker_sense.data_failsafe import ohlcv
+            rows = ohlcv(symbol, market, timeframe=timeframe, limit=500)
+        except Exception as e:
+            return None, f"fetch error: {type(e).__name__}: {e}"[:120]
     if not rows or len(rows) < _MIN_ROWS:
         return None, f"insufficient data ({0 if not rows else len(rows)} rows < {_MIN_ROWS})"
     import pandas as pd

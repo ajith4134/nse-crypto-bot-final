@@ -1649,6 +1649,26 @@ def handle_direction_truth(h):
     return h._send(200, body, "application/json")
 
 
+def handle_postmortem(h):
+    """GET /api/trading/postmortem — Trade Post-Mortem & Excursion Engine (owner ask 2026-07-13).
+
+    Real mined winning/losing trade patterns + commonality + per-(symbol,regime) ideal-entry
+    offsets, straight off postmortem_patterns.json / postmortem_excursion.json. STATE-FILE READ
+    ONLY (postmortem.status() calls no pandas/pysubgroup) → request-thread safe; the mining that
+    writes those files runs in the funnel-learn daemon, never here. ?market=CRYPTO|NSE filters."""
+    try:
+        from urllib.parse import parse_qs, urlparse
+        from trading.brain import postmortem
+        qs = parse_qs(urlparse(h.path).query)
+        market = (qs.get("market") or [""])[0].strip().upper() or None
+        out = {**postmortem.status(market), "live": True}
+        body = json.dumps(out, default=str).encode()
+    except Exception as e:
+        body = json.dumps({"available": False,
+                           "error": f"{type(e).__name__}: {e}"}).encode()
+    return h._send(200, body, "application/json")
+
+
 def handle_learning_curve(h):
     """GET /api/trading/learning_curve — is the brain IMPROVING? (owner ask 2026-07-10).
 
