@@ -1,9 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
-import NetworkPanel from './NetworkPanel.jsx'
-import SystemMapPanel from './SystemMapPanel.jsx'
-import ChatPanel from './ChatPanel.jsx'
-import StreamOfMind from './StreamOfMind.jsx'
-import { useBrainThoughts } from './useBrainThoughts.js'
+import React, { useEffect, useState } from 'react'
+import BrainPage from './BrainPage.jsx'
 import TradingDashboard from './trading/TradingDashboard.jsx'
 import MarketWindow from './trading/MarketWindow.jsx'
 
@@ -47,16 +43,6 @@ export default function App() {
     const t = setInterval(load, 30000)
     return () => { on = false; clearInterval(t) }
   }, [])
-  const [thoughts, setThoughts] = useState([])
-  const thoughtSeq = useRef(0)
-  const onThought = (text) => {
-    if (!text) return
-    const id = `${Date.now()}-${thoughtSeq.current++}`
-    setThoughts((t) => [{ id, text, ts: Date.now() }, ...t].slice(0, 40))
-  }
-  // P4.6: stream the brain's REAL think-cycle thoughts into the panel via the AG-UI protocol.
-  const think = useBrainThoughts(onThought)
-
   // in-app React views (Brain/Trading) + links to the other local-hosted dashboards.
   // Each external page opens in a NEW TAB; the Hub aggregates every brain (P4.1–P4.6) and
   // trading (T1–T8) live panel, so "the rest of the dashboard" is one click away here.
@@ -155,28 +141,10 @@ export default function App() {
         </section>
       )}
 
-      <SystemMapPanel />
-
-      <NetworkPanel />
-
-      <section className="grid">
-        <div className="card mind-card">
-          <h2>Stream of Mind
-            <button className="think-btn" onClick={() => think('How does the brain decide when to ask for help?')}
-              style={{ marginLeft: 10, fontSize: 12, padding: '2px 10px', cursor: 'pointer',
-                background: '#1b2433', color: '#4cc2ff', border: '1px solid #1e2837', borderRadius: 8 }}>
-              ⚡ Think
-            </button>
-          </h2>
-          <div className="hint">The brain's live state of mind (AG-UI stream) — thoughts fire, glow, then fade; salient ones consolidate to memory.</div>
-          <StreamOfMind thoughts={thoughts} />
-        </div>
-        <div className="card chat-card">
-          <h2>Brain Chat</h2>
-          <div className="hint">Chat with the brain about the network, nodes and results.</div>
-          <ChatPanel onThought={onThought} />
-        </div>
-      </section>
+      {/* THE unified brain page (Brain Ultra Upgrade 2026-07-12): every brain feature
+          in ONE place — web of neurons, cognitive loop, school, mind, memory,
+          cognition, embodiment, wiring. Panels moved here from the Trading view. */}
+      <BrainPage />
 
       <div className="footer">
         ML Network Brain · living CORTEX dashboard · real trained state only ·

@@ -203,6 +203,50 @@ class LearnLoop:
                           learned=f"retention={ev.get('final_retention')} rising={ev.get('rising')}")
             except Exception:
                 pass
+        # Brain Ultra Upgrade school tick (2026-07-13): continuous schooling — sit the
+        # CURRENT-level exam when the last one is stale (>12h), so promotion pressure and
+        # R28 re-examination run unattended. Also syncs studied topics into the neuron
+        # web via the school's own lesson writes. Time-gated; deterministic; no network.
+        try:
+            from trading import state as _tstate
+            sch = _tstate.load_json("school.json", {}) or {}
+            exams = sch.get("exams", [])
+            last_ts = exams[-1]["ts"] if exams else 0.0
+            if time.time() - float(last_ts or 0.0) > 12 * 3600:
+                from memory.neurons import get_store
+                from trading.brain.school import School
+                res = School(get_store()).take_exam(sch.get("level", "L0"))
+                st["last_school"] = {"ts": time.time(), "level": res["level"],
+                                     "passed": res["passed"],
+                                     "track_a": (res.get("track_a") or {}).get("score"),
+                                     "track_b": (res.get("track_b") or {}).get("score")}
+                feed.emit("learned", "School exam (Brain Ultra Upgrade)",
+                          learned=f"level={res['level']} passed={res['passed']} "
+                                  f"A={st['last_school']['track_a']} "
+                                  f"B={st['last_school']['track_b']}")
+        except Exception:
+            pass
+        # Brain Ultra Upgrade evolution tick (2026-07-13, R8/R9/R26): evolve the
+        # instruction neurons — spawn mutations of underperformers, promote children that
+        # measurably beat their parent, retire the losers (lineage kept). Time-gated to
+        # every BRAIN_EVOLVE_INTERVAL_H h (default 6); deterministic; no network required.
+        try:
+            from trading import state as _es
+            led = _es.load_json("instruction_evolution.json", {}) or {}
+            last_ev = (led.get("last") or {}).get("ts", 0.0)
+            gap_h = float(os.environ.get("BRAIN_EVOLVE_INTERVAL_H", 6))
+            if time.time() - float(last_ev or 0.0) > gap_h * 3600:
+                from trading.brain.evolution import get_evolver
+                evo = get_evolver().evolve_once()
+                if evo.get("varied") or evo.get("promotions"):
+                    st["last_evolution"] = {"ts": evo["ts"],
+                                            "varied": len(evo["varied"]),
+                                            "promotions": len(evo["promotions"])}
+                    feed.emit("learned", "Instruction evolution (Brain Ultra Upgrade)",
+                              learned=f"varied={len(evo['varied'])} "
+                                      f"promoted={len(evo['promotions'])}")
+        except Exception:
+            pass
         # Pillar 17: nightly-grade conformal recalibration (time-gated to every 6h
         # inside maybe_recalibrate — the loop runs each 30m cycle, the refit doesn't).
         try:

@@ -36,6 +36,7 @@ class NavBrain:
         self.max_steps = max_steps
         self.max_replans = max_replans
         self.stuck_k = stuck_k
+        self._consulted = None             # learned-route neurons for the CURRENT navigate()
 
     # ── the gate: never touch a segment the owner turned off ─────────────────────────
     def allowed_segments(self) -> set:
@@ -73,6 +74,11 @@ class NavBrain:
                    "segment. Keep it short and goal-directed; do not repeat the current page.")
             usr = (f"Goal: {goal}\nCurrent page: {perception.get('url', '')} — "
                    f"{str(perception.get('text', ''))[:400]}")
+            # learned-route recall (Brain Ultra Upgrade R22): instruction neurons for this
+            # goal ride into the planning prompt; navigate() grades them on completion.
+            if self._consulted and self._consulted.get("actions"):
+                usr += ("\nLearned routes that worked before (follow when applicable):\n- "
+                        + "\n- ".join(self._consulted["actions"]))
             if error:
                 usr += f"\nYou were STUCK: {error}. Choose a DIFFERENT action to make progress."
             raw = llm.chat([{"role": "system", "content": sys}, {"role": "user", "content": usr}],
@@ -115,6 +121,12 @@ class NavBrain:
         trace: list[dict] = []
         sigs: list[str] = []
         try:
+            from trading.brain import consult as _consult
+            self._consulted = _consult.consult(
+                f"navigate {self.market} {goal}", domain="navigation", k=3)
+        except Exception:
+            self._consulted = None
+        try:
             plan = self.plan(goal, self.perceive())
         except Exception:
             plan = []
@@ -145,9 +157,17 @@ class NavBrain:
                 sigs = sigs[-1:]
             # else: not validated but not yet stuck → RETRY the same action (i unchanged) so
             # identical pages accumulate toward the stuck-detector; max_steps bounds the retries.
+        completed = i >= len(plan) and len(plan) > 0
+        try:                                       # outcome credit for the consulted routes
+            if self._consulted and self._consulted.get("ids"):
+                from trading.brain import consult as _consult
+                _consult.grade(self._consulted["ids"], win=completed, domain="navigation")
+        except Exception:
+            pass
         return {"goal": goal, "steps": steps, "replans": replans,
-                "completed": i >= len(plan) and len(plan) > 0,
-                "allowed_segments": sorted(self.allowed_segments()), "trace": trace}
+                "completed": completed,
+                "allowed_segments": sorted(self.allowed_segments()), "trace": trace,
+                "neurons_consulted": (self._consulted or {}).get("ids", [])}
 
 
 def from_human_ui(humanui, *, market: str = "crypto", **kw) -> "NavBrain":

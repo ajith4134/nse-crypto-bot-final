@@ -16,41 +16,25 @@ import PracticePanel from './PracticePanel.jsx'
 import TradeDrilldown from './TradeDrilldown.jsx'
 import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
-import BrainPanel from './BrainPanel.jsx'
-import BrainOutcomeNet from './BrainOutcomeNet.jsx'
-import WorldModelPanel from './WorldModelPanel.jsx'
 import PsychologyPanel from './PsychologyPanel.jsx'
-import MetacognitionPanel from './MetacognitionPanel.jsx'
-import DebatePanel from './DebatePanel.jsx'
-import HypothesesPanel from './HypothesesPanel.jsx'
-import EvolvePanel from './EvolvePanel.jsx'
 import FreqtradeCryptoPanel from './FreqtradeCryptoPanel.jsx'
 import CryptoMarketsPanel from './CryptoMarketsPanel.jsx'
 import StrategyLibraryPanel from './StrategyLibraryPanel.jsx'
 import FoundryPanel from './FoundryPanel.jsx'
-import BrainLearningPanel from './BrainLearningPanel.jsx'
-import BrainUltraPanel from './BrainUltraPanel.jsx'
-import BrainOpsPanel from './BrainOpsPanel.jsx'
-import GoalOpsPanel from './GoalOpsPanel.jsx'
-import DecisionMemoryPanel from './DecisionMemoryPanel.jsx'
-import ComputerUsePanel from './ComputerUsePanel.jsx'
 import BrokerSensePanel from './BrokerSensePanel.jsx'
-import OcularCortexPanel from './OcularCortexPanel.jsx'
 import XRayPanel from './XRayPanel.jsx'
 import LiveBrowserPanel from './LiveBrowserPanel.jsx'
-import BrainMirrorPanel from './BrainMirrorPanel.jsx'
 import HumanHandoffPanel from './HumanHandoffPanel.jsx'
 import BinanceEdgePanel from './BinanceEdgePanel.jsx'
-import AppSchoolPanel from './AppSchoolPanel.jsx'
 import BrokerFeaturesPanel from './BrokerFeaturesPanel.jsx'
 import SegmentFocusPanel from './SegmentFocusPanel.jsx'
 import TradeColumnsPanel from './TradeColumnsPanel.jsx'
-import ConnectivityPanel from './ConnectivityPanel.jsx'
-import SandboxPanel from './SandboxPanel.jsx'
 import StrategyGeneratorsPanel from './StrategyGeneratorsPanel.jsx'
-import LLMProvidersPanel from './LLMProvidersPanel.jsx'
-import ConceptSpacePanel from './ConceptSpacePanel.jsx'
 import ExchangeVenuesPanel from './ExchangeVenuesPanel.jsx'
+// Brain panels (BrainPanel, WorldModel, Metacognition, Debate, Hypotheses, Evolve,
+// BrainLearning/Ultra/Ops, GoalOps, DecisionMemory, ComputerUse, Ocular, BrainMirror,
+// AppSchool, Connectivity, ConceptSpace, LLMProviders, BrainOutcomeNet) moved to the
+// unified Brain page (src/BrainPage.jsx) — owner order 2026-07-12: ONE brain page.
 
 function Card({ title, hint, children, right }) {
   return (
@@ -195,81 +179,16 @@ export default function TradingDashboard() {
         <FoundryPanel />
       </Card>
 
-      <Card title="Brain Learning & Web — reads, browses, self-evaluates" hint="reads books/papers → KnowledgeBrain · read-only web screening + Google gap-browse · answer login requests · ephemeral activity">
-        <BrainLearningPanel />
-      </Card>
-
-      <Card title="Brain Ultra — associative memory · micro-LLM · perception · continual" hint="HippoRAG+A-MEM recall · Claude-style file memory · cloned nanoGPT/llama2.c · Docling reads docs · Avalanche no-forgetting">
-        <BrainUltraPanel />
-      </Card>
-
-      <Card title="Brain Ops — subsystems the audit found hidden (real boss/R&D/mind-bus + honest real/demo catalog)" hint="boss directives · R&D inventions · mind event bus (live) + memory/hybrid/librarian/autonomy/stream endpoints, honestly labelled real vs offline-demo">
-        <BrainOpsPanel />
-      </Card>
-
-      <Card title="Goal & Rails — the owner's 2026-07-07 evidence spine" hint="goal scoreboard · watchdogs+autonomy gates · one-variable rails · smart-money consensus · track records · UI-only data coverage — live from /api/trading/{goal,evidence,surface,scouts,track_record,ui_data,briefing}">
-        <GoalOpsPanel />
-      </Card>
-
-      <Card title="LLM Providers — cloud-LLM failover telemetry" hint="per-provider hit-rate · free calls used · failures/rate-limits · last latency · reload cooldown — real core.llm.chat call stats">
-        <LLMProvidersPanel />
-      </Card>
-
       <Card title="Exchange Data Venues — multi-venue ban-proofing" hint="per-venue calls · errors · request budget · ban cooldown across binance/bybit/okx/kucoin — real market-data pool telemetry">
         <ExchangeVenuesPanel />
       </Card>
-
-      <Card title="Concept Discovery — idea-discovery mode (pure-self feature invention)" hint="self-supervised encoder invents features → sparse-autoencoder probe → LLM naming → concept manifold · experiment(ungated) + validated(gated) lanes">
-        <ConceptSpacePanel />
-      </Card>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        <Card title="AI Brain (T8)" hint="evolution · self-eval · skills · end-to-end decision">
-          <BrainPanel />
-        </Card>
-        <Card title="Brain Outcome Net" hint="trade rows → node network → win-prob / verdict">
-          <BrainOutcomeNet data={data?.brainPredict} />
-        </Card>
-      </div>
 
       <Card title="Trader Psychology — order-book depth crowd signal" hint="OBI · OFI · Stoikov microprice · whale walls · fear (spread/λ/VPIN) — live entry signal + journal columns the brain learns from">
         <PsychologyPanel />
       </Card>
 
-      <Card title="Metacognition — calibrated uncertainty & abstention (Pillar 17)" hint="crepes conformal p_up + coverage-guaranteed intervals · ACI-adapted · reliability diagram · first-class abstention log — sizing consumes calibration">
-        <MetacognitionPanel />
-      </Card>
-
-      <Card title="Adversarial Debate + Verifier (Pillar 18)" hint="bull/bear/risk debate (society) + process-reward step verifier (PRM) over a candidate trade — verified reasoning, not just PnL; gate + size multiplier">
-        <DebatePanel />
-      </Card>
-
-      <Card title="Decision Memory — episodes · attribution · reflections" hint="FinMem layered episodes (shallow/mid/deep) · SHAP 'which data drove it' · TradingAgents outcome-closure lessons recalled before new entries">
-        <DecisionMemoryPanel />
-      </Card>
-
-      <Card title="Imagination — World-Model + MuZero planning" hint="learned market dynamics · MCTS plans entry/direction/stop/trailing in imagined R">
-        <WorldModelPanel />
-      </Card>
-
-      <Card title="Hypothesis Ledger — AI-Scientist research loop" hint="propose → experiment on the journal → Bayesian credence → confirm/refute">
-        <HypothesesPanel />
-      </Card>
-
-      <Card title="Self-Evolving Loop — lifelong strategy evolution" hint="evolve → admit guardrail-passed winners into the growing skill library (gated OFF · library-first)">
-        <EvolvePanel />
-      </Card>
-
-      <Card title="Computer-Use Agent — sees & operates the dashboards" hint="reads panels/charts/buttons (own + Freqtrade/FreqUI), presses them paper-first, experiments, reflects (Reflexion) & grows a skill library (Voyager)">
-        <ComputerUsePanel />
-      </Card>
-
       <Card title="Broker-Sense Funnel — trades through the broker web apps" hint="their screeners narrow the universe · candle screenshots → CNN direction · screen-mirror bid/ask (API fail-safe) · APIs execute only · paper-first">
         <BrokerSensePanel />
-      </Card>
-
-      <Card title="Ocular Cortex — the brain's eyes & visual memory" hint="FREE vision (no GPU/paid API) reads each broker screen · fuses pixels+DOM+OCR+the app's own JSON · learns golden paths (iconic→working→habit) · links the frame that drove each trade">
-        <OcularCortexPanel />
       </Card>
 
       <Card title="Stock X-Ray — full per-stock picture on trade-open" hint="fused snapshot: OpenAlgo multi-TF candles+indicators, 20-level depth+imbalance, circuit bands, computed demand/supply zones + free-eyes Upstox visual · auto-captured when a trade opens · type a symbol to X-ray any stock">
@@ -288,18 +207,6 @@ export default function TradingDashboard() {
         <HumanHandoffPanel />
       </Card>
 
-      <Card title="Brain Screen Mirror — watch the brain operate the apps" hint="READ-ONLY live mirror of the browser the BRAIN drives after login · every page it opens, button it clicks (marker shown), text it reads · funnel screening + ⭐ watchlist hand + app-school · watching never steers the hand">
-        <BrainMirrorPanel />
-      </Card>
-
-      <Card title="App Driving School — Binance (crypto)" hint="explores the logged-in BINANCE app read-only · clicks every feature · learns the golden route to each market-data kind (spot/futures/options/screeners) from the app's own traffic · no hardcoded pages">
-        <AppSchoolPanel broker="binance" />
-      </Card>
-
-      <Card title="App Driving School — Upstox (NSE)" hint="a SEPARATE school for the logged-in UPSTOX app (kept distinct from Binance so the brain never confuses them) · learns NSE movers/watchlist/F&O/option-chain/depth routes from Upstox's own traffic · read-only">
-        <AppSchoolPanel broker="upstox" />
-      </Card>
-
       <Card title="Broker built-in pickers — Binance" hint="USE the app's OWN screeners (top movers/gainers/funding/liquidation) as ready-made candidate sources · read in parallel · brain learns which picker predicts winners (stacking) · read-only, no re-computing the universe">
         <BrokerFeaturesPanel broker="binance" />
       </Card>
@@ -310,10 +217,6 @@ export default function TradingDashboard() {
 
       <Card title="Self-growing trade columns — discovered on the apps" hint="new data fields the App Driving School found on the broker apps (noise-filtered, cross-checked vs the journal) · Accept → it joins the open/closed trade tables">
         <TradeColumnsPanel />
-      </Card>
-
-      <Card title="Wiring watchdog — self-healing connectivity" hint="flags any module/endpoint that WAS wired coming unwired (a regression) so nothing silently disconnects · backlog baselined · heuristic early-warning">
-        <ConnectivityPanel />
       </Card>
 
       <TradeDrilldown trade={drill} onClose={() => setDrill(null)} />

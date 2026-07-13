@@ -17,7 +17,9 @@ const ENDPOINTS = {
   orderbook: '/api/trading/orderbook?symbol=BTC/USDT&market=CRYPTO', // {symbol,market,bids:[[price,size],...],asks:[[price,size],...],mid,spread,live}
   watchlist: '/api/trading/watchlist',       // {watchlist:{NSE:[{symbol,segment,last}],CRYPTO:[...]}, candidates:{NSE:[{symbol,segment,market,score,reason,metrics}],...}, live}
   loop: '/api/trading/online/loop',          // {..., config:{trail_atr_mult,sizing_method,max_risk_pct,max_position_pct,kelly_fraction}, selected_segments}
-  brainPredict: '/api/trading/brain/predict', // {model:{engine,trained,oof_accuracy,n_train,...}, open_predictions:[...], closed_replay:[...]}
+  // brainPredict removed 2026-07-13: BrainOutcomeNet moved to the unified Brain page
+  // (src/BrainPage.jsx) which polls /api/trading/brain/predict itself — keeping it here
+  // would train the outcome net every 8 ticks for a view with no consumer.
   strategyLibrary: '/api/trading/strategy/library', // {coverage:{total,n_executable,n_data_gated,by_category,by_segment}, leaderboard:[{rank,name,category,metrics}], data_gated:{total,by_gating_need,sample}, evolution_status}
   guiAgent: '/api/trading/gui/status?observe=1',  // {targets, perception_capabilities, action_capabilities, skills:{n_skills,n_practiced,skills:[...]}, reflections:{n_lessons,recent:[...]}, last_perception:{reachable,n_controls,charts}, available, note}
 }
@@ -35,7 +37,7 @@ async function getJSON(url) {
 const EVERY = {
   tickers: 1, orderbook: 1, openTrades: 2, loop: 2, candles: 2,
   scorecard: 4, confidence: 4, closedTrades: 4, execution: 4,
-  watchlist: 8, context: 8, options: 8, journal: 8, brainPredict: 8,
+  watchlist: 8, context: 8, options: 8, journal: 8,
   strategyLibrary: 15, guiAgent: 15,
 }
 

@@ -616,3 +616,91 @@ def handle_broker_sense_post(h):
     except Exception as e:
         out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
     return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+# ── Brain Ultra Upgrade POST ops: exams + slow self-eval runs ─────────────────────
+
+def handle_school_exam(h):
+    """POST /api/brain/school/exam — body {level:"L0".."L6"} → take the exam NOW
+    (deterministic, no network) and return the graded result."""
+    try:
+        n = int(h.headers.get("Content-Length", 0) or 0)
+        data = json.loads(h.rfile.read(n) or b"{}")
+        import memory.neurons as _mn
+        if _mn._STORE is None:                        # never rehydrate in a request thread
+            out = {"ok": False, "error": "store loading (post-restart warmup) — retry shortly"}
+            return h._send(200, json.dumps(out).encode(), "application/json")
+        from trading.brain.school import School
+        level = str(data.get("level", "L0")).upper()
+        out = School(_mn.get_store()).take_exam(level)
+        for tr in ("track_a", "track_b"):              # keep the wire light
+            if isinstance(out.get(tr), dict):
+                out[tr].pop("items", None)
+    except Exception as e:
+        out = {"ok": False, "error": f"{type(e).__name__}: {e}"[:200]}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_brain_os_ctl(h):
+    """POST /api/brain/os — Brain-OS control ops (paper-safe; execution stays API-only,
+    this never touches orders): body {op: focus|pin|unpin|ps|top|boot, ...}. Cheap only —
+    reads/writes RAM working memory + state file; never boots the store in-request."""
+    try:
+        n = int(h.headers.get("Content-Length", 0) or 0)
+        data = json.loads(h.rfile.read(n) or b"{}")
+        import memory.neurons as _mn
+        if _mn._STORE is None:                        # never rehydrate in a request thread
+            out = {"ok": False, "error": "kernel/store warming (post-restart) — retry shortly"}
+            return h._send(200, json.dumps(out).encode(), "application/json")
+        from trading.brain.brain_os import get_kernel
+        k = get_kernel()
+        op = str(data.get("op", "top")).lower()
+        if op == "focus":
+            out = {"ok": True, "focus": k.syscall("focus",
+                   **{x: data[x] for x in ("segment", "goal", "topic") if x in data})}
+        elif op == "pin":
+            out = {"ok": True, "result": k.syscall("pin", nid=str(data.get("nid", "")))}
+        elif op == "unpin":
+            k.wm.unpin(str(data.get("nid", "")))
+            out = {"ok": True}
+        elif op == "boot":
+            out = {"ok": True, "top": k.boot()}
+        elif op == "ps":
+            out = {"ok": True, "processes": k.ps()}
+        else:                                         # default: return the top snapshot
+            out = {"ok": True, "top": k.top()}
+    except Exception as e:
+        out = {"ok": False, "error": f"{type(e).__name__}: {e}"[:200]}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_selfeval_run(h):
+    """POST /api/brain/selfeval/run — body {test:"independent_learning", topic:…} or
+    {test:"llm_parity"}. Slow (web research / LLM), so runs in a bg thread; the result
+    lands in trading/state/self_evaluation.json and GET /api/brain/selfeval serves it."""
+    try:
+        n = int(h.headers.get("Content-Length", 0) or 0)
+        data = json.loads(h.rfile.read(n) or b"{}")
+        test = str(data.get("test", "")).lower()
+        topic = str(data.get("topic", "")).strip()
+        if test not in ("independent_learning", "llm_parity"):
+            raise ValueError(f"unknown test {test!r}")
+        if test == "independent_learning" and not topic:
+            raise ValueError("independent_learning needs a topic")
+
+        def _run():
+            from memory.neurons import get_store
+            from trading.brain.self_evaluation import SelfEvaluation
+            ev = SelfEvaluation(get_store())
+            if test == "independent_learning":
+                ev.independent_learning_test(topic)
+            else:
+                ev.llm_parity()
+        import threading
+        threading.Thread(target=_run, daemon=True,
+                         name=f"selfeval-{test}").start()
+        out = {"ok": True, "started": test, "topic": topic or None,
+               "note": "result will appear in GET /api/brain/selfeval"}
+    except Exception as e:
+        out = {"ok": False, "error": f"{type(e).__name__}: {e}"[:200]}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")

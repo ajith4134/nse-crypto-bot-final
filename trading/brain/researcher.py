@@ -109,6 +109,17 @@ class AutonomousResearcher:
 
     def research(self, query: str) -> dict:
         """Search → synthesise a finance brief (LLM) or extractive digest (no LLM)."""
+        # recall-before-research (Brain Ultra Upgrade R22): what does the brain already
+        # KNOW about this? Records the use; known context rides in the result so callers
+        # (and the researcher's own prompt) can build on prior knowledge, not restart it.
+        known = None
+        try:
+            from trading.brain import consult as _consult
+            known = _consult.consult(query, domain="research", k=3)
+            if not known["ids"]:
+                known = None
+        except Exception:
+            known = None
         results = self.search(query)
         sources = [{"title": r["title"], "href": r["href"]} for r in results]
         available = len(results) > 0
@@ -117,6 +128,7 @@ class AutonomousResearcher:
             return {
                 "query": query, "n_sources": 0, "summary": "",
                 "sources": [], "available": False, "llm_used": False,
+                "prior_knowledge": known,
             }
 
         summary = ""
@@ -131,6 +143,7 @@ class AutonomousResearcher:
         return {
             "query": query, "n_sources": len(results), "summary": summary,
             "sources": sources, "available": True, "llm_used": llm_used,
+            "prior_knowledge": known,
         }
 
     # --- deep research (gpt-researcher, Phase D upgrade) --------------------------

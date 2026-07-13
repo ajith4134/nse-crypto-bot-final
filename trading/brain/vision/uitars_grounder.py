@@ -84,10 +84,33 @@ _PROMPT = (
 _COORD_RE = re.compile(r"\(?\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)?")
 
 
-def _png_dims(png: bytes) -> tuple[int, int]:
+def _max_px() -> int:
+    """Longest-side cap for the image SENT to the model. A VLM's cost is dominated by the
+    number of vision tokens (∝ pixels), so downscaling a 1600px screenshot to ~1024 cuts the
+    token count 2-4× → the single biggest latency lever on CPU. Coordinates are normalized
+    0-1000 (resolution-independent), so we still map them back to the ORIGINAL pixels — the
+    downscale speeds inference WITHOUT breaking the click location. UITARS_MAX_PX overrides."""
+    try:
+        return int(os.environ.get("UITARS_MAX_PX", "1024"))
+    except ValueError:
+        return 1024
+
+
+def _prep_image(png: bytes) -> tuple[bytes, int, int]:
+    """(downscaled_png_for_model, orig_w, orig_h). Downscale only when it helps; keep the
+    ORIGINAL dims for coordinate rescaling."""
     from PIL import Image
     with Image.open(io.BytesIO(png)) as im:
-        return im.size                    # (w, h)
+        w, h = im.size
+        cap = _max_px()
+        longest = max(w, h)
+        if longest <= cap:
+            return png, w, h
+        scale = cap / float(longest)
+        small = im.convert("RGB").resize((max(1, int(w * scale)), max(1, int(h * scale))))
+        buf = io.BytesIO()
+        small.save(buf, format="JPEG", quality=85)     # JPEG: fewer bytes than PNG to transfer
+        return buf.getvalue(), w, h
 
 
 def locate(target: str, png: bytes, *, timeout: float = 30.0) -> Optional[tuple[int, int]]:
@@ -95,7 +118,7 @@ def locate(target: str, png: bytes, *, timeout: float = 30.0) -> Optional[tuple[
     if not png or not available():
         return None
     try:
-        w, h = _png_dims(png)
+        small, w, h = _prep_image(png)               # downscale for speed; keep orig dims
     except Exception:
         return None
     _STATS["asks"] += 1
@@ -105,8 +128,11 @@ def locate(target: str, png: bytes, *, timeout: float = 30.0) -> Optional[tuple[
         payload = {
             "model": _model(),
             "messages": [{"role": "user", "content": _PROMPT.format(target=target),
-                          "images": [base64.b64encode(png).decode()]}],
+                          "images": [base64.b64encode(small).decode()]}],
             "stream": False,
+            # keep_alive holds the model in RAM between clicks so we pay the 2-6 GB load ONCE,
+            # not per locate() — turns a cold minutes-long call into a warm seconds-long one.
+            "keep_alive": os.environ.get("UITARS_KEEP_ALIVE", "10m"),
             "options": {"temperature": 0.0, "num_predict": 24},
         }
         r = requests.post(f"{_ollama_base()}/api/chat", json=payload, timeout=timeout)

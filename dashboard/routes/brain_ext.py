@@ -823,3 +823,109 @@ def handle_ui_health(h):
         body = _json.dumps({"available": False,
                             "error": f"{type(e).__name__}: {e}"}).encode()
     return h._send(200, body, "application/json")
+
+
+# ── Brain Ultra Upgrade (GOAL.md R1-R28): neuron web / school / flow / self-eval ──
+
+def handle_neurons(h):
+    """GET /api/brain/neurons — the web-of-neurons overview: store status, growth
+    series (R28), school level, instruction-evolution status. All from disk truth."""
+    def _p_neurons():
+        from memory.neurons import get_store
+        from trading.brain.instructions import InstructionEngine
+        from trading.brain.school import School
+        store = get_store()
+        return {"store": store.status(),
+                "growth": store.growth(buckets=30),
+                "school": School(store).status(),
+                "instructions": InstructionEngine(store).status(),
+                "pareto": InstructionEngine(store).pareto_archive(k=12)}
+    return h._send(200, _srv(h)._bg_snapshot("neurons", _p_neurons), "application/json")
+
+
+def handle_neurons_graph(h):
+    """GET /api/brain/neurons/graph — nodes+edges snapshot of the neuron web for the
+    unified Brain page graph viz (most-connected first, capped for the wire)."""
+    def _p_neurons_graph():
+        from memory.neurons import get_store
+        return get_store().snapshot_graph(limit=300)
+    return h._send(200, _srv(h)._bg_snapshot("neurons_graph", _p_neurons_graph),
+                   "application/json")
+
+
+def handle_neurons_search(h):
+    """GET /api/brain/neurons/search?q=…&kind=… — live FTS5 search over the web."""
+    from urllib.parse import parse_qs, urlparse
+    qs = parse_qs(urlparse(h.path).query)
+    q = (qs.get("q") or [""])[0]
+    kind = (qs.get("kind") or [None])[0]
+    try:
+        import memory.neurons as _mn
+        if _mn._STORE is None:
+            # first hit after a restart: don't rehydrate 6k+ rows in the REQUEST
+            # thread (524-wedge pattern) — the bg snapshot warmer builds the
+            # singleton; until then answer honestly-empty and fast
+            out = {"q": q, "hits": [], "note": "store loading (post-restart warmup)"}
+            return h._send(200, json.dumps(out).encode(), "application/json")
+        hits = _mn.get_store().search(q, k=12, kind=kind)
+        for hh in hits:                                # trim wire size, keep essence
+            hh["body"] = hh["body"][:400]
+        out = {"q": q, "hits": hits}
+    except Exception as e:
+        out = {"q": q, "hits": [], "error": f"{type(e).__name__}: {e}"[:160]}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_brain_flow(h):
+    """GET /api/trading/brain/flow — cognitive-loop stitch health (R1): per-stage
+    state-file freshness + edge health. Cheap (mtime checks), served live."""
+    try:
+        from trading.brain.flow_health import flow_status
+        out = flow_status()
+    except Exception as e:
+        out = {"error": f"{type(e).__name__}: {e}"[:160], "stages": [], "edges": []}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_selfeval_report(h):
+    """GET /api/brain/selfeval — standing self-evaluation report (R3/R22/R23/R28 +
+    time horizon). Cheap metrics computed live; LLM-parity/independent-learning come
+    from their last persisted runs (they cost network/LLM, triggered via POST)."""
+    def _p_selfeval():
+        from memory.neurons import get_store
+        from trading import state as tstate
+        from trading.brain.self_evaluation import SelfEvaluation
+        ev = SelfEvaluation(get_store())
+        persisted = tstate.load_json("self_evaluation.json", {}) or {}
+        return {"genius_use": ev.genius_use(),
+                "accumulation": {k: v for k, v in ev.accumulation().items()
+                                 if k != "growth_14d"},
+                "time_horizon": ev.time_horizon(),
+                "llm_parity": persisted.get("llm_parity"),
+                "independent_learning": persisted.get("independent_learning")}
+    return h._send(200, _srv(h)._bg_snapshot("selfeval", _p_selfeval),
+                   "application/json")
+
+
+def handle_evolution(h):
+    """GET /api/brain/evolution — instruction-evolution status (R8/R9/R26): live
+    instruction count, proven child-beats-parent lineages, and the Pareto front of
+    diverse working variants. Honest numbers only — a lineage entry means a mutated
+    child actually out-scored its parent on graded evidence and was auto-promoted."""
+    def _p_evolution():
+        from trading.brain.evolution import get_evolver
+        return get_evolver().status()
+    return h._send(200, _srv(h)._bg_snapshot("evolution", _p_evolution),
+                   "application/json")
+
+
+def handle_brain_os(h):
+    """GET /api/brain/os — the Brain-OS 'top' (owner ask 2026-07-13: the brain acts as an
+    OS with its own RAM). Honest resource view: uptime, RAM working-memory bytes (bounded),
+    process table (kernel + learn-loop truth + file-heartbeat lobes), store residency.
+    Served via the background warmer — never boots the kernel in the request thread."""
+    def _p_brain_os():
+        from trading.brain.brain_os import get_kernel
+        return get_kernel().top()
+    return h._send(200, _srv(h)._bg_snapshot("brain_os", _p_brain_os),
+                   "application/json")

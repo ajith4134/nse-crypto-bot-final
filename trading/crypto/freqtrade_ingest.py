@@ -63,6 +63,18 @@ def _learn_from_close(ft: dict, t) -> None:
         _cb.update("crypto", str(t.strategy_name or ""), win=win)
     except Exception:
         pass
+    try:
+        # neuron credit (Brain Ultra Upgrade R22): the exact neurons fuse() consulted at
+        # entry (decision_snapshot.app_signals.indicator_fusion.neurons.ids) get this
+        # trade's outcome — the consult→grade loop that feeds confidence + genius-use.
+        snap = t.decision_snapshot if isinstance(t.decision_snapshot, dict) else {}
+        fus = ((snap.get("app_signals") or {}).get("indicator_fusion") or {})
+        ids = ((fus.get("neurons") or {}).get("ids") or [])
+        if ids:
+            from trading.brain import consult as _consult
+            _consult.grade(ids, win=win, pnl=_f(t.net_pnl), domain="trading")
+    except Exception:
+        pass
     _LEARN_SEEN.append(key)                       # insertion order → trim drops OLDEST first
     _LEARN_SEEN = _LEARN_SEEN[-8000:]
     _LEARN_SEEN_SET = set(_LEARN_SEEN)

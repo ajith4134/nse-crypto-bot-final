@@ -44,6 +44,26 @@ and trades — continuously growing smarter with every market session.**
 
 ---
 
+## 🎓 THE NEW ACTIVE GOAL (owner, 2026-07-12): BRAIN ULTRA UPGRADE
+
+The owner declared a new north-star sitting ON TOP of the vision below — **"this is
+the new goal"**: teach the brain to BE INTELLIGENT the way a teacher takes a student
+from basics to PhD. Full 10-star goal: `research/brain-ultra-upgrade/GOAL.md`.
+Owner's verbatim requirements (R1–R28, none may be dropped):
+`research/brain-ultra-upgrade/OWNER_MESSAGE_VERBATIM.md`.
+
+In one line: **one Neuron common language (instruction-shaped) + one continuous
+cognitive loop stitching every feature + a school (L0→L6, dual track: intelligence
+itself AND trading/Binance/Upstox/web-research) + instructions it follows/edits/
+mutates/crosses (keeping what works) + honest self-evaluation (independent-learning
+tests, genius-use on ALL things, LLM-parity benchmark, agentic time horizon).**
+
+The 26 pillars below remain the HOW of the trading domain; the Brain Ultra Upgrade
+is the intelligence layer that connects and drives them. When printing /goal, show
+this section first after the PRIME DIRECTIVE.
+
+---
+
 ### PILLAR 1 — HUMAN-LIKE MEMORY & RECALL
 
 The brain stores everything it learns in a structured, searchable memory (episodic +

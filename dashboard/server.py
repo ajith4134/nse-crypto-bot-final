@@ -1147,6 +1147,27 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/brain/ops":                          # body extracted → dashboard/routes/brain_ext.py (Wave0-⑤ seam)
             from dashboard.routes import brain_ext
             return brain_ext.handle_ops(self)
+        if path == "/api/brain/neurons":                      # Brain Ultra Upgrade — web-of-neurons overview
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_neurons(self)
+        if path == "/api/brain/neurons/graph":                # Brain Ultra Upgrade — neuron web graph snapshot
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_neurons_graph(self)
+        if path == "/api/brain/neurons/search":               # Brain Ultra Upgrade — live neuron search
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_neurons_search(self)
+        if path == "/api/trading/brain/flow":                 # Brain Ultra Upgrade — cognitive-loop stitch health (R1)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_brain_flow(self)
+        if path == "/api/brain/selfeval":                     # Brain Ultra Upgrade — standing self-evaluation report
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_selfeval_report(self)
+        if path == "/api/brain/evolution":                    # Brain Ultra Upgrade — instruction evolution (R8/R9/R26)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_evolution(self)
+        if path == "/api/brain/os":                           # Brain-OS — kernel + RAM working memory (OS-2)
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_brain_os(self)
         if path == "/api/brain/boss":                         # body → dashboard/routes/brain_ext.py (Wave0-⑤ G1)
             from dashboard.routes import brain_ext
             return brain_ext.handle_boss(self)
@@ -1463,6 +1484,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/brain/learn":                        # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
             from dashboard.routes import post_ext
             return post_ext.handle_brain_learn(self)
+        if path == "/api/brain/os":                           # Brain-OS — control ops (focus/pin/boot/ps)
+            from dashboard.routes import post_ext
+            return post_ext.handle_brain_os_ctl(self)
+        if path == "/api/brain/school/exam":                  # Brain Ultra Upgrade — take an exam now
+            from dashboard.routes import post_ext
+            return post_ext.handle_school_exam(self)
+        if path == "/api/brain/selfeval/run":                 # Brain Ultra Upgrade — run slow self-eval test (bg)
+            from dashboard.routes import post_ext
+            return post_ext.handle_selfeval_run(self)
         if path == "/api/brain/web":                          # body → dashboard/routes/post_ext.py (Wave0-⑤ G4)
             from dashboard.routes import post_ext
             return post_ext.handle_brain_web(self)
@@ -1660,6 +1690,11 @@ def main() -> None:
         try:
             from trading.brain.learn_loop import ensure_started
             ensure_started()               # resume continuous learning across restarts
+        except Exception:
+            pass
+        try:
+            from trading.brain.brain_os import ensure_kernel
+            ensure_kernel()                # boot the resident Brain-OS kernel + RAM (OS-2)
         except Exception:
             pass
     threading.Thread(target=_prewarm, daemon=True, name="swr-prewarm").start()
