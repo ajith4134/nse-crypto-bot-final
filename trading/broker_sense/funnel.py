@@ -626,6 +626,18 @@ class BrokerSenseFunnel:
                 rep["stages"]["tab_pool"] = tab_pool.get_pool(
                     self.sessions, _broker).ensure(_prio, deadline=t0 + budget * 1.1,
                                                    pins=set(open_syms) | _dwant)
+                # actively COLLECT the FULL microstructure set (order book / taker / long-short /
+                # aggTrades) for the symbols direction cares about, from the app's own doors, so
+                # the direction model's m_* features populate (owner 2026-07-13). Small set +
+                # hard-throttled + own budget; ban-safe (app-session fetch). crypto only.
+                try:
+                    if _broker == "binance":
+                        from trading.broker_sense import micro_collect
+                        rep["stages"]["micro_collect"] = micro_collect.collect(
+                            list(open_syms) + sorted(_dwant), self.sessions, broker=_broker,
+                            deadline=time.monotonic() + min(6.0, budget * 0.3))
+                except Exception:
+                    pass
                 # serial crawl covers the LONG TAIL beyond the parked head
                 rep["stages"]["ui_crawl"] = ui_crawl.crawl_once(
                     self.sessions, _syms, deadline=t0 + budget * 1.15, broker=_broker)

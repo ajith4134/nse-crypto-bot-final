@@ -2370,6 +2370,11 @@ _M1 (2026-07-12): the D6 meta-labeler is a STACKING meta-learner over indicator_
 - **classes:** TestMetaStackingFeatures
 - **imports:** json, os, tempfile, trading, unittest
 
+## `tests/test_micro_collect.py`
+_Tests for trading/broker_sense/micro_collect.py — active microstructure collection._
+- **classes:** _Page, _Sessions, MicroCollectTest
+- **imports:** trading.broker_sense, unittest
+
 ## `tests/test_micro_features.py`
 _Tests for trading/direction/micro_features — D4 microstructure direction lanes._
 - **classes:** _Iso, TestFundingExtreme, TestMtfAgree, TestRecordClaims
@@ -3607,6 +3612,11 @@ _trading/broker_sense/live_browser.py — an interactive HEADLESS browser stream
 _trading/broker_sense/live_mirror.py — M: LIVE video screen mirror (Pillar 27 batch)._
 - **functions:** `_env(name, default) -> str`; `enabled() -> bool`; `display() -> str`; `available() -> dict`; `frames(fps)`
 - **imports:** __future__, os, subprocess, threading
+
+## `trading/broker_sense/micro_collect.py`
+_trading/broker_sense/micro_collect.py — actively COLLECT microstructure data for the_
+- **functions:** `enabled() -> bool`; `_ttl() -> float`; `_flat(symbol) -> str`; `_missing_kinds(symbol) -> list[str]`; `collect(symbols, sessions) -> dict`
+- **imports:** __future__, os, time
 
 ## `trading/broker_sense/nav_brain.py`
 _trading/broker_sense/nav_brain.py — intelligent Binance-UI navigation (Planner-Actor-Validator)._
