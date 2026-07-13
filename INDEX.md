@@ -1814,6 +1814,11 @@ _Tests for the Broker-Sense Funnel (trading/broker_sense) — offline, STATE_DIR
 - **classes:** _IsolatedState, TestBrokerRoles, TestVaultMerge, TestWatchlist, TestLearningColumns, TestChartVision, TestBookMonitor, TestExecAdapter, TestFunnelCycle, TestCnnModel, TestOtpBoxDetection, TestWedgeRegressions, TestExecutorPerSegment
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_browser_launch.py`
+_Tests for browser_launch (adopt item 5) — STEALTH_BROWSER routing between standard Playwright_
+- **classes:** TestRouting
+- **imports:** os, trading.broker_sense, unittest
+
 ## `tests/test_calibration_truth.py`
 _tests/test_calibration_truth.py — calibration honesty + error-driven learning (2026-07-10)._
 - **functions:** `_trade(symbol, net_pnl, conf)`; `test_zero_and_negative_confidence_are_missing_not_perfect()`; `test_ece_and_reliability_from_real_pairs()`; `test_no_forecasts_means_null_not_fake(monkeypatch)`; `test_mistake_topics_from_loss_clusters(monkeypatch, tmp_path)`; `test_small_or_winning_groups_do_not_trigger(monkeypatch, tmp_path)`
@@ -3428,6 +3433,11 @@ _trading/broker_sense/brokers.py — broker-app registry + ROLE ENFORCEMENT in c
 - **classes:** BrokerApp, RoleViolation
 - **functions:** `_overrides() -> dict`; `set_real_nse_broker(name) -> dict`; `real_broker(market) -> str | None`; `screening_brokers(market) -> list[BrokerApp]`; `assert_can_execute(name, market) -> None`; `status() -> dict`
 - **imports:** __future__, dataclasses, trading
+
+## `trading/broker_sense/browser_launch.py`
+_trading/broker_sense/browser_launch.py — pick the stealth Playwright driver (adopt item 5)._
+- **functions:** `mode() -> str`; `_patchright_ready() -> bool`; `active() -> str`; `sync_playwright()`; `status() -> dict`
+- **imports:** __future__, os
 
 ## `trading/broker_sense/chart_capture.py`
 _trading/broker_sense/chart_capture.py — GAP-E: intelligent REAL Binance-UI chart capture._

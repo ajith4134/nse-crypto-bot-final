@@ -13,6 +13,7 @@ on many. So each broker session owns a DEDICATED worker thread that holds the pa
 methods enqueue a command and wait for its result. Read-only: only logs in; APIs execute."""
 from __future__ import annotations
 
+import os
 import queue
 import threading
 import time
@@ -20,6 +21,40 @@ import time
 from trading import state
 
 _VIEW_W, _VIEW_H = 1280, 800
+
+# Stealth: a REAL (headed) browser that doesn't advertise automation. Binance's login silently
+# no-ops the "Log In" click for a headless / navigator.webdriver context (chrome-headless-shell
+# is detectable) — the funnel's SessionManager logs in fine precisely because it uses these.
+# Kept in sync with trading.broker_sense.sessions.SessionManager._CHROMIUM_ARGS.
+_CHROMIUM_ARGS = ["--no-sandbox", "--disable-dev-shm-usage",
+                  "--disable-blink-features=AutomationControlled",
+                  "--disable-notifications", "--deny-permission-prompts",
+                  "--hide-crash-restore-bubble"]
+
+
+def _foreign_lock_pid(prof) -> int | None:
+    """If Chromium's SingletonLock in `prof` points at a LIVE process, return its PID (the
+    profile is held). The lock target is 'host-PID'. None when free/stale."""
+    try:
+        lock = prof / "SingletonLock"
+        if not lock.is_symlink():
+            return None
+        target = os.readlink(str(lock))          # e.g. "hostname-12345"
+        pid = int(target.rsplit("-", 1)[-1])
+        os.kill(pid, 0)                          # raises if the pid is gone
+        return pid
+    except (OSError, ValueError):
+        return None
+
+
+def _wait_profile_free(prof, timeout: float = 20.0) -> None:
+    """Block until the shared Chromium profile is no longer held by another live process (the
+    funnel releasing it after seeing the operator-login flag), or `timeout` elapses."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _foreign_lock_pid(prof) is None:
+            return
+        time.sleep(0.5)
 
 
 class _Session:
@@ -62,13 +97,24 @@ class _Session:
 
     def _run(self) -> None:
         try:
-            from playwright.sync_api import sync_playwright
-            p = sync_playwright().start()
+            from trading.broker_sense import sessions as _sess
+            # One Chromium per profile: claim it, then wait for the funnel to release the shared
+            # profile before we open it — otherwise both processes corrupt the cookie DB and the
+            # operator's login never persists (bounces to the login screen).
+            _sess.begin_operator_login(self.broker)
             prof = state._path("browser_profiles") / self.broker
             prof.mkdir(parents=True, exist_ok=True)
+            _wait_profile_free(prof, timeout=20.0)
+            # HEADED under a shared Xvfb so Binance doesn't bot-block the login (headless is
+            # detectable); fall back to headless only if no display is available.
+            disp = _sess.ensure_headed_display()
+            headless = disp is None
+            launch_env = {**os.environ, "DISPLAY": disp} if disp else None
+            from trading.broker_sense.browser_launch import sync_playwright  # STEALTH_BROWSER-aware
+            p = sync_playwright().start()
             ctx = p.chromium.launch_persistent_context(
-                str(prof), headless=True, viewport={"width": _VIEW_W, "height": _VIEW_H},
-                args=["--no-sandbox", "--disable-dev-shm-usage"])
+                str(prof), headless=headless, viewport={"width": _VIEW_W, "height": _VIEW_H},
+                args=_CHROMIUM_ARGS, env=launch_env)
             pg = ctx.pages[0] if ctx.pages else ctx.new_page()
             try:
                 from trading.broker_sense.interception import get_recorder
@@ -81,6 +127,11 @@ class _Session:
                 pass
         except Exception as e:
             self.err = f"{type(e).__name__}: {str(e)[:160]}"
+            try:                                    # never leave the funnel yielded on a failed open
+                from trading.broker_sense import sessions as _s
+                _s.end_operator_login(self.broker)
+            except Exception:
+                pass
             self.ready.set()
             return
         self.ready.set()
@@ -106,6 +157,8 @@ class _Session:
             p.stop()
         except Exception:
             pass
+        # profile handed back to the funnel (it re-acquires the now-valid session next cycle)
+        _sess.end_operator_login(self.broker)
 
     def _exec(self, pg, ctx, name: str, kw: dict) -> dict:
         if name == "frame":

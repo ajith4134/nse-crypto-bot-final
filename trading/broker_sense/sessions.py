@@ -436,7 +436,7 @@ class SessionManager:
         if self._browser is not None:
             return self._browser
         self._ensure_display()
-        from playwright.sync_api import sync_playwright
+        from trading.broker_sense.browser_launch import sync_playwright  # STEALTH_BROWSER-aware
         # REUSE an already-started driver (2026-07-12): context()'s persistent-profile
         # attempt starts self._pw before launch_persistent_context can throw (profile
         # held by another process). A second sync_playwright().start() on the same
@@ -460,7 +460,7 @@ class SessionManager:
         prof = state._path("browser_profiles") / broker
         if prof.exists() and any(prof.iterdir()):
             try:                                  # the profile can only be opened by ONE process;
-                from playwright.sync_api import sync_playwright  # if another holds it, chromium's
+                from trading.broker_sense.browser_launch import sync_playwright  # STEALTH_BROWSER; if another holds it, chromium's
                 self._ensure_display()            # headed needs a screen (auto-Xvfb)
                 if self._pw is None:              # SingletonLock makes this throw — degrade to a
                     self._pw = sync_playwright().start()         # storage_state context instead of
