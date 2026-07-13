@@ -26,6 +26,14 @@ from trading.screener import (
 from trading.screener.screener import SEGMENTS
 
 
+@pytest.fixture(autouse=True)
+def _classic_screener_mode(monkeypatch):
+    """These tests cover the CLASSIC screener (injected fakes + stub fallback), not the
+    Upstox-UI-only NSE lane. Force NSE_UI_ONLY off (env '0' wins over the durable state flag)
+    so a production nse_ui_only.json activation can't flip NSE candidates to abstain/UI here."""
+    monkeypatch.setenv("NSE_UI_ONLY", "0")
+
+
 # ── deterministic fakes (injected sources) ────────────────────────────────────
 class FakeNSESource:
     name = "fake-nse"

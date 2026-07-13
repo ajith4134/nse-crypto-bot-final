@@ -191,7 +191,7 @@ def screen_nse_ui(segment: str = "intraday", *, limit: int = 20) -> list[dict]:
     option-chain UI (a later seam); this composable serves the equity/futures segments."""
     try:
         from trading.broker_sense import ui_market
-        from trading.market_guard import CRYPTO, market_of_symbol
+        from trading.market_guard import CRYPTO, is_instrument_key, market_of_symbol
     except Exception:
         return []
     seg = (segment or "intraday").lower()
@@ -202,6 +202,14 @@ def screen_nse_ui(segment: str = "intraday", *, limit: int = 20) -> list[dict]:
         sym = str(r.get("symbol") or "").upper()
         if not sym or market_of_symbol(sym) == CRYPTO:   # keep NSE-shaped names only
             continue
+        # The Upstox WS feed names symbols by INSTRUMENT KEY (NSE_FO|51380) — untradeable by
+        # OpenAlgo ("Symbol not found on NSE"). Translate via the learned alias map; if it's still
+        # an instrument key, SKIP it (never emit a candidate the executor can't place). 2026-07-13.
+        if is_instrument_key(sym):
+            alias = ui_market._ALIASES.get(ui_market._norm_symbol(sym))
+            if not alias or is_instrument_key(alias):
+                continue
+            sym = alias.upper()
         pct = r.get("pct_change")
         try:
             pct = float(pct)

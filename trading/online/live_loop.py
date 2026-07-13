@@ -502,11 +502,15 @@ class LiveTradeLoop:
         # STRUCTURAL guard: a crypto-shaped symbol must NEVER reach the OpenAlgo/Kite door,
         # whatever upstream tagged it NSE (multi-market isolation, 2026-07-13).
         try:
-            from trading.market_guard import assert_market_symbol
+            from trading.market_guard import assert_market_symbol, is_instrument_key
             assert_market_symbol("NSE", symbol)
+            # a data-feed INSTRUMENT KEY (Upstox 'NSE_FO|51380') is not an OpenAlgo tradingsymbol
+            # → it 404s ("not found on NSE"). Reject at the door so it never reaches the broker.
+            if is_instrument_key(symbol):
+                raise ValueError(f"instrument-key {symbol!r} is not a tradeable OpenAlgo symbol")
         except Exception as exc:
-            self._note_error(f"blocked cross-market NSE order: {str(exc)[:80]}")
-            return "", f"blocked (cross-market: {symbol})"
+            self._note_error(f"blocked non-tradeable/cross-market NSE order: {str(exc)[:80]}")
+            return "", f"blocked (bad symbol: {symbol})"
         if not trading_config.is_configured:
             return "", "sim-only (OpenAlgo not configured)"
         exch = self._oa_exch_for(symbol, segment)

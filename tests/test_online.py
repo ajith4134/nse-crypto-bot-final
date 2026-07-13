@@ -101,6 +101,20 @@ class TestMarketSession(unittest.TestCase):
 
 # ── O5: per-segment quote exchange (commodities → MCX, F&O → NFO, equity → NSE) ──
 class TestPriceQuoteExchange(unittest.TestCase):
+    def setUp(self):
+        import os
+        # this test verifies the OpenAlgo-quote path; force NSE_UI_ONLY off (env '0' wins over the
+        # durable state flag) so a production nse_ui_only.json activation can't reroute _price to UI.
+        self._prev = os.environ.get("NSE_UI_ONLY")
+        os.environ["NSE_UI_ONLY"] = "0"
+
+    def tearDown(self):
+        import os
+        if self._prev is None:
+            os.environ.pop("NSE_UI_ONLY", None)
+        else:
+            os.environ["NSE_UI_ONLY"] = self._prev
+
     def test_price_quotes_each_segment_on_its_exchange(self):
         from trading.online.live_loop import LiveTradeLoop
 

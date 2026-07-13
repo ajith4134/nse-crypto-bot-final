@@ -84,5 +84,25 @@ class TestExecAdapterDoor(unittest.TestCase):
         self.assertEqual(cc.calls, [])
 
 
+class TestInstrumentKey(unittest.TestCase):
+    def test_detects_upstox_instrument_keys(self):
+        from trading.market_guard import is_instrument_key
+        for k in ("NSE_FO|51380", "BSE_INDEX|SENSEX", "NSE_EQ|INE002A01018"):
+            self.assertTrue(is_instrument_key(k), k)
+        for s in ("RELIANCE", "NIFTY", "BTC/USDT:USDT", "SENSEX"):
+            self.assertFalse(is_instrument_key(s), s)
+
+    def test_exec_adapter_blocks_instrument_key_to_nse(self):
+        from trading.broker_sense.exec_adapter import ExecAdapter
+
+        class _Boom:
+            def place_order(self, **k):
+                raise AssertionError("OpenAlgo must not get an instrument key")
+        adap = ExecAdapter(crypto_client=object(), nse_client=_Boom())
+        res = adap.place(market="NSE", symbol="NSE_FO|51380", action="BUY")
+        self.assertFalse(res.get("placed"))
+        self.assertIn("instrument-key", res.get("blocked", ""))
+
+
 if __name__ == "__main__":
     unittest.main()

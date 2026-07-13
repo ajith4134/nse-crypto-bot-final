@@ -35,6 +35,15 @@ class MarketSymbolMismatch(ValueError):
     """Raised when a symbol's shape contradicts the market it was routed to."""
 
 
+def is_instrument_key(symbol: str) -> bool:
+    """True for a DATA-FEED instrument-key format (Upstox: 'NSE_FO|51380', 'BSE_INDEX|SENSEX',
+    'NSE_EQ|INE002A01018') — an identifier the eyes' WS feed names symbols by, NOT a broker-
+    tradeable symbol. OpenAlgo/Zerodha 404 ("Symbol NSE_FO|51380 not found on NSE") on these, so
+    they must never reach the execution/quote door: translate to a tradingsymbol or skip.
+    Crypto pairs use '/'+':' (never '|'), so this is unambiguous."""
+    return "|" in (symbol or "")
+
+
 def market_of_symbol(symbol: str) -> str | None:
     """Infer the market from a symbol's SHAPE, or None when genuinely ambiguous.
 

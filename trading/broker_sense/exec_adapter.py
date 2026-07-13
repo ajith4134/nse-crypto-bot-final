@@ -54,8 +54,10 @@ class ExecAdapter:
         # never reach the NSE/OpenAlgo door, nor an NSE symbol the crypto engine — regardless
         # of a wrong upstream tag. Returns an honest failure instead of placing.
         try:
-            from trading.market_guard import assert_market_symbol
+            from trading.market_guard import assert_market_symbol, is_instrument_key
             assert_market_symbol("CRYPTO" if market == "crypto" else "NSE", symbol)
+            if market != "crypto" and is_instrument_key(symbol):
+                raise ValueError(f"instrument-key {symbol!r} is not a tradeable OpenAlgo symbol")
         except Exception as exc:
             entry = {"market": market, "symbol": symbol, "action": action, "segment": segment,
                      "live": False, "broker": None, "ok": False, "blocked": str(exc)}
