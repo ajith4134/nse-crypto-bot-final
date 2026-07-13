@@ -37,6 +37,7 @@ class NavBrain:
         self.max_replans = max_replans
         self.stuck_k = stuck_k
         self._consulted = None             # learned-route neurons for the CURRENT navigate()
+        self._following = None             # the instruction id being FOLLOWED this navigate (F)
 
     # ── the gate: never touch a segment the owner turned off ─────────────────────────
     def allowed_segments(self) -> set:
@@ -59,6 +60,35 @@ class NavBrain:
         return out
 
     # ── Planner ──────────────────────────────────────────────────────────────────────
+    def _followed_plan(self) -> list[dict] | None:
+        """F (brain in every UI trade): if the brain has a PROVEN route instruction for this
+        goal, FOLLOW its steps directly instead of re-planning from scratch — the confirmed
+        golden path it already learned. Uses instructions.follow() on the top consulted
+        instruction; each step becomes a gated click action. Returns None (→ fall back to the
+        planner) when there's no proven instruction, so navigation never regresses."""
+        try:
+            ids = (self._consulted or {}).get("ids") or []
+            if not ids:
+                return None
+            from trading.brain.instructions import InstructionEngine
+            eng = InstructionEngine()
+            for nid in ids:                               # first proven, non-retired instruction
+                n = eng.store.get(nid)
+                if n is None or n.kind != "instruction" or n.stats.get("retired"):
+                    continue
+                if n.confidence < 0.5:                    # only FOLLOW routes that have held up
+                    continue
+                got = eng.follow(nid)
+                steps = (got or {}).get("steps") or []
+                if len(steps) < 1:
+                    continue
+                self._following = nid
+                acts = self._gate([{"type": "click", "target": s} for s in steps])
+                return acts[: self.max_steps] or None
+            return None
+        except Exception:
+            return None
+
     def plan(self, goal: str, perception: dict, *, error: str | None = None) -> list[dict]:
         """Goal → ordered UI actions, segment-gated. LLM when available, heuristic otherwise."""
         actions = self._llm_plan(goal, perception, error) or self._heuristic_plan(goal, perception)
@@ -120,6 +150,7 @@ class NavBrain:
         Returns a full trace. Never raises into the caller."""
         trace: list[dict] = []
         sigs: list[str] = []
+        self._following = None
         try:
             from trading.brain import brain_os as _bos       # OS-4: kernel-routed surface
             self._consulted = _bos.consult(
@@ -127,7 +158,7 @@ class NavBrain:
         except Exception:
             self._consulted = None
         try:
-            plan = self.plan(goal, self.perceive())
+            plan = self._followed_plan() or self.plan(goal, self.perceive())
         except Exception:
             plan = []
         i = steps = replans = 0
@@ -172,7 +203,8 @@ class NavBrain:
         return {"goal": goal, "steps": steps, "replans": replans,
                 "completed": completed,
                 "allowed_segments": sorted(self.allowed_segments()), "trace": trace,
-                "neurons_consulted": (self._consulted or {}).get("ids", [])}
+                "neurons_consulted": (self._consulted or {}).get("ids", []),
+                "following": self._following}
 
 
 def from_human_ui(humanui, *, market: str = "crypto", **kw) -> "NavBrain":

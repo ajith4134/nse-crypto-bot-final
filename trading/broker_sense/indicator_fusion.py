@@ -580,8 +580,12 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
     neurons = None
     try:
         from trading.brain import brain_os as _bos       # OS-4: one kernel-routed surface
+        # F: consult MORE of the web per decision (k=6, env-tunable) so the brain brings more
+        # of its knowledge — recipes, findings, lessons, episodes — to every trade, not a
+        # thin top-3. Bounded (RAM search); raises genius-use honestly.
+        _k = int(os.environ.get("FUSE_CONSULT_K", "6"))
         neurons = _bos.consult(
-            f"{symbol} {direction} {regime} {market}", domain=f"trade:{market}", k=3)
+            f"{symbol} {direction} {regime} {market}", domain=f"trade:{market}", k=_k)
         if not neurons["ids"]:
             neurons = None
     except Exception:

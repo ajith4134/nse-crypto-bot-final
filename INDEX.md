@@ -2425,6 +2425,11 @@ _Tests for trading/broker_sense/nav_brain.py — Planner-Actor-Validator navigat
 - **functions:** `_nav(fake, act, segs)`
 - **imports:** __future__, trading.broker_sense.nav_brain, unittest
 
+## `tests/test_nav_follow.py`
+_Tests for nav_brain._followed_plan — the brain FOLLOWS proven route instructions (proposal F)._
+- **classes:** NavFollowTest
+- **imports:** memory, memory.neurons, tempfile, trading.broker_sense.nav_brain, unittest
+
 ## `tests/test_nav_segment_gate.py`
 _Tests for the navigation segment-gate fix (2026-07-11) — the brain must NOT navigate to / drive_
 - **classes:** SegmentGateTest
