@@ -31,65 +31,141 @@ function Chip({ label, value, color }) {
   )
 }
 
-// Deterministic mini force-layout: seeded ring by kind, then a few relaxation passes.
-function layout(nodes, edges, W, H) {
-  const idx = new Map(nodes.map((n, i) => [n.id, i]))
-  const pos = nodes.map((n, i) => {
-    const a = (i / Math.max(1, nodes.length)) * Math.PI * 2
-    const r = 0.28 + 0.16 * ((n.kind.charCodeAt(0) * 31 + i * 7) % 100) / 100
-    return { x: W / 2 + Math.cos(a) * W * r, y: H / 2 + Math.sin(a) * H * r * 0.9 }
-  })
-  const links = edges.map((e) => [idx.get(e.src), idx.get(e.dst)])
-    .filter(([a, b]) => a != null && b != null)
-  for (let it = 0; it < 60; it++) {
-    for (const [a, b] of links) {                       // springs pull linked nodes
-      const dx = pos[b].x - pos[a].x, dy = pos[b].y - pos[a].y
-      const d = Math.max(1, Math.hypot(dx, dy)), f = (d - 46) / d * 0.04
-      pos[a].x += dx * f; pos[a].y += dy * f
-      pos[b].x -= dx * f; pos[b].y -= dy * f
-    }
-    for (const p of pos) {                              // gravity to center + bounds
-      p.x += (W / 2 - p.x) * 0.004; p.y += (H / 2 - p.y) * 0.004
-      p.x = Math.min(W - 8, Math.max(8, p.x)); p.y = Math.min(H - 8, Math.max(8, p.y))
-    }
-  }
-  return pos
+// ── Animated, kind-clustered neuron web on a canvas (self-contained, no libs) ──────────
+// Every visual maps to REAL data: node color = real kind, node size/glow = real degree,
+// position = force sim clustered by kind (colors form readable regions, not one blob),
+// and signal pulses travel along REAL edges (hubs — high real degree — fire more often).
+// Nothing fabricated: no fake neurons, no demo activity — pulses ride the actual link graph.
+const KIND_LIST = Object.keys(KIND_COLORS)
+function _kindCenter(kind, W, H) {          // deterministic cluster anchor per kind (readable regions)
+  const i = Math.max(0, KIND_LIST.indexOf(kind))
+  const a = (i / KIND_LIST.length) * Math.PI * 2
+  return { x: W / 2 + Math.cos(a) * W * 0.30, y: H / 2 + Math.sin(a) * H * 0.30 }
 }
 
-function GraphSVG({ graph }) {
-  const W = 640, H = 360
-  const nodes = (graph?.nodes || []).slice(0, 220)
-  const keep = new Set(nodes.map((n) => n.id))
-  const edges = (graph?.edges || []).filter((e) => keep.has(e.src) && keep.has(e.dst))
-    .slice(0, 700)
+function GraphCanvas({ graph }) {
+  const W = 640, H = 380
+  const canvasRef = useRef(null)
   const [hover, setHover] = useState(null)
-  const pos = useMemo(() => layout(nodes, edges, W, H), [graph])
+  const stateRef = useRef({ nodes: [], edges: [], pulses: [] })
+
+  const prepared = useMemo(() => {
+    const nodes = (graph?.nodes || []).slice(0, 240).map((n) => ({ ...n }))
+    const keep = new Set(nodes.map((n) => n.id))
+    const idx = new Map(nodes.map((n, i) => [n.id, i]))
+    const edges = (graph?.edges || []).filter((e) => keep.has(e.src) && keep.has(e.dst))
+      .slice(0, 800).map((e) => ({ a: idx.get(e.src), b: idx.get(e.dst) }))
+    // seed positions near each node's kind cluster (so regions are readable from frame 1)
+    nodes.forEach((n, i) => {
+      const c = _kindCenter(n.kind || 'source', W, H)
+      const j = (n.id.charCodeAt ? n.id.charCodeAt(0) : i) * 13 + i * 7
+      n.x = c.x + Math.cos(j) * 40 + (j % 23) - 11
+      n.y = c.y + Math.sin(j) * 40 + (j % 17) - 8
+      n.vx = 0; n.vy = 0
+      n.r = 2.5 + Math.min(7, (n.degree || 0) * 0.55)     // size = real degree
+      n.phase = (j % 100) / 100 * Math.PI * 2             // per-node breathing offset
+    })
+    return { nodes, edges }
+  }, [graph])
+
+  useEffect(() => {
+    stateRef.current = { ...prepared, pulses: [] }
+    const cv = canvasRef.current
+    if (!cv || !prepared.nodes.length) return
+    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    cv.width = W * dpr; cv.height = H * dpr
+    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr)
+    let raf, t = 0, running = true
+    const { nodes, edges } = stateRef.current
+
+    const step = () => {
+      if (!running) return
+      t += 1
+      // physics: spring links + kind-cluster gravity + mild mutual repulsion among hubs
+      for (const e of edges) {
+        const a = nodes[e.a], b = nodes[e.b]
+        const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(1, Math.hypot(dx, dy))
+        const f = (d - 40) / d * 0.008
+        a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f
+      }
+      for (const n of nodes) {
+        const c = _kindCenter(n.kind || 'source', W, H)
+        n.vx += (c.x - n.x) * 0.0016; n.vy += (c.y - n.y) * 0.0016   // toward its kind region
+        n.vx *= 0.90; n.vy *= 0.90                                    // damping → gentle settle
+        n.x += n.vx; n.y += n.vy
+        n.x = Math.min(W - 6, Math.max(6, n.x)); n.y = Math.min(H - 6, Math.max(6, n.y))
+      }
+      // fire pulses along real edges from high-degree hubs (rate ∝ real degree)
+      if (t % 3 === 0 && edges.length) {
+        for (let k = 0; k < 3; k++) {
+          const e = edges[(Math.floor(t * 7 + k * 131)) % edges.length]
+          const deg = nodes[e.a].degree || 0
+          if (deg + (nodes[e.b].degree || 0) > 1) stateRef.current.pulses.push({ e, p: 0 })
+        }
+      }
+      stateRef.current.pulses = stateRef.current.pulses.filter((pl) => (pl.p += 0.05) < 1)
+
+      // ── render ──
+      ctx.clearRect(0, 0, W, H)
+      ctx.fillStyle = '#0a0e15'; ctx.fillRect(0, 0, W, H)
+      // edges (faint; brighter when either endpoint is a hub)
+      for (const e of edges) {
+        const a = nodes[e.a], b = nodes[e.b]
+        const hub = Math.max(a.degree || 0, b.degree || 0)
+        ctx.strokeStyle = `rgba(70,100,150,${0.06 + Math.min(0.22, hub * 0.02)})`
+        ctx.lineWidth = 0.6
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+      }
+      // travelling signal pulses (real links firing)
+      for (const pl of stateRef.current.pulses) {
+        const a = nodes[pl.e.a], b = nodes[pl.e.b]
+        const x = a.x + (b.x - a.x) * pl.p, y = a.y + (b.y - a.y) * pl.p
+        const col = KIND_COLORS[b.kind] || '#8fd6ff'
+        ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2)
+        ctx.fillStyle = col; ctx.globalAlpha = 1 - pl.p; ctx.fill(); ctx.globalAlpha = 1
+      }
+      // nodes: glow halo (breathing, scaled by degree) + core
+      for (const n of nodes) {
+        const col = KIND_COLORS[n.kind] || '#9aa7b8'
+        const pulse = 0.5 + 0.5 * Math.sin(t * 0.05 + n.phase)
+        const glow = n.r + 3 + (n.degree || 0) * 0.35 * pulse
+        const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glow)
+        g.addColorStop(0, col + '88'); g.addColorStop(1, col + '00')
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.x, n.y, glow, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fill()
+      }
+      raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => { running = false; cancelAnimationFrame(raf) }
+  }, [prepared])
+
+  const onMove = (ev) => {
+    const cv = canvasRef.current; if (!cv) return
+    const rect = cv.getBoundingClientRect()
+    const mx = (ev.clientX - rect.left) / rect.width * W
+    const my = (ev.clientY - rect.top) / rect.height * H
+    let best = null, bd = 14 * 14
+    for (const n of stateRef.current.nodes) {
+      const d = (n.x - mx) ** 2 + (n.y - my) ** 2
+      if (d < bd) { bd = d; best = n }
+    }
+    setHover(best ? { ...best, px: best.x / W, py: best.y / H } : null)
+  }
+
   if (graph?.warming) return <div style={{ color: T.muted, fontSize: 12 }}>graph snapshot warming (serial background init) — appears shortly</div>
-  if (!nodes.length) return <div style={{ color: T.muted, fontSize: 12 }}>web empty — run the backfill</div>
-  const idx = new Map(nodes.map((n, i) => [n.id, i]))
+  if (!prepared.nodes.length) return <div style={{ color: T.muted, fontSize: 12 }}>web empty — run the backfill</div>
   return (
     <div style={{ position: 'relative' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto',
-           background: '#0b0f16', borderRadius: 8, border: `1px solid ${T.border}` }}>
-        {edges.map((e, i) => {
-          const a = pos[idx.get(e.src)], b = pos[idx.get(e.dst)]
-          return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                       stroke="#233046" strokeWidth={0.7} opacity={0.8} />
-        })}
-        {nodes.map((n, i) => (
-          <circle key={n.id} cx={pos[i].x} cy={pos[i].y}
-                  r={3 + Math.min(6, (n.degree || 0) * 0.6)}
-                  fill={KIND_COLORS[n.kind] || T.muted} opacity={0.92}
-                  onMouseEnter={() => setHover({ ...n, x: pos[i].x / W, y: pos[i].y / H })}
-                  onMouseLeave={() => setHover(null)} style={{ cursor: 'pointer' }} />
-        ))}
-      </svg>
+      <canvas ref={canvasRef} onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+              style={{ width: '100%', height: 'auto', aspectRatio: `${W} / ${H}`, display: 'block',
+                       background: '#0a0e15', borderRadius: 8, border: `1px solid ${T.border}`,
+                       cursor: 'crosshair' }} />
       {hover && (
-        <div style={{ position: 'absolute', left: `${hover.x * 100}%`, top: `${hover.y * 100}%`,
-                      transform: 'translate(-50%, -120%)', background: '#0e1420',
+        <div style={{ position: 'absolute', left: `${hover.px * 100}%`, top: `${hover.py * 100}%`,
+                      transform: 'translate(-50%, -130%)', background: '#0e1420',
                       border: `1px solid ${T.border}`, borderRadius: 6, padding: '4px 8px',
-                      fontSize: 11, color: T.text, pointerEvents: 'none', maxWidth: 260,
-                      zIndex: 5 }}>
+                      fontSize: 11, color: T.text, pointerEvents: 'none', maxWidth: 280, zIndex: 5 }}>
           <span style={{ color: KIND_COLORS[hover.kind] }}>{hover.kind}</span> · {hover.label}
           <span style={{ color: T.muted }}> · {hover.degree} links · conf {Number(hover.confidence).toFixed(2)}</span>
         </div>
@@ -203,7 +279,7 @@ export default function NeuronWebPanel({ intervalMs = 20000 }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: 12 }}>
         <div>
-          <GraphSVG graph={graph} />
+          <GraphCanvas graph={graph} />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
             {kinds.map(([k, v]) => (
               <span key={k} style={{ fontSize: 10, color: T.muted }}>
