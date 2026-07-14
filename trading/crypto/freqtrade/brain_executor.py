@@ -1717,6 +1717,32 @@ class BrainExecutor:
                         continue
                 except Exception:
                     pass
+                # SMART EXIT (owner 2026-07-14): forward-looking exit — the Symbol-Move Net now
+                # forecasts the symbol moving AGAINST the open side (p_up crossed its band AND
+                # expected_move_pct is a real move the wrong way). This adds a MAGNITUDE forecast
+                # that dir_exit (direction-only) and the ensemble-flip lack, before the stop is hit.
+                # Shadow by default (records a mind advisory); SMART_EXIT=trade acts. Respects
+                # min-hold so it never cuts a just-opened trade.
+                try:
+                    if not self._too_young_to_exit(cli, pair):
+                        from trading.crypto.freqtrade import smart_exit as _sx
+                        _se = _sx.should_exit(
+                            pair, ("SHORT" if t.get("is_short") else "LONG"),
+                            market="CRYPTO", segment=self.segment or "futures", regime=_regime)
+                        if _se.get("exit"):
+                            from trading.brain import mind_events as _me
+                            if os.environ.get("SMART_EXIT") == "trade":
+                                cli.close_pair(pair, segment=self.segment)
+                                exited.append(pair)
+                                pt.clear_lock(tid)
+                                _me.emit("trade_debit",
+                                         f"Smart-exit cut {pair}: {_se.get('reason')}", salience=0.55)
+                                continue
+                            _me.emit("thought",            # shadow: advisory only
+                                     f"Smart-exit WOULD cut {pair}: {_se.get('reason')} "
+                                     f"(shadow; set SMART_EXIT=trade to act)", salience=0.35)
+                except Exception:
+                    pass
                 # VISION-READ EXIT (idea ③, motto-native): the local VLM's read of the REAL app
                 # chart argues to close (flipped against us / reversal pattern). Respects the
                 # min-hold so it can't cut a just-opened trade. Shadow by default (logs an

@@ -1447,11 +1447,27 @@ def handle_gui_status(h):
         agent = _srv(h)._gui_agent()
         qs = parse_qs(urlparse(h.path).query)
         if qs.get("observe", ["0"])[0] == "1":
-            # deep=True → Playwright DomReader reads the REACT-RENDERED controls; the cheap
-            # stdlib HTML parse sees 0 on our SPA (buttons are JS-rendered) → the old "CONTROLS
-            # FOUND 0". Only fires on the explicit ?observe=1 (not the status poll), so the
-            # headless-chromium cost is bounded.
-            agent.observe("own_dashboard", deep=True)
+            # deep=True (Playwright DomReader) reads the REACT-RENDERED controls the stdlib parse
+            # can't see (→ the old "CONTROLS FOUND 0"). BUT a headless-chromium read takes ~15-20s
+            # and MUST NOT run on the request thread — that wedges the server (503). So kick it in
+            # the BACKGROUND: this call returns the last cached perception immediately and the deep
+            # control count lands on the next poll. A cheap stdlib read runs inline so a first-ever
+            # call still returns a (shallow) perception rather than nothing.
+            import threading as _th
+            g = globals()
+            if not g.get("_GUI_DEEP_OBSERVING"):
+                g["_GUI_DEEP_OBSERVING"] = True
+
+                def _bg_observe(_ag=agent):
+                    try:
+                        _ag.observe("own_dashboard", deep=True)
+                    except Exception:
+                        pass
+                    finally:
+                        g["_GUI_DEEP_OBSERVING"] = False
+                _th.Thread(target=_bg_observe, daemon=True, name="gui-deep-observe").start()
+            if getattr(agent, "_last_perception", None) is None:
+                agent.observe("own_dashboard")        # cheap stdlib read so the first call is non-empty
         register_computer_use_agent(agent)        # dashboard-sync: node graph
         blob = agent.to_json()
         caps = blob["action_capabilities"]

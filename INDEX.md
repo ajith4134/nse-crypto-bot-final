@@ -2703,6 +2703,11 @@ _Trading Phase T8.8 (skill library + observability + self-improvement) tests —
 - **functions:** `_skill(name, market, metric)`
 - **imports:** __future__, itertools, numpy, os, trading, trading.brain.observability, trading.brain.selfimprove, trading.brain.skills, trading.strategy.control, unittest, warnings
 
+## `tests/test_smart_exit.py`
+_tests/test_smart_exit.py — forward-looking open-trade exit (Symbol-Move Net + dir flip)._
+- **classes:** TestSmartExit
+- **imports:** os, unittest
+
 ## `tests/test_state_update_json.py`
 _state.update_json — locked cross-process merge (2026-07-10 review fix)._
 - **classes:** UpdateJsonTest
@@ -3399,7 +3404,7 @@ _trading/brain/surface.py — W2 scientific-method rails for EVERY self-tuning o
 ## `trading/brain/symbol_move_net.py`
 _trading/brain/symbol_move_net.py — the brain's OUTPUT network, changed on owner ask 2026-07-13._
 - **classes:** _NumpyRidge, _NumpyLogRegDir, SymbolMoveNet
-- **functions:** `enabled() -> bool`; `_market_context(trade) -> dict`; `_ram_row(trade) -> list[float]`; `move_feature_row(trade) -> list[float]`; `_move_pct(trade) -> float | None`; `get_move_net(closed_rows) -> SymbolMoveNet`; `refresh(closed_rows) -> dict`; `consult(ctx) -> dict`
+- **functions:** `enabled() -> bool`; `_market_context(trade) -> dict`; `_ram_row(trade) -> list[float]`; `move_feature_row(trade) -> list[float]`; `_move_pct(trade) -> float | None`; `get_move_net(closed_rows) -> SymbolMoveNet`; `refresh(closed_rows) -> dict`; `ensure_trained_once() -> bool`; `consult(ctx) -> dict`
 - **imports:** __future__, math, os, trading.brain.trade_features
 
 ## `trading/brain/track_record.py`
@@ -3946,6 +3951,11 @@ _Nightly micro-policy distillation daemon (invent-beyond #4)._
 _trading/crypto/freqtrade/run_strategy_table.py — daemon for the per-coin best-strategy table._
 - **functions:** `_sig(_signum, _frame)`; `main() -> int`
 - **imports:** __future__, logging, os, signal, sys, time
+
+## `trading/crypto/freqtrade/smart_exit.py`
+_trading/crypto/freqtrade/smart_exit.py — intelligent open-trade EXIT beyond SL / target._
+- **functions:** `_flag(name, default) -> bool`; `_f(name, default) -> float`; `should_exit(symbol, side) -> dict`
+- **imports:** __future__, os
 
 ## `trading/crypto/freqtrade/strategy_table.py`
 _trading/crypto/freqtrade/strategy_table.py — the per-coin BEST-STRATEGY table (2026-07-13)._

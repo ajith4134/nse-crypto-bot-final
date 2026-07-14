@@ -582,6 +582,16 @@ def _enrich_predictions(*row_lists) -> None:
     """In-place: add strategy_label / brain_pred / nn_pred to each crypto trade row."""
     book = _confidence_book()
     net = _trade_outcome_net()
+    # Train the Symbol-Move Net ONCE for this (dashboard) process so the NN column shows the
+    # signed move %/p_up. Synchronous by design (torch fit deadlocks in a daemon thread) but this
+    # runs inside the 30s-cached, single-flight /crypto/trades path, so the one-time ~seconds cost
+    # is paid on a background poll, not every request.
+    try:
+        from trading.brain import symbol_move_net as _smn0
+        if _smn0.enabled():
+            _smn0.ensure_trained_once()
+    except Exception:
+        pass
 
     def _conf(sym: str):
         d = book.get(sym)
@@ -603,10 +613,52 @@ def _enrich_predictions(*row_lists) -> None:
             direction = r.get("direction", "") or ""
             r["strategy_label"] = (r.get("enter_tag") or r.get("strategy")
                                    or r.get("strategy_name") or "—")
+            # STRATEGY-ON-EVERY-TRADE (2026-07-13): when a generic DRIVER opened the trade
+            # (learned_direction / explore / filter:*), surface the per-coin tournament's best-fit
+            # library/created/evolved/researched strategy beside it — so the Strategy column ALWAYS
+            # shows a real strategy, never a bare driver. Read from the entry-meta sidecar (mtime-
+            # cached, no tournament in the request thread).
+            _drv = str(r["strategy_label"] or "")
+            if _drv in ("learned_direction", "explore_open_all", "—") or _drv.startswith("filter:"):
+                try:
+                    # entry-time best-fit (honest attribution recorded when the trade opened)…
+                    _bf = (_ft_entry_meta(r).get("decision_snapshot") or {}).get("best_fit") or {}
+                    _bfs = _bf.get("strategy")
+                    _agrees = _bf.get("agrees")
+                    if not _bfs:                       # …else the CURRENT table row for this coin, so
+                        from trading.crypto.freqtrade import strategy_table as _stab  # trades opened
+                        _lv = _stab.lookup(r.get("symbol", "")) or {}                 # before this
+                        _bfs = _lv.get("best_strategy")                               # feature still show
+                        if _bfs and (r.get("direction") in ("LONG", "SHORT")):
+                            _agrees = (_lv.get("signal") == r.get("direction"))
+                    if _bfs:
+                        r["strategy_label"] = _bfs if _drv == "—" else f"{_drv} · fit:{_bfs}"
+                        r["best_fit_strategy"] = _bfs
+                        r["best_fit_agrees"] = _agrees
+                except Exception:
+                    pass
             conf = _conf(r.get("symbol", ""))
             r["brain_pred"] = f"{direction} {conf:.2f}" if conf is not None else (direction or "—")
-            pw = preds[i].get("p_win") if (i < len(preds) and isinstance(preds[i], dict)) else None
-            r["nn_pred"] = f"win {round(pw * 100)}%" if pw is not None else "—"
+            # NN column (owner 2026-07-14): the Symbol-Move Net's signed expected-move % (sign =
+            # predicted direction) + p_up — a far richer read than a bare win%: "how far AND which
+            # way the net expects the symbol to move". Falls back to the win-net until the move-net
+            # is trained. Cheap: one cached forward pass, never trains, never raises.
+            _pw = preds[i].get("p_win") if (i < len(preds) and isinstance(preds[i], dict)) else None
+            _nn = f"win {round(_pw * 100)}%" if _pw is not None else "—"
+            try:
+                from trading.brain import symbol_move_net as _smn
+                _snap = (_ft_entry_meta(r) or {}).get("decision_snapshot") or {}
+                _sm = _smn.consult({"symbol": r.get("symbol", ""), "direction": direction or "LONG",
+                                    "market": "CRYPTO", "exchange": "binance",
+                                    "decision_snapshot": _snap})
+                _mv, _pu = _sm.get("expected_move_pct"), _sm.get("p_up")
+                if _sm.get("trained") and _mv is not None:
+                    _nn = f"{_mv:+.1f}%" + (f" · p↑{round(_pu * 100)}%" if _pu is not None else "")
+                elif _pu is not None:
+                    _nn = f"p↑{round(_pu * 100)}%"
+            except Exception:
+                pass
+            r["nn_pred"] = _nn
 
 
 _CANDLE_CACHE: dict = {}      # (symbol, market, tf) -> (ts, candles) — short TTL to avoid hammering

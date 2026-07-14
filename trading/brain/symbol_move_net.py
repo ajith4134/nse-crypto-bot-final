@@ -323,9 +323,28 @@ def refresh(closed_rows: list[dict] | None = None) -> dict:
         return {"error": f"{type(e).__name__}: {str(e)[:120]}"}
 
 
+def ensure_trained_once() -> bool:
+    """Train the live net ONCE per process if it isn't already (e.g. the dashboard, which never
+    runs the funnel daemon). SYNCHRONOUS by design: the GatedMoENode fit uses torch, which
+    DEADLOCKS in a daemon thread — so callers must invoke this from a cached / single-flight path
+    (not a per-request hot loop). Bounded ~seconds, single-flight, never raises. Returns trained?."""
+    if _LIVE.get("net") is not None:
+        return True
+    if not enabled() or _LIVE.get("_training"):
+        return _LIVE.get("net") is not None
+    _LIVE["_training"] = True
+    try:
+        refresh()
+    except Exception:
+        pass
+    finally:
+        _LIVE["_training"] = False
+    return _LIVE.get("net") is not None
+
+
 def consult(ctx: dict) -> dict:
     """Predict for ONE live candidate from the cached net — cheap (one forward pass), never trains,
-    never raises. Returns the untrained/neutral shape until the daemon has run refresh()."""
+    never raises. Returns the untrained/neutral shape until refresh()/ensure_trained_once() ran."""
     net = _LIVE["net"]
     if net is None or not enabled():
         return {"direction": "NEUTRAL", "p_up": None, "expected_move_pct": None,
