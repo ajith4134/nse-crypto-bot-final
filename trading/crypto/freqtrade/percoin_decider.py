@@ -242,7 +242,17 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         last_price = float(close[-1])
         ranked = []
         sig_by_name: dict = {}
-        for s in self.strategies():
+        # SPEED CAP (owner 2026-07-14): the tournament backtests EVERY library strategy per coin
+        # (~142 × backtest ≈ 700s/coin), which starves the per-coin strategy_table so the Strategy
+        # column goes TTL-stale. TOURNAMENT_MAX_STRATS caps the set to the first-N registry entries
+        # (institutional/library strategies are registered first = the higher-quality core), cutting
+        # per-coin time proportionally so coverage fills far faster. 0 = no cap (score all). The
+        # per-coin backtest×brain ranking still picks the best of whatever competes.
+        _strats = self.strategies()
+        _cap = int(os.environ.get("TOURNAMENT_MAX_STRATS", "0") or 0)
+        if _cap > 0:
+            _strats = _strats[:_cap]
+        for s in _strats:
             try:
                 sig = np.asarray(s.make_signal(feats), dtype=float)
             except Exception:
