@@ -18,6 +18,26 @@ from river import compose, drift, linear_model, preprocessing
 
 from core.node_protocol import BaseNode, IOSchema
 
+_AVAL_PROBE: tuple[bool, str] | None = None
+
+
+def avalanche_available() -> tuple[bool, str]:
+    """Probe (once, cached) whether the deep Avalanche Replay+EWC engine can be imported.
+
+    Avalanche chains through ``qpsolvers → jaxopt → jax``, and the installed jax needs
+    numpy>=2 (``numpy.dtypes.StringDType``); on the project-pinned numpy 1.26 that import
+    raises ``AttributeError``. When the deep engine is unavailable the continual layer stays
+    live on the River ``OnlineNode`` (always importable) — this probe lets callers report
+    that honestly instead of surfacing a raw traceback. Returns (ok, version-or-reason)."""
+    global _AVAL_PROBE
+    if _AVAL_PROBE is None:
+        try:
+            import avalanche  # noqa: F401
+            _AVAL_PROBE = (True, getattr(avalanche, "__version__", "?"))
+        except Exception as e:                       # jax/numpy conflict, missing dep, etc.
+            _AVAL_PROBE = (False, f"{type(e).__name__}: {e}"[:160])
+    return _AVAL_PROBE
+
 
 def _row_dict(features: list[str], row) -> dict:
     return {f: float(v) for f, v in zip(features, row)}

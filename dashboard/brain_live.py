@@ -99,8 +99,16 @@ def _patterns() -> dict:
     from trading.brain.regime import RegimeModel
     scan = PatternScanner(window=20).scan(ohlcv, k=3)
     reg = RegimeModel(n_states=3, seed=0).fit(ohlcv)
+    # `current` = the human-readable regime label the panel shows (bull/bear/neutral); the
+    # status() detail (n_states/fitted/labels) rode alone before, so the UI stringified the whole
+    # dict → "[object Object]". current_regime() is the same call the live pipeline uses.
+    try:
+        _cur = reg.current_regime(ohlcv)
+    except Exception:
+        _cur = "—"
     return {"patterns": scan.as_dict() if hasattr(scan, "as_dict") else scan,
-            "regime": reg.status() if hasattr(reg, "status") else {"regime": "—"},
+            "regime": {"current": _cur,
+                       **(reg.status() if hasattr(reg, "status") else {"regime": "—"})},
             "picking": {"note": "live universe ranking comes online with the brain loop (Batch 2)"},
             "entryexit": {"note": "live entry/exit gating comes online with the brain loop (Batch 2)"},
             "demo": False, "symbol": "BTC/USDT", "tf": "5m"}

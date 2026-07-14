@@ -1809,6 +1809,11 @@ _Unit tests for BrainExecutor's options/prediction segment cycles (audit gap 4).
 - **functions:** `_candles(closes)`
 - **imports:** trading.crypto.freqtrade.brain_executor, unittest
 
+## `tests/test_brain_sources.py`
+_tests/test_brain_sources.py — brain lenses as truth-ledger-weighted direction sources._
+- **classes:** TestBrainSources
+- **imports:** numpy, os, pandas, pathlib, tempfile, unittest
+
 ## `tests/test_broker_features.py`
 _Tests for the broker built-in-feature exploitation subsystem (trading/broker_sense/broker_features)._
 - **classes:** _Isolated, TestCatalog, TestFusion, TestPerfStacking, TestNewEntry, TestPresetInvention, TestWatchlistGated
@@ -2284,6 +2289,12 @@ _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully 
 - **classes:** TestSchema, TestCharges, TestQuality, TestAnalytics, TestBehavior, TestConfidence, TestTearsheet, TestJournalEndToEnd
 - **imports:** __future__, json, os, tempfile, trading.journal.analytics, trading.journal.behavior, trading.journal.charges, trading.journal.confidence, trading.journal.journal, trading.journal.quality, trading.journal.schema, trading.journal.tearsheet, unittest
 
+## `tests/test_kite_stream.py`
+_tests/test_kite_stream.py — Zerodha NSE in-RAM mirror, fed via OpenAlgo's unified WS._
+- **classes:** TestNSEMirrorTicks, TestNSEMirrorGracefulNoop, TestNSEOHLCVAdapter
+- **functions:** `_env(symbol, ltp)`
+- **imports:** collections, os, time, trading.broker_sense.kite_stream, unittest
+
 ## `tests/test_knowledge.py`
 _Acceptance tests for the Phase-4 knowledge brain: ingest -> recall works._
 - **classes:** TestKnowledge
@@ -2461,6 +2472,12 @@ _tests/test_news_ingest.py — free-RSS → symbol-linked brain news memory (202
 _Trading Phase T8.7 (Autonomous news research + sentiment) acceptance tests — fully offline._
 - **classes:** TestSentimentScorer, TestNewsItem, TestNewsResearcher, TestNewsSentimentNode
 - **imports:** __future__, core.node_protocol, os, trading.brain.news, trading.brain.sentiment, unittest, warnings
+
+## `tests/test_nse_ram_first_reads.py`
+_tests/test_nse_ram_first_reads.py — NSE selection reads off the Zerodha Kite in-RAM mirror._
+- **classes:** _FakeOA, _Base, TestScreenerQuoteRamFirst, TestPsychologyDepthRamFirst, TestXrayQuoteRamFirst
+- **functions:** `_force_global_ui_off()`
+- **imports:** os, time, unittest
 
 ## `tests/test_nse_ui_only.py`
 _Tests for NSE_UI_ONLY — the hard, NSE-scoped UI-only data mode (owner 2026-07-13, motto)._
@@ -2703,6 +2720,12 @@ _Trading Phase T8.1 (Strategy-Evolution Engine) acceptance tests — fully offli
 - **functions:** `_make_ohlcv(n, seed) -> pd.DataFrame`
 - **imports:** __future__, math, numpy, pandas, trading.strategy.backtest, trading.strategy.features, trading.strategy.genome, trading.strategy.operators, unittest, warnings
 
+## `tests/test_strategy_table.py`
+_tests/test_strategy_table.py — the per-coin best-strategy table producer + O(1) consumer read._
+- **classes:** _Base, _FakeDecider, TestRefreshAndRow, TestLookup, TestOpenCoinPriority, TestStatus
+- **functions:** `_tourn(name, last, final, deflated_ok, psr)`
+- **imports:** __future__, time, unittest
+
 ## `tests/test_stream_of_mind_p46.py`
 _Phase P4.6 (Stream-of-Mind + observability) acceptance tests — fully offline._
 - **classes:** _Brain, TestGlobalWorkspace, TestStreamOfMind, TestObservability, TestAGUI, TestDemo
@@ -2866,7 +2889,7 @@ _tools/gen_upstox_census.py — compile the Upstox discovered-features inventory
 
 ## `tools/loop_keeper.py`
 _tools/loop_keeper.py — RUNTIME self-heal for the trading stack (2026-07-10)._
-- **functions:** `_alive(pattern) -> bool`; `_nse_funnel_off() -> bool`; `_check() -> dict`; `_save_state(state) -> None`; `run_once() -> int`; `install_cron() -> None`
+- **functions:** `_alive(pattern) -> bool`; `_env_flag(name, default) -> str`; `_check() -> dict`; `_save_state(state) -> None`; `run_once() -> int`; `install_cron() -> None`
 - **imports:** __future__, json, os, subprocess, sys, time
 
 ## `tools/orderbook_collector.py`
@@ -3059,7 +3082,7 @@ _trading/brain/consult.py — the brain USES its web of neurons before acting (R
 ## `trading/brain/continual.py`
 _trading/brain/continual.py — online/continual learning + experience replay (T8.5)._
 - **classes:** OnlineNode, ReplayBuffer, ContinualLearner
-- **functions:** `_row_dict(features, row) -> dict`; `_new_model()`; `replay_retrain(features, new_samples, buffer, rng) -> OnlineNode`; `clone_model(model)`
+- **functions:** `avalanche_available() -> tuple[bool, str]`; `_row_dict(features, row) -> dict`; `_new_model()`; `replay_retrain(features, new_samples, buffer, rng) -> OnlineNode`; `clone_model(model)`
 - **imports:** __future__, copy, core.node_protocol, dataclasses, numpy, river
 
 ## `trading/brain/credential_chat.py`
@@ -3635,6 +3658,12 @@ _trading/broker_sense/interception.py — the brain's peripheral nerve: capture 
 - **functions:** `_url_pattern(url) -> str`; `classify(url, body) -> str`; `_sample_keys(body) -> list[str]`; `get_recorder() -> NetworkRecorder`
 - **imports:** __future__, re, time, trading, urllib.parse
 
+## `trading/broker_sense/kite_stream.py`
+_trading/broker_sense/kite_stream.py — Zerodha (Kite) NSE in-RAM mirror, FED VIA OPENALGO's WS._
+- **classes:** KiteZerodhaMirror
+- **functions:** `enabled() -> bool`; `_openalgo_cfg() -> tuple[str, str] | None`; `_flat(symbol) -> str`; `_f(v)`; `get_kite_mirror() -> KiteZerodhaMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`; `ticker(symbol) -> dict | None`; `book(symbol) -> dict | None`; `nse_rows() -> list[dict]`; `status() -> dict`
+- **imports:** __future__, collections, os, threading, time, trading
+
 ## `trading/broker_sense/learning_columns.py`
 _trading/broker_sense/learning_columns.py — discovered app data → DYNAMIC learning columns._
 - **classes:** ColumnRegistry
@@ -3912,6 +3941,16 @@ _run_brain_loop.py — the missing driver: run the brain→Freqtrade entry/exit 
 _Nightly micro-policy distillation daemon (invent-beyond #4)._
 - **functions:** `main() -> None`
 - **imports:** __future__, os, time
+
+## `trading/crypto/freqtrade/run_strategy_table.py`
+_trading/crypto/freqtrade/run_strategy_table.py — daemon for the per-coin best-strategy table._
+- **functions:** `_sig(_signum, _frame)`; `main() -> int`
+- **imports:** __future__, logging, os, signal, sys, time
+
+## `trading/crypto/freqtrade/strategy_table.py`
+_trading/crypto/freqtrade/strategy_table.py — the per-coin BEST-STRATEGY table (2026-07-13)._
+- **functions:** `_cfg_int(name, default) -> int`; `ttl_s() -> int`; `_universe() -> list[str]`; `_open_pairs() -> list[str]`; `_decider()`; `_row_for(coin, decider) -> dict | None`; `refresh(coins) -> dict`; `_canon(sym) -> str`; `_canon_index(table) -> dict`; `lookup(coin) -> dict | None`; `status() -> dict`
+- **imports:** __future__, logging, os, time, trading
 
 ## `trading/crypto/freqtrade/user_data/strategies/FreqAIDirection.py`
 _FreqAIDirection — FreqAI directional ML strategy (Wave: crypto ML strategies → Freqtrade)._
@@ -4377,6 +4416,11 @@ _trading/direction/app_signals.py — turn EVERY captured broker filter/screener
 - **functions:** `_sig(x) -> float`; `_num(d)`; `signals(symbol) -> list`; `_ensure_streaming(symbol, market) -> None`; `feature_dict(readings) -> dict`; `collect(symbol) -> dict`
 - **imports:** __future__, math
 
+## `trading/direction/brain_sources.py`
+_trading/direction/brain_sources.py — brain lenses → MEASURED directional sources._
+- **functions:** `_flag(name, default) -> bool`; `_clamp01(x) -> float`; `_bias_to_p(bias) -> float | None`; `_cached(key, build)`; `_hypothesis_ledger()`; `_experience_bank()`; `_news_node()`; `_world_planner()`; `_concept_engine()`; `register_concept_engine(engine) -> None`; `_news_p(symbol) -> float | None`; `_worldmodel_p(ohlcv) -> float | None`; `_concept_p(symbol, series) -> float | None`; `collect(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **imports:** __future__, os, threading, time
+
 ## `trading/direction/dir_exit.py`
 _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str | None`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
@@ -4427,6 +4471,11 @@ _trading/direction/reflex.py — R2: the Reflex fast lane (Pillars 27 + 9)._
 _trading/direction/regime.py — D5: the direction regime classifier (goal Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `_er(closes) -> tuple[float | None, bool]`; `_classify_closes(closes) -> dict`; `classify(symbol, segment) -> dict`; `market_regime() -> str`
 - **imports:** __future__, os, time, trading
+
+## `trading/direction/river_source.py`
+_trading/direction/river_source.py — River online learner as a measured direction source._
+- **functions:** `_new_model()`; `_state_path()`; `_load() -> dict`; `_save() -> None`; `_features_from_filters(filters) -> dict`; `_clean(features) -> dict`; `learn(features, up) -> None`; `predict(features) -> float | None`; `train_from_journal(max_rows) -> dict`; `ensure_trained() -> None`; `status() -> dict`
+- **imports:** __future__, pickle, threading, time
 
 ## `trading/direction/truth_ledger.py`
 _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._

@@ -63,21 +63,43 @@ class DSPyOptimizer:
         if want:
             self._configure(model)
 
+    # OpenAI-compatible providers DSPy/LiteLLM can drive directly from their own env key, in
+    # preference order. Lets self-improvement run on the 12-provider failover already configured
+    # (see core/llm.py + [[llm-providers-configured]]) instead of hard-requiring OPENAI_API_KEY.
+    _PROVIDERS = (
+        ("OPENAI_API_KEY", "openai/gpt-4o-mini"),
+        ("OPENROUTER_API_KEY", "openrouter/openai/gpt-4o-mini"),
+        ("GROQ_API_KEY", "groq/llama-3.3-70b-versatile"),
+        ("CEREBRAS_API_KEY", "cerebras/llama-3.3-70b"),
+        ("TOGETHER_API_KEY", "together_ai/meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+    )
+
     def _configure(self, model: str | None) -> None:
         try:
             import dspy
-            key = os.environ.get("OPENAI_API_KEY")
-            if not key:
-                self.note = "DSPY_ENABLED but no OPENAI_API_KEY in env"
+            # explicit model override wins; else pick the first provider whose key is present
+            chosen = model or os.environ.get("DSPY_MODEL")
+            kw = {}
+            if not chosen:
+                for env_key, lm_id in self._PROVIDERS:
+                    if os.environ.get(env_key):
+                        chosen = lm_id
+                        break
+            if not chosen:
+                self.note = ("DSPY_ENABLED but no OpenAI-compatible key found "
+                             "(OPENAI/OPENROUTER/GROQ/CEREBRAS/TOGETHER)")
                 return
-            kw = {"api_key": key}
-            base = os.environ.get("OPENAI_BASE_URL")
-            if base:
-                kw["api_base"] = base
-            self._lm = dspy.LM(model or os.environ.get("DSPY_MODEL", "openai/gpt-4o-mini"), **kw)
+            # LiteLLM reads the provider key from env by prefix; pass OPENAI_BASE_URL through
+            # only for the raw-openai path (proxies / local gateways).
+            if chosen.startswith("openai/") and os.environ.get("OPENAI_API_KEY"):
+                kw["api_key"] = os.environ["OPENAI_API_KEY"]
+                base = os.environ.get("OPENAI_BASE_URL")
+                if base:
+                    kw["api_base"] = base
+            self._lm = dspy.LM(chosen, **kw)
             dspy.configure(lm=self._lm)
             self._dspy = dspy
-            self.note = "DSPy active"
+            self.note = f"DSPy active ({chosen})"
         except Exception as exc:  # pragma: no cover
             self.note = f"DSPy init failed: {str(exc)[:100]}"
 

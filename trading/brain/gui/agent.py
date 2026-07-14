@@ -91,7 +91,9 @@ class ComputerUseAgent:
     def step(self, goal: str, target_name: str = "own_dashboard", market: str = "CRYPTO",
              *, dry_run: bool | None = None, use_http: bool = False) -> dict:
         """One full perceive→decide→act→reflect→learn cycle. Returns the trace."""
-        perception = self.observe(target_name)
+        # deep=True: an ACTION cycle must SEE the React-rendered controls before pressing them
+        # (the cheap stdlib parse finds none on our SPA); the Playwright cost is fine off the poll.
+        perception = self.observe(target_name, deep=True)
         plan = self.decide(goal, target_name, market)
         trajectory: list[dict] = []
         if plan["abort"]:

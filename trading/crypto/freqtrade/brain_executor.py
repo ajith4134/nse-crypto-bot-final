@@ -454,12 +454,61 @@ class BrainExecutor:
                             pass
             except Exception:
                 pass
+            # STRATEGY-TABLE SYNERGY (2026-07-13, gated STRATEGY_DIRECTION=1): fold the per-coin
+            # tournament's best library/created/evolved/researched strategy into the direction fusion
+            # as a MEASURED source (weighted by its own truth-ledger edge, like every other lens), and
+            # let a gate-clearing strategy that AGREES with the fused side own the enter_tag — so the
+            # created/evolved/researched strategies both INFLUENCE and DRIVE breadth entries, and the
+            # Strategy column shows the real strategy that led. O(1) table read — NO tournament here.
+            _bf = None
+            if os.environ.get("STRATEGY_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on"):
+                try:
+                    from trading.crypto.freqtrade import strategy_table as _stab
+                    _bf = _stab.lookup(_psym)
+                    if _bf and _bf.get("signal") in ("LONG", "SHORT"):
+                        _p = ((0.82 if _bf.get("cleared_gate") else 0.66)
+                              if _bf["signal"] == "LONG"
+                              else (0.18 if _bf.get("cleared_gate") else 0.34))
+                        _reads.append(("strategy_tournament", _p))
+                        try:                          # measure its direction hit-rate in the ledger
+                            from trading.direction import truth_ledger as _tl4
+                            _tl4.record(symbol=_psym, market="CRYPTO",
+                                        segment=self.segment or "futures",
+                                        direction=_bf["signal"], source="strategy_tournament",
+                                        confidence=_p if _bf["signal"] == "LONG" else 1.0 - _p)
+                        except Exception:
+                            pass
+                except Exception:
+                    _bf = None
+            # BRAIN LENSES AS MEASURED SOURCES (2026-07-14): fold the formerly-advisory brain
+            # outputs — confirmed hypotheses, experience recall, news sentiment (+ world-model &
+            # concept-discovery in the deep lane) — into the SAME fusion as every other lens, each
+            # recorded to the truth ledger so it EARNS weight by measured edge (unproven ⇒ ~0 weight,
+            # cannot move a trade until it proves right). This is how the brain's research/memory
+            # actually start opening trades instead of only advising. Cheap lenses only in the fast
+            # breadth lane (fast=True) so a 50-coin cycle keeps its deadline.
+            try:
+                from trading.direction import brain_sources as _bsrc
+                _prelim = ("LONG" if _reads and (sum(p for _, p in _reads) / len(_reads)) >= 0.5
+                           else "SHORT")
+                _reads.extend(_bsrc.collect(
+                    _psym, market="CRYPTO", segment=self.segment or "futures", regime=regime,
+                    direction_hint=_prelim,
+                    features=_asig.feature_dict(_col.get("signals") or []), fast=fast))
+            except Exception:
+                pass
             out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
                              symbol=_psym, coverage=_col["coverage"])
             out["_signals"] = _col.get("signals")     # reused by the lane's record batch (no 2nd collect)
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
-                return out["direction"].upper(), "learned_direction", out
+                _side = out["direction"].upper()
+                # a gate-clearing strategy that AGREES with the fused side DRIVES → tag = its name
+                if (_bf and _bf.get("cleared_gate") and _bf.get("best_strategy")
+                        and _bf.get("signal") == _side):
+                    out["strategy_drove"] = _bf["best_strategy"]
+                    return _side, _bf["best_strategy"], out
+                return _side, "learned_direction", out
         except Exception:
             pass
         return self._filter_side(pick, preset), f"filter:{preset}", None
@@ -1741,6 +1790,26 @@ class BrainExecutor:
             }
             if explore:
                 snapshot["explore"] = True
+            # BEST-FIT STRATEGY (2026-07-13): the per-coin tournament's top library / created /
+            # evolved / researched strategy for THIS coin, read O(1) from the strategy_table producer
+            # (the tournament itself NEVER runs in the entry path). Attribution is ON for every lane,
+            # so the Strategy column shows a real strategy even when a generic driver
+            # (learned_direction / explore / filter:*) opened the trade. Pure learning — it records
+            # what the tournament thinks; it changes no entry decision here (that is the gated synergy).
+            try:
+                from trading.crypto.freqtrade import strategy_table as _stab
+                _bf = _stab.lookup(sym)
+                if _bf and _bf.get("best_strategy"):
+                    snapshot["best_fit"] = {
+                        "strategy": _bf.get("best_strategy"),
+                        "score": _bf.get("score"),
+                        "signal": _bf.get("signal"),
+                        "cleared_gate": bool(_bf.get("cleared_gate")),
+                        "agrees": (_bf.get("signal") == act) if act in ("LONG", "SHORT") else None,
+                        "is_driver": str(tag or "") == str(_bf.get("best_strategy")),
+                    }
+            except Exception:
+                pass
             if self.extra_signals.get(sym):
                 snapshot["app_signals"] = self.extra_signals[sym]
             # RAM market context (owner 2026-07-13): capture EVERY filter/screener signal we have for

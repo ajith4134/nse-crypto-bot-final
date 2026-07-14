@@ -79,10 +79,18 @@ def status() -> dict:
     except Exception as e:
         out["perception"] = {"error": str(e)[:120]}
     try:
-        import avalanche
-        out["continual"] = {"engine": f"avalanche-lib {avalanche.__version__} (Replay+EWC)",
-                            "worldmodel_online": "MarketWorldModel.update_online "
-                                                 "(dreamer-continual-replay)"}
+        from trading.brain.continual import avalanche_available
+        _ok, _info = avalanche_available()
+        if _ok:
+            out["continual"] = {"engine": f"avalanche-lib {_info} (Replay+EWC)",
+                                "worldmodel_online": "MarketWorldModel.update_online "
+                                                     "(dreamer-continual-replay)"}
+        else:                                        # honest fallback: River stays live
+            out["continual"] = {"engine": "River OnlineNode (drift-aware online learner)",
+                                "deep_engine_unavailable": _info,
+                                "fallback": "river",
+                                "worldmodel_online": "MarketWorldModel.update_online "
+                                                     "(dreamer-continual-replay)"}
     except Exception as e:
         out["continual"] = {"error": str(e)[:120]}
     try:

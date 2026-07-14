@@ -1447,7 +1447,11 @@ def handle_gui_status(h):
         agent = _srv(h)._gui_agent()
         qs = parse_qs(urlparse(h.path).query)
         if qs.get("observe", ["0"])[0] == "1":
-            agent.observe("own_dashboard")        # live read (reachable + controls + chart)
+            # deep=True → Playwright DomReader reads the REACT-RENDERED controls; the cheap
+            # stdlib HTML parse sees 0 on our SPA (buttons are JS-rendered) → the old "CONTROLS
+            # FOUND 0". Only fires on the explicit ?observe=1 (not the status poll), so the
+            # headless-chromium cost is bounded.
+            agent.observe("own_dashboard", deep=True)
         register_computer_use_agent(agent)        # dashboard-sync: node graph
         blob = agent.to_json()
         caps = blob["action_capabilities"]
@@ -1968,7 +1972,24 @@ def handle_broker_sense(h):
         qs = parse_qs(urlparse(h.path).query)
         market = (qs.get("market", ["crypto"])[0] or "crypto").lower()
         f = _bs_funnel(market if market in ("crypto", "nse") else "crypto")
-        body = json.dumps({"available": True, **f.status()}, default=str).encode()
+        payload = {"available": True, **f.status()}
+        if market == "nse":
+            # NSE DATA SOURCE (owner 2026-07-14): selection reads off the Zerodha Kite (KiteTicker)
+            # in-RAM mirror — the owner's PAID feed. Surface its REAL freshness so the panel shows
+            # "in-RAM (Zerodha Kite)" vs "api-fallback"/"cold" honestly, driven by live numbers
+            # (connected + not stale + symbols streaming), never a hardcoded label.
+            try:
+                from trading.broker_sense import kite_stream
+                ks = kite_stream.status()
+                warm = bool(ks.get("connected")) and not ks.get("stale") and (ks.get("symbols_ticker") or 0) > 0
+                payload["nse_data"] = {
+                    "source": ("in-RAM (Zerodha Kite)" if warm else
+                               ("cold" if ks.get("have_creds") else "api-fallback")),
+                    "mirror": ks,
+                }
+            except Exception:
+                pass
+        body = json.dumps(payload, default=str).encode()
     except Exception as e:
         body = json.dumps({
             "available": False, "error": f"{type(e).__name__}: {e}",

@@ -107,6 +107,9 @@ statsmodels             # GARCH-adjacent stats, ADF, cointegration, state-space
 
 # --- 2nd research wave: spectral / structure / probabilistic / frontier (INSTALLED, CPU) ---
 numpy<2.4               # PIN: <2.4 for autogluon; >=2.0 for pymc/pennylane/pysindy/astropy
+jax==0.4.34             # PIN (2026-07-14): last jax that imports under numpy 1.26 (the version the
+jaxlib==0.4.34          # numba/vectorbt/pysubgroup stack runs on); jax>=0.4.35 forces numpy>=2
+                        # (np.dtypes.StringDType) which breaks the backtest path. Restores Avalanche.
 ts2vg                   # time-series -> visibility graph (topology features)
 MFDFA                   # multifractal detrended fluctuation analysis
 POT                     # optimal transport / Wasserstein distributional drift (import ot)

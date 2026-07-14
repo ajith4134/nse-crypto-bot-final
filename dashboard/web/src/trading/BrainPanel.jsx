@@ -301,7 +301,12 @@ function ExperienceCard({ experience }) {
 function PatternsCard({ patterns }) {
   if (patterns.error || !patterns.data) return <Card title="🔍 Regime & Patterns"><Empty note={patterns.error || 'no data'} /></Card>
   const d = patterns.data
-  const regime = d.regime?.current || d.regime || '—'
+  // regime may arrive as a string or an object ({current,label,regime,state,...}); never
+  // stringify a raw object (that produced "[object Object]") — pick the first label-ish field.
+  const _rg = d.regime
+  const regime = (_rg && typeof _rg === 'object')
+    ? (_rg.current || _rg.label || _rg.regime || _rg.state || '—')
+    : (_rg || '—')
   const picking = d.picking || {}
   const top = Array.isArray(picking.top) ? picking.top : []
   return (
