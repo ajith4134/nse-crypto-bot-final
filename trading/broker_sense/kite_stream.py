@@ -330,6 +330,46 @@ class KiteZerodhaMirror:
             print(f"[nse-mirror] start failed: {e!r} — OpenAlgo REST fallback", flush=True)
         return self
 
+    def subscribe_held_contracts(self) -> int:
+        """Stream the F&O contracts we ALREADY hold, so their MTM comes off the WS, not REST.
+
+        exec_adapter subscribes each contract as it PLACES it, which covers everything from now on
+        — but not positions opened before that landed, nor (after a restart) anything held from an
+        earlier session. Those stay on OpenAlgo's REST-quote fallback, which is exactly what tripped
+        Zerodha's "Too many requests" and hung positionbook (2026-07-16). Called on funnel start, this
+        closes both gaps.
+
+        Source is `tradebook` — today's fills — deliberately NOT `positions`: positionbook is the
+        endpoint that stalls (it recomputes MTM), while tradebook answers in ~20ms and carries the
+        traded contract + its exchange. It's a superset (includes contracts already closed out);
+        subscribing a few extra is harmless and far cheaper than a REST quote per poll.
+
+        Best-effort, never raises. Returns the number of contracts subscribed.
+        """
+        try:
+            from trading.openalgo_client import OpenAlgoClient
+            rows = (OpenAlgoClient().tradebook() or {}).get("data") or []
+        except Exception as e:
+            print(f"[nse-mirror] held-contract subscribe skipped: {e!r}", flush=True)
+            return 0
+        by_exch: dict[str, set] = {}
+        for r in rows if isinstance(rows, list) else []:
+            if not isinstance(r, dict):
+                continue
+            sym, exch = r.get("symbol"), (r.get("exchange") or "").upper()
+            # equity underlyings are already streamed from the universe; only CONTRACTS are new
+            if sym and exch and exch != "NSE":
+                by_exch.setdefault(exch, set()).add(str(sym))
+        n = 0
+        for exch, syms in by_exch.items():
+            self.subscribe_symbols(sorted(syms), exchange=exch)
+            n += len(syms)
+        if n:
+            print(f"[nse-mirror] streaming {n} held contract(s) "
+                  f"({', '.join(f'{e}:{len(s)}' for e, s in by_exch.items())}) — MTM off the WS",
+                  flush=True)
+        return n
+
     def _backfill_history(self) -> int:
         """One-shot REST seed of the candle store from OpenAlgo's history API (the NSE analog of
         binance_stream._backfill_rest), so reads WORK before the stream has rolled enough bars.

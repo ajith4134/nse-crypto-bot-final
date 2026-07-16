@@ -9,6 +9,7 @@ import os
 import time
 import unittest
 from collections import deque
+from unittest import mock
 
 from trading.broker_sense.kite_stream import KiteZerodhaMirror, _raw_feed_class
 
@@ -240,6 +241,64 @@ class _FakeHistOA:
         return {"data": [{"timestamp": base + i * step, "open": 100.0 + i, "high": 101.0 + i,
                           "low": 99.0 + i, "close": 100.5 + i, "volume": 10.0 * i}
                          for i in range(40)]}
+
+
+class TestHeldContractStreaming(unittest.TestCase):
+    """Held F&O contracts stream so OpenAlgo's positionbook MTM hits its WS cache, not REST.
+
+    exec_adapter subscribes contracts it places, but positions opened earlier (or held across a
+    restart) stayed on the REST-quote fallback — which rate-limited Zerodha and hung positionbook
+    (live 2026-07-16). subscribe_held_contracts() closes that on funnel start.
+    """
+
+    def setUp(self):
+        import trading.broker_sense.kite_stream as ks
+        import trading.openalgo_client as oac
+        self.ks, self.oac = ks, oac
+        ks._MIRROR = None
+        self._saved = oac.OpenAlgoClient
+
+    def tearDown(self):
+        self.oac.OpenAlgoClient = self._saved
+        self.ks._MIRROR = None
+
+    def _client(self, rows):
+        cli = mock.Mock()
+        cli.tradebook.return_value = {"data": rows}
+        self.oac.OpenAlgoClient = mock.Mock(return_value=cli)
+        return cli
+
+    def test_subscribes_contracts_with_their_own_exchange(self):
+        cli = self._client([
+            {"symbol": "RELIANCE28JUL26FUT", "exchange": "NFO"},
+            {"symbol": "INFY28JUL261090CE", "exchange": "NFO"},
+            {"symbol": "SENSEX28JUL2680000CE", "exchange": "BFO"},
+            {"symbol": "TCS", "exchange": "NSE"},          # equity: already in the universe
+        ])
+        m = self.ks.get_kite_mirror()
+        n = m.subscribe_held_contracts()
+        self.assertEqual(n, 3)                              # the 3 CONTRACTS, not the equity row
+        self.assertEqual(m._exch["RELIANCE28JUL26FUT"], "NFO")
+        self.assertEqual(m._exch["SENSEX28JUL2680000CE"], "BFO")   # BSE F&O keeps its exchange
+        self.assertNotIn("TCS", m._want)                    # equity not re-added here
+        cli.tradebook.assert_called_once()                  # tradebook, NOT the stalling positions()
+
+    def test_uses_tradebook_not_positions(self):
+        """positions() recomputes MTM and is the endpoint that stalls — never call it here."""
+        cli = self._client([{"symbol": "X28JUL26FUT", "exchange": "NFO"}])
+        self.ks.get_kite_mirror().subscribe_held_contracts()
+        cli.positions.assert_not_called()
+
+    def test_broker_failure_is_a_noop(self):
+        cli = mock.Mock()
+        cli.tradebook.side_effect = RuntimeError("openalgo down")
+        self.oac.OpenAlgoClient = mock.Mock(return_value=cli)
+        self.assertEqual(self.ks.get_kite_mirror().subscribe_held_contracts(), 0)
+
+    def test_junk_rows_never_raise(self):
+        self._client([None, {}, {"symbol": None, "exchange": "NFO"}, "nope",
+                      {"symbol": "OK28JUL26FUT", "exchange": "NFO"}])
+        self.assertEqual(self.ks.get_kite_mirror().subscribe_held_contracts(), 1)
 
 
 class TestNSEBackfill(unittest.TestCase):

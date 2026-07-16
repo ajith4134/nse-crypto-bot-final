@@ -2291,7 +2291,7 @@ _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully 
 
 ## `tests/test_kite_stream.py`
 _tests/test_kite_stream.py — Zerodha NSE in-RAM mirror, fed via OpenAlgo's unified WS._
-- **classes:** TestNSEMirrorTicks, _FakeSDK, TestRawFeedOverride, TestNSEFullFrameExtras, TestNSEMirrorGracefulNoop, _FakeHistOA, TestNSEBackfill, TestNSEOHLCVAdapter
+- **classes:** TestNSEMirrorTicks, _FakeSDK, TestRawFeedOverride, TestNSEFullFrameExtras, TestNSEMirrorGracefulNoop, _FakeHistOA, TestHeldContractStreaming, TestNSEBackfill, TestNSEOHLCVAdapter
 - **functions:** `_env(symbol, ltp)`
 - **imports:** collections, json, os, time, trading.broker_sense.kite_stream, unittest
 

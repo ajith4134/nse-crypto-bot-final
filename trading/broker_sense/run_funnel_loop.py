@@ -194,6 +194,11 @@ def main() -> int:
             except Exception:
                 pass
             km.subscribe_symbols(syms)
+            # ALSO stream the F&O contracts already held (exec_adapter only covers ones it places
+            # from now on) — otherwise their MTM stays on OpenAlgo's REST-quote fallback, which
+            # rate-limited Zerodha and hung positionbook. Runs before start() so they ride the
+            # first subscribe batch.
+            km.subscribe_held_contracts()
             km.start()
             print(f"[kite-mirror] status: {km.status()}", flush=True)
         except Exception as e:

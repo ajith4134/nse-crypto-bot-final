@@ -245,6 +245,14 @@ class OpenAlgoClient:
     def orders(self) -> dict:
         return self._check(self._client().orderbook(), "orderbook")
 
+    def tradebook(self) -> dict:
+        """Today's EXECUTED trades (symbol/exchange/action/quantity/price per fill).
+
+        Unlike positions(), this does NOT recompute MTM, so it answers in ~20ms even when
+        positionbook is stalled — which makes it the safe way to learn which CONTRACTS we hold
+        (see kite_stream.subscribe_held_contracts)."""
+        return self._check(self._client().tradebook(), "tradebook")
+
     # ── helpers ───────────────────────────────────────────────────────────────
     @staticmethod
     def _check(resp: Any, endpoint: str) -> dict:
