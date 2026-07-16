@@ -718,6 +718,76 @@ class BrainExecutor:
             rep["error"] = str(e)[:150]
         return rep
 
+    def open_lens_lane(self, *, allow_live: bool = False) -> dict:
+        """Stage 1c — the B3 LENS PAPER LANE (owner-ordered 2026-07-16).
+
+        Every orphaned directional lens (cortex, world-model, concept discovery, experience
+        recall, news, river, debate, dir-exit read, hypothesis) nominates its strongest
+        conviction from a rotating universe slice and OPENS it as a real paper trade under its
+        own identity: enter_tag="lens:<name>" → journal strategy_name → per-lens realized P&L,
+        plus a taken=True truth-ledger claim per entry. Kill-switched by LENS_LANE (default ON —
+        paper is the experiment, CONVENTIONS §15). Never raises. Crypto executor only."""
+        rep: dict = {"entered": [], "skipped": 0, "nominated": 0}
+        try:
+            from trading.brain import lens_lane as _lla
+            if not _lla.enabled():
+                return rep
+            from trading.direction import app_signals as _asig2
+            from trading.direction.regime import classify as _rgc2
+
+            def _feats(sym: str) -> dict:
+                return _asig2.feature_dict(_asig2.signals(sym) or [])
+
+            noms = _lla.nominations(
+                symbols=self.symbols(), segment=self.segment or "futures",
+                ohlcv_fn=self.decider._ohlcv, features_fn=_feats,
+                regime_fn=lambda s: (_rgc2(s) or {}).get("regime"))
+            rep["nominated"] = len(noms)
+            if not noms:
+                return rep
+            cli = self.client()
+            try:
+                open_pairs = set(cli.open_pairs(segment=self.segment))
+            except Exception:
+                open_pairs = set()
+            for n in noms:
+                sym, act, tag = n["symbol"], n["direction"], f"lens:{n['lens']}"
+                try:
+                    tsym = cli.tradeable_form(sym, self.segment)
+                    if tsym is None or tsym in open_pairs or sym in open_pairs:
+                        rep["skipped"] += 1
+                        continue
+                    res = cli.place_order(symbol=tsym, action="BUY",
+                                          side=("long" if act == "LONG" else "short"),
+                                          allow_live=allow_live, enter_tag=tag,
+                                          segment=self.segment)
+                    if not isinstance(res, dict) or res.get("ok") is False:
+                        rep["skipped"] += 1
+                        continue
+                    try:                          # identity claim: the lens owns this call
+                        from trading.direction import truth_ledger as _tl5
+                        _tl5.record(symbol=sym, market="CRYPTO",
+                                    segment=self.segment or "futures", direction=act,
+                                    source=tag, confidence=n["p_up"] if act == "LONG"
+                                    else 1.0 - n["p_up"], taken=True)
+                    except Exception:
+                        pass
+                    self._record_entry_meta(tsym, act, tag,
+                                            {"lens_lane": {**n}}, None, explore=True)
+                    if res.get("queued"):
+                        rep["skipped"] += 1       # inbox mode: queued ≠ filled
+                        continue
+                    rep["entered"].append(tsym)
+                    open_pairs.add(tsym)
+                except Exception:
+                    rep["skipped"] += 1
+            if rep["nominated"]:                  # an all-skipped cycle must never look dead
+                print(f"[lens-lane:{self.segment}] nominated={rep['nominated']} "
+                      f"entered={rep['entered']} skipped={rep['skipped']}", flush=True)
+        except Exception as e:
+            rep["error"] = str(e)[:150]
+        return rep
+
     def run_once(self, *, allow_live: bool = False, deadline: float | None = None) -> dict:
         """One brain→Freqtrade execution cycle. Returns a summary. Never raises.
 

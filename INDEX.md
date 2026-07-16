@@ -2339,6 +2339,11 @@ _Tests for trading/direction/learned_direction.py — the learned direction driv
 - **functions:** `_rel(rate, n, half_ci)`
 - **imports:** trading.direction, unittest
 
+## `tests/test_lens_lane.py`
+_B3 lens paper lane: nominations honest (abstain-by-default), rotation covers, entries_
+- **classes:** _Iso, TestNominations, TestExecutorLane
+- **imports:** json, os, pathlib, tempfile, unittest
+
 ## `tests/test_librarian.py`
 _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & deterministic._
 - **classes:** StubBrain, TestDiscover, TestIngestItem, TestDedup, TestFeed, TestPersistence, TestStatusAndDeterminism
@@ -3294,6 +3299,11 @@ _trading/brain/learner.py — the brain's self-directed LEARNING + SELF-EVALUATI
 - **classes:** KnowledgeLearner
 - **functions:** `get_learner() -> KnowledgeLearner`
 - **imports:** __future__, time
+
+## `trading/brain/lens_lane.py`
+_B3 LENS PAPER LANE — every orphaned directional lens trades under its own identity._
+- **functions:** `enabled() -> bool`; `_f(name, default) -> float`; `_disabled() -> set`; `_p_clamp(p) -> float | None`; `_lens_cortex(ctx) -> float | None`; `_lens_world_model(ctx) -> float | None`; `_lens_concept(ctx) -> float | None`; `_lens_experience(ctx) -> float | None`; `_lens_news(ctx) -> float | None`; `_lens_river(ctx) -> float | None`; `_lens_hypothesis(ctx) -> float | None`; `_lens_dir_exit(ctx) -> float | None`; `_lens_debate(ctx) -> float | None`; `_rotation(symbols, segment, n) -> list[str]`; `nominations() -> list[dict]`
+- **imports:** __future__, os, threading
 
 ## `trading/brain/lesson_recall.py`
 _Per-symbol recall of closed-trade LESSONS — the reader exit reflections never had._

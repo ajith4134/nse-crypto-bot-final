@@ -380,6 +380,21 @@ def main() -> int:
                                           f"err={_flr.get('error')}", flush=True)
                         except Exception as _e:
                             print(f"[filter-lane:{market}:{seg}] error: {_e!r}", flush=True)
+                        # B3 LENS PAPER LANE (2026-07-16): every orphaned lens trades under
+                        # its own identity (enter_tag lens:<name>). Kill-switched LENS_LANE.
+                        try:
+                            from trading.brain import lens_lane as _lla
+                            if _lla.enabled():
+                                _llr = funnel.executor(seg).open_lens_lane(
+                                    allow_live=allow_live)
+                                if _llr.get("entered") or _llr.get("error"):
+                                    print(f"[lens-lane:{market}:{seg}] "
+                                          f"nominated={_llr.get('nominated')} "
+                                          f"entered={_llr.get('entered')} "
+                                          f"skipped={_llr.get('skipped')} "
+                                          f"err={_llr.get('error')}", flush=True)
+                        except Exception as _e:
+                            print(f"[lens-lane:{market}:{seg}] error: {_e!r}", flush=True)
                 except Exception as e:               # a cycle error never kills the loop
                     print(f"[funnel:{market}:{seg}] cycle error: {e!r}", flush=True)
             if market == "crypto":
