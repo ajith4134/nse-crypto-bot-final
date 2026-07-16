@@ -310,7 +310,10 @@ def main() -> int:
                           f"non_neutral={rep['stages']['look']['non_neutral']} "
                           f"entered={ex.get('entered')} took={rep['took_s']}s "
                           f"(budget ok={rep['completed_within_budget']} "
-                          f"next_n={rep['next_shortlist_n']})", flush=True)
+                          f"next_n={rep['next_shortlist_n']}) "
+                          # name the hog on the SAME line as took= — the [funnel-timing:] line is
+                          # printed before execute/crawl run, so it can never explain an overrun
+                          f"timing={rep['stages'].get('timing_s')}", flush=True)
                     # Binance-filter TOP-N breadth lane (Stage 1b, owner idea 2026-07-12): a
                     # PARALLEL candidate lane — rank the whole UI-captured universe by the active
                     # filter preset and open the adaptive top-N (side via learned_direction).

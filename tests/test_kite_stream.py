@@ -236,7 +236,7 @@ class _FakeHistOA:
     def history(self, symbol, exchange="NSE", *, interval, start_date, end_date):
         _FakeHistOA.calls.append((symbol, interval))
         base = 1_700_000_000
-        step = {"1m": 60, "5m": 300, "15m": 900}[interval]
+        step = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "D": 86400}[interval]
         return {"data": [{"timestamp": base + i * step, "open": 100.0 + i, "high": 101.0 + i,
                           "low": 99.0 + i, "close": 100.5 + i, "volume": 10.0 * i}
                          for i in range(40)]}
@@ -274,13 +274,35 @@ class TestNSEBackfill(unittest.TestCase):
         m.subscribe_symbols(["RELIANCE"])
         m._running = True
         seeded = m._backfill_history()
-        self.assertEqual(seeded, 3)                        # 1 symbol × 3 TFs
+        self.assertEqual(seeded, len(self.ks._CANDLE_TFS))  # every rolled TF gets seeded
         self.assertTrue(m.status()["backfilled"])
-        self.assertEqual({iv for _, iv in _FakeHistOA.calls}, {"1m", "5m", "15m"})
+        self.assertEqual({iv for _, iv in _FakeHistOA.calls},
+                         {self.ks._TF_TO_OA[tf] for tf in self.ks._CANDLE_TFS})
+        # the slow TFs the funnel's LOOK asks for must be among them (they were "unavailable")
+        self.assertTrue({"1h", "D"} <= {iv for _, iv in _FakeHistOA.calls})
         rows = self.ks.ohlcv("RELIANCE", "1m", 220)        # was None until 15 live minutes
         self.assertIsNotNone(rows)
         self.assertEqual(len(rows), 40)
         self.assertEqual(len(rows[0]), 6)                  # ccxt shape [ms,o,h,l,c,v]
+
+    def test_slow_timeframes_are_served(self):
+        """1h/1d were permanently "unavailable" — the mirror rolled only 1m/5m/15m, so the funnel's
+        LOOK asked for TFs that could never arrive and _vote judged on fast TFs alone."""
+        m = self.ks.get_kite_mirror()
+        m.subscribe_symbols(["RELIANCE"])
+        m._running = True
+        m._backfill_history()
+        for tf in ("1h", "1d"):
+            rows = self.ks.ohlcv("RELIANCE", tf, 220)
+            self.assertIsNotNone(rows, f"{tf} must be served from RAM, not 'unavailable'")
+            self.assertEqual(len(rows[0]), 6)
+
+    def test_backfill_window_is_sized_per_timeframe(self):
+        """A flat window pulled ~1700 1m-rows only to keep 240 (2s/symbol), while 1d got 5 bars —
+        under ohlcv()'s 15-bar floor, so 1d stayed unavailable regardless."""
+        self.assertLess(self.ks._BACKFILL_DAYS_BY_TF[60], self.ks._BACKFILL_DAYS_BY_TF[86400])
+        for tf in self.ks._CANDLE_TFS:
+            self.assertIn(tf, self.ks._BACKFILL_DAYS_BY_TF, f"TF {tf} has no lookback window")
 
     def test_backfill_never_clobbers_the_live_bar(self):
         """Ticks already rolled must survive — the seed only fills bars OLDER than the live one."""
@@ -324,7 +346,9 @@ class TestNSEOHLCVAdapter(unittest.TestCase):
     def _seed(self, m, sym="RELIANCE", tf=60, n=40):
         base = 1_700_000_000
         with m._lock:
-            m._candles[sym] = {60: deque(maxlen=240), 300: deque(maxlen=240), 900: deque(maxlen=240)}
+            # follow _CANDLE_TFS — hardcoding {60,300,900} made _roll_candles KeyError the moment
+            # 1h/1d were added to the rolled set
+            m._candles[sym] = {t: deque(maxlen=240) for t in self.ks._CANDLE_TFS}
             for i in range(n):
                 p = 100.0 + i * 0.1
                 m._candles[sym][tf].append([base + i * tf, p, p + 0.5, p - 0.5, p + 0.2, 10.0 * i, 0.0])

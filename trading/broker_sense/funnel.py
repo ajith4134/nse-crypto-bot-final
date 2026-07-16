@@ -560,6 +560,7 @@ class BrokerSenseFunnel:
             rep["stages"]["scouts_error"] = f"{type(e).__name__}: {e}"[:100]
 
         # 5 ── DECIDE + EXECUTE (APIs only, owner's step 8)
+        _ts_exec_start = time.monotonic()
         if self.market == "crypto":
             ex = self.executor(segment)
             ex._symbols = sorted(set(tradeable) | open_syms)   # shortlist-only universe
@@ -613,6 +614,12 @@ class BrokerSenseFunnel:
                 state.save_json(_NSE_LOG, (log + placed)[-300:])
             rep["stages"]["execute"] = {"entered": [p["symbol"] for p in placed
                                                     if _entered_ok(p)]}
+        # PERF (2026-07-16): timing_s used to stop at VERIFY, printed before these stages even ran —
+        # so EXECUTE and the browser CRAWL, which together are most of a cycle's wall-clock, were
+        # invisible and a "why is the cycle over budget?" question could only be guessed at. The
+        # comment above promises the cycle names its own hog; measure the rest of it.
+        rep["stages"]["timing_s"]["execute"] = round(time.monotonic() - _ts_exec_start, 1)
+        _ts_crawl_start = time.monotonic()
         self.presets.record(self.market, preset, traded=traded, wins=0, pnl=0.0)
 
         # 5a ── UI CRAWL (owner goal 2026-07-07, #10/#11): walk the eyes across a few due
@@ -670,6 +677,7 @@ class BrokerSenseFunnel:
                 rep["stages"]["ui_only_governor"] = ui_data.maybe_auto_flip(_syms)
             except Exception as e:
                 rep["stages"]["ui_crawl"] = {"error": f"{type(e).__name__}: {e}"[:100]}
+        rep["stages"]["timing_s"]["crawl"] = round(time.monotonic() - _ts_crawl_start, 1)
 
         # 5b ── EVIDENCE LANE (W3, owner goal 2026-07-07): blind-baseline virtual entries +
         # skip counterfactuals + horizon resolution — rides THIS cycle's fused prices,

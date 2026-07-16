@@ -72,7 +72,12 @@ def _raw_feed_class(base):
 # Live multi-TF OHLC candles rolled from the OpenAlgo ltp stream (the feed pushes the DAY's ohlc in
 # a tick, not intraday bars — so we aggregate them ourselves, exactly like the crypto mirror rolls
 # candles off markPrice). Volume per bar = delta of the tick's cumulative day volume.
-_CANDLE_TFS = tuple(int(x) for x in (os.getenv("KITE_CANDLE_TFS", "60,300,900")).split(",") if x)
+# 1h/1d included (2026-07-16): the funnel's LOOK asks for 1m/5m/15m/1h/4h/1d, so a mirror that rolled
+# only 1m/5m/15m left the slow TFs permanently "unavailable" — funnel._vote then judged direction on
+# fast TFs alone. 1h+1d are ~free to seed (95 rows/0.07s, 80 rows/0.36s) and roll from the same ticks.
+# (4h is deliberately absent: Zerodha's history API has no 4h interval, so it could never be seeded.)
+_CANDLE_TFS = tuple(int(x) for x in
+                    (os.getenv("KITE_CANDLE_TFS", "60,300,900,3600,86400")).split(",") if x)
 _CANDLE_MAXLEN = int(os.getenv("KITE_CANDLE_MAXLEN", "240") or 240)   # bars kept per (sym, tf)
 _HIST_EVERY_S = 15.0            # sample per-symbol price history at most this often
 _HIST_MAXLEN = 320             # ~80 min of ltp history per symbol (price_at horizon resolution)
@@ -83,9 +88,14 @@ _STATUS_FILE = "kite_stream.json"
 # decide immediately instead of waiting 15/75/225 min for the stream to roll 15 bars per TF. One-shot
 # only — the decision path never touches REST. KITE_BACKFILL=0 disables (stream-only).
 _BACKFILL_ON = os.getenv("KITE_BACKFILL", "1").strip().lower() not in ("0", "false", "off")
-_BACKFILL_DAYS = int(os.getenv("KITE_BACKFILL_DAYS", "6") or 6)
 _BACKFILL_SLEEP_S = float(os.getenv("KITE_BACKFILL_SLEEP_S", "0.12") or 0.12)   # ~8/s < OpenAlgo's 10/s
 _TF_TO_OA = {60: "1m", 300: "5m", 900: "15m", 1800: "30m", 3600: "1h", 86400: "D"}
+# Lookback PER TIMEFRAME, sized to fill _CANDLE_MAXLEN (240) bars — never more. A flat 6-day window
+# pulled 1726 1m-rows per symbol (2.04s each → ~7min of the backfill) only to discard all but 240,
+# while leaving 1d with 5 bars — below ohlcv()'s 15-bar floor, so 1d stayed unavailable anyway.
+# Each window covers 240 bars of TRADING time plus slack for weekends/holidays.
+_BACKFILL_DAYS_BY_TF = {60: 2, 300: 5, 900: 10, 1800: 20, 3600: 30, 86400: 365}
+_BACKFILL_DAYS = int(os.getenv("KITE_BACKFILL_DAYS", "0") or 0)   # >0 forces one window for every TF
 
 
 def enabled() -> bool:
@@ -338,8 +348,11 @@ class KiteZerodhaMirror:
         with self._lock:
             symbols = sorted(self._want)
         today = datetime.date.today()
-        start = (today - datetime.timedelta(days=_BACKFILL_DAYS)).isoformat()
         end = today.isoformat()
+        # per-TF window: enough to fill _CANDLE_MAXLEN, never the whole history (see the map)
+        starts = {tf: (today - datetime.timedelta(
+            days=_BACKFILL_DAYS or _BACKFILL_DAYS_BY_TF.get(tf, 6))).isoformat()
+            for tf in _CANDLE_TFS}
         seeded = 0
         for sym in symbols:
             if not self._running:
@@ -350,7 +363,7 @@ class KiteZerodhaMirror:
                     continue
                 try:
                     resp = oa.history(sym, exchange="NSE", interval=iv,
-                                      start_date=start, end_date=end)
+                                      start_date=starts[tf], end_date=end)
                     rows = (resp or {}).get("data") or []
                     bars = []
                     for r in rows[-_CANDLE_MAXLEN:]:
