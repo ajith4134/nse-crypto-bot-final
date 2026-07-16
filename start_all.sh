@@ -249,26 +249,29 @@ pgrep -f "localtunnel --port 8101" >/dev/null || \
 
 sleep 12
 CF_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' logs/cloudflared.log | head -1)
-if [ -n "$CF_URL" ]; then
-  echo "$CF_URL" > public_link.txt
-  echo "redir * ${CF_URL}{uri} temporary" > gateway/redirect.caddy
-  pkill -x caddy 2>/dev/null; sleep 1
-  setsid "$HOME/.local/bin/caddy" run --config gateway/Caddyfile >logs/caddy.log 2>&1 </dev/null &
-fi
+# CANONICAL public link = the STABLE ngrok domain (fixed --domain, survives restarts). The
+# cloudflared quick-tunnel URL rotates its random name on EVERY restart, which repeatedly broke the
+# owner's bookmarks (DNS NXDOMAIN, 2026-07-16), so it is no longer the published link — cloudflared
+# stays running only as an optional secondary. public_link.txt + the loca.lt heavy-page redirect
+# both point at the stable ngrok URL now.
+PUBLIC_URL="https://claw-repent-carving.ngrok-free.dev"
+echo "$PUBLIC_URL" > public_link.txt
+echo "redir * ${PUBLIC_URL}{uri} temporary" > gateway/redirect.caddy
+pkill -x caddy 2>/dev/null; sleep 1
+setsid "$HOME/.local/bin/caddy" run --config gateway/Caddyfile >logs/caddy.log 2>&1 </dev/null &
 echo; echo "== Health =="
 printf "%-45s %s\n" "OpenAlgo   http://127.0.0.1:5000/"        "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:5000/)"
 printf "%-45s %s\n" "Freqtrade  http://127.0.0.1:8080/api/v1/ping" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8080/api/v1/ping)"
 printf "%-45s %s\n" "Dashboard  http://127.0.0.1:8000/"        "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8000/)"
 printf "%-45s %s\n" "Gateway    http://127.0.0.1:8100/"        "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8100/)"
 echo
-echo "================= ONE LINK ================="
-echo "  ${CF_URL:-<cloudflared URL pending — check: grep trycloudflare logs/cloudflared.log>}"
+echo "================= ONE LINK (STABLE — survives restarts) ================="
+echo "  ${PUBLIC_URL}   (click 'Visit Site' once per 7 days on the ngrok interstitial)"
 echo "    /          -> brain + NSE trading dashboard"
 echo "    /frequi/   -> FreqUI (crypto / Freqtrade)"
 echo "    /openalgo/ -> OpenAlgo (NSE broker platform)"
-echo "  (URL changes each restart; also saved to ~/public_link.txt)"
-echo "  STABLE link (Zerodha login + all; click 'Visit Site' once per 7 days):"
-echo "  https://claw-repent-carving.ngrok-free.dev"
+echo "  Also saved to ~/public_link.txt."
+echo "  Secondary (rotates each restart, optional): ${CF_URL:-<pending>}"
 echo "  Backup (stable name, flaky on heavy pages):"
 echo "  https://ml-network-brain.loca.lt  (tunnel pw = server public IP)"
 echo "============================================"

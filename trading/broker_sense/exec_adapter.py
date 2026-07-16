@@ -117,6 +117,26 @@ class ExecAdapter:
         lot = self._nse_lot(tradesym, exch) or self._DEFAULT_LOT.get("options", 1)
         return (tradesym, exch, "NRML", max(1, int(lots)) * lot, "BUY")   # always BUY the option
 
+    @staticmethod
+    def _stream_position(tradesym: str, exchange: str) -> None:
+        """Stream every contract we hold, so its MTM comes off the WS instead of Zerodha's REST.
+
+        WHY (live-diagnosed 2026-07-16): OpenAlgo's sandbox positionbook recomputes MTM on EVERY
+        call and checks its WebSocket cache FIRST, falling back to the REST quote API only for
+        symbols the cache lacks. The mirror streamed the equity underlyings but never the F&O
+        CONTRACTS we hold, so with 70 open positions each Positions-page poll fetched ~70 REST
+        quotes — 256 multiquotes calls in 19 min — until Zerodha answered "Too many requests" and
+        positionbook hung (page spinner). Our subscribe makes the proxy publish those ticks, which
+        fills OpenAlgo's MarketDataService → the WS cache hits → no REST, no rate limit.
+        Best-effort: a mirror that's off/cold just means the old REST path. Never raises.
+        """
+        try:
+            from trading.broker_sense import kite_stream
+            if kite_stream.enabled():
+                kite_stream.get_kite_mirror().subscribe_symbols([tradesym], exchange=exchange)
+        except Exception:
+            pass
+
     def _nse_lot(self, symbol: str, exchange: str) -> int | None:
         try:
             return self._nse_cli().lot_size(symbol, exchange=exchange)      # REAL master-contract lot
@@ -189,6 +209,7 @@ class ExecAdapter:
             res = self._nse_cli().place_order(
                 symbol=tradesym, action=order_action, exchange=exch, product=product,
                 quantity=qty, allow_live=live)
+            self._stream_position(tradesym, exch)
         entry = {"market": market, "symbol": symbol, "action": action, "segment": segment,
                  "live": live, "broker": broker, "ok": bool(res),
                  **({"traded_symbol": routed[0], "exchange": routed[1], "product": routed[2],

@@ -139,20 +139,30 @@ class KiteZerodhaMirror:
         self._running = False
         self._connected = False
         self._last_msg_ts = 0.0
+        self._exch: dict[str, str] = {}          # sym -> exchange (NSE equity | NFO/BFO/MCX contract)
         self._last_snap = 0.0
         self._started_ts = 0.0
         self._backfilled = False                 # True once the one-shot history seed has run
 
     # ── universe selection ───────────────────────────────────────────────────
-    def subscribe_symbols(self, symbols) -> None:
-        """Set/extend the NSE tradingsymbols to stream. If already connected, subscribes the new
-        ones live. Idempotent; never raises."""
+    def subscribe_symbols(self, symbols, exchange: str = "NSE") -> None:
+        """Set/extend the tradingsymbols to stream. If already connected, subscribes the new ones
+        live. Idempotent; never raises.
+
+        `exchange` is per-call so F&O CONTRACTS (NFO/BFO/MCX) can be streamed alongside the NSE
+        equity universe. That matters beyond our own reads: our subscription is what makes the
+        proxy publish those ticks, which also fills OpenAlgo's MarketDataService — the cache its
+        sandbox positionbook checks BEFORE falling back to Zerodha's REST quote API. Streaming the
+        contracts we hold keeps that MTM path free (see exec_adapter's post-place subscribe)."""
         try:
             syms = {_flat(s) for s in (symbols or []) if s}
             if not syms:
                 return
+            ex = (exchange or "NSE").upper()
             with self._lock:
                 self._want |= syms
+                for s in syms:
+                    self._exch[s] = ex
             if self._connected and self._client is not None:
                 self._subscribe_wanted()
         except Exception:
@@ -173,7 +183,8 @@ class KiteZerodhaMirror:
                 pending = [s for s in self._want if s not in self._subscribed][:3000]
             if not pending or self._client is None:
                 return
-            instruments = [{"symbol": s, "exchange": "NSE"} for s in pending]
+            with self._lock:                      # per-symbol exchange (NSE equity, NFO/BFO/MCX F&O)
+                instruments = [{"symbol": s, "exchange": self._exch.get(s, "NSE")} for s in pending]
             mode = (os.getenv("KITE_STREAM_MODE", "depth") or "depth").lower()
             fn = {"ltp": self._client.subscribe_ltp,
                   "quote": self._client.subscribe_quote}.get(mode, self._client.subscribe_depth)
@@ -346,7 +357,10 @@ class KiteZerodhaMirror:
             print(f"[nse-mirror] backfill skipped (no OpenAlgo client): {e!r}", flush=True)
             return 0
         with self._lock:
-            symbols = sorted(self._want)
+            # NSE equity underlyings only: F&O contracts are streamed for live MTM, not charted —
+            # the funnel's direction reads candles off the UNDERLYING, and seeding history for every
+            # traded contract would burn hundreds of REST calls for candles nothing reads.
+            symbols = sorted(s for s in self._want if self._exch.get(s, "NSE") == "NSE")
         today = datetime.date.today()
         end = today.isoformat()
         # per-TF window: enough to fill _CANDLE_MAXLEN, never the whole history (see the map)
