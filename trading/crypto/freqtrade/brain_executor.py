@@ -169,6 +169,36 @@ def library_brain_decider(**kw):
     return dec.decide
 
 
+# Last-N closed trades for attribution context, TTL-cached (2026-07-16 — THE cycle bottleneck).
+# py-spy on the live funnel caught the loop blocked in:
+#   open_filter_lane -> _record_entry_meta -> TradeJournal.__init__ -> _load -> from_dict -> fields()
+# TradeJournal() parses EVERY row (7,318 dataclass builds + a confidence update each) and the caller
+# used only [-200:] — and it ran PER RECORDED ENTRY inside the placement loop (~100 entries/cycle
+# => ~730k dataclass constructions per cycle to read 200 rows). This — not the crawl (76.5s->7s
+# changed nothing), not the tournament (already capped, not even in this path), not the lane budget
+# (cutting it made cycles WORSE) — is why cycles ran 16 min. It also explains why `execute` jumped
+# 26s->119s the moment futures started opening: before the routing fix nothing entered, so this
+# never ran. More entries => more full-journal reloads.
+# The tail is attribution CONTEXT (what recently closed), not a per-pick input, so a short TTL is
+# honest: 60s is far fresher than the 5m bar the brain reasons on.
+_CLOSED_TAIL: dict = {"ts": 0.0, "n": 0, "rows": []}
+_CLOSED_TAIL_TTL_S = float(os.environ.get("CLOSED_TAIL_TTL_S", "60") or 60)
+
+
+def _closed_tail(n: int = 200) -> list:
+    """The last `n` closed trades as dicts. TTL-cached; never raises (attribution is advisory)."""
+    now = time.time()
+    if (now - _CLOSED_TAIL["ts"] <= _CLOSED_TAIL_TTL_S) and _CLOSED_TAIL["n"] >= n:
+        return _CLOSED_TAIL["rows"][-n:]
+    try:
+        from trading.journal.journal import TradeJournal
+        rows = [t.to_dict() for t in TradeJournal().trades[-n:]]
+    except Exception:
+        return _CLOSED_TAIL["rows"][-n:]          # serve the last good tail on a read failure
+    _CLOSED_TAIL.update({"ts": now, "n": n, "rows": rows})
+    return rows
+
+
 class BrainExecutor:
     """Drives Freqtrade DIRECTLY from the brain's library instructions (full control), independent
     of the segment-gated live-loop. Per cycle: for each symbol, read the ensemble instruction and
@@ -1902,8 +1932,7 @@ class BrainExecutor:
             try:
                 from trading.brain.attribution import explain_trade
                 from trading.brain.decision_memory import get_memory
-                from trading.journal.journal import TradeJournal
-                closed = [t.to_dict() for t in TradeJournal().trades[-200:]]
+                closed = _closed_tail(200)
                 attribution = explain_trade({
                     "symbol": sym, "direction": act, "exchange": "binance",
                     "brain_confidence_entry": (brain or {}).get("confidence"),

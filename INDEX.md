@@ -2184,7 +2184,7 @@ _Tests for memory/file_memory.py — Claude-style durable file memory (Phase B).
 
 ## `tests/test_filter_lane_executor.py`
 _Integration test for BrainExecutor.open_filter_lane (Stage 1b) — the Binance-filter TOP-N lane_
-- **classes:** FakeCli, FilterLaneExecutorTest, FilterLaneSegmentValidityTest
+- **classes:** FakeCli, FilterLaneExecutorTest, FilterLaneSegmentValidityTest, ClosedTailCacheTest
 - **imports:** os, trading.broker_sense, trading.crypto.freqtrade, trading.direction, unittest
 
 ## `tests/test_flow_health.py`
@@ -3922,7 +3922,7 @@ _trading/crypto/freqtrade/ — managed Freqtrade config + launch helper (T-split
 ## `trading/crypto/freqtrade/brain_executor.py`
 _trading/crypto/freqtrade/brain_executor.py — brain reads strategies as instructions (Phase G)._
 - **classes:** LibraryBrainDecider, BrainExecutor
-- **functions:** `_spot(symbol) -> str`; `library_brain_decider()`
+- **functions:** `_spot(symbol) -> str`; `library_brain_decider()`; `_closed_tail(n) -> list`
 - **imports:** __future__, os, pandas, time
 
 ## `trading/crypto/freqtrade/brain_learning.py`

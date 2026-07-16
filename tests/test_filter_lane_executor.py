@@ -5,6 +5,7 @@ live store, freqtrade, or the truth ledger (neutral reliability ⇒ no inversion
 """
 import os
 import unittest
+from unittest import mock
 
 from trading.crypto.freqtrade import brain_executor as be
 from trading.broker_sense import binance_filter_lane as bfl
@@ -143,3 +144,52 @@ class FilterLaneSegmentValidityTest(FilterLaneExecutorTest):
         self.assertEqual(len(rep["entered"]), 1, "candidate #2 must still open")
         self.assertGreaterEqual(rep["skipped"], 1)  # the refusal is data: logged + skipped
         self.assertIsNone(rep.get("error"), "a per-pick refusal must not become a cycle error")
+
+
+class ClosedTailCacheTest(unittest.TestCase):
+    """THE cycle bottleneck (2026-07-16). py-spy caught the funnel blocked in
+    open_filter_lane -> _record_entry_meta -> TradeJournal.__init__ -> _load -> from_dict -> fields().
+    TradeJournal() parses EVERY row (7,318 dataclass builds + a confidence update each) while the
+    caller used only [-200:] — once PER RECORDED ENTRY (~100/cycle => ~730k constructions/cycle).
+    Not the crawl, not the tournament, not the lane budget: THIS is why cycles ran 16 min."""
+
+    def setUp(self):
+        be._CLOSED_TAIL.update({"ts": 0.0, "n": 0, "rows": []})
+        self.addCleanup(be._CLOSED_TAIL.update, {"ts": 0.0, "n": 0, "rows": []})
+
+    def test_journal_is_loaded_ONCE_not_per_call(self):
+        calls = {"n": 0}
+
+        class _FakeJournal:
+            def __init__(self, *a, **k):
+                calls["n"] += 1
+                self.trades = []
+
+        import trading.journal.journal as jmod
+        with mock.patch.object(jmod, "TradeJournal", _FakeJournal):
+            for _ in range(50):                      # 50 entries in one cycle
+                be._closed_tail(200)
+        self.assertEqual(calls["n"], 1,
+                         "the journal must be parsed ONCE per TTL, not once per recorded entry")
+
+    def test_cache_expires_so_the_tail_stays_fresh(self):
+        import trading.journal.journal as jmod
+        calls = {"n": 0}
+
+        class _FakeJournal:
+            def __init__(self, *a, **k):
+                calls["n"] += 1
+                self.trades = []
+
+        with mock.patch.object(jmod, "TradeJournal", _FakeJournal):
+            be._closed_tail(200)
+            be._CLOSED_TAIL["ts"] = 0.0              # simulate TTL expiry
+            be._closed_tail(200)
+        self.assertEqual(calls["n"], 2, "an expired tail must re-read (advisory data still ages)")
+
+    def test_a_journal_read_failure_never_breaks_an_entry(self):
+        import trading.journal.journal as jmod
+        be._CLOSED_TAIL.update({"ts": 0.0, "n": 200, "rows": [{"x": 1}]})
+        with mock.patch.object(jmod, "TradeJournal", side_effect=RuntimeError("disk gone")):
+            out = be._closed_tail(200)
+        self.assertEqual(out, [{"x": 1}], "serve the last good tail; attribution is advisory")
