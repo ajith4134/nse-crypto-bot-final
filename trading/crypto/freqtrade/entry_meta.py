@@ -44,6 +44,14 @@ def _key(pair: str, segment: str | None) -> str:
     return f"{(segment or 'futures').lower()}|{pair}"
 
 
+def _f(v) -> float | None:
+    """Best-effort float; None on anything unparseable (never raises)."""
+    try:
+        return float(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _parse_ts(iso: str) -> float | None:
     if not iso:
         return None
@@ -67,6 +75,25 @@ def record(pair: str, segment: str | None, meta: dict) -> None:
             meta["decision_snapshot"]["ui_view"] = {
                 "tfs_covered": tfs, "n_tfs": len(tfs),
                 "ui_only_mode": ui_data.enabled()}
+    except Exception:
+        pass
+    # ENTRY MICROSTRUCTURE VECTOR (gate-rebuild step 1, 2026-07-16). It was first wired into
+    # live_loop._snapshot — but CRYPTO trades never pass through there: they are opened by
+    # brain_executor -> freqtrade and their snapshot lands here. Live check found the newest crypto
+    # entry carrying NO entry_vector, i.e. the recorder was recording nothing on the only path that
+    # actually opens trades. This function's own docstring names it: "one chokepoint covers every
+    # crypto entry path" — so the vector belongs HERE. RAM-only, never raises: a recorder fault must
+    # not block an entry.
+    try:
+        from trading.brain.entry_vector import entry_vector
+        snap = meta.get("decision_snapshot")
+        if isinstance(snap, dict) and "entry_vector" not in snap:
+            ev = entry_vector(pair, market="crypto",
+                              price=_f(meta.get("price") or snap.get("price")),
+                              size_usd=_f(meta.get("stake_amount") or meta.get("size_usd")),
+                              entry_type=str(meta.get("order_type") or "taker"))
+            if ev:
+                snap["entry_vector"] = ev
     except Exception:
         pass
     global _CACHE

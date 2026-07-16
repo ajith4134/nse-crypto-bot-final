@@ -334,3 +334,42 @@ class TestPsychologyKyleTautologyRemoved(unittest.TestCase):
         # ...so our guard is what must suppress it: the gate is the column check
         self.assertTrue("last_trade_side" not in df.columns or df.get("last_trade_side") is None)
         del lam
+
+
+class TestCryptoEntryPathRecordsTheVector(unittest.TestCase):
+    """The recorder was wired into live_loop._snapshot — but CRYPTO trades never pass through it
+    (brain_executor -> freqtrade -> entry_meta.record). A live check found the newest crypto entry
+    carrying NO entry_vector: the recorder was recording nothing on the only path opening trades.
+    entry_meta.record's own docstring calls itself the one chokepoint for every crypto entry."""
+
+    def test_record_attaches_entry_vector_to_the_snapshot(self):
+        import tempfile
+        from pathlib import Path
+        import trading.state as state
+        from trading.crypto.freqtrade import entry_meta
+        tmp = tempfile.mkdtemp()
+        with mock.patch.object(state, "STATE_DIR", Path(tmp)):
+            m = get_mirror()
+            m._book["SOLUSDT"] = {"bids": [[100.0, 5.0]], "asks": [[100.1, 4.0]], "ts": time.time()}
+            self.addCleanup(m._book.pop, "SOLUSDT", None)
+            meta = {"decision_snapshot": {"symbol": "SOL/USDT", "direction": "LONG"},
+                    "price": 100.05, "stake_amount": 200.0}
+            entry_meta.record("SOL/USDT", "futures", meta)
+            ev_ = meta["decision_snapshot"].get("entry_vector")
+        self.assertIsNotNone(ev_, "crypto entries must carry the entry vector")
+        self.assertEqual(ev_["ev_symbol"], "SOLUSDT")
+        self.assertEqual(ev_["ev_size_usd"], 200.0)          # threaded from the real stake
+        self.assertIsNotNone(ev_["ev_spread_bps"])
+
+    def test_record_never_blocks_an_entry_when_the_vector_faults(self):
+        import tempfile
+        from pathlib import Path
+        import trading.state as state
+        from trading.crypto.freqtrade import entry_meta
+        tmp = tempfile.mkdtemp()
+        with mock.patch.object(state, "STATE_DIR", Path(tmp)), \
+             mock.patch("trading.brain.entry_vector.entry_vector",
+                        side_effect=RuntimeError("boom")):
+            meta = {"decision_snapshot": {"symbol": "SOL/USDT"}}
+            entry_meta.record("SOL/USDT", "futures", meta)   # must not raise
+        self.assertNotIn("entry_vector", meta["decision_snapshot"])

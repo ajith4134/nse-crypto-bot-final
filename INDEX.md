@@ -2107,7 +2107,7 @@ _Regression: entry_meta.lookup must parse the sidecar file ONCE per file change.
 
 ## `tests/test_entry_vector.py`
 _tests/test_entry_vector.py — the entry-time microstructure vector (gate-rebuild step 1)._
-- **classes:** TestClockPhase, TestLiquidityRegime, TestEntryVector, TestTier5LabelAndCost, TestEntryVectorExtras, TestLiquidityMeasures, TestCoverage, TestPsychologyKyleTautologyRemoved
+- **classes:** TestClockPhase, TestLiquidityRegime, TestEntryVector, TestTier5LabelAndCost, TestEntryVectorExtras, TestLiquidityMeasures, TestCoverage, TestPsychologyKyleTautologyRemoved, TestCryptoEntryPathRecordsTheVector
 - **imports:** time, trading.brain, trading.broker_sense.binance_stream, unittest
 
 ## `tests/test_evidence_lane.py`
@@ -3942,7 +3942,7 @@ _trading/crypto/freqtrade/control.py — guarded paper↔live & spot↔futures s
 
 ## `trading/crypto/freqtrade/entry_meta.py`
 _Sidecar store for per-entry brain metadata (trader psychology + decision snapshot)._
-- **functions:** `_load() -> dict`; `_key(pair, segment) -> str`; `_parse_ts(iso) -> float | None`; `record(pair, segment, meta) -> None`; `lookup(pair, segment, open_date) -> dict | None`
+- **functions:** `_load() -> dict`; `_key(pair, segment) -> str`; `_f(v) -> float | None`; `_parse_ts(iso) -> float | None`; `record(pair, segment, meta) -> None`; `lookup(pair, segment, open_date) -> dict | None`
 - **imports:** __future__, datetime, time, trading
 
 ## `trading/crypto/freqtrade/launch.py`
