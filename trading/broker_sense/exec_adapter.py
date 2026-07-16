@@ -41,9 +41,9 @@ class ExecAdapter:
 
     # NSE segment → (OpenAlgo exchange, product, instrument). Mirrors live_loop._seg_instrument /
     # the NSE F&O engine: equity trades whole shares intraday (NSE/MIS); futures & commodities are
-    # lot-based near-month FUT carry positions (NFO/MCX · NRML). options is intentionally absent —
-    # it needs direction→CE/PE + strike/expiry selection, which live_loop owns; _route_nse returns
-    # None for it so place() reports an honest "not executable here" instead of a wrong order.
+    # lot-based near-month FUT carry positions (NFO/MCX · NRML). options is NOT in this static map —
+    # its exchange (NFO/BFO) + contract are resolved dynamically in _route_nse_option (direction →
+    # CE/PE, ATM/OTM strike, nearest-weekly expiry).
     _NSE_SEG_ROUTE = {
         "equity": ("NSE", "MIS", "EQ"), "intraday": ("NSE", "MIS", "EQ"),
         "delivery": ("NSE", "CNC", "EQ"), "mtf": ("NSE", "CNC", "EQ"),
@@ -52,17 +52,23 @@ class ExecAdapter:
     }
     _DEFAULT_LOT = {"futures": 50, "fno": 50, "commodities": 100}
 
-    def _route_nse(self, base: str, segment: str | None, *, lots: int = 1):
-        """Resolve (tradesymbol, exchange, product, quantity) for an NSE order, or None when the
-        segment isn't executable by the broker-sense funnel (options). Reuses the near-month FUT
-        resolver + OpenAlgo's real lot size so F&O orders hit the correct contract in whole lots."""
+    def _route_nse(self, base: str, segment: str | None, action: str, *, lots: int = 1):
+        """Resolve (tradesymbol, exchange, product, quantity, order_action) for an NSE order, or
+        None when it can't be executed (no live contract). Reuses the near-month FUT resolver, the
+        single-leg option selector, and OpenAlgo's real lot size so F&O/options hit the correct
+        contract in whole lots. `action` is the DIRECTION (BUY=long / SELL=short); the returned
+        order_action is what actually goes to the broker (BUY for equity/futures per direction; for
+        options we always BUY the premium and encode direction in CE vs PE)."""
         seg = (segment or "equity").lower()
+        act = str(action).upper()
+        if seg in ("options", "opt", "option"):
+            return self._route_nse_option(base, act, lots=lots)
         route = self._NSE_SEG_ROUTE.get(seg)
-        if route is None:                                    # options / prediction / unknown
+        if route is None:                                    # prediction / unknown
             return None
         exch, product, instrument = route
         if instrument == "EQ":                               # equity: whole shares, symbol as-is
-            return (base, exch, product, max(1, int(lots)))
+            return (base, exch, product, max(1, int(lots)), act)
         # F&O: resolve the near-month FUT contract (reuse the exact-base resolver) + size in LOTS
         try:
             from trading.screener.commodities import resolve_near_month_fut
@@ -72,13 +78,72 @@ class ExecAdapter:
         if not pick or not pick.get("symbol"):
             return None                                      # no live contract → don't guess a symbol
         tradesym = pick["symbol"]
-        lot = None
+        lot = self._nse_lot(tradesym, exch) or self._DEFAULT_LOT.get(seg, 1)
+        return (tradesym, exch, product, max(1, int(lots)) * lot, act)
+
+    def _route_nse_option(self, base: str, action: str, *, lots: int = 1):
+        """Single-leg NSE option: direction → BUY CE (long) / BUY PE (short) at the nearest-weekly
+        expiry, strike = ATM (default) or OTM (NSE_OPT_MONEYNESS=otm, NSE_OPT_OTM_STEPS strikes).
+        We always BUY the option (defined risk = premium paid). Reuses screener.options for the
+        chain search + ATM/expiry math. Returns None if no live contract or no underlying LTP —
+        never guesses a strike/symbol."""
+        from trading.screener.options import (_norm_rows, _opt_exch, _strike_step,
+                                              atm_strike, nearest_expiry)
+        opt_type = "CE" if action.upper() == "BUY" else "PE"   # long→CALL, short→PUT
+        exch = _opt_exch(base)                                  # NFO (NSE) / BFO (SENSEX·BANKEX)
+        ltp = self._underlying_ltp(base, exch)
+        if not ltp:
+            return None                                        # can't pick a strike without spot
         try:
-            lot = self._nse_cli().lot_size(tradesym, exchange=exch)   # REAL master-contract lot
+            rows = _norm_rows(self._nse_cli()._client().search(query=base, exchange=exch))
         except Exception:
-            lot = None
-        lot = lot or self._DEFAULT_LOT.get(seg, 1)
-        return (tradesym, exch, product, max(1, int(lots)) * lot)
+            rows = []
+        rows = [r for r in rows if r.get("opt_type") == opt_type and r.get("strike")]
+        if not rows:
+            return None
+        exp = nearest_expiry([r.get("expiry") for r in rows])  # nearest weekly (earliest date)
+        near = [r for r in rows if str(r.get("expiry")) == str(exp)]
+        strikes = [float(r["strike"]) for r in near]
+        atm = atm_strike(ltp, strikes)
+        if atm is None:
+            return None
+        target = atm
+        if (os.environ.get("NSE_OPT_MONEYNESS", "atm") or "atm").lower() == "otm":
+            step = _strike_step(strikes) or 0.0
+            n = int(os.environ.get("NSE_OPT_OTM_STEPS", "1") or 1)
+            target = atm + n * step if opt_type == "CE" else atm - n * step   # OTM side by CE/PE
+        row = min(near, key=lambda r: abs(float(r["strike"]) - target))
+        tradesym = row["symbol"]
+        lot = self._nse_lot(tradesym, exch) or self._DEFAULT_LOT.get("options", 1)
+        return (tradesym, exch, "NRML", max(1, int(lots)) * lot, "BUY")   # always BUY the option
+
+    def _nse_lot(self, symbol: str, exchange: str) -> int | None:
+        try:
+            return self._nse_cli().lot_size(symbol, exchange=exchange)      # REAL master-contract lot
+        except Exception:
+            return None
+
+    def _underlying_ltp(self, base: str, opt_exch: str) -> float:
+        """Underlying spot for the ATM strike. The Zerodha in-RAM mirror first (warm in the funnel
+        process — stock underlyings), then a direct OpenAlgo spot quote on the right exchange
+        (index→NSE_INDEX, stock→NSE) — this is an EXECUTION-time read (like the FUT/chain search),
+        so it's exempt from the UI-only SELECTION gate. 0.0 → abstain (never pick a blind strike)."""
+        try:
+            from trading.broker_sense import kite_stream
+            t = kite_stream.ticker(base) or {}
+            if t.get("last"):
+                return float(t["last"])
+        except Exception:
+            pass
+        try:
+            from trading.screener.options import _spot_exch
+            r = self._nse_cli().quote(base, exchange=_spot_exch(base))
+            d = r.get("data", r) if isinstance(r, dict) else {}
+            if isinstance(d, dict):
+                return float(d.get("ltp") or d.get("last_price") or 0.0)
+        except Exception:
+            pass
+        return 0.0
 
     @staticmethod
     def _live_allowed(market: str) -> bool:
@@ -113,22 +178,22 @@ class ExecAdapter:
                 symbol=symbol, action=action, price=price, enter_tag=enter_tag,
                 segment=segment, allow_live=live)
         else:
-            routed = self._route_nse(symbol.split("/")[0], segment, lots=quantity or 1)
-            if routed is None:                                # not executable here (e.g. options)
+            routed = self._route_nse(symbol.split("/")[0], segment, action, lots=quantity or 1)
+            if routed is None:                                # no live contract / no spot → abstain
                 entry = {"market": market, "symbol": symbol, "action": action, "segment": segment,
                          "live": False, "broker": None, "ok": False,
-                         "blocked": f"segment {segment!r} not executable by broker-sense "
-                                    f"(options/strike selection → live_loop)"}
+                         "blocked": f"no tradeable {segment!r} contract resolved for {symbol!r}"}
                 self.log = (self.log + [entry])[-50:]
                 return {"placed": False, **entry}
-            tradesym, exch, product, qty = routed
+            tradesym, exch, product, qty, order_action = routed
             res = self._nse_cli().place_order(
-                symbol=tradesym, action=action, exchange=exch, product=product,
+                symbol=tradesym, action=order_action, exchange=exch, product=product,
                 quantity=qty, allow_live=live)
         entry = {"market": market, "symbol": symbol, "action": action, "segment": segment,
                  "live": live, "broker": broker, "ok": bool(res),
                  **({"traded_symbol": routed[0], "exchange": routed[1], "product": routed[2],
-                     "quantity": routed[3]} if market != "crypto" and routed else {})}
+                     "quantity": routed[3], "order_action": routed[4]}
+                    if market != "crypto" and routed else {})}
         self.log = (self.log + [entry])[-50:]
         return {"placed": True, **entry, "engine_response": res}
 

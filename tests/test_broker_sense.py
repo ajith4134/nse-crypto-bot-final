@@ -264,16 +264,58 @@ class TestExecAdapter(_IsolatedState):
                          ("RELIANCE", "NSE", "MIS", 3))
         cli._client.assert_not_called()                        # equity needs no contract resolution
 
-    def test_nse_options_is_honestly_not_executable(self):
-        """Options needs CE/PE + strike selection (live_loop's engine) — place() must refuse,
-        not place a wrong order, and never call the broker."""
-        from trading.broker_sense.exec_adapter import ExecAdapter
+    def _opt_cli(self):
+        """Fake OpenAlgoClient with a two-expiry RELIANCE option chain (spot ~1305 → ATM 1300)."""
+        rows = []
+        for strike in (1260, 1280, 1300, 1320, 1340):
+            for opt in ("CE", "PE"):
+                for exp in ("24-JUL-26", "28-JUL-26"):     # weekly (earlier) + monthly
+                    rows.append({"symbol": f"RELIANCE{exp[:2]}JUL26{strike}{opt}", "strike": strike,
+                                 "expiry": exp, "opt_type": opt, "instrumenttype": opt})
+
+        class _SDK:
+            def search(self, query, exchange): return {"data": rows}
         cli = mock.Mock()
-        r = ExecAdapter(nse_client=cli).place(market="nse", symbol="RELIANCE", action="BUY",
-                                              segment="options", quantity=1)
+        cli._client.return_value = _SDK()
+        cli.quote.return_value = {"data": {"ltp": 1305.0}}     # underlying spot → ATM 1300
+        cli.lot_size.return_value = 500
+        cli.place_order.side_effect = lambda **kw: {"ok": True, **kw}
+        return cli
+
+    def test_nse_options_atm_buys_call_for_long_put_for_short(self):
+        """long → BUY nearest-weekly ATM CALL; short → BUY ATM PUT. Always BUY (premium=risk)."""
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        os.environ.pop("NSE_OPT_MONEYNESS", None)
+        ad = ExecAdapter(nse_client=self._opt_cli())
+        r = ad.place(market="nse", symbol="RELIANCE", action="BUY", segment="options", quantity=2)
+        kw = ad._nse.place_order.call_args.kwargs
+        self.assertEqual(kw["symbol"], "RELIANCE24JUL261300CE")  # weekly (24-JUL) ATM CALL
+        self.assertEqual(kw["exchange"], "NFO")
+        self.assertEqual(kw["action"], "BUY")                   # buy the option, not sell
+        self.assertEqual(kw["quantity"], 1000)                  # 2 lots × 500
+        r = ad.place(market="nse", symbol="RELIANCE", action="SELL", segment="options", quantity=1)
+        self.assertEqual(ad._nse.place_order.call_args.kwargs["symbol"], "RELIANCE24JUL261300PE")
+        self.assertEqual(ad._nse.place_order.call_args.kwargs["action"], "BUY")   # short → BUY PUT
+
+    def test_nse_options_otm_shifts_strike_by_side(self):
+        """OTM: CALL strike above spot, PUT strike below — configurable moneyness."""
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        ad = ExecAdapter(nse_client=self._opt_cli())
+        with mock.patch.dict(os.environ, {"NSE_OPT_MONEYNESS": "otm", "NSE_OPT_OTM_STEPS": "1"}):
+            ad.place(market="nse", symbol="RELIANCE", action="BUY", segment="options", quantity=1)
+            self.assertEqual(ad._nse.place_order.call_args.kwargs["symbol"], "RELIANCE24JUL261320CE")
+            ad.place(market="nse", symbol="RELIANCE", action="SELL", segment="options", quantity=1)
+            self.assertEqual(ad._nse.place_order.call_args.kwargs["symbol"], "RELIANCE24JUL261280PE")
+
+    def test_nse_options_abstains_without_a_spot(self):
+        """No underlying LTP → never pick a blind strike; abstain, don't call the broker."""
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        cli = self._opt_cli()
+        cli.quote.return_value = {"data": {}}                   # no spot
+        ad = ExecAdapter(nse_client=cli)
+        with mock.patch("trading.broker_sense.kite_stream.ticker", return_value=None):
+            r = ad.place(market="nse", symbol="RELIANCE", action="BUY", segment="options", quantity=1)
         self.assertFalse(r["placed"])
-        self.assertFalse(r["ok"])
-        self.assertIn("not executable", r["blocked"])
         cli.place_order.assert_not_called()
 
     def test_nse_futures_no_live_contract_refuses(self):
