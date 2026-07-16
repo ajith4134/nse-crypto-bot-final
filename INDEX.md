@@ -1794,7 +1794,7 @@ _tests/test_binance_stream.py — Binance all-market in-RAM mirror._
 ## `tests/test_book_ofi.py`
 _Tests for trading/broker_sense/book_ofi.py — TRUE L2 OFI/GOFI per-bar history (gap B)._
 - **classes:** _Iso, TestOfiMath, TestSeriesAndJoin, TestStoreSnapshotFeatParam, TestMirrorDepthFeedsBookOfi
-- **functions:** `_snap(bid, bq, ask, aq, bids, asks)`
+- **functions:** `_snap(bid, bq, ask, aq, bids, asks)`; `test_mid_field_persists_and_series_exports_of_mid(tmp_path, monkeypatch)`
 - **imports:** json, pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_boss_command.py`

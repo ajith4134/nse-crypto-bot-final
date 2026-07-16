@@ -175,3 +175,23 @@ class TestMirrorDepthFeedsBookOfi(_Iso):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_mid_field_persists_and_series_exports_of_mid(tmp_path, monkeypatch):
+    """P1 fix (2026-07-16): bar-close mid rides in every row so forward-return labels
+    come straight from the series (no fragile candle join)."""
+    import time
+    import trading.state as state
+    monkeypatch.setattr(state, "STATE_DIR", tmp_path)
+    from trading.broker_sense import book_ofi
+    book_ofi._acc.clear()
+    t0 = (int(time.time()) // 60) * 60
+    book_ofi.on_book("MIDTESTUSDT", {"bid": 100.0, "bid_qty": 5, "ask": 100.1, "ask_qty": 4,
+                                     "bids": [[100.0, 5]], "asks": [[100.1, 4]]}, t0)
+    book_ofi.on_book("MIDTESTUSDT", {"bid": 102.0, "bid_qty": 5, "ask": 102.1, "ask_qty": 4,
+                                     "bids": [[102.0, 5]], "asks": [[102.1, 4]]}, t0 + 30)
+    book_ofi.on_book("MIDTESTUSDT", {"bid": 90.0, "bid_qty": 5, "ask": 90.1, "ask_qty": 4,
+                                     "bids": [[90.0, 5]], "asks": [[90.1, 4]]}, t0 + 120)
+    s = book_ofi.series("MIDTEST/USDT:USDT", bar_s=60)
+    assert s is not None and "of_mid" in s.columns
+    assert abs(float(s["of_mid"].iloc[0]) - 102.05) < 1e-6      # LAST mid of the bar

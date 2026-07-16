@@ -109,7 +109,7 @@ def _new_acc(bar: int) -> dict:
     return {"bar": bar, "n": 0, "ofi_l": [0.0] * L, "depth_l": [0.0] * L,
             "obi_sum": 0.0, "micro_sum": 0.0, "spread_sum": 0.0, "depth_q_sum": 0.0,
             "l1_depth_sum": 0.0, "dobi_sum": 0.0, "d1s_sum": 0.0, "n_lv": 0,
-            "prev": None, "prev_ts": 0.0}
+            "last_mid": None, "prev": None, "prev_ts": 0.0}
 
 
 def _fold_event(a: dict, rec: dict, ts: float) -> None:
@@ -133,6 +133,7 @@ def _fold_event(a: dict, rec: dict, ts: float) -> None:
     # time-mean stats from THIS snapshot
     if bid and ask and bid > 0 and ask > 0:
         mid = (bid + ask) / 2.0
+        a["last_mid"] = mid                      # bar-close mid → self-contained return labels
         if bq + aq > 0:
             a["obi_sum"] += (bq - aq) / (bq + aq)
             micro = (bid * aq + ask * bq) / (bq + aq)     # microprice (imbalance-weighted)
@@ -179,7 +180,11 @@ def _finalize(sym: str, a: dict) -> dict | None:
             "spread_bp": round(a["spread_sum"] / n, 4),
             "depth_q": round(a["depth_q_sum"] / n, 4),
             "dobi": round(a["dobi_sum"] / a["n_lv"], 6) if a["n_lv"] else None,
-            "d1s": round(a["d1s_sum"] / a["n_lv"], 6) if a["n_lv"] else None}
+            "d1s": round(a["d1s_sum"] / a["n_lv"], 6) if a["n_lv"] else None,
+            # bar-close mid (2026-07-16): forward-return labels straight from the series —
+            # IC studies no longer depend on a candle join (ui_candles covers ~45 favorites
+            # and goes stale; this store covers all 236 streamed symbols)
+            "mid": round(a["last_mid"], 10) if a["last_mid"] else None}
 
 
 def _append(sym: str, row: dict) -> None:
@@ -286,6 +291,12 @@ def series(symbol: str, bar_s: int = 300):
             df["_wm"] = df["w"] * m
             den = df.groupby("bucket")["_wm"].sum()
             agg[dst] = df.groupby("bucket")["_wx"].sum() / den.where(den > 0)
+        # bar-close mid: LAST valid mid in the bucket (a label helper, deliberately NOT in
+        # BOOK_FIELDS so it never leaks into the feature bus as a pseudo-feature)
+        if "mid" in df.columns:
+            agg["of_mid"] = df.dropna(subset=["mid"]).groupby("bucket")["mid"].last()
+        else:
+            agg["of_mid"] = float("nan")
         return agg.reset_index().rename(columns={"bucket": "ts"})
     except Exception:
         return None

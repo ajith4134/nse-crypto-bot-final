@@ -9,6 +9,22 @@
 > and remains the most concrete lead. Inversion ("invert flag") is now known not to pay: bucket
 > accuracies are non-stationary (persistence corr −0.214); see
 > `research/audits/measurement-rebuild-20260716.md`.
+>
+> ## ⚠️ EVENING ADDENDUM 2026-07-16 (B1/B4 sessions)
+> 1. **The Mirror Gate described below (P4 "self-inversion", §Mirror Gate) is RETIRED**
+>    (`MIRROR_GATE=0`, 19:44). It was measured actively harmful: learned_direction's recorded
+>    votes were the exact complement of funnel_mtf_vote all day (phi −0.950, accuracies summed
+>    to 1.0000) — see `research/fable5/ensemble-delusion-B1-20260716.md`. Read every
+>    "invert-aware / self-inverts" line below as historical design, not live behavior.
+> 2. **Any P3 validation metric that consumed per-trade returns before 2026-07-16 is suspect
+>    for short-heavy candidates**: `backtest_signal` recorded SHORT winners as losers
+>    (vectorbt from_orders artifact, fixed via `_segment_trades` — see
+>    `research/fable5/guardrail-calibration-B4-20260716.md`). Rank-IC scoring (P2) is
+>    unaffected (price-based); triple-barrier win-rates and DSR/PBO gates ran on corrupted
+>    series and must be re-derived post-fix.
+> 3. direction_equation itself remains the best-measured broad source (0.5267, n=4,557,
+>    ≈+3.6σ) — the quest's core premise stands; only the inversion and trade-return
+>    machinery around it were wrong.
 
 Deep research: 109 agents, adversarially verified, cited (raw: deep-research-raw.json). Answers the
 owner's quest (requirements: REQUIREMENTS.md). Grounded in our measured baseline (47% agg / 55% 4h /
