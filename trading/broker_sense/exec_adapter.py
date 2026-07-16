@@ -39,6 +39,47 @@ class ExecAdapter:
             self._nse = OpenAlgoClient()
         return self._nse
 
+    # NSE segment → (OpenAlgo exchange, product, instrument). Mirrors live_loop._seg_instrument /
+    # the NSE F&O engine: equity trades whole shares intraday (NSE/MIS); futures & commodities are
+    # lot-based near-month FUT carry positions (NFO/MCX · NRML). options is intentionally absent —
+    # it needs direction→CE/PE + strike/expiry selection, which live_loop owns; _route_nse returns
+    # None for it so place() reports an honest "not executable here" instead of a wrong order.
+    _NSE_SEG_ROUTE = {
+        "equity": ("NSE", "MIS", "EQ"), "intraday": ("NSE", "MIS", "EQ"),
+        "delivery": ("NSE", "CNC", "EQ"), "mtf": ("NSE", "CNC", "EQ"),
+        "futures": ("NFO", "NRML", "FUT"), "fno": ("NFO", "NRML", "FUT"),
+        "commodities": ("MCX", "NRML", "FUT"),
+    }
+    _DEFAULT_LOT = {"futures": 50, "fno": 50, "commodities": 100}
+
+    def _route_nse(self, base: str, segment: str | None, *, lots: int = 1):
+        """Resolve (tradesymbol, exchange, product, quantity) for an NSE order, or None when the
+        segment isn't executable by the broker-sense funnel (options). Reuses the near-month FUT
+        resolver + OpenAlgo's real lot size so F&O orders hit the correct contract in whole lots."""
+        seg = (segment or "equity").lower()
+        route = self._NSE_SEG_ROUTE.get(seg)
+        if route is None:                                    # options / prediction / unknown
+            return None
+        exch, product, instrument = route
+        if instrument == "EQ":                               # equity: whole shares, symbol as-is
+            return (base, exch, product, max(1, int(lots)))
+        # F&O: resolve the near-month FUT contract (reuse the exact-base resolver) + size in LOTS
+        try:
+            from trading.screener.commodities import resolve_near_month_fut
+            pick = resolve_near_month_fut(self._nse_cli()._client(), base, exchange=exch)
+        except Exception:
+            pick = None
+        if not pick or not pick.get("symbol"):
+            return None                                      # no live contract → don't guess a symbol
+        tradesym = pick["symbol"]
+        lot = None
+        try:
+            lot = self._nse_cli().lot_size(tradesym, exchange=exch)   # REAL master-contract lot
+        except Exception:
+            lot = None
+        lot = lot or self._DEFAULT_LOT.get(seg, 1)
+        return (tradesym, exch, product, max(1, int(lots)) * lot)
+
     @staticmethod
     def _live_allowed(market: str) -> bool:
         flag = "CRYPTO_ALLOW_LIVE" if market == "crypto" else "NSE_ALLOW_LIVE"
@@ -72,11 +113,22 @@ class ExecAdapter:
                 symbol=symbol, action=action, price=price, enter_tag=enter_tag,
                 segment=segment, allow_live=live)
         else:
+            routed = self._route_nse(symbol.split("/")[0], segment, lots=quantity or 1)
+            if routed is None:                                # not executable here (e.g. options)
+                entry = {"market": market, "symbol": symbol, "action": action, "segment": segment,
+                         "live": False, "broker": None, "ok": False,
+                         "blocked": f"segment {segment!r} not executable by broker-sense "
+                                    f"(options/strike selection → live_loop)"}
+                self.log = (self.log + [entry])[-50:]
+                return {"placed": False, **entry}
+            tradesym, exch, product, qty = routed
             res = self._nse_cli().place_order(
-                symbol=symbol.split("/")[0], action=action,
-                quantity=quantity or 1, allow_live=live)
+                symbol=tradesym, action=action, exchange=exch, product=product,
+                quantity=qty, allow_live=live)
         entry = {"market": market, "symbol": symbol, "action": action, "segment": segment,
-                 "live": live, "broker": broker, "ok": bool(res)}
+                 "live": live, "broker": broker, "ok": bool(res),
+                 **({"traded_symbol": routed[0], "exchange": routed[1], "product": routed[2],
+                     "quantity": routed[3]} if market != "crypto" and routed else {})}
         self.log = (self.log + [entry])[-50:]
         return {"placed": True, **entry, "engine_response": res}
 

@@ -271,9 +271,27 @@ def main() -> int:
                 except Exception:
                     segments = ["futures"]
             else:
-                segments = ["equity"]
+                # HONOR ACTIVE SEGMENTS (owner 2026-07-16): the NSE funnel used to hardcode
+                # ["equity"] and then intersect with active — so when the boss had NSE set to
+                # futures-only (a real dashboard state), ["equity"] ∩ {"futures"} = [] and the
+                # funnel silently did NOTHING (no cycle, no log). Run whichever active NSE segments
+                # this funnel can actually EXECUTE (exec_adapter routes equity→NSE, futures/
+                # commodities→near-month FUT on NFO/MCX). options is screenable but NOT yet
+                # executable here (needs CE/PE + strike selection — that's live_loop's engine), so
+                # it's excluded from the RUN set instead of no-op'd.
+                segments = ["equity", "futures", "commodities"]
             if active is not None:
-                segments = [s for s in segments if s in active]
+                servable = [s for s in segments if s in active]
+                unserved = sorted(active - set(segments))     # e.g. options → live_loop's domain
+                if not servable and active:
+                    # NEVER a silent all-skip (2026-07-10 rule): say WHY NSE opened nothing.
+                    print(f"[funnel:{market}] cycle skipped — active segments {sorted(active)} "
+                          f"not executable by the broker-sense funnel "
+                          f"(serves {segments}; options/others → live_loop)", flush=True)
+                elif unserved:
+                    print(f"[funnel:{market}] segments {unserved} active but handled by live_loop, "
+                          f"running {servable} here", flush=True)
+                segments = servable
             # NAV_BRAIN=1 (2026-07-11): route the live browsing through the intelligent
             # Planner-Actor-Validator loop — navigate the Binance UI purposefully to the ACTIVE
             # segments (never an off one), self-correcting when stuck, instead of the dumb loop.

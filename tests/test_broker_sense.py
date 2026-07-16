@@ -227,6 +227,65 @@ class TestExecAdapter(_IsolatedState):
         r = ad.place(market="crypto", symbol="BTC/USDT:USDT", action="LONG", live=True)
         self.assertFalse(r["live"])                            # hard paper gate
 
+    def _fno_cli(self):
+        """A fake OpenAlgoClient whose SDK resolves a near-month FUT and knows the lot size."""
+        class _SDK:
+            def search(self, query, exchange):
+                return {"data": [{"symbol": f"{query}28JUL26FUT", "expiry": "28-JUL-26",
+                                  "instrumenttype": "FUT"}]}
+        cli = mock.Mock()
+        cli._client.return_value = _SDK()
+        cli.lot_size.return_value = 500
+        cli.place_order.return_value = {"ok": True, "orderid": "X"}
+        return cli
+
+    def test_nse_futures_routes_to_nfo_near_month_contract(self):
+        """Segment=futures → near-month FUT on NFO, product NRML, quantity in whole lots."""
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        cli = self._fno_cli()
+        r = ExecAdapter(nse_client=cli).place(market="nse", symbol="RELIANCE", action="BUY",
+                                              segment="futures", quantity=2)
+        self.assertTrue(r["placed"])
+        kw = cli.place_order.call_args.kwargs
+        self.assertEqual(kw["symbol"], "RELIANCE28JUL26FUT")   # resolved contract, not the underlying
+        self.assertEqual(kw["exchange"], "NFO")
+        self.assertEqual(kw["product"], "NRML")
+        self.assertEqual(kw["quantity"], 1000)                 # 2 lots × 500
+        self.assertEqual(r["traded_symbol"], "RELIANCE28JUL26FUT")
+
+    def test_nse_equity_still_routes_whole_shares_to_nse(self):
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        cli = mock.Mock()
+        cli.place_order.return_value = {"ok": True}
+        r = ExecAdapter(nse_client=cli).place(market="nse", symbol="RELIANCE", action="BUY",
+                                              segment="equity", quantity=3)
+        kw = cli.place_order.call_args.kwargs
+        self.assertEqual((kw["symbol"], kw["exchange"], kw["product"], kw["quantity"]),
+                         ("RELIANCE", "NSE", "MIS", 3))
+        cli._client.assert_not_called()                        # equity needs no contract resolution
+
+    def test_nse_options_is_honestly_not_executable(self):
+        """Options needs CE/PE + strike selection (live_loop's engine) — place() must refuse,
+        not place a wrong order, and never call the broker."""
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        cli = mock.Mock()
+        r = ExecAdapter(nse_client=cli).place(market="nse", symbol="RELIANCE", action="BUY",
+                                              segment="options", quantity=1)
+        self.assertFalse(r["placed"])
+        self.assertFalse(r["ok"])
+        self.assertIn("not executable", r["blocked"])
+        cli.place_order.assert_not_called()
+
+    def test_nse_futures_no_live_contract_refuses(self):
+        """No resolvable contract → refuse (never guess a symbol)."""
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        cli = mock.Mock()
+        cli._client.return_value.search.return_value = {"data": []}
+        r = ExecAdapter(nse_client=cli).place(market="nse", symbol="NOPE", action="BUY",
+                                              segment="futures", quantity=1)
+        self.assertFalse(r["placed"])
+        cli.place_order.assert_not_called()
+
 
 class TestFunnelCycle(_IsolatedState):
     def test_cycle_completes_within_budget_and_wires_signals(self):
