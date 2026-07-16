@@ -1780,3 +1780,129 @@
   "counterSource": "https://link.springer.com/article/10.1186/s40854-025-00866-w (primary, self-refuting on scope/validation: BTC+ETH spot only, walk-forward Q2'22\u2013Q2'23, no PBO/DSR/purged CV, costs unquantified, authors' own survivorship/regime caveats); label-concurrency critique: https://www.mql5.com/en/articles/19850 ; https://hudsonthames.org/does-meta-labeling-add-to-signal-efficacy-triple-barrier-method/"
 }
 ```
+
+## 92. entry-92
+
+```
+{
+  "type": "started",
+  "key": "v2:852251f11eefa11b353f98ef875dade9004adbb7f66c292aa15f5202f96b27f6",
+  "agentId": "a28bf4c230d432373"
+}
+```
+
+## 93. entry-93
+
+```
+{
+  "refuted": false,
+  "evidence": "Claim survives independent verification, but its stated evidence was weak and one framing is materially incomplete.\n\n(1) Heston/Merton attribution CONFIRMED \u2014 but NOT by the quoted Crossref reference list (a reference list never establishes methodology; Heston/Merton could be intro citations). Verified instead against the authors' own reproduction code: github.com/RiskLabAI/Notebooks.py/blob/main/backtest/5_backtest_overfitting_simulation/ defines `regimes = {'calm': {'mu':0.1,'kappa':3.98,'theta':0.029,'xi':0.389645311,'rho':-0.7,'lam':121,'m':-0.000709,'v':0.0119}, 'volatile': {...}, 'speculative_bubble': ...}` \u2014 kappa/theta/xi/rho = Heston (1993) SV; lam/m/v = Merton (1976) jump-diffusion; plus `drift_volatility_burst(bubble_length=5*252, ...)` = Christensen et al. (2022) drift-burst (Crossref ref b16). Paper title itself: \"...in a synthetic controlled environment\", Knowledge-Based Systems Vol 305, art. 112477, Dec 2024 (Arian, Norouzi M., Seco; SSRN 4686376 / 4778909).\n\n(2) Reference implementation CONFIRMED via GitHub API: RiskLabAI/RiskLabAI.py (pushed 2026-07-12) ships RiskLabAI/backtest/validation/{combinatorial_purged.py, bagged_combinatorial_purged.py, adaptive_combinatorial_purged.py, path_adaptive_cpcv.py, path_bagged_cpcv.py, purged_kfold.py, walk_forward.py, kfold.py, leakage_aware_hpo.py} + probability_of_backtest_overfitting.py, probabilistic_sharpe_ratio.py, sharpe_inference.py, backtest_synthetic_data.py, with a mirrored test/ tree. Paper-specific repo path exists (Notebooks.py/backtest/5_backtest_overfitting_simulation, notebook + figs), matching Crossref ref b3. So \"directly reusable for a CPCV/PBO/DSR gate\" holds. Caveat: RiskLabAI org repos have 0-1 stars \u2014 low-adoption code, must be validated locally, not battle-tested.\n\n(3) MATERIAL QUALIFICATION the claim omits: the study is NOT synthetic-only. The authors' own readme states \"Real-World Validation: Empirical validation using historical S&P 500 data confirms the practical applicability and resilience of CPCV and its variants\", and the repo ships figs/sp500_pbo_dsr_comparison.png. The claim's \"results are from SYNTHETIC simulated price processes\" therefore understates the paper. However, strictly parsed every assertion still survives: the primary CPCV-vs-WF comparison IS on Heston/Merton/drift-burst simulations, and the finding is genuinely not validated on crypto perpetual-futures microstructure (S&P 500 daily equity bars are not 500ms 20-level L2 + aggTrade/OI/funding/liquidation data). No credible source disputes the CPCV<PBO / higher-DSR result; paper is recent (Dec 2024), peer-reviewed in a Q1 journal, not marketing.\n\nRecommendation to downstream: keep the claim but replace \"results are from synthetic simulated price processes\" with \"primary comparison is on synthetic Heston/Merton/drift-burst regimes, with a secondary S&P 500 daily-data check; neither touches crypto perp order-flow.\"",
+  "confidence": "medium",
+  "counterSource": "https://github.com/RiskLabAI/Notebooks.py/blob/main/backtest/5_backtest_overfitting_simulation/readme.md \u2014 \"Real-World Validation: Empirical validation using historical S&P 500 data confirms the practical applicability and resilience of CPCV and its variants\" (+ figs/sp500_pbo_dsr_comparison.png), which qualifies the claim's synthetic-only framing; and https://github.com/RiskLabAI/RiskLabAI.py (org repos 0-1 stars) which qualifies \"directly reusable\" as low-adoption code."
+}
+```
+
+## 94. entry-94
+
+```
+{
+  "type": "started",
+  "key": "v2:e98df24849a1c29eaa2648eb60400ed4fda665bd941e2813a49720d410907e13",
+  "agentId": "a14ff74e9c02611c0"
+}
+```
+
+## 95. entry-95
+
+```
+{
+  "refuted": true,
+  "evidence": "Fetched the primary source (link.springer.com/article/10.1186/s40854-025-00866-w = Gr\u0105dzki, W\u00f3jcik & Lessmann, \"Algorithmic crypto trading using information-driven bars, triple barrier labeling and deep learning\", Financial Innovation 11(1), Dec 2025). Four independent grounds for refutation:\n\n1) SELF-ADMITTEDLY ARBITRARY, NOT EMPIRICALLY VALIDATED. The paper states the parameters were NOT optimized: \"since we did not find similar studies that would advise on the optimal thresholds and for convenience of analysis, we decided to make them static\". The supporting quote itself begins \"we ASSUMED 24 periods...\". No sensitivity analysis of barrier width is reported; the authors list the static choice as a limitation. The research question asks for the \"state-of-the-art, EMPIRICALLY-VALIDATED way\". An unoptimized convenience hyperparameter from one paper is a reported setting, not a validated spec. The claim's editorializing (\"a concrete, reproducible label spec to record at entry\") is an overreach the quote does not support \u2014 reproducible \u2260 validated.\n\n2) CONTRADICTED BY THE CANONICAL METHOD. L\u00f3pez de Prado's triple-barrier (AFML 2018) explicitly sets barriers as multiples of a rolling volatility estimate (P_0 \u00d7 (1 \u00b1 \u03c4\u00b7\u03c3_t), EWMA of returns), precisely because fixed percentage barriers are too tight in high-vol regimes and too loose in low-vol ones. A hard-coded \u00b12.5%/\u00b15% is a degradation of the method, not SOTA. Multiple secondary sources (mlfinpy Labelling docs, paperswithbacktest triple-barrier course, MDPI Mathematics 12(5):780 which uses a genetic algorithm to TUNE barriers for crypto pair trading) all treat barrier width as something to be volatility-scaled or optimized, not assumed.\n\n3) DOMAIN MISMATCH WITH THE QUESTION. The paper is Binance SPOT BTCUSDT/ETHUSDT, Jan 2018\u2013Jun 2023, two assets. The question is 200 crypto PERPETUAL futures with 500ms L2, aggTrade flow, funding and liquidations, where order-flow alpha lives at seconds-to-minutes. A \u00b12.5% barrier over 24 bars is a fundamentally different (much longer/coarser) regime and carries no evidence for perp entry-edge estimation.\n\n4) MISREAD OF THE QUOTE'S STRUCTURE. The quote assigns 24 periods to ALL vertical barriers; only the barrier PERCENTAGE varies by interval frequency (2.5% frequent / 5% other). The claim reads \"24-period vertical (time) barrier for the most frequent input intervals, and \u00b15% for less frequent intervals\", wrongly conditioning the 24 on the frequent intervals and pairing a time value against a price value. Further, \"input intervals\" here are largely information-driven bars (CUSUM 1/2/3%, range, volume, dollar bars), so \"24 periods\" is 24 EVENT bars, not a \"24-period vertical (time) barrier\" as the claim glosses it \u2014 the wall-clock horizon is undefined and varies with activity.",
+  "confidence": "high",
+  "counterSource": "https://link.springer.com/article/10.1186/s40854-025-00866-w (the paper's own text: \"since we did not find similar studies that would advise on the optimal thresholds and for convenience of analysis, we decided to make them static\"); L\u00f3pez de Prado, Advances in Financial Machine Learning (2018) ch.3 volatility-scaled barriers, as documented at https://mlfinpy.readthedocs.io/en/latest/Labelling.html and https://paperswithbacktest.com/course/triple-barrier-method; https://www.mdpi.com/2227-7390/12/5/780 (GA-optimized triple-barrier labeling for crypto)"
+}
+```
+
+## 96. entry-96
+
+```
+{
+  "type": "started",
+  "key": "v2:3004ec8311fc6dc1409c3549d6d2e9ab97420cbe3cff1cfa6a70191b28249ea2",
+  "agentId": "a8fbe5d718758245a"
+}
+```
+
+## 97. entry-97
+
+```
+{
+  "refuted": false,
+  "evidence": "I downloaded and text-extracted the primary PDF myself (arxiv.org/pdf/2512.12924, saved to /tmp/claude-1000/-home-karan18190164/c0b9468f-8027-4406-8d3b-6deb9b4b8b81/scratchpad/p.pdf, 61,670 chars of extracted text) and tried to break the claim. Every substantive assertion survives.\n\n1) Scope. Title: \"Interpretable Hypothesis-Driven Trading: A Rigorous Walk-Forward Validation Framework for Market Microstructure Signals\". Line 488: \"Our sample consists of N = 100 US equities spanning T = 2,475 trading days from January [2015]\"; line 498: \"All data obtained from Yahoo Finance via yfinance API\". Line 23 (abstract): \"the key empirical finding reveals that daily OHLCV-based microstructure signals...\" \u2192 daily OHLCV only, no L2. Grep for \"order book\", \"limit order\", \"level-2\", \"L2\": ZERO hits.\n\n2) The five signals are exactly as the claim states \u2014 lines 379-387 name them: \"Accumulation(confidence 0.75, target 8%, stop 4%)\", \"Flow Momentum(0.70)\", \"Mean Reversion(0.65)\", \"Breakout(0.68)\", \"Range-Bound Value(0.60)\" \u2014 hand-crafted confidence/target/stop heuristics, not fitted microstructure alphas.\n\n3) Verbatim term search confirms the claim's list: microprice=0, queue imbalance=0, \"order flow imbalance\"=0, book slope=0, PBO=0, embargo=0, \"triple barrier\"/\"triple-barrier\"=0, meta-label=0, conformal=0, perpetual=0. The 5 raw \"OFI\" hits are substring artifacts inside \"profitability\" (line 237: \"any RL approaches fail profitability tests once reali...\") \u2014 zero standalone OFI, exactly as claimed.\n\n4) VPIN/Kyle are citation-only, never computed: lines 207-209 (\"...Trading (VPIN) as a real-time order-flow toxicity measure, which predicted the 2010 Flash Crash. Low et al. [2016] adapt VPIN to daily international data...\") and lines 197/875 (Kyle 1985 as foundational framework + bibliography). No VPIN or lambda is estimated anywhere in the methods or results.\n\n5) The supporting quote is verbatim at lines 747-749: \"Single Asset Class: Focus on US equities limits generalizability. Extensions to futures, currencies, fixed income, or cryptocurrencies would test whether framework and signals apply broadly.\" The paper's own Limitations section also concedes (line 734) \"Daily Data Granularity: Higher-frequency tick data would provide richer microstructure...\" \u2014 the authors themselves confirm the claim's core point about horizons/granularity.\n\nSource quality matches: the claim is a *negative scope* claim about one specific paper, and it is verified directly against that primary paper \u2014 the strongest possible evidence class for this kind of claim. Currency is not an issue (paper is Dec 2025, checked July 2026).\n\nONE inaccuracy, non-material: the claim says \"full 35-page PDF\"; the actual PDF is 10 pages (`file p.pdf` \u2192 \"PDF document, version 1.7, 10 page(s)\"). This overstates the size of the artifact searched but does not affect any conclusion \u2014 I re-ran the searches on the real 10-page document and every negative finding held.\n\nTwo minor over-reach checks that do NOT rise to refutation: the paper DOES discuss Deflated Sharpe (line 151 \"Prado [2014] introduced the Deflated Sharpe Ratio...\", line 251 \"We combine rigorous walk-forward validation with deflated Sharpe\") and DOES cite Combinatorial Purged CV (line 155). The claim never asserted those were absent \u2014 it listed PBO and embargo, which genuinely are absent \u2014 so this is consistent, though a reader should note the paper is not a total void on validation methodology (item 3 of the research question), only on the L2 alphas, labeling, calibration, and crypto-perp scope.",
+  "confidence": "high",
+  "counterSource": "No contradicting source found. Counter-check attempted against the paper's own abstract page (arxiv.org/abs/2512.12924), which independently confirms: \"daily OHLCV-based microstructure signals require elevated information arrival and trading activity to function effectively\", 100 US equities, no L2/OFI/microprice/VPIN/crypto. The paper's own Limitations section (lines 734, 747-749) corroborates rather than disputes the claim."
+}
+```
+
+## 98. entry-98
+
+```
+{
+  "type": "started",
+  "key": "v2:2108bfdb45f6921db22601e48af2076872cd286dd4c618d67a38543b57e423db",
+  "agentId": "a53b2005deee44fae"
+}
+```
+
+## 99. entry-99
+
+```
+{
+  "refuted": true,
+  "confidence": "high",
+  "counterSource": "Primary source self-refutes on the extrapolation: Gr\u0105dzki, W\u00f3jcik & Lessmann (2025), \"Algorithmic crypto trading using information-driven bars, triple barrier labeling and deep learning\", Financial Innovation 11:136, full text extracted from https://d-nb.info/1390878104/34 (43pp). Corroborating qualification: https://www.quantconnect.com/forum/discussion/14706/why-meta-labeling-is-not-a-silver-bullet/ and Hudson & Thames \"Does Meta Labeling Add to Signal Efficacy?\" (triple-barrier gave \"modest improvements in returns and drawdown control, but risk-adjusted metrics (Sharpe, Sortino) remained weak\").",
+  "evidence": "SPLIT VERDICT \u2014 clauses 1-2 survive, clause 3 (the actionable one) is refuted. The paper is real, peer-reviewed, open-access, 2025, and Lessmann is a credible ML-finance researcher; the abstract quote is verbatim and CUSUM+TB did beat time bars and next-bar labeling. But the claim's operative clause \u2014 \"supporting replacement of a fixed-horizon/backtest-Sharpe gate\" \u2014 is exactly what this source cannot bear, on five specifics read from the full text:\n\n(1) VALIDATION DEFICIT \u2014 FATAL FOR THIS USE. The paper uses a SINGLE CONTIGUOUS HOLDOUT (test = Q2 2022\u2013Q2 2023, 5 quarters; p.14). Grep over the full text returns ZERO hits for purged, embargo, combinatorial/CPCV, PBO, deflated Sharpe, AND zero for sample uniqueness / sample weight / concurrent / overlapping. This is disqualifying: the paper builds on L\u00f3pez de Prado (2018) yet omits the leakage controls AFML mandates precisely because overlapping triple-barrier labels are non-IID. The research question asks for purged/embargoed CV, CPCV, PBO and DSR \u2014 this paper supplies none of them, so it cannot license replacing an overfit selection gate.\n\n(2) TEST-SET SELECTION CONTAMINATION \u2014 reproduces our exact disease. Authors assert they were \"keeping data sampling and target labeling parameters fixed, and not overoptimizing them\" (p.14), then run a CUSUM\u00d7TB grid search scored ON THE TEST SET (Figs 15\u201317), reporting \"the two highest Sharpe ratios achieved, 2.0 and 1.9\" for pairings (2.5%,5%), (2.5%,6%), (2%,6%). A max-over-grid Sharpe with no deflated-Sharpe correction is the same pathology as our 142-strategy in-sample gate (highest quartile = worst realized). The 60/40 probability filter is separately conceded as \"This influential parameter\" and tuned.\n\n(3) INSTRUMENT MISMATCH. Binance SPOT/margin BTCUSDT + ETHUSDT only (+2 altcoins), tick data Jan 2018\u2013Jun 2023 \u2014 NOT perpetual futures. No funding rate, no open interest, no liquidations, no order-flow/microstructure features at all (price/volume bars only). Our question is 200 perps with L2 book, OI, funding, liquidations. Authors' own limitation: findings \"may not fully generalize to the broader cryptoasset universe, particularly less liquid markets.\"\n\n(4) \"NET OF TRANSACTION COSTS\" IS FEES-ONLY. Verbatim: \"We account for 0.1% of the transaction cost for opening and closing trades... Slippage... is rarely considered in research... modeling slippage requires detailed order book simulations, which are beyond the scope of this study\" (p.24). No slippage, no funding carry. For 200 perps incl. illiquid alts these are first-order, so the cost-netting claim overstates what was netted.\n\n(5) \"CONSISTENTLY POSITIVE\" IS AN ABSTRACT HEADLINE THE BODY QUALIFIES. Results detail: 2% CUSUM positive 4/4, but 3% CUSUM only 3/4. Critically, L\u00f3pez de Prado's OWN prescription \u2014 volatility-scaled dynamic barriers \u2014 made things WORSE: \"this adjustment did not improve trading outcomes. In fact, the results deteriorated for CUSUM sampling.\" A method whose canonical form underperforms its ad-hoc static tuning is a fragility signal, not a validated gate.\n\nUSABLE RESIDUAL (do not discard): event-sampling + triple-barrier is a defensible LABELING choice and the paper's demonstration that 58.8%-accurate next-bar BTC predictions still lost money to costs is a genuine, relevant caution. But it is evidence about labeling, tested on 2 spot majors without purging/CPCV/PBO/DSR/uniqueness-weights \u2014 it is NOT evidence that event-sampled TB labels constitute a validated replacement gate for perp entry-edge. Adopt the labeling; do not adopt this paper's validation standard, which is weaker than what our -0.031 correlation problem requires."
+}
+```
+
+## 100. entry-100
+
+```
+{
+  "type": "started",
+  "key": "v2:21487c0e09329c23f9bd691c99ed9e2b1e54db1d55dc12eeb12f695dc440b541",
+  "agentId": "aa34b21c31701464a"
+}
+```
+
+## 101. entry-101
+
+```
+{
+  "refuted": true,
+  "confidence": "high",
+  "counterSource": "Primary source's own full text (Gr\u0105dzki, W\u00f3jcik & Lessmann, \"Algorithmic crypto trading using information-driven bars, triple barrier labeling and deep learning\", Financial Innovation 11:136, 2025) \u2014 PDF extracted from https://d-nb.info/1390878104/34; Sensitivity Analysis section, pp. 34-37; Data section (line 650); Cost section (line 1021).",
+  "evidence": "The quote is verbatim and the claim paraphrases it accurately, BUT the claim is refuted as a \"concrete, reproducible label spec\" because the paper's own surrounding text and results disavow exactly that reading. Five specific grounds:\n\n(1) SELF-DISAVOWED AS ARBITRARY. The claim truncates the paragraph mid-thought. The very next sentences read: \"Barriers can be dynamic and linked with asset volatility. However, since we did not find similar studies that would advise on the optimal thresholds and for convenience of analysis, we decided to make them static over the entire period.\" The authors also frame it as \"In the initial setup of our experiment, we assumed...\" This is an admitted convenience placeholder, not an empirically-validated spec. The research question demands \"state-of-the-art, empirically-validated\"; the source explicitly states no study advised these thresholds. It also cuts against de Prado's canonical recommendation (volatility-scaled dynamic barriers).\n\n(2) THE PAPER'S OWN SENSITIVITY ANALYSIS CONTRADICTS 2.5%. Section \"Sensitivity analysis\": \"the highest Sharpe ratios achieved, 2.0 and 1.9, were observed for the CUSUM and Triple Barrier pairings of (2.5%, 5%), (2.5%, 6%), and (2%, 6%)\" \u2014 i.e. the optimal BARRIER is 5-6% (2.5% is the CUSUM filter), and \"High accuracy and profit are also achieved with the Triple Barrier method above 7%.\" It further warns \"a similar pattern was noted for excessively low barrier values\" and \"when the barrier values were lower than the CUSUM filter, the Triple Barrier method either collapsed or nearly collapsed to the next-bar labeling.\" The paper's own grid search refutes \u00b12.5% as a recommendable default. The authors explicitly defer the real question: \"Further sensitivity studies could explore the impact of dynamic horizontal barriers driven, for example, by recent market volatility and the impact of different values of the vertical barrier.\"\n\n(3) PAPER EXPLICITLY DENIES TRANSFERABILITY \u2014 fatal for a 200-coin universe: \"determining the optimal parameters for each is critical. This necessity arises from the fact that the volatility and extraordinary growth of many altcoins often eclipse those of ETH and BTC... thereby necessitating specifically tailored parameters.\"\n\n(4) ASSET-CLASS MISMATCH. Data is Binance SPOT, BTCUSDT + ETHUSDT only (n=2), Jan 2018\u2013Jun 2023; shorts via \"margin trading, a functionality provided by Binance\"; costs \"0.1% of the transaction cost for opening and closing trades... Binance fees for a regular user.\" That is the spot fee schedule. There are ZERO instances of \"perpetual\", funding rate, open interest, liquidations, or L2 book in the paper. It cannot supply an entry-snapshot spec for perps.\n\n(5) \"24 PERIODS\" IS MISREAD AS \"MAX HOLDING PERIODS\". The paper's bars are information-driven (CUSUM filter, range/volume/dollar bars) \u2014 24 dollar bars is not 24 hours of wall-clock, so \"max holding periods\" is not a recordable time barrier. The phrase \"input intervals\" appears exactly once in the entire 43-page paper (the quoted sentence) and is never defined, so \"most frequent\" vs \"other\" intervals is not reproducible.\n\n(6) VALIDATION FLOOR. Grep of the full text finds no \"purged\", \"embargo\", \"CPCV\", \"PBO\", or \"deflated Sharpe\" \u2014 none of the validation machinery the research question requires. A Sharpe 2.0 cell selected from a heatmap grid over 2 assets with no deflation is precisely the in-sample-selection failure mode the asker is trying to escape (their current gate: r=-0.031, n=260).\n\nNet: adopting \u00b12.5%/\u00b15%/24-period as an entry-recorded label spec would import an author-admitted arbitrary constant, contradicted by the same paper's grid, from a 2-asset spot study, into a 200-coin perp system."
+}
+```
+
+## 102. entry-102
+
+```
+{
+  "type": "started",
+  "key": "v2:77fb911a1556a0e97a4585eaaa2b115e52f020a02de9393ba6da46fcf32e95ff",
+  "agentId": "a38a84b1d78372cde"
+}
+```
+
+## 103. entry-103
+
+```
+{
+  "refuted": false,
+  "evidence": "Attempted refutation by extracting the full PDF text (arXiv 2512.12924, \"Interpretable Hypothesis-Driven Trading: A Rigorous Walk-Forward Validation Framework for Market Microstructure Signals\", Deep/Deep/Lamptey, submitted 2025-12-15, 35pp, 3.1MB PDF pulled from arxiv.org/pdf/2512.12924 and text-extracted locally). Every element of the claim checks out:\n\n(1) FIVE SIGNALS \u2014 verbatim, lines 379-388: \"Type 1: Institutional Accumulation (confidence 0.75, target 8%, stop 4%)... Type 2: Flow Momentum... Type 3: Mean Reversion... Type 4: Breakout... Type 5: Range-Bound Value\". Exactly the five the claim names, with hard-coded confidences/targets = hand-crafted heuristics.\n\n(2) DAILY OHLCV, US EQUITIES \u2014 abstract line 23: \"The key empirical finding reveals that daily OHLCV-based microstructure signals require elevated information arrival and trading activity to function effectively.\" Section header line 196: \"2.4 Market Microstructure Theory and Daily Data Applications\". 100 US equities, 2015-2024.\n\n(3) TERM COUNTS (case-insensitive, whole PDF): order flow imbalance=0, queue imbalance=0, microprice/micro-price=0, book slope=0, limit order book=0, PBO=0, embargo=0, triple-barrier/triple barrier=0, meta-label=0, conformal=0, perpetual=0. \"OFI\" grep -ioc returned 5 but ALL are substrings of \"profitability\"/\"profit\" \u2014 `grep -cE \"\\bOFI\\b\"` = 0, confirming the claim's \"ZERO standalone occurrences\".\n\n(4) VPIN/KYLE ONLY CITED, NEVER COMPUTED \u2014 line 197 \"Kyle [1985] established the foundational framework...\"; lines 206-209 \"Easley et al. [2012] introduced VPIN... Low et al. [2016] adapt VPIN to daily international data\"; remaining hits are bibliography entries (lines 875, 882). No computation, no formula, no VPIN column in any table.\n\n(5) The supporting quote is genuine: the paper's own limitations section states focus on US equities limits generalizability and that extension to cryptocurrencies \"would test whether framework and signals apply broadly\" \u2014 i.e., the authors themselves disclaim crypto coverage.\n\nMINOR QUALIFICATION (does not refute): the acronym \"PBO\" is absent but the CONCEPT appears in the literature review \u2014 line 153 \"Symmetric Cross-Validation (CSCV) to compute the Probability of Backtest Overfitting\" and line 155 \"Combinatorial Purged Cross-Validation shows superiority in mitigating over-fitting risks, though walk-forward remains the industry standard\". These are citations to Bailey/Arian, not methods the paper applies (it uses plain rolling walk-forward across 34 test periods). So the claim's substantive assertion \u2014 the paper contributes NO evidence on CPCV/PBO, L2 alphas, order-flow horizons, or crypto perps \u2014 stands; only the phrasing \"verbatim search returns zero PBO\" could mislead a reader into thinking the concept is never referenced.\n\nNo contradicting source found; this is a primary-source verification of a narrow, checkable scope caveat, and the claim is if anything conservative. Correct conclusion for the research question: this paper is unusable as evidence for entry-edge estimation on crypto perps from L2 microstructure.",
+  "confidence": "high",
+  "counterSource": "None found. Direct primary-source PDF extraction (arxiv.org/pdf/2512.12924) confirms every factual assertion; arXiv abstract page and WebSearch metadata (100 US equities, daily OHLCV, 0.55% ann. return, Sharpe 0.33, MDD -2.76%, beta 0.058) independently corroborate scope."
+}
+```

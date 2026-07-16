@@ -1,3 +1,17 @@
 # Agent agent-a6e66e3632e90b145 — wf_1b9d76ec-ac6
 
-Paper confirmed as real and peer-reviewed. Now let me get the verbatim abstract and hunt for contradicting evidence.
+I've completed verification. Here is my assessment.
+
+**What I independently verified (not from snippets):**
+- **The paper is real and correctly attributed.** Crossref (`api.crossref.org`) returns DOI `10.1016/j.knosys.2024.112477`, title *"Backtest overfitting in the machine learning era: A comparison of out-of-sample testing methods in a synthetic controlled environment"*, journal **Knowledge-Based Systems**, issued 2024-12, authors **Arian, Norouzi Mobarekeh, Seco**. OpenAlex confirms venue + publication date 2024-10-18, cited_by=8. The PII in the claim's URL (S0950705124011110) maps to this DOI.
+- **Source quality is adequate-to-strong**: Elsevier Q1 peer-reviewed venue; Luis Seco is an established quant-finance academic (Toronto/RiskLab). The claim is *not* extraordinary — it's the López de Prado (2018) consensus position, so a single peer-reviewed paper is proportionate support.
+- **Not outdated**: Oct/Dec 2024, ~20 months old; CPCV/PBO/DSR are settled methodology, not a fast-moving frontier.
+- **No credible contradiction exists.** I searched specifically for refutations and for walk-forward-beats-CPCV counter-findings. Nothing peer-reviewed disputes it. The only qualifications in the literature are (a) CPCV's high compute cost and (b) a practitioner caution that running thousands of combinatorial paths and picking the peak reintroduces overfitting — both are usage caveats, not contradictions.
+
+**What I could NOT verify:** full text remains inaccessible — ScienceDirect, SSRN (abstract page and PDF), ACM, ouci.dntb.gov.ua, and scholar.archive.org all 403'd, rate-limited, or 502'd; no arXiv preprint exists (arXiv API returns zero hits). So the quote is still **snippet-derived** — but it is now snippet-*corroborated* across three independent searches reproducing the same distinctive wording ("unveils the marked superiority", "lower PBO", "superior DSR Test Statistic"), plus the added detail that walk-forward is the specific weakest comparator.
+
+**The one real defect — and it is a scoping defect, not a falsity:** the claim omits that the evidence is entirely **synthetic**. The word is in the paper's own title, and a later search surfaced the DGP: Heston stochastic volatility, Merton jump diffusion, drift-burst hypothesis, and regime-switching models. CPCV's superiority is established against a *known ground-truth Sharpe by construction* — which is exactly why PBO/DSR could be measured against truth, but also means external validity to real crypto perps is assumed, not demonstrated. Notably, one search summarizer asserted the study "supports CPCV's superiority on **real financial data**" — that is flatly false and is precisely the kind of snippet corruption the claim's own caveat guards against. The claim itself did not make that error.
+
+Secondary nit: the paper's comparator set is K-Fold / Purged K-Fold / Walk-Forward / CPCV. An **in-sample Sharpe gate is not in the comparison at all**, so "directly relevant to replacing an in-sample-Sharpe gate" is an a-fortiori inference, not a measured result.
+
+I'm returning **refuted=false at medium confidence**. The claim survives every checklist criterion — supported by its quote, uncontradicted, proportionate primary source, current, non-promotional — and its hedging is honest rather than overreaching. Confidence is medium, not high, solely because full text was never retrieved: I cannot verify effect sizes, statistical significance of the DSR difference, or DGP calibration. The synthetic-environment scope limit must be carried forward into any synthesis.
