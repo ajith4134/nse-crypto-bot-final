@@ -364,6 +364,11 @@ _dashboard-visual-qa — screenshot + before/after diff + load-perf + "landed" c
 - **functions:** `views()`; `reachable(url) -> bool`; `capture(label, only)`; `_pixel_diff(base, cur)`; `compare()`; `promote()`; `lighthouse(url)`; `main()`
 - **imports:** __future__, argparse, json, os, pathlib, shutil, socket, subprocess, sys, time, urllib.parse
 
+## `.claude/skills/fable5-prompts/fable5_snapshot.py`
+_fable5-prompts state snapshot — grounds Fable-5 prompt generation in MEASURED state._
+- **functions:** `root_of(start) -> Path`; `_is_vendored(p, root) -> bool`; `git(root) -> str`; `scale(root) -> dict`; `direction_truth(root) -> dict`; `frozen_label_check(root) -> dict`; `closed_trades(root) -> dict`; `index_health(root) -> dict`; `doc_staleness(root, top) -> list`; `shadow_flags(root) -> dict`; `loops(root) -> dict`; `main() -> None`
+- **imports:** __future__, argparse, collections, json, os, pathlib, re, sqlite3, subprocess, time
+
 ## `.claude/skills/founder-intent/capture_journey.py`
 _founder-intent — gather the REAL build history + the owner's captured intent into one bundle._
 - **functions:** `sh()`; `read(p, n)`; `git_journey()`; `goal_pillars()`; `memories()`; `research_docs()`; `main()`
@@ -4489,7 +4494,7 @@ _trading/direction/river_source.py — River online learner as a measured direct
 
 ## `trading/direction/truth_ledger.py`
 _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._
-- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_mirror_price(symbol, epoch) -> float | None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `status() -> dict`
+- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_mirror_price(symbol, epoch) -> float | None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit, journal) -> dict`; `_backfill_journal_locked(rep, limit, journal) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, fcntl, json, math, os, pathlib, time, trading
 
 ## `trading/evidence.py`

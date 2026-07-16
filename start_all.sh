@@ -249,12 +249,15 @@ pgrep -f "localtunnel --port 8101" >/dev/null || \
 
 sleep 12
 CF_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' logs/cloudflared.log | head -1)
-# CANONICAL public link = the STABLE ngrok domain (fixed --domain, survives restarts). The
-# cloudflared quick-tunnel URL rotates its random name on EVERY restart, which repeatedly broke the
-# owner's bookmarks (DNS NXDOMAIN, 2026-07-16), so it is no longer the published link — cloudflared
-# stays running only as an optional secondary. public_link.txt + the loca.lt heavy-page redirect
-# both point at the stable ngrok URL now.
-PUBLIC_URL="https://claw-repent-carving.ngrok-free.dev"
+# CANONICAL public link = THIS VM's own HTTPS entrance — no third-party tunnel at all (2026-07-16).
+# History: cloudflared quick tunnels are free but ROTATE their hostname every restart (dead
+# bookmarks + a de-registered Zerodha redirect); the ngrok reserved domain was stable but died on
+# the free 1GB bandwidth cap (ERR_NGROK_725), taking the dashboards AND the broker login with it.
+# Caddy now serves :443 directly off the VM's GCP external IP via free sslip.io wildcard DNS with a
+# real Let's Encrypt cert — no cap, no interstitial, no rotation, nothing to pay. See gateway/Caddyfile.
+# If GCP ever gives this VM a NEW external IP, change the IP here and in the Caddyfile (a free
+# DuckDNS name + updater would make it immune).
+PUBLIC_URL="https://34.131.91.14.sslip.io"
 echo "$PUBLIC_URL" > public_link.txt
 echo "redir * ${PUBLIC_URL}{uri} temporary" > gateway/redirect.caddy
 pkill -x caddy 2>/dev/null; sleep 1
@@ -265,8 +268,8 @@ printf "%-45s %s\n" "Freqtrade  http://127.0.0.1:8080/api/v1/ping" "$(curl -s -o
 printf "%-45s %s\n" "Dashboard  http://127.0.0.1:8000/"        "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8000/)"
 printf "%-45s %s\n" "Gateway    http://127.0.0.1:8100/"        "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8100/)"
 echo
-echo "================= ONE LINK (STABLE — survives restarts) ================="
-echo "  ${PUBLIC_URL}   (click 'Visit Site' once per 7 days on the ngrok interstitial)"
+echo "================= ONE LINK (STABLE — survives restarts, no tunnel) ================="
+echo "  ${PUBLIC_URL}   (direct HTTPS off this VM · Let's Encrypt · free · no bandwidth cap)"
 echo "    /          -> brain + NSE trading dashboard"
 echo "    /frequi/   -> FreqUI (crypto / Freqtrade)"
 echo "    /openalgo/ -> OpenAlgo (NSE broker platform)"

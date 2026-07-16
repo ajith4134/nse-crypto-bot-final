@@ -9,8 +9,26 @@
 #                   GET-only files, so the fallback replay is safe)
 # The public tunnel (localtunnel) points at :8100. Caddy proxies WebSockets natively.
 {
-	auto_https off
+	# auto_https ON (2026-07-16) so the PUBLIC hostname below gets a real Let's Encrypt cert.
+	# The port-only sites (:8100/:8101) have no hostname, so Caddy never tries to certify them —
+	# they stay plain HTTP for the tunnels exactly as before.
 	admin off
+}
+
+# ── PUBLIC HTTPS — the free, stable, no-bandwidth-cap public entrance ────────────────
+# WHY (2026-07-16): ngrok died on its free bandwidth cap (ERR_NGROK_725), taking the dashboards AND
+# Zerodha's OAuth redirect with it; cloudflared quick tunnels are free but ROTATE their hostname on
+# every restart, which kills bookmarks and de-registers the Kite redirect. This serves straight off
+# the VM's own GCP external IP instead of any third party: no cap, no interstitial, no rotation.
+#   * sslip.io is free wildcard DNS needing NO signup — <ip>.sslip.io resolves to <ip>.
+#   * GCP already allows :80/:443 (instance carries the http-server/https-server tags).
+#   * caddy has cap_net_bind_service, so it binds :80/:443 as a normal user.
+#   * :80 stays open for the ACME HTTP-01 challenge + the HTTP→HTTPS redirect Caddy adds.
+# It reverse-proxies to the SAME :8100 gateway below, so all routing stays defined in one place.
+# NOTE: the hostname embeds the IP — if GCP ever hands this VM a new external IP, update it here
+# (a DuckDNS name + updater would make it immune; needs a free token).
+34.131.91.14.sslip.io {
+	reverse_proxy 127.0.0.1:8100
 }
 
 :8100 {
