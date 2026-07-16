@@ -62,3 +62,48 @@ satisfies §16.
 **If it holds, this is the first statistically real directional edge measured in this project.**
 Everything else (direction 0.4922, the gate −0.031) has been noise. That makes it worth doing
 properly rather than quickly.
+
+---
+
+# ✅ CONFIRMED ON CLEAN FIXED-HORIZON LABELS (same day, after backfilling candles)
+
+The confound is GONE. These are forward returns read from 5m candle feathers at FIXED horizons —
+not our own smart-exit. Candles backfilled via Binance's PUBLIC BULK ARCHIVE (data.binance.vision,
+freqtrade's `_can_use_data_download_fast`): 765 sets, **zero rate-limit/ban hits** — static ZIPs, no
+API weight, no key, cannot trigger the 418 that wedged the stack on 2026-07-12.
+
+**n = 2,205 trades** (resolved 2213; 30 no-feather, 247 out-of-range):
+
+| horizon | n | corr | sigma | verdict |
+|---|---|---|---|---|
+| **15m** | 2205 | **−0.0739** | **−3.5σ** | **CONTRARIAN — significant** |
+| **1h** | 2172 | **−0.0530** | **−2.5σ** | **CONTRARIAN — significant** |
+| **4h** | 2129 | **+0.0529** | **+2.4σ** | **MOMENTUM — significant** |
+
+**THE SIGN FLIPS WITH HORIZON.** Big movers mean-revert at 15m–1h, then trend at 4h. Three
+independent horizon points forming a coherent decay-and-flip — structure, not noise. Reads as
+overreaction bouncing first, the underlying trend reasserting later. It also matches the deep
+research's core claim that microstructure-type signals are strongest at short horizons and decay.
+
+**What it indicts:** `brain_executor._filter_side()` does `LONG if pct>=0 else SHORT` (momentum). That
+is **WRONG at 15m–1h and RIGHT at 4h**. The fix is therefore NOT "flip the preset" — it is that **the
+correct side depends on the HOLDING HORIZON**, which no current code path knows. A trade opened on a
+momentum prior and exited in <15m is systematically on the wrong side of a measured effect.
+
+**Remaining caveats (state them or the number lies):**
+1. **Selection bias** — measured on trades we CHOSE to open, not the full universe. The effect may be
+   weaker/absent on coins never picked.
+2. **One regime** — recent crypto only. The research is explicit that signal edge is
+   regime-conditional; the 4h momentum leg especially could be a bull-tape artifact.
+3. **Not conditioned** — `liquidity_regime` and `clock_phase` (now recorded in `entry_vector`) are the
+   conditioners the research says such signals swing ~10x across. Splitting by them is the next test
+   and could sharpen or dissolve this.
+
+**This is the FIRST statistically real directional signal measured in this project** (direction 0.4922
+and the gate's −0.031 were both noise). That makes it worth building on — carefully, conditioned, and
+out-of-sample — rather than flipping a preset today.
+
+**Method note for the next session:** the candle data was ALWAYS THERE (521 5m futures feathers) — it
+was merely STALE (didn't cover the trade dates), and `ls | head -5` hid it because `15m`/`1d`/`1h`
+sort before `5m`. If `truth_ledger` reads those same stale feathers, ITS labels may be under-resolving
+too — check that.
