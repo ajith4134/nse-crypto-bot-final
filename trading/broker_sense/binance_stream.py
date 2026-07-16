@@ -53,7 +53,7 @@ _CANDLE_MAXLEN = int(os.getenv("BINANCE_CANDLE_MAXLEN", "240") or 240)   # bars 
 # per symbol × the shortlist (the funnel EXECUTE hotspot). Bounded: N streams in one connection,
 # symbol set refreshed by reconnect. All-market full depth is a firehose, so we scope to the movers.
 _DEPTH_HOST = "wss://fstream.binance.com/stream?streams="
-_DEPTH_N = int(os.getenv("BINANCE_DEPTH_N", "120") or 120)      # streams per connection (cap)
+_DEPTH_N = int(os.getenv("BINANCE_DEPTH_N", "200") or 200)      # streams/conn (owner 2026-07-16: 120→200)
 _DEPTH_REFRESH_S = float(os.getenv("BINANCE_DEPTH_REFRESH_S", "300") or 300)   # re-pick movers
 
 # TAKER flow from the trade PUSH stream (2026-07-16) — NO API. The owner asked for a non-API way to
@@ -72,7 +72,7 @@ _DEPTH_REFRESH_S = float(os.getenv("BINANCE_DEPTH_REFRESH_S", "300") or 300)   #
 # works) and aggTrade gets its own connection. Piggy-backing aggTrade onto the depth URL looks
 # correct and silently yields NOTHING — the same 2025 routing change documented for _WS_URL above.
 _AGG_HOST = "wss://fstream.binance.com/market/stream?streams="
-_AGG_N = int(os.getenv("BINANCE_AGG_N", "120") or 120)                  # movers streamed for taker
+_AGG_N = int(os.getenv("BINANCE_AGG_N", "200") or 200)                  # movers streamed for taker (120→200)
 _AGG_REFRESH_S = float(os.getenv("BINANCE_AGG_REFRESH_S", "300") or 300)
 _TAKER_BUCKET_S = float(os.getenv("BINANCE_TAKER_BUCKET_S", "60") or 60)
 _TAKER_BUCKETS = int(os.getenv("BINANCE_TAKER_BUCKETS", "5") or 5)      # → 5 min rolling window
@@ -86,8 +86,13 @@ _TAKER_BUCKETS = int(os.getenv("BINANCE_TAKER_BUCKETS", "5") or 5)      # → 5 
 # DECISION path still reads pure RAM — no network call when the brain decides. Budget: 4 calls ×
 # _STATS_N per _STATS_REFRESH_S (=400/5min at the default 100) vs Binance's /futures/data limit
 # of 1000 per 5 min per IP.
-_STATS_N = int(os.getenv("BINANCE_STATS_N", "100") or 100)
-_STATS_REFRESH_S = float(os.getenv("BINANCE_STATS_REFRESH_S", "300") or 300)
+# 200 movers × 4 calls = 800/cycle. At a 300s cycle that is 800/5min against Binance's
+# 1000-per-5min /futures/data limit — no headroom for binance_orderflow's own REST
+# fallback, and a 418 ban costs us ALL data (happened 2026-07-12). So the cycle doubles
+# to 600s: same 400/5min spend as before, 200 symbols covered instead of 100, and OI
+# staleness stays ≤10 min — far inside the 1800s freshness TTL.
+_STATS_N = int(os.getenv("BINANCE_STATS_N", "200") or 200)
+_STATS_REFRESH_S = float(os.getenv("BINANCE_STATS_REFRESH_S", "600") or 600)
 _STATS_FRESH_S = float(os.getenv("BINANCE_STATS_FRESH_S", "1800") or 1800)
 
 
