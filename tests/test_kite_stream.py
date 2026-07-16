@@ -226,6 +226,98 @@ class TestNSEMirrorGracefulNoop(unittest.TestCase):
         self.assertEqual(ks.nse_rows(), [])
 
 
+class _FakeHistOA:
+    """Stand-in OpenAlgoClient.history — records calls, returns synthetic NSE bars."""
+    calls = []
+
+    def __init__(self, *a, **k):
+        pass
+
+    def history(self, symbol, exchange="NSE", *, interval, start_date, end_date):
+        _FakeHistOA.calls.append((symbol, interval))
+        base = 1_700_000_000
+        step = {"1m": 60, "5m": 300, "15m": 900}[interval]
+        return {"data": [{"timestamp": base + i * step, "open": 100.0 + i, "high": 101.0 + i,
+                          "low": 99.0 + i, "close": 100.5 + i, "volume": 10.0 * i}
+                         for i in range(40)]}
+
+
+class TestNSEBackfill(unittest.TestCase):
+    """One-shot history seed so the funnel can decide on a COLD mirror.
+
+    Root cause it fixes (live 2026-07-16): with no seed, ohlcv() serves a TF only at >=15 rolled
+    bars — 15/75/225 min for 1m/5m/15m — and funnel._vote needs >=2 AGREEING TFs, so every NSE
+    symbol voted neutral and nothing opened (look.read=40, cands=[], non_neutral=0).
+    """
+
+    def setUp(self):
+        import trading.broker_sense.kite_stream as ks
+        import trading.openalgo_client as oac
+        self.ks, self.oac = ks, oac
+        ks._MIRROR = None
+        _FakeHistOA.calls = []
+        self._saved_cls = oac.OpenAlgoClient
+        oac.OpenAlgoClient = _FakeHistOA
+        self._saved = {k: os.environ.get(k) for k in ("OPENALGO_API_KEY", "KITE_STREAM",
+                                                      "KITE_BACKFILL", "KITE_BACKFILL_SLEEP_S")}
+        os.environ.update({"OPENALGO_API_KEY": "test-key", "KITE_STREAM": "1",
+                           "KITE_BACKFILL_SLEEP_S": "0"})
+
+    def tearDown(self):
+        self.oac.OpenAlgoClient = self._saved_cls
+        self.ks._MIRROR = None
+        for k, v in self._saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+    def test_backfill_seeds_every_tf_so_reads_work_cold(self):
+        m = self.ks.get_kite_mirror()
+        m.subscribe_symbols(["RELIANCE"])
+        m._running = True
+        seeded = m._backfill_history()
+        self.assertEqual(seeded, 3)                        # 1 symbol × 3 TFs
+        self.assertTrue(m.status()["backfilled"])
+        self.assertEqual({iv for _, iv in _FakeHistOA.calls}, {"1m", "5m", "15m"})
+        rows = self.ks.ohlcv("RELIANCE", "1m", 220)        # was None until 15 live minutes
+        self.assertIsNotNone(rows)
+        self.assertEqual(len(rows), 40)
+        self.assertEqual(len(rows[0]), 6)                  # ccxt shape [ms,o,h,l,c,v]
+
+    def test_backfill_never_clobbers_the_live_bar(self):
+        """Ticks already rolled must survive — the seed only fills bars OLDER than the live one."""
+        m = self.ks.get_kite_mirror()
+        m.subscribe_symbols(["RELIANCE"])
+        m._running = True
+        m._on_tick(_env("RELIANCE", 2500.0, vol=1000.0))   # live bar at ~now
+        live = m.candles("RELIANCE", 60, 5)[-1]
+        m._backfill_history()
+        bars = m.candles("RELIANCE", 60, 999)
+        self.assertEqual(bars[-1][:5], live[:5])           # live bar still last, untouched
+        self.assertGreater(len(bars), 1)                   # history seeded behind it
+        self.assertTrue(all(b[0] < bars[-1][0] for b in bars[:-1]))   # strictly older, ordered
+
+    def test_kill_switch_disables_backfill(self):
+        self.ks._BACKFILL_ON = False
+        try:
+            m = self.ks.get_kite_mirror()
+            m.subscribe_symbols(["RELIANCE"])
+            m._running = True
+            self.assertEqual(m._backfill_history(), 0)
+            self.assertEqual(_FakeHistOA.calls, [])        # zero REST calls
+        finally:
+            self.ks._BACKFILL_ON = True
+
+    def test_epoch_parses_every_timestamp_shape(self):
+        import datetime
+        from trading.broker_sense.kite_stream import _epoch
+        self.assertEqual(_epoch(1_700_000_000), 1_700_000_000)
+        self.assertEqual(_epoch(1_700_000_000_000), 1_700_000_000)      # ms → s
+        dt = datetime.datetime(2023, 11, 14, 22, 13, 20, tzinfo=datetime.timezone.utc)
+        self.assertEqual(_epoch(dt), dt.timestamp())                    # datetime/pandas Timestamp
+        self.assertEqual(_epoch("2023-11-14T22:13:20+00:00"), dt.timestamp())
+        self.assertIsNone(_epoch(None))
+        self.assertIsNone(_epoch("not-a-time"))
+
+
 class TestNSEOHLCVAdapter(unittest.TestCase):
     """kite_stream.ohlcv() serves in-RAM multi-TF candles in ccxt shape (no API)."""
 

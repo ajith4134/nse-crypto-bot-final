@@ -79,6 +79,14 @@ _HIST_MAXLEN = 320             # ~80 min of ltp history per symbol (price_at hor
 _STALE_AFTER_S = 20.0          # a push field older than this is flagged stale (NSE ticks ~sub-second)
 _STATUS_FILE = "kite_stream.json"
 
+# STARTUP BACKFILL (2026-07-16): seed candles from OpenAlgo's history API on start so the funnel can
+# decide immediately instead of waiting 15/75/225 min for the stream to roll 15 bars per TF. One-shot
+# only — the decision path never touches REST. KITE_BACKFILL=0 disables (stream-only).
+_BACKFILL_ON = os.getenv("KITE_BACKFILL", "1").strip().lower() not in ("0", "false", "off")
+_BACKFILL_DAYS = int(os.getenv("KITE_BACKFILL_DAYS", "6") or 6)
+_BACKFILL_SLEEP_S = float(os.getenv("KITE_BACKFILL_SLEEP_S", "0.12") or 0.12)   # ~8/s < OpenAlgo's 10/s
+_TF_TO_OA = {60: "1m", 300: "5m", 900: "15m", 1800: "30m", 3600: "1h", 86400: "D"}
+
 
 def enabled() -> bool:
     return os.getenv("KITE_STREAM", "1").strip().lower() not in ("0", "false", "off")
@@ -123,6 +131,7 @@ class KiteZerodhaMirror:
         self._last_msg_ts = 0.0
         self._last_snap = 0.0
         self._started_ts = 0.0
+        self._backfilled = False                 # True once the one-shot history seed has run
 
     # ── universe selection ───────────────────────────────────────────────────
     def subscribe_symbols(self, symbols) -> None:
@@ -288,11 +297,92 @@ class KiteZerodhaMirror:
             self._subscribe_wanted()
             print(f"[nse-mirror] OpenAlgo WS connect={ok} · {len(self._subscribed)}/{len(self._want)} "
                   f"symbols subscribed (Zerodha via OpenAlgo, no kiteconnect)", flush=True)
+            # Seed history OFF-THREAD: ~600 rate-limited REST calls must never block the caller
+            # (run_funnel_loop starts the mirror inline before its first cycle), and the stream
+            # keeps folding live ticks into the same store while this runs.
+            if _BACKFILL_ON and not self._backfilled:
+                threading.Thread(target=self._backfill_history, name="nse-mirror-backfill",
+                                 daemon=True).start()
         except Exception as e:
             self._running = False
             self._connected = False
             print(f"[nse-mirror] start failed: {e!r} — OpenAlgo REST fallback", flush=True)
         return self
+
+    def _backfill_history(self) -> int:
+        """One-shot REST seed of the candle store from OpenAlgo's history API (the NSE analog of
+        binance_stream._backfill_rest), so reads WORK before the stream has rolled enough bars.
+
+        Without this the mirror starts empty and must roll every bar from live ticks, and ohlcv()
+        only serves a timeframe once it holds >=15 bars — 15min for 1m, 75min for 5m, 225min for
+        15m (past NSE close on a mid-session restart). funnel._vote needs >=2 AGREEING timeframes,
+        so NSE voted neutral on every symbol and opened nothing (live-diagnosed 2026-07-16:
+        look.read=40, cands=[], non_neutral=0). This is a STARTUP seed, not a per-cycle read — the
+        decision path stays pure RAM.
+
+        Best-effort and never raises: any symbol/timeframe that fails just stays stream-only.
+        Returns the number of (symbol, tf) series seeded. Rate-limited: OpenAlgo answers 429 above
+        ~10 req/s. Only seeds bars STRICTLY OLDER than the live bar so ticks are never clobbered.
+        """
+        import datetime
+
+        cfg = _openalgo_cfg()
+        if not cfg or not _BACKFILL_ON:
+            return 0
+        try:
+            from trading.openalgo_client import OpenAlgoClient
+            oa = OpenAlgoClient()
+        except Exception as e:
+            print(f"[nse-mirror] backfill skipped (no OpenAlgo client): {e!r}", flush=True)
+            return 0
+        with self._lock:
+            symbols = sorted(self._want)
+        today = datetime.date.today()
+        start = (today - datetime.timedelta(days=_BACKFILL_DAYS)).isoformat()
+        end = today.isoformat()
+        seeded = 0
+        for sym in symbols:
+            if not self._running:
+                return seeded
+            for tf in _CANDLE_TFS:
+                iv = _TF_TO_OA.get(tf)
+                if not iv:
+                    continue
+                try:
+                    resp = oa.history(sym, exchange="NSE", interval=iv,
+                                      start_date=start, end_date=end)
+                    rows = (resp or {}).get("data") or []
+                    bars = []
+                    for r in rows[-_CANDLE_MAXLEN:]:
+                        ts = _epoch(r.get("timestamp"))
+                        c = _f(r.get("close"))
+                        if ts is None or c is None:
+                            continue
+                        # [ts,o,h,l,c,v,vol_base]; vol_base=0 → the live roll treats this bar's
+                        # volume as final rather than differencing it against a day-cumulative.
+                        bars.append([int(ts // tf) * tf, _f(r.get("open")) or c,
+                                     _f(r.get("high")) or c, _f(r.get("low")) or c, c,
+                                     _f(r.get("volume")) or 0.0, 0.0])
+                    if not bars:
+                        continue
+                    with self._lock:
+                        cs = self._candles.setdefault(
+                            sym, {t: deque(maxlen=_CANDLE_MAXLEN) for t in _CANDLE_TFS})
+                        dq = cs[tf]
+                        live_ts = dq[-1][0] if dq else None
+                        keep = [b for b in bars if live_ts is None or b[0] < live_ts]
+                        if keep:
+                            merged = keep + ([dq[-1]] if live_ts is not None else [])
+                            cs[tf] = deque(merged[-_CANDLE_MAXLEN:], maxlen=_CANDLE_MAXLEN)
+                            seeded += 1
+                except Exception:
+                    pass
+                time.sleep(_BACKFILL_SLEEP_S)      # stay under OpenAlgo's ~10/s ceiling
+        self._backfilled = True
+        print(f"[nse-mirror] backfill seeded {seeded} series "
+              f"({len(symbols)} symbols × {len(_CANDLE_TFS)} TFs) from OpenAlgo history", flush=True)
+        self.write_snapshot()
+        return seeded
 
     def stop(self) -> None:
         self._running = False
@@ -370,13 +460,15 @@ class KiteZerodhaMirror:
         with self._lock:
             n_ltp, n_book = len(self._ltp), len(self._book)
             n_want, n_sub = len(self._want), len(self._subscribed)
+            n_cdl = len(self._candles)     # the backfill thread mutates this concurrently
         age = time.time() - self._last_msg_ts if self._last_msg_ts else None
         return {
             "enabled": enabled(), "running": self._running, "connected": self._connected,
             "have_creds": _openalgo_cfg() is not None, "feed": "openalgo-ws",
             "symbols_ticker": n_ltp, "symbols_book": n_book,
             "symbols_wanted": n_want, "symbols_subscribed": n_sub,
-            "candle_tfs": list(_CANDLE_TFS),
+            "candle_tfs": list(_CANDLE_TFS), "backfilled": self._backfilled,
+            "symbols_candles": n_cdl,
             "last_msg_age_s": round(age, 1) if age is not None else None,
             "stale": age is None or age > _STALE_AFTER_S,
             "uptime_s": round(time.time() - self._started_ts, 1) if self._started_ts else 0.0,
@@ -400,6 +492,27 @@ def _f(v):
     try:
         return float(v)
     except (TypeError, ValueError):
+        return None
+
+
+def _epoch(v) -> float | None:
+    """Epoch seconds from an OpenAlgo history timestamp — pandas Timestamp (tz-aware), datetime,
+    ISO string, or a raw epoch (s/ms). Returns None when it can't be read. Never raises."""
+    if v is None:
+        return None
+    ts = getattr(v, "timestamp", None)          # pandas Timestamp / datetime
+    if callable(ts):
+        try:
+            return float(ts())
+        except Exception:
+            return None
+    n = _f(v)
+    if n is not None:
+        return n / 1000.0 if n > 1e11 else n    # ms → s
+    try:
+        import datetime
+        return datetime.datetime.fromisoformat(str(v)).timestamp()
+    except Exception:
         return None
 
 

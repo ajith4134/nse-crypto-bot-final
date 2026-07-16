@@ -2291,7 +2291,7 @@ _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully 
 
 ## `tests/test_kite_stream.py`
 _tests/test_kite_stream.py — Zerodha NSE in-RAM mirror, fed via OpenAlgo's unified WS._
-- **classes:** TestNSEMirrorTicks, _FakeSDK, TestRawFeedOverride, TestNSEFullFrameExtras, TestNSEMirrorGracefulNoop, TestNSEOHLCVAdapter
+- **classes:** TestNSEMirrorTicks, _FakeSDK, TestRawFeedOverride, TestNSEFullFrameExtras, TestNSEMirrorGracefulNoop, _FakeHistOA, TestNSEBackfill, TestNSEOHLCVAdapter
 - **functions:** `_env(symbol, ltp)`
 - **imports:** collections, json, os, time, trading.broker_sense.kite_stream, unittest
 
@@ -3666,7 +3666,7 @@ _trading/broker_sense/interception.py — the brain's peripheral nerve: capture 
 ## `trading/broker_sense/kite_stream.py`
 _trading/broker_sense/kite_stream.py — Zerodha (Kite) NSE in-RAM mirror, FED VIA OPENALGO's WS._
 - **classes:** KiteZerodhaMirror
-- **functions:** `_raw_feed_class(base)`; `enabled() -> bool`; `_openalgo_cfg() -> tuple[str, str] | None`; `_flat(symbol) -> str`; `_f(v)`; `get_kite_mirror() -> KiteZerodhaMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`; `ticker(symbol) -> dict | None`; `book(symbol) -> dict | None`; `nse_rows() -> list[dict]`; `status() -> dict`
+- **functions:** `_raw_feed_class(base)`; `enabled() -> bool`; `_openalgo_cfg() -> tuple[str, str] | None`; `_flat(symbol) -> str`; `_f(v)`; `_epoch(v) -> float | None`; `get_kite_mirror() -> KiteZerodhaMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`; `ticker(symbol) -> dict | None`; `book(symbol) -> dict | None`; `nse_rows() -> list[dict]`; `status() -> dict`
 - **imports:** __future__, collections, json, os, threading, time, trading
 
 ## `trading/broker_sense/learning_columns.py`
