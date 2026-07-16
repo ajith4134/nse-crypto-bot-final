@@ -87,6 +87,14 @@ def _unlimited_min_qv() -> float:
         return 3_000_000.0
 
 
+def _entered_ok(p: dict) -> bool:
+    """True only when this placed-row is a REAL entry: no exception AND the broker accepted it.
+    place() returns {"ok": False, "broker": None} for a rejection without raising, so "error not in
+    p" alone counts phantom entries (live-caught 2026-07-16: NSE cycles reported
+    entered=['ETH/USDT:USDT'] for orders the broker had refused)."""
+    return "error" not in p and bool((p.get("order") or {}).get("ok"))
+
+
 def _fast_book(symbol: str, market: str) -> dict:
     """Top-of-book the FAST way (ccxt via data_failsafe), no browser OCR. Adds spread_pct so the
     funnel's in-code spread risk rule still applies. Honest empty dict on any miss."""
@@ -249,12 +257,18 @@ class BrokerSenseFunnel:
         # BRAIN-DECIDES (owner 2026-07-11): in unlimited mode feed the FULL liquid universe (from the
         # WS mirror — RAM, ~0 CPU) to the executor and remove the shortlist cap, so the brain can open
         # as many as its score gate passes (300+ possible), never bounded by an artificial shortlist.
-        if _unlimited_opens():
+        # CRYPTO ONLY (market-isolation fix 2026-07-16): executor().client() is a CryptoEngineClient
+        # — Freqtrade — and `whitelist()` exists ONLY there, so an NSE cycle asking for it got the
+        # CRYPTO universe injected into `hot`. That is how ETH/USDT:USDT et al reached the NSE
+        # shortlist and were placed as NSE orders ("Symbol BILL not found on NSE"); the tell in the
+        # log was shortlist(60) > screened(40). NSE keeps its screened rows (its universe comes from
+        # screener/universe + the Kite mirror, not from Freqtrade).
+        if _unlimited_opens() and self.market == "crypto":
             try:
                 # SEGMENT-CORRECT full universe: use THIS segment's own tradeable whitelist (626
-                # futures / 420 spot / NSE equity), so every selected segment gets its whole
-                # universe — never futures symbols leaking into the spot cycle. The executor also
-                # evaluates this same whitelist; injecting it here enriches it with fused app_signals.
+                # futures / 420 spot), so every selected segment gets its whole universe — never
+                # futures symbols leaking into the spot cycle. The executor also evaluates this same
+                # whitelist; injecting it here enriches it with fused app_signals.
                 uni = list(self.executor(segment).client().whitelist(segment=segment) or [])
                 if uni:
                     hot = list(dict.fromkeys(list(hot) + uni))
@@ -582,17 +596,23 @@ class BrokerSenseFunnel:
                     placed.append({"symbol": s, "direction": d, "p_up": round(p, 4),
                                    "app_signals": app_signals.get(s), "ts": time.time(),
                                    "order": {k: r.get(k) for k in ("broker", "live", "ok")}})
-                    traded += 1
+                    # HONEST ENTRY (2026-07-16): place() signals a REJECTED order by returning
+                    # ok=False (broker=None) — it does not always raise — so "no exception" is not
+                    # an entry. Counting those inflated `traded`/preset stats and fed phantom
+                    # symbols to the evidence lane as if they had opened. A real fill looks like
+                    # {"broker": "zerodha-sandbox", "ok": True}.
+                    if r.get("ok"):
+                        traded += 1
                 except Exception as e:
                     placed.append({"symbol": s, "error": str(e)[:120]})
             for p in placed:                           # link the frame that drove each entry
-                if "error" not in p:
+                if _entered_ok(p):
                     self.ocular.link_entry(p["symbol"], self.market)
             if placed:
                 log = state.load_json(_NSE_LOG, [])
                 state.save_json(_NSE_LOG, (log + placed)[-300:])
             rep["stages"]["execute"] = {"entered": [p["symbol"] for p in placed
-                                                    if "error" not in p]}
+                                                    if _entered_ok(p)]}
         self.presets.record(self.market, preset, traded=traded, wins=0, pnl=0.0)
 
         # 5a ── UI CRAWL (owner goal 2026-07-07, #10/#11): walk the eyes across a few due

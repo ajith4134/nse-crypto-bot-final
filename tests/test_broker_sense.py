@@ -262,6 +262,73 @@ class TestFunnelCycle(_IsolatedState):
         self.assertEqual(sig["book"]["source"], "api:test")
         self.assertEqual(sig["screener"]["lane"], "binance")
 
+    def test_nse_cycle_never_pulls_the_crypto_whitelist(self):
+        """Market isolation (live-caught 2026-07-16): in unlimited mode the funnel injected
+        executor().client().whitelist() into `hot` WITHOUT a market guard — but that client is a
+        CryptoEngineClient (whitelist() exists only there), so NSE cycles inherited the CRYPTO
+        universe and placed ETH/USDT:USDT as an NSE order ("Symbol BILL not found on NSE").
+        The tell was shortlist > screened. An NSE cycle must never touch the crypto whitelist."""
+        from trading.broker_sense.funnel import BrokerSenseFunnel
+        ex = mock.Mock()
+        ex.client.return_value.whitelist.return_value = ["ETH/USDT:USDT", "BILL/USDT:USDT"]
+        ex.client.return_value.open_pairs.return_value = []
+        f = BrokerSenseFunnel("nse", sessions=mock.Mock(), executor=ex)
+        f.exec = mock.Mock()
+        f.exec.place.return_value = {"broker": "zerodha-sandbox", "live": False, "ok": True}
+        rows = [{"symbol": "RELIANCE", "change": 1.4, "lane": "upstox", "preset": "momentum"}]
+        charts = {"RELIANCE": {"5m": {"p_up": 0.8, "direction": "long", "source": "cnn"},
+                               "15m": {"p_up": 0.75, "direction": "long", "source": "cnn"}}}
+        book = {"bid": 10.0, "ask": 10.01, "spread_pct": 0.1, "source": "api:test",
+                "consistent": True}
+        with mock.patch("trading.broker_sense.funnel.screen_all", return_value=rows), \
+             mock.patch("trading.broker_sense.fast_candles.read", return_value=charts), \
+             mock.patch("trading.broker_sense.data_failsafe.top_of_book", return_value=book), \
+             mock.patch.object(f.vision, "read", return_value=charts), \
+             mock.patch.object(f.book, "top_of_book", return_value=book), \
+             mock.patch.dict(os.environ, {"BRAIN_UNLIMITED_OPENS": "1"}):
+            rep = f.run_cycle(segment="equity")
+        placed_syms = [c.kwargs.get("symbol") for c in f.exec.place.call_args_list]
+        for s in placed_syms:
+            self.assertNotIn("/", s or "", f"crypto pair {s} leaked into the NSE order path")
+        self.assertNotIn("ETH/USDT:USDT", rep["stages"]["execute"]["entered"])
+        ex.client.return_value.whitelist.assert_not_called()
+        self.assertLessEqual(rep["stages"]["heat"]["shortlist"],
+                             rep["stages"]["screen"]["surfaced"],
+                             "shortlist > screened means symbols were injected from elsewhere")
+
+    def test_rejected_nse_order_is_not_counted_as_entered(self):
+        """place() signals a REJECTED order with ok=False (broker=None) WITHOUT raising, so
+        'no exception' is not an entry — counting those fed phantom symbols to the evidence lane."""
+        from trading.broker_sense.funnel import BrokerSenseFunnel
+        ex = mock.Mock()
+        ex.client.return_value.open_pairs.return_value = []
+        f = BrokerSenseFunnel("nse", sessions=mock.Mock(), executor=ex)
+        f.exec = mock.Mock()
+        f.exec.place.return_value = {"broker": None, "live": False, "ok": False}   # refused
+        rows = [{"symbol": "RELIANCE", "change": 1.4, "lane": "upstox", "preset": "momentum"}]
+        charts = {"RELIANCE": {"5m": {"p_up": 0.8, "direction": "long", "source": "cnn"},
+                               "15m": {"p_up": 0.75, "direction": "long", "source": "cnn"}}}
+        book = {"bid": 10.0, "ask": 10.01, "spread_pct": 0.1, "source": "api:test",
+                "consistent": True}
+        with mock.patch("trading.broker_sense.funnel.screen_all", return_value=rows), \
+             mock.patch("trading.broker_sense.fast_candles.read", return_value=charts), \
+             mock.patch("trading.broker_sense.data_failsafe.top_of_book", return_value=book), \
+             mock.patch.object(f.vision, "read", return_value=charts), \
+             mock.patch.object(f.book, "top_of_book", return_value=book):
+            rep = f.run_cycle(segment="equity")
+        self.assertTrue(f.exec.place.called, "the order must still be attempted")
+        self.assertEqual(rep["stages"]["execute"]["entered"], [],
+                         "a broker-refused order must never count as entered")
+
+    def test_entered_ok_predicate(self):
+        from trading.broker_sense.funnel import _entered_ok
+        self.assertTrue(_entered_ok({"symbol": "DLF",
+                                     "order": {"broker": "zerodha-sandbox", "ok": True}}))
+        self.assertFalse(_entered_ok({"symbol": "ETH/USDT:USDT",
+                                      "order": {"broker": None, "ok": False}}))
+        self.assertFalse(_entered_ok({"symbol": "BILL", "error": "HTTP 400: not found on NSE"}))
+        self.assertFalse(_entered_ok({"symbol": "X"}))          # no order dict at all
+
     def test_explore_wide_lane_adds_light_candidates(self):
         """2026-07-07 throughput fix: in paper explore, screened rows beyond the deep
         shortlist become tradeable with an honest light signature (direction from the

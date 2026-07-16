@@ -2291,9 +2291,9 @@ _Trading Phase T5 (Trade Journal & Brain-Confidence) acceptance tests — fully 
 
 ## `tests/test_kite_stream.py`
 _tests/test_kite_stream.py — Zerodha NSE in-RAM mirror, fed via OpenAlgo's unified WS._
-- **classes:** TestNSEMirrorTicks, TestNSEMirrorGracefulNoop, TestNSEOHLCVAdapter
+- **classes:** TestNSEMirrorTicks, _FakeSDK, TestRawFeedOverride, TestNSEFullFrameExtras, TestNSEMirrorGracefulNoop, TestNSEOHLCVAdapter
 - **functions:** `_env(symbol, ltp)`
-- **imports:** collections, os, time, trading.broker_sense.kite_stream, unittest
+- **imports:** collections, json, os, time, trading.broker_sense.kite_stream, unittest
 
 ## `tests/test_knowledge.py`
 _Acceptance tests for the Phase-4 knowledge brain: ingest -> recall works._
@@ -3644,7 +3644,7 @@ _trading/broker_sense/feed_selfheal.py — detect + diagnose web-feed SCHEMA DRI
 ## `trading/broker_sense/funnel.py`
 _trading/broker_sense/funnel.py — the cascade orchestrator (savers B + I: every cycle_
 - **classes:** BrokerSenseFunnel
-- **functions:** `_budget_s() -> float`; `_unlimited_opens() -> bool`; `_unlimited_budget() -> float`; `_unlimited_min_qv() -> float`; `_fast_book(symbol, market) -> dict`; `_fast_candles() -> bool`; `_login_brokers(market) -> list[str]`; `_vote(chart) -> tuple[str, float]`
+- **functions:** `_budget_s() -> float`; `_unlimited_opens() -> bool`; `_unlimited_budget() -> float`; `_unlimited_min_qv() -> float`; `_entered_ok(p) -> bool`; `_fast_book(symbol, market) -> dict`; `_fast_candles() -> bool`; `_login_brokers(market) -> list[str]`; `_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, os, time, trading, trading.broker_sense, trading.broker_sense.app_explorer, trading.broker_sense.book_monitor, trading.broker_sense.exec_adapter, trading.broker_sense.ocular_perception, trading.broker_sense.screeners, trading.broker_sense.watchlist
 
 ## `trading/broker_sense/human_handoff.py`
@@ -3666,8 +3666,8 @@ _trading/broker_sense/interception.py — the brain's peripheral nerve: capture 
 ## `trading/broker_sense/kite_stream.py`
 _trading/broker_sense/kite_stream.py — Zerodha (Kite) NSE in-RAM mirror, FED VIA OPENALGO's WS._
 - **classes:** KiteZerodhaMirror
-- **functions:** `enabled() -> bool`; `_openalgo_cfg() -> tuple[str, str] | None`; `_flat(symbol) -> str`; `_f(v)`; `get_kite_mirror() -> KiteZerodhaMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`; `ticker(symbol) -> dict | None`; `book(symbol) -> dict | None`; `nse_rows() -> list[dict]`; `status() -> dict`
-- **imports:** __future__, collections, os, threading, time, trading
+- **functions:** `_raw_feed_class(base)`; `enabled() -> bool`; `_openalgo_cfg() -> tuple[str, str] | None`; `_flat(symbol) -> str`; `_f(v)`; `get_kite_mirror() -> KiteZerodhaMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`; `ticker(symbol) -> dict | None`; `book(symbol) -> dict | None`; `nse_rows() -> list[dict]`; `status() -> dict`
+- **imports:** __future__, collections, json, os, threading, time, trading
 
 ## `trading/broker_sense/learning_columns.py`
 _trading/broker_sense/learning_columns.py — discovered app data → DYNAMIC learning columns._

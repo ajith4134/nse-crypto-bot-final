@@ -23,6 +23,12 @@ class _Base(unittest.TestCase):
         ui_market._HITS.update({"fed": 0, "served": 0, "missed": 0})
         ui_data._STORE.clear()
         ui_data._HITS.update({"served": 0, "missed": 0, "fed": 0})
+        # _last_hydrate is PROCESS-global and throttles _hydrate_from_snapshot() for 60s. Any
+        # earlier test in the same process that performs a ui_market/ui_data read arms it, and
+        # this class's own explicit hydrate then returns early → cold _STORE → "unexpectedly
+        # None" (order-dependent: green alone, red in a suite). Reset it like the other globals.
+        ui_market._last_hydrate = 0.0
+        ui_data._last_hydrate = 0.0
 
     def tearDown(self):
         self._p.stop()

@@ -136,21 +136,54 @@ def capture(symbol: str, exchange: str = "NSE", segment: str = "intraday", *,
     snap: dict = {"symbol": symbol, "exchange": exch, "segment": segment,
                   "ts": time.time(), "sources": []}
 
-    # quote + depth (one round each)
+    # quote + depth (one round each). RAM-FIRST (owner 2026-07-14): the LIVE quote + 5-level book
+    # come off the Zerodha Kite in-RAM mirror (paid feed, pushed → no API call), shaped like
+    # OpenAlgo's depth response so the analytics below are unchanged. Fall back to the OpenAlgo
+    # depth REST only when NSE is not in UI-only/RAM mode or the mirror is cold. (Deep historical
+    # candles further down legitimately aren't in the live mirror, so they stay on OpenAlgo.)
+    q = None
+    src = None
     try:
-        q = oa.depth(symbol, exchange=exch)
-        qd = q.get("data", q) if isinstance(q, dict) else {}
-        snap["quote"] = {k: qd.get(k) for k in
-                         ("ltp", "open", "high", "low", "prev_close", "volume", "oi", "ltq")}
-        if qd:
-            ltp, prev = _f(qd, "ltp"), _f(qd, "prev_close")
-            snap["quote"]["change_pct"] = round((ltp - prev) / prev * 100, 2) if (ltp and prev) else None
-        snap["depth"] = depth_imbalance(q)
-        snap["circuit"] = circuit_bands(qd)
-        snap["open_interest"] = _f(qd, "oi")
-        snap["sources"].append("openalgo:depth")
-    except Exception as e:
-        snap["quote_error"] = str(e)[:120]
+        from trading.broker_sense import kite_stream as _ks
+        kt, kb = _ks.ticker(symbol), _ks.book(symbol)
+        if kt and kt.get("last"):
+            q = {"data": {
+                "ltp": kt.get("last"), "open": kt.get("open"), "high": kt.get("high"),
+                "low": kt.get("low"), "prev_close": kt.get("close"),
+                "volume": kt.get("volume"), "oi": kt.get("oi"),
+                "bids": [{"price": p, "quantity": qq} for p, qq in (kb or {}).get("bids", [])],
+                "asks": [{"price": p, "quantity": qq} for p, qq in (kb or {}).get("asks", [])],
+            }}
+            src = "kite:mirror"
+    except Exception:
+        q = None
+    if q is None:
+        _ui_only = False
+        try:
+            from trading.broker_sense import ui_data
+            _ui_only = ui_data.ui_only_for("nse")
+        except Exception:
+            _ui_only = False
+        if not _ui_only:
+            try:
+                q = oa.depth(symbol, exchange=exch)
+                src = "openalgo:depth"
+            except Exception as e:
+                snap["quote_error"] = str(e)[:120]
+    if q is not None:
+        try:
+            qd = q.get("data", q) if isinstance(q, dict) else {}
+            snap["quote"] = {k: qd.get(k) for k in
+                             ("ltp", "open", "high", "low", "prev_close", "volume", "oi", "ltq")}
+            if qd:
+                ltp, prev = _f(qd, "ltp"), _f(qd, "prev_close")
+                snap["quote"]["change_pct"] = round((ltp - prev) / prev * 100, 2) if (ltp and prev) else None
+            snap["depth"] = depth_imbalance(q)
+            snap["circuit"] = circuit_bands(qd)
+            snap["open_interest"] = _f(qd, "oi")
+            snap["sources"].append(src or "openalgo:depth")
+        except Exception as e:
+            snap["quote_error"] = str(e)[:120]
 
     # multi-timeframe candles + indicators. OpenAlgo needs a date window + 'D' for daily; each
     # TF gets a lookback wide enough for the indicator suite (≥200 bars where it matters).

@@ -172,6 +172,32 @@ def main() -> int:
         sessions.claim_browser_owner()
         threading.Thread(target=_pullback_sweeper, args=(funnels["crypto"],),
                          daemon=True, name="pullback-sweeper").start()
+    if "nse" in funnels:
+        # NSE compute-offload (owner 2026-07-14): start the Zerodha Kite (KiteTicker) all-universe
+        # WS in-RAM mirror so NSE SELECTION reads candles/quote/depth off the owner's PAID Zerodha
+        # push feed (RAM, ~0 CPU) instead of a per-cycle OpenAlgo REST quote/depth — the exact
+        # crypto pattern (binance_stream) with Zerodha in place of Binance. DATA ONLY: order
+        # placement stays on the OpenAlgo/broker order API. Kill switch: KITE_STREAM=0. Idle no-op
+        # when kiteconnect/creds are missing (callers keep their OpenAlgo fallback). Best-effort.
+        try:
+            from trading.broker_sense.kite_stream import get_kite_mirror
+            from trading.screener.universe import NSE_FO_STOCKS
+            km = get_kite_mirror()
+            syms = list(NSE_FO_STOCKS)
+            try:                                          # add the account watchlist if present
+                from trading.broker_sense import account_watchlist
+                wl = account_watchlist.status() or {}
+                for r in (wl.get("items") or wl.get("watchlist") or wl.get("symbols") or []):
+                    s = r.get("symbol") if isinstance(r, dict) else r
+                    if s:
+                        syms.append(str(s))
+            except Exception:
+                pass
+            km.subscribe_symbols(syms)
+            km.start()
+            print(f"[kite-mirror] status: {km.status()}", flush=True)
+        except Exception as e:
+            print(f"[kite-mirror] start skipped: {e!r}", flush=True)
     print(f"[funnel-loop] start: markets={sorted(funnels)} allow_live={allow_live} "
           f"budget={os.environ.get('BROKER_SENSE_BUDGET', '60')}s "
           f"(brokers' servers screen the universe; APIs execute only)", flush=True)

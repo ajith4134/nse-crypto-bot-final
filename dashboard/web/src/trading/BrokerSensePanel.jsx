@@ -110,6 +110,16 @@ export default function BrokerSensePanel({ intervalMs = 8000 }) {
           border: `1px solid ${result.ok ? T.good : T.bad}`, borderRadius: 4, padding: '2px 8px' }}>{result.text}</span>}
         <span style={{ fontSize: 11, fontWeight: 700, color: T.muted,
           border: `1px solid ${T.border}`, borderRadius: 4, padding: '2px 8px' }}>🔒 paper-first</span>
+        {/* NSE data source: selection reads off the paid Zerodha Kite in-RAM mirror. Real numbers only. */}
+        {market === 'nse' && data.nse_data && (
+          <span title={`Zerodha Kite mirror · ${data.nse_data.mirror?.symbols_ticker ?? 0} symbols streaming · last tick ${data.nse_data.mirror?.last_msg_age_s ?? '—'}s ago · subscribed ${data.nse_data.mirror?.symbols_subscribed ?? 0}`}
+            style={{ fontSize: 11, fontWeight: 700,
+              color: String(data.nse_data.source).startsWith('in-RAM') ? T.good : T.warn,
+              border: `1px solid ${String(data.nse_data.source).startsWith('in-RAM') ? T.good : T.warn}`,
+              borderRadius: 4, padding: '2px 8px' }}>
+            📡 {data.nse_data.source}
+          </span>
+        )}
       </div>
 
       {/* pending credential/OTP asks — surfaced loudly, the owner answers in Brain Chat */}

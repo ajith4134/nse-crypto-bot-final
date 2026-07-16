@@ -571,6 +571,23 @@ class TraderPsychology:
                        exchange: str | None = None) -> BookSnapshot | None:
         try:
             if market.upper() == "NSE":
+                # RAM-FIRST (owner 2026-07-14): 5-level book off the Zerodha Kite in-RAM mirror
+                # (the paid feed, PUSHED → ~0 CPU) instead of an OpenAlgo depth REST per symbol.
+                # Fall back to OpenAlgo depth only when NSE is not in UI-only/RAM mode or the mirror
+                # is cold — so UI-only never leaks an API read and a cold mirror never blocks.
+                try:
+                    from trading.broker_sense import kite_stream as _ks
+                    mb = _ks.book(symbol)
+                    if mb:
+                        return BookSnapshot.from_ccxt(mb)
+                except Exception:
+                    pass
+                try:
+                    from trading.broker_sense import ui_data
+                    if ui_data.ui_only_for("nse"):
+                        return None               # UI-only: cold mirror is an honest miss, not an API poll
+                except Exception:
+                    pass
                 payload = self._nse_client().depth(symbol, exchange=exchange or "NSE")
                 return BookSnapshot.from_openalgo(payload)
             # COMPUTE-OFFLOAD (2026-07-12): read 20-level depth from the binance WS in-RAM mirror

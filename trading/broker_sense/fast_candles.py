@@ -106,6 +106,14 @@ def _ohlcv_fast(sym: str, market: str, tf: str) -> list | None:
                 return mrows
         except Exception:
             pass
+    if market == "nse":                       # RAM-first: Zerodha Kite (KiteTicker) WS-mirror candles
+        try:                                  # — the NSE analog of the crypto mirror (owner 2026-07-14:
+            from trading.broker_sense import kite_stream as _ks   # NSE data off the paid Zerodha feed,
+            mrows = _ks.ohlcv(sym, tf, _BARS)                     # RAM at decision time, no per-cycle API)
+            if mrows is not None:
+                return mrows
+        except Exception:
+            pass
     if ui_on:
         try:
             # honest miss — data_failsafe.ohlcv re-checks the door then returns None,

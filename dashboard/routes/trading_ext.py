@@ -1994,14 +1994,23 @@ def handle_broker_sense(h):
             # in-RAM mirror — the owner's PAID feed. Surface its REAL freshness so the panel shows
             # "in-RAM (Zerodha Kite)" vs "api-fallback"/"cold" honestly, driven by live numbers
             # (connected + not stale + symbols streaming), never a hardcoded label.
+            # CROSS-PROCESS: the mirror's RAM lives in the FUNNEL process — this dashboard runs
+            # NO_LOOP=1 and never starts one, so its in-process status() is always "cold" (live-caught
+            # 2026-07-16). Read the funnel's 10s snapshot instead, and age-gate it so a dead funnel
+            # can never read as warm.
             try:
+                from trading import state
+
                 from trading.broker_sense import kite_stream
-                ks = kite_stream.status()
-                warm = bool(ks.get("connected")) and not ks.get("stale") and (ks.get("symbols_ticker") or 0) > 0
+                snap = state.load_json(kite_stream._STATUS_FILE, {}) or {}
+                ks = snap.get("status") or {}
+                snap_age = time.time() - (snap.get("ts") or 0.0)
+                warm = (bool(ks.get("connected")) and not ks.get("stale")
+                        and (ks.get("symbols_ticker") or 0) > 0 and snap_age <= 60.0)
                 payload["nse_data"] = {
                     "source": ("in-RAM (Zerodha Kite)" if warm else
                                ("cold" if ks.get("have_creds") else "api-fallback")),
-                    "mirror": ks,
+                    "mirror": {**ks, "snapshot_age_s": round(snap_age, 1) if snap else None},
                 }
             except Exception:
                 pass

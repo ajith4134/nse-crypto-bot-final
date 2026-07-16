@@ -101,6 +101,25 @@ class LiveNSESource:
     # liquid NSE F&O stock list ranked by LIVE OpenAlgo momentum is the correct,
     # deeply-liquid intraday universe (see trading/screener/universe.py).
     def _oa_quote(self, symbol: str, exchange: str = "NSE") -> Any:
+        # RAM-FIRST (owner 2026-07-14): read the live quote off the Zerodha Kite in-RAM mirror
+        # (the paid feed, already pushed into RAM — no per-symbol API call), shaped like OpenAlgo's
+        # {"data": {...}} so liquid_movers is unchanged. Fall back to the OpenAlgo REST quote ONLY
+        # when NSE is not in UI-only/RAM mode — so a cold mirror never leaks an API read under
+        # UI-only, and a warm mirror serves screening for the whole universe API-free.
+        try:
+            from trading.broker_sense import kite_stream as _ks
+            t = _ks.ticker(symbol)
+            if t and t.get("last"):
+                return {"data": {"ltp": t.get("last"), "prev_close": t.get("close"),
+                                 "volume": t.get("volume")}}
+        except Exception:
+            pass
+        try:
+            from trading.broker_sense import ui_data
+            if ui_data.ui_only_for("nse"):
+                return None                       # UI-only: a cold mirror is an honest miss, not an API poll
+        except Exception:
+            pass
         try:
             from trading.openalgo_client import OpenAlgoClient
             if not hasattr(self, "_oa_cli"):

@@ -72,6 +72,13 @@ export ALPHA_MINING="${ALPHA_MINING:-1}"        # ⑤ formulaic-alpha mining (Al
 export OPTUNA_GEN="${OPTUNA_GEN:-1}"            # ⑥ Optuna NSGA-II linear-alpha tuner
 export RD_AGENT="${RD_AGENT:-1}"                # ⑦ RD-Agent(Q) LLM factor researcher (needs LLM)
 export FWER_GATE="${FWER_GATE:-1}"             # ⑥ family-wise (StepM) error control in the gate
+# STRATEGY-ON-EVERY-TRADE (owner 2026-07-13): the per-coin best-strategy table (run_strategy_table
+# producer) feeds the funnel two ways. STRATEGY_TABLE=1 runs the producer + the ATTRIBUTION (every
+# trade's Strategy column shows a real library/created/evolved/researched strategy — pure learning).
+# STRATEGY_DIRECTION=1 turns on the SYNERGY: the tournament's best strategy is a measured direction
+# source AND a gate-clearing strategy DRIVES the breadth entry (tag = its name). =0 to shadow.
+export STRATEGY_TABLE="${STRATEGY_TABLE:-1}"
+export STRATEGY_DIRECTION="${STRATEGY_DIRECTION:-1}"
 # ZERO-LAG RAM budget (owner 2026-07-06): use ~27 of 32 GB, spare 5 GB. RAM headroom feeds
 # warm candle/quote/book caches (hold ALL whitelisted pairs in memory → no re-fetch lag) for the
 # Binance (crypto) + Upstox (NSE) funnel. Broker-picker parallelism stays ban-safe (NOT raised).
@@ -145,8 +152,13 @@ pgrep -f "run_funnel_loop crypto" >/dev/null || \
 # trading funnel stopped across restarts/loop_keeper respawns. Crypto is unaffected. Read
 # straight from .env so it works even when start_all runs without .env in its environment.
 _NSE_OFF="${NSE_FUNNEL_OFF:-$(grep -E '^NSE_FUNNEL_OFF=' .env 2>/dev/null | tail -1 | cut -d= -f2)}"
+# KITE_STREAM (owner 2026-07-14): the NSE funnel starts the Zerodha in-RAM data mirror so SELECTION
+# reads off the PAID Zerodha feed instead of per-cycle OpenAlgo REST. The feed is OpenAlgo's unified
+# WebSocket (:8765) — OpenAlgo fronts Zerodha (runs KiteTicker, owns the DAILY token, maps symbols),
+# so NO kiteconnect and NO KITE_ACCESS_TOKEN are needed; it uses the existing OPENALGO_API_KEY.
+# Default ON; set KITE_STREAM=0 in .env to disable (mirror is an idle no-op → OpenAlgo REST fallback).
 [ "${_NSE_OFF:-0}" = "1" ] || pgrep -f "run_funnel_loop nse" >/dev/null || \
-  env $(_bs_env) BROKER_SENSE_NSE=1 \
+  env $(_bs_env) BROKER_SENSE_NSE=1 KITE_STREAM="${KITE_STREAM:-1}" \
   setsid .venv/bin/python -m trading.broker_sense.run_funnel_loop nse >>logs/funnel_nse.log 2>&1 </dev/null &
 
 echo "[5/7] Dashboard (brain + NSE trading)  :8000  — VIEWER (NO_LOOP=1, no in-process trading)"
@@ -172,6 +184,31 @@ pgrep -f "trading.online.run_live_loop" >/dev/null || \
 # then simply never consults the student; this daemon may still refresh the table).
 pgrep -f "trading.crypto.freqtrade.run_micro_distill" >/dev/null || \
   setsid .venv/bin/python -m trading.crypto.freqtrade.run_micro_distill >>logs/micro_distill.log 2>&1 </dev/null &
+
+# Autoresearch driver (invent-beyond #5): the CONTINUOUS strategy-research loop — every cycle it
+# breeds new strategies (DEAP + the SOTA generator portfolio) through the CPCV+DSR+FWER gate into
+# the SkillLibrary, so strategy research + skill_library NEVER go stale. The foundry only creates
+# INSIDE the funnel cycle; THIS is the dedicated background scientist (autoresearch.json). It was
+# never wired into boot before 2026-07-13, so it died in the Jul-7 VM stop and stayed dead ~6 days
+# (skill_library went stale). nice-10, its own process. Kill-switch: AUTORESEARCH=0. Needs the same
+# generator env as the evolver so breed() isn't gated off.
+if [ "${AUTORESEARCH:-1}" != "0" ]; then
+  pgrep -f "trading.strategy.run_autoresearch" >/dev/null || \
+    STRATEGY_EVOLUTION_ENABLED="$STRATEGY_EVOLUTION_ENABLED" \
+    LLM_MUTATION="$LLM_MUTATION" PYSR_GEN="$PYSR_GEN" ALPHA_MINING="$ALPHA_MINING" \
+    OPTUNA_GEN="$OPTUNA_GEN" RD_AGENT="$RD_AGENT" FWER_GATE="$FWER_GATE" \
+    setsid .venv/bin/python -m trading.strategy.run_autoresearch >>logs/autoresearch.log 2>&1 </dev/null &
+fi
+
+# Per-coin best-STRATEGY table (2026-07-13): the nice-10 producer that runs the expensive per-coin
+# tournament (library + created + evolved + researched, 218 strategies) OUT of the hot entry path and
+# writes per_coin_strategy.json. The breadth lane + the Strategy column read it O(1) so EVERY open
+# trade shows a real library/created strategy (attribution) and — with STRATEGY_DIRECTION=1 — a
+# gate-clearing strategy drives the entry. Kill-switch: STRATEGY_TABLE=0.
+if [ "${STRATEGY_TABLE:-1}" != "0" ]; then
+  pgrep -f "trading.crypto.freqtrade.run_strategy_table" >/dev/null || \
+    setsid .venv/bin/python -m trading.crypto.freqtrade.run_strategy_table >>logs/strategy_table.log 2>&1 </dev/null &
+fi
 
 # Account-watchlist mirror (owner 2026-07-07): keep a dedicated 'Brain-Open' watchlist in the
 # REAL Upstox account == current open trades, so the owner SEES the brain's picks in the Upstox
