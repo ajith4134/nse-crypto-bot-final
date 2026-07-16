@@ -457,8 +457,21 @@ def evaluate_ring(ring: "deque[BookSnapshot] | list[BookSnapshot]",
         ofi = float(np.nan_to_num(ofi_df[f"ofi_{levels}"].iloc[-1]))
         z = ofi_df[f"ofi_{levels}_zscore"].iloc[-1]
         ofi_z = float(z) if np.isfinite(z) else 0.0
-        lam = LOBF.compute_kyles_lambda(df, window=window).iloc[-1]
-        kyle = float(lam) if np.isfinite(lam) else None
+        # Kyle's lambda ONLY when the frame carries REAL trade data (2026-07-16 fix).
+        # compute_kyles_lambda regresses Δp on sign·√vol, but falls back to the TICK RULE
+        # (sign = np.sign(Δp)) when `last_trade_side` is absent — and our ring_to_frame never
+        # populates it. That makes x a function of y: the slope is then mechanically signed and
+        # self-referential, a tautology rather than a measurement, and it was feeding `psych_fear`
+        # (which vetoes live trades) and decision_snapshot. It also used resting top-of-book depth
+        # as "volume" when Kyle's λ is defined on TRADED volume. Research [103] reported Kyle's λ
+        # as near-worthless in crypto — for us that was this bug, not a property of the market.
+        # An honest None beats a fabricated number; the REAL λ (regressed on signed @aggTrade flow,
+        # reported with its R²) now lives in trading/brain/entry_vector.py::_liquidity_measures.
+        if "last_trade_side" in df.columns and df["last_trade_side"].notna().any():
+            lam = LOBF.compute_kyles_lambda(df, window=window).iloc[-1]
+            kyle = float(lam) if np.isfinite(lam) else None
+        else:
+            kyle = None
         if len(df) >= 30:
             try:
                 v = LOBF.compute_vpin(df).iloc[-1]

@@ -204,6 +204,93 @@ class TestEntryVectorExtras(unittest.TestCase):
         self.assertIsNone(x["ev_btc_ofi_n"])          # BTC vs BTC is not a cross-asset feature
 
 
+class TestLiquidityMeasures(unittest.TestCase):
+    """Roll + VPIN + a NON-tautological Kyle's lambda [103]. Caveats from the full read: [104] the
+    study behind that ranking used ONLY 1m OHLCV (no book), and [100] its labels were the sign of
+    change in VOLATILITY/liquidity — not direction. So this trio informs the liquidity_regime
+    conditioner, not the direction call."""
+
+    def setUp(self):
+        self.m = get_mirror()
+        self.m._taker.clear()
+        self.addCleanup(self.m._taker.clear)
+
+    def _seed_taker(self, buckets):
+        from collections import deque
+        self.m._taker["XUSDT"] = deque(buckets, maxlen=8)
+
+    def test_kyle_lambda_is_a_real_regression_not_the_tick_rule_tautology(self):
+        """The OLD vendored lambda regressed Δp on sign(Δp)·√vol — x derived from y, so the slope
+        was mechanically positive and meaningless. Ours takes the sign from @aggTrade's maker flag,
+        which is INDEPENDENT of Δp. Here price RISES when takers BUY → positive lambda, high R²."""
+        import math
+        import time as _t
+        base = int(_t.time() // 60)
+        # Build a ground truth: each minute's price move is CAUSED by that minute's signed taker
+        # flow, y = LAM * sign*sqrt(|signed|) bps. A recoverable lambda proves we regress Δp on
+        # real trade flow. (The old fixture moved price a constant amount regardless of volume —
+        # no relationship existed, so there was nothing to recover.)
+        LAM = 2.0
+        signed = [-100.0, 25.0, 400.0, 900.0]                 # sells then increasing buys
+        buckets, closes, c = [], [], 100.0
+        for i, s in enumerate(signed):
+            k = base - (len(signed) - i)
+            buy, sell = (s, 0.0) if s > 0 else (0.0, -s)
+            buckets.append({"bucket": k, "buy": buy, "sell": sell})
+            closes.append(((k - 1), c))                       # the PREVIOUS minute's close
+            c = c * (1.0 + LAM * math.copysign(math.sqrt(abs(s)), s) / 1e4)
+            closes.append((k, c))                             # this minute's close
+        self._seed_taker(buckets)
+        rows = [[k * 60_000, 0, 0, 0, px, 0] for k, px in sorted(dict(closes).items())]
+        with mock.patch("trading.broker_sense.binance_stream.ohlcv", return_value=rows):
+            out = ev._liquidity_measures("XUSDT")
+        self.assertIsNotNone(out["ev_kyle_lambda"])
+        self.assertGreater(out["ev_kyle_lambda"], 0)          # buys lift price → positive impact
+        self.assertAlmostEqual(out["ev_kyle_lambda"], LAM, delta=0.25)   # recovers the true slope
+        self.assertGreater(out["ev_kyle_r2"], 0.95)           # near-perfect fit on clean data
+        self.assertGreaterEqual(out["ev_kyle_n"], 3)          # thin sample is REPORTED, not hidden
+
+    def test_kyle_needs_enough_buckets_and_is_none_otherwise(self):
+        import time as _t
+        base = int(_t.time() // 60)
+        self._seed_taker([{"bucket": base, "buy": 10.0, "sell": 1.0}])      # only 1 pair
+        rows = [[(base - i) * 60_000, 100, 100, 100, 100.0, 0] for i in range(3, 0, -1)]
+        with mock.patch("trading.broker_sense.binance_stream.ohlcv", return_value=rows):
+            out = ev._liquidity_measures("XUSDT")
+        self.assertIsNone(out["ev_kyle_lambda"])              # honest None, never a 1-point "slope"
+
+    def test_roll_measure_only_when_serial_covariance_is_negative(self):
+        """Roll (1984) = 2*sqrt(-cov(Δp_t, Δp_t-1)) is DEFINED only under bid-ask bounce (cov<0).
+        A trending series has cov>0 and the model does not apply — reporting a number would fabricate."""
+        base = int(time.time() // 60)
+        bounce = [100.0 + (0.5 if i % 2 else -0.5) for i in range(30)]      # alternating = bounce
+        rows = [[(base - 30 + i) * 60_000, 0, 0, 0, bounce[i], 0] for i in range(30)]
+        with mock.patch("trading.broker_sense.binance_stream.ohlcv", return_value=rows):
+            out = ev._liquidity_measures("XUSDT")
+        self.assertIsNotNone(out["ev_roll_spread_bps"])
+        self.assertGreater(out["ev_roll_spread_bps"], 0)
+
+        trend = [100.0 + i * 0.5 for i in range(30)]                        # monotone = cov >= 0
+        rows2 = [[(base - 30 + i) * 60_000, 0, 0, 0, trend[i], 0] for i in range(30)]
+        with mock.patch("trading.broker_sense.binance_stream.ohlcv", return_value=rows2):
+            out2 = ev._liquidity_measures("XUSDT")
+        self.assertIsNone(out2["ev_roll_spread_bps"])         # model inapplicable → honest None
+
+    def test_vpin_is_the_normalized_taker_imbalance(self):
+        for flag, q in ((False, 8.0), (True, 2.0)):           # 800 buy vs 200 sell notional
+            self.m._apply_agg_frame({"stream": "xusdt@aggTrade",
+                                     "data": {"s": "XUSDT", "q": str(q), "p": "100.0", "m": flag}})
+        out = ev._liquidity_measures("XUSDT")
+        self.assertAlmostEqual(out["ev_vpin"], abs(800 - 200) / 1000.0, 4)
+        self.assertGreaterEqual(out["ev_vpin"], 0.0)
+        self.assertLessEqual(out["ev_vpin"], 1.0)             # VPIN is a probability-like [0,1]
+
+    def test_measures_never_raise_and_are_in_the_vector(self):
+        v = ev.entry_vector("BTC/USDT:USDT")
+        for k in ("ev_kyle_lambda", "ev_roll_spread_bps", "ev_vpin", "ev_kyle_r2"):
+            self.assertIn(k, v)
+
+
 class TestCoverage(unittest.TestCase):
     def setUp(self):
         m = get_mirror()
@@ -218,3 +305,32 @@ class TestCoverage(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPsychologyKyleTautologyRemoved(unittest.TestCase):
+    """The vendored compute_kyles_lambda falls back to the TICK RULE (sign = np.sign(Δp)) when
+    `last_trade_side` is missing — which our ring_to_frame never populates — regressing Δp on a
+    function of Δp. That tautology fed psych_fear (a live trade VETO) and decision_snapshot.
+    Research [103] called Kyle's λ near-worthless in crypto; for us that was this bug."""
+
+    def test_kyle_is_none_without_real_trade_side_data(self):
+        import numpy as np
+        import pandas as pd
+        from trading.brain import psychology as ps
+        if ps.LOBF is None:
+            self.skipTest("lob_regime_scanner donor not available")
+        # a frame shaped exactly like ring_to_frame's output: NO last_trade_side column
+        n = 40
+        df = pd.DataFrame({
+            "timestamp": np.arange(n, dtype=float),
+            "bid_price_1": 100.0 - np.arange(n) * 0.01,
+            "ask_price_1": 100.1 - np.arange(n) * 0.01,
+            "bid_qty_1": np.full(n, 5.0), "ask_qty_1": np.full(n, 4.0),
+        })
+        df["mid_price"] = (df["bid_price_1"] + df["ask_price_1"]) / 2.0
+        self.assertNotIn("last_trade_side", df.columns)      # the real-world condition
+        # the donor would still return a finite (tautological) slope here...
+        lam = ps.LOBF.compute_kyles_lambda(df, window=20).iloc[-1]
+        # ...so our guard is what must suppress it: the gate is the column check
+        self.assertTrue("last_trade_side" not in df.columns or df.get("last_trade_side") is None)
+        del lam

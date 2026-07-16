@@ -215,6 +215,107 @@ def _volatility(sym: str) -> dict:
     return out
 
 
+def _liquidity_measures(sym: str) -> dict:
+    """Kyle's lambda (FIXED), the Roll measure, and VPIN — computed from REAL signed trade flow.
+
+    Why this exists (owner 2026-07-16). Research [103] found that in crypto **Kyle's lambda carries
+    essentially no feature importance while the Roll measure is the single most important own feature
+    and VPIN is frequently important**. Two caveats the full read surfaced, which change what to do:
+      • [104] that study used ONLY 1-minute OHLCV bars — no order book at all — so its lambda was a
+        crude OHLCV proxy, NOT an L2 estimate. Its ranking does not automatically condemn an L2 lambda.
+      • [100] its labels were the sign of change in realized volatility / liquidity statistics, NOT
+        future returns. So this trio forecasts **liquidity/volatility regime, not direction** — which
+        is precisely our Tier-1 `liquidity_regime` conditioner ([63]: flow's edge swings ~10x across it).
+
+    **The real bug in our existing `psych_kyle_lambda`** (vendor/lob_regime_scanner compute_kyles_lambda):
+    it regresses Δp on sign·√vol, but our snapshot frame carries no `last_trade_side`/`last_trade_qty`,
+    so it always falls back to the tick rule `sign = np.sign(Δp)` — making x a function of y. The slope
+    is then mechanically positive and self-referential: a tautology, not a measurement. It also uses
+    resting top-of-book depth as "volume" when Kyle's λ is defined on TRADED volume. That is why it
+    read as noise. We now have real signed taker flow from `@aggTrade`, so it can be done properly.
+
+    All three are cheap arithmetic over the RAM mirror (motto: CPU is for the brain, not for data).
+    """
+    out: dict = {"ev_kyle_lambda": None, "ev_roll_spread_bps": None, "ev_vpin": None,
+                 "ev_kyle_r2": None, "ev_kyle_n": None}
+    try:
+        import math
+        from trading.broker_sense import binance_stream as bs
+        m = bs.get_mirror()
+
+        # ── Roll (1984) effective spread: 2*sqrt(-cov(Δp_t, Δp_{t-1})) ────────────────────────
+        # The single most important own feature in crypto per [103]. Defined ONLY when the serial
+        # covariance is negative (bid-ask bounce); a non-negative cov means the Roll model does not
+        # apply, and reporting a number there would be fabrication — so it stays None.
+        rows = bs.ohlcv(sym, "1m", 60) or []
+        closes = [float(r[4]) for r in rows if r and r[4]]
+        if len(closes) >= 12:
+            dp = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+            n = len(dp) - 1
+            if n >= 8:
+                mu = sum(dp) / len(dp)
+                cov = sum((dp[i] - mu) * (dp[i + 1] - mu) for i in range(n)) / n
+                if cov < 0:
+                    roll = 2.0 * math.sqrt(-cov)
+                    mid = closes[-1]
+                    if mid > 0:
+                        out["ev_roll_spread_bps"] = round(roll / mid * 1e4, 4)
+
+        # ── VPIN: volume-synchronized probability of informed trading ────────────────────────
+        # |taker_buy - taker_sell| / total over the rolling taker buckets — the mirror's aggTrade
+        # buckets ARE volume-synchronized-ish (fixed clock buckets over real traded notional), which
+        # is the honest approximation available in RAM. Named `ev_vpin` but see the caveat: true VPIN
+        # uses equal-VOLUME buckets, not equal-time ones.
+        tk = m.taker(sym)
+        if tk:
+            b, s = tk.get("taker_buy_notional") or 0.0, tk.get("taker_sell_notional") or 0.0
+            if b + s > 0:
+                out["ev_vpin"] = round(abs(b - s) / (b + s), 6)
+
+        # ── Kyle's lambda, done RIGHT: an actual REGRESSION of Δp on SIGNED TRADED volume ────
+        # x = signed taker notional per 1-minute bucket (sign comes from @aggTrade's maker flag — a
+        # REAL trade sign, independent of Δp, so no tautology); y = that minute's mid-price change.
+        # Kyle's √-volume form: Δp = λ · sign·√|volume|. Reported WITH its R² so a later fit can
+        # discard slopes that explain nothing instead of trusting a bare number — the failure mode
+        # that let the old tautological λ look like a measurement for months.
+        pairs = []
+        with m._lock:
+            buckets = list(m._taker.get(sym) or [])
+        if buckets and len(rows) >= 3:
+            # index 1m closes by their minute bucket so each taker bucket pairs with ITS own Δp
+            by_min = {}
+            for r in rows:
+                try:
+                    by_min[int(float(r[0]) / 1000.0 // 60)] = float(r[4])
+                except (TypeError, ValueError, IndexError):
+                    continue
+            for bkt in buckets:
+                b0, s0, k = bkt.get("buy") or 0.0, bkt.get("sell") or 0.0, bkt.get("bucket")
+                c1, c0 = by_min.get(k), by_min.get((k or 0) - 1)
+                if not c1 or not c0 or c0 <= 0 or (b0 + s0) <= 0:
+                    continue
+                signed = b0 - s0
+                x = math.copysign(math.sqrt(abs(signed)), signed)      # sign·√|notional|
+                y = (c1 - c0) / c0 * 1e4                               # Δp in bps
+                if x != 0:
+                    pairs.append((x, y))
+        if len(pairs) >= 3:
+            n = len(pairs)
+            mx = sum(p[0] for p in pairs) / n
+            my = sum(p[1] for p in pairs) / n
+            sxy = sum((p[0] - mx) * (p[1] - my) for p in pairs)
+            sxx = sum((p[0] - mx) ** 2 for p in pairs)
+            syy = sum((p[1] - my) ** 2 for p in pairs)
+            if sxx > 0:
+                lam = sxy / sxx                       # bps of move per unit signed √notional
+                out["ev_kyle_lambda"] = round(lam, 12)
+                out["ev_kyle_r2"] = round((sxy * sxy) / (sxx * syy), 6) if syy > 0 else None
+                out["ev_kyle_n"] = n                  # sample size — 3-5 buckets is THIN, say so
+    except Exception:
+        pass
+    return out
+
+
 def _impact_inputs(sym: str) -> dict:
     """Tier-5: the three inputs the FITTED square-root impact law needs, plus the trailing stats.
 
@@ -351,6 +452,7 @@ def entry_vector(symbol: str, *, market: str = "crypto", price: float | None = N
         out.update(_carry(sym))               # Tier-4
         out.update(_volatility(sym))          # Tier-1 conditioner + label scale [14][34]
         out.update(clock_phase())             # Tier-1 conditioner [66][67][68]
+        out.update(_liquidity_measures(sym))  # [103] Roll + VPIN + a NON-tautological Kyle's lambda
         out.update(_cross_asset(sym))         # [128] cross-asset OFI helps FORECASTING (not impact)
         out.update(_impact_inputs(sym))       # Tier-5 [52] square-root law inputs
         out.update(costs(sym, size_usd=size_usd, entry_type=entry_type))   # Tier-5 [72][43][89]
