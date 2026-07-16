@@ -107,3 +107,64 @@ out-of-sample — rather than flipping a preset today.
 was merely STALE (didn't cover the trade dates), and `ls | head -5` hid it because `15m`/`1d`/`1h`
 sort before `5m`. If `truth_ledger` reads those same stale feathers, ITS labels may be under-resolving
 too — check that.
+
+---
+
+# 📊 MEASUREMENT QUALITY + CLOCK-PHASE CONDITIONING (same day, after the candle backfill)
+
+## 1. The ledger's "coin flip" is PARTLY a measurement artifact
+
+The ledger resolves labels from a MIX and never recorded which method produced which label
+(`methods` was a global COUNT only — no outcome). Of 174,279 labels: **only ~15% from real candle
+feathers**; **36% from `mirror:markprice`** (a funding-anchored INDEX, not the traded price);
+**44% from timing-sensitive PROBES** (`probe:ui:capture` 31% + `probe:api:ccxt-binance` 13%) that read
+the price when the resolver tick fires, NOT at the horizon.
+
+Re-resolving the journal from FEATHERS ONLY (clean 5m closes, n≈6,300/horizon):
+
+| horizon | feather-clean | ledger (mixed) | gap |
+|---|---|---|---|
+| 15m | 0.4918 (−1.3σ) | 0.4887 | ~none |
+| **1h** | **0.5149 (+2.4σ)** | **0.4952** | **+2.0 pp** |
+| 4h | 0.5107 (+1.7σ) | 0.5092 | ~none |
+
+**At 1h the ledger reports a coin flip while the clean measurement is significantly ABOVE chance.**
+The noisy probe/markprice labels dragged a small real signal down to 0.5. FIXED: `_fold()` now writes
+`method_acc[f"{method}|{horizon}"] = {n, correct}` so measurement quality is auditable going forward.
+The bucket key stays `source|market|regime|horizon` (readers parse it; a 5th field would break them
+and explode cardinality). Pinned by `tests/test_truth_ledger.py::TestMethodAccuracyIsAuditable`.
+
+## 2. The 1h edge CONCENTRATES by clock phase — conditioning SHARPENS it
+
+1h accuracy, feather-clean, by seconds-since-the-quarter-hour mark:
+
+| phase | n | acc | σ |
+|---|---|---|---|
+| 0–3m past the mark | 1040 | 0.5019 | +0.1 |
+| 3–7m | 1658 | 0.5109 | +0.9 |
+| 7–11m | 2028 | 0.5079 | +0.7 |
+| **11–15m (approaching the next mark)** | **1611** | **0.5363** | **+2.9** |
+
+A **3.4-point spread** across phases of the same clock. The pooled 0.5149 HIDES this. Matches the
+research: *"order imbalance is strongest at quarter-hour marks and monotonically weaker at finer
+marks"* and *"unconditional pooling across clock phases mixes structurally different regimes."*
+**First time in this project an edge SHARPENED under conditioning instead of dissolving.**
+
+## 3. Live state after the day's fixes
+
+Futures entry flow is HEALTHY and the direction bias is GONE: **14 open, SHORT 5 / LONG 9** (was 31
+SHORT vs 1 LONG), entries landing every cycle, `learned_direction` DECIDING (not abstaining into
+silence — the risk flagged when the inverter was killed did not materialise).
+Cadence UNFIXED: 18:37→18:53→19:08→19:25 = 16/15/17 min. The budget cut (BROKER_SENSE_BUDGET 120→60,
+FILTER_LANE_BUDGET_MULT 1.5→1.0) did NOT work — `took` even rose to 360s (a suspiciously round number
+= a cap being hit). Three attempts (crawl, tournament, lane budget), three wrong levers. **The
+un-run measurement is a stage-by-stage profile of ONE loop iteration from start to next start** —
+attribute the 16 min instead of guessing at it.
+
+## Caveats on 1 & 2 (state them or the numbers lie)
+- Selection bias: our own picks, not the universe.
+- Multiple comparisons: 3 horizons and 4 phase buckets tested; +2.4σ and +2.9σ survive Bonferroni
+  only marginally (p≈0.05 and ≈0.015).
+- One regime (recent crypto).
+- **53.6% is a SIGNAL, not yet an EDGE**: the research's own benchmark is a 53% hit ratio →
+  Sharpe 0.12, untradeable after costs. Net-of-fee viability is unproven.

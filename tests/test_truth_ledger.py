@@ -193,3 +193,41 @@ class TestBackfill(_Iso):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMethodAccuracyIsAuditable(_Iso):
+    """The ledger counted HOW it resolved each label but discarded the OUTCOME — so it could not
+    audit its own measurement quality. That mattered: only ~15% of 174k labels came from real candle
+    feathers; 36% from mirror MARK price and 44% from timing-sensitive probes. Re-resolving from
+    feathers alone gave 1h acc 0.5149 (+2.4σ) vs the mixed ledger's 0.4952 — the 'coin flip'
+    headline was partly a measurement artifact (2026-07-16)."""
+
+    def test_fold_records_accuracy_per_method_and_horizon(self):
+        agg = {}
+        row = {"source": "s1", "market": "CRYPTO", "regime": "any", "segment": "futures",
+               "direction": "LONG", "taken": True}
+        self.tl._fold(agg, row, "1h", True, "feather:perp")
+        self.tl._fold(agg, row, "1h", False, "feather:perp")
+        self.tl._fold(agg, row, "1h", False, "probe:ui:capture")
+        ma = agg["method_acc"]
+        self.assertEqual(ma["feather:perp|1h"], {"n": 2, "correct": 1})
+        self.assertEqual(ma["probe:ui:capture|1h"], {"n": 1, "correct": 0})
+
+    def test_method_acc_splits_by_horizon(self):
+        agg = {}
+        row = {"source": "s1", "market": "CRYPTO", "regime": "any", "segment": "futures",
+               "direction": "SHORT", "taken": False}
+        self.tl._fold(agg, row, "15m", True, "feather:perp")
+        self.tl._fold(agg, row, "4h", True, "feather:perp")
+        self.assertIn("feather:perp|15m", agg["method_acc"])
+        self.assertIn("feather:perp|4h", agg["method_acc"])
+
+    def test_bucket_key_is_UNCHANGED_so_readers_do_not_break(self):
+        agg = {}
+        row = {"source": "s1", "market": "CRYPTO", "regime": "any", "segment": "futures",
+               "direction": "LONG", "taken": True}
+        self.tl._fold(agg, row, "1h", True, "feather:perp")
+        # 4 fields only — hit_rates() and the dashboards parse this shape
+        k = next(iter(agg["buckets"]))
+        self.assertEqual(len(k.split("|")), 4, "bucket key must stay source|market|regime|horizon")
+        self.assertEqual(agg["methods"]["feather:perp"], 1)   # the old tally still works

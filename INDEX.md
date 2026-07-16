@@ -2815,7 +2815,7 @@ _Tests for trading/exits/ — four trailing-exit components over one signed engi
 
 ## `tests/test_truth_ledger.py`
 _Tests for trading/direction/truth_ledger — D1 of the Direction Accuracy Program._
-- **classes:** _Iso, TestRecord, TestTickLabeling, TestWilson, TestBackfill
+- **classes:** _Iso, TestRecord, TestTickLabeling, TestWilson, TestBackfill, TestMethodAccuracyIsAuditable
 - **functions:** `_write_feather(root, rel, t0, closes) -> None`
 - **imports:** json, pathlib, tempfile, time, trading.state, unittest
 

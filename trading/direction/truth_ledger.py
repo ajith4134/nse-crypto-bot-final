@@ -280,6 +280,20 @@ def _fold(agg: dict, row: dict, horizon: str, correct: bool, method: str) -> Non
         r["correct"] += int(correct)
     m = agg.setdefault("methods", {})
     m[method] = m.get(method, 0) + 1
+    # MEASUREMENT QUALITY IS AUDITABLE (2026-07-16). `methods` counted HOW each label was resolved
+    # but threw the outcome away — so the ledger structurally could not audit its own measurement.
+    # It matters: only ~15% of 174k labels came from real candle feathers; 36% from mirror MARK
+    # price (an index, not the traded price) and 44% from timing-sensitive PROBES that read the price
+    # when the resolver tick fires, not at the horizon. Re-resolving the journal from feathers alone
+    # gave 1h accuracy 0.5149 (+2.4σ) where the mixed ledger reported 0.4952 — a ~2pp gap, i.e. the
+    # "brain is a coin flip" headline was PARTLY a measurement artifact. Rolled up per
+    # (method, horizon) so any future claim can be split by the quality of its evidence.
+    # Additive on purpose: the bucket key stays `source|market|regime|horizon` because hit_rates()
+    # and every dashboard reader parse it — adding a 5th field there would break them and explode
+    # cardinality.
+    ma = agg.setdefault("method_acc", {}).setdefault(f"{method}|{horizon}", {"n": 0, "correct": 0})
+    ma["n"] += 1
+    ma["correct"] += int(correct)
 
 
 def _mirror_price(symbol: str, epoch: float) -> float | None:
