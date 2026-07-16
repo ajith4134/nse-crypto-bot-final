@@ -79,6 +79,21 @@ def _learn_from_close(ft: dict, t) -> None:
             consulted_ids=((fus.get("neurons") or {}).get("ids") or []))
     except Exception:
         pass
+    try:
+        # river online learner: ONE realized price-direction sample per close (B2 fix —
+        # learn() previously had no production caller, so the "online" model was frozen
+        # at bootstrap). Same features + label rules as its journal bootstrap.
+        from trading.direction import river_source as _rs
+        _rs.learn_from_trade({
+            "direction": t.direction,
+            "entry_price": ft.get("open_rate"), "exit_price": ft.get("close_rate"),
+            "decision_snapshot": t.decision_snapshot if isinstance(t.decision_snapshot, dict) else {},
+            "pct_change_24h": getattr(t, "pct_change_24h", None),
+            "funding_rate_entry": t.funding_rate_entry,
+            "fear_greed_index": t.fear_greed_index,
+        })
+    except Exception:
+        pass
     _LEARN_SEEN.append(key)                       # insertion order → trim drops OLDEST first
     _LEARN_SEEN = _LEARN_SEEN[-8000:]
     _LEARN_SEEN_SET = set(_LEARN_SEEN)
@@ -385,6 +400,11 @@ def map_trade(ft: dict, *, broker_ctx: bool = True, bulk: bool = False) -> Close
                 use_llm=not bulk)
             if ep and ep.get("reflection"):
                 t.exit_reflection = ep["reflection"]
+                try:                                   # keep the lesson-recall ring fresh (O(1))
+                    from trading.brain import lesson_recall
+                    lesson_recall.note(ft.get("pair", ""), ep["reflection"])
+                except Exception:
+                    pass
         except Exception:
             pass
     return t

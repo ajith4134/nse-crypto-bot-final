@@ -29,7 +29,7 @@ from __future__ import annotations
 import math
 import os
 
-from trading.brain.trade_features import (FEATURE_NAMES, _f, _won,
+from trading.brain.trade_features import (FEATURE_NAMES, _entry_hour, _f, _won,
                                           trade_feature_row)
 
 # the RAM market-context features appended to the base vector (owner ask: "more symbol data as input").
@@ -38,6 +38,13 @@ _FILTER_KINDS = ("momentum", "funding", "taker", "book_imbalance", "longshort",
                  "oi_trend", "liquidations", "pcr")
 _RAM_FEATURES = [*(f"flt_{k}" for k in _FILTER_KINDS), "log_quote_volume_24h", "pct_change_24h"]
 MOVE_FEATURE_NAMES = [*FEATURE_NAMES, *_RAM_FEATURES]
+# SERVE-SAFE vector (B1/B2 fix 2026-07-16): ONLY features that exist identically at train time
+# (closed row) AND consult time (live candidate). The old full vector included the trade's own
+# realized excursions (mfe/mae — outcome leakage) and trade-shaped fields (qty/capital/side) that
+# live candidates default to constants — the model learned the leak, then served a near-constant
+# (measured: p_up ≈ 0.2937 for every symbol, 99.3% SHORT votes). Same disease as the
+# direction_model f_*/m_* dead pipe.
+SERVE_FEATURE_NAMES = [*_RAM_FEATURES, "hour_sin", "hour_cos"]
 
 
 def enabled() -> bool:
@@ -70,6 +77,18 @@ def move_feature_row(trade: dict) -> list[float]:
     """Full RAM-enriched feature vector (MOVE_FEATURE_NAMES order) for a trade OR a live candidate
     dict. Reuses the outcome net's base row so the two nets share one feature convention."""
     return [*trade_feature_row(trade), *_ram_row(trade)]
+
+
+def serve_feature_row(trade: dict) -> list[float]:
+    """SERVE-SAFE vector (SERVE_FEATURE_NAMES order): RAM market-context slice + clock. Identical
+    availability at train (closed row: entry hour) and consult (live candidate: hour of now), so
+    the heads cannot learn anything they will not be given at decision time."""
+    hour = _entry_hour(trade)
+    if hour is None:
+        import time as _t
+        hour = _t.localtime().tm_hour
+    return [*_ram_row(trade),
+            math.sin(2 * math.pi * hour / 24.0), math.cos(2 * math.pi * hour / 24.0)]
 
 
 def _move_pct(trade: dict) -> float | None:
@@ -175,7 +194,7 @@ class SymbolMoveNet:
             mv = _move_pct(t)
             if mv is None:
                 continue
-            X.append(move_feature_row(t))
+            X.append(serve_feature_row(t))
             y_dir.append(1 if mv > 0 else 0)
             y_move.append(max(-self.MOVE_CLIP_PCT, min(self.MOVE_CLIP_PCT, mv)))  # winsorised label
         self.n_train = len(X)
@@ -257,7 +276,7 @@ class SymbolMoveNet:
         if not self.trained:
             return {"direction": "NEUTRAL", "p_up": None, "expected_move_pct": None,
                     "size_hint": 0.0, "engine": self.dir_engine, "trained": False}
-        row = move_feature_row(ctx)
+        row = serve_feature_row(ctx)
         p_up = max(0.0, min(1.0, self._p_up(row)))
         move = float(self.move_model.predict_row(row))
         move = max(-self.MOVE_CLIP_PCT, min(self.MOVE_CLIP_PCT, move))   # bound to trained range
@@ -286,7 +305,7 @@ class SymbolMoveNet:
                 "dir_engine": self.dir_engine, "dir_oof_accuracy": self.dir_oof_acc,
                 "move_mae_pct": self.move_mae, "up_rate": self.up_rate,
                 "fallback_reason": self.fallback_reason,
-                "features": MOVE_FEATURE_NAMES, "min_samples": self.MIN_SAMPLES,
+                "features": SERVE_FEATURE_NAMES, "min_samples": self.MIN_SAMPLES,
                 "enabled": enabled()}
 
 

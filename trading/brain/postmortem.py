@@ -63,7 +63,10 @@ def _enabled() -> bool:
 
 def feedback_enabled() -> bool:
     """Close-the-loop gate. Default OFF: the engine reports until you switch it on."""
-    return os.environ.get("POSTMORTEM_FEEDBACK", "0") in ("1", "true", "TRUE", "yes", "on")
+    # Default ON since 2026-07-16 (B2 + CONVENTIONS §15 no-shadow-on-paper): the loop was fully
+    # wired into fusion sizing/entry yet inert — computed, shown, never acting. Paper is the
+    # experiment; a mined pattern either earns its keep or gets graded out, but it must ACT.
+    return os.environ.get("POSTMORTEM_FEEDBACK", "1") in ("1", "true", "TRUE", "yes", "on")
 
 
 # ── market key (shared with the isolation boundary) ──────────────────────────────────

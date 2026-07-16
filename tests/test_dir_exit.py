@@ -64,6 +64,9 @@ class _Iso(unittest.TestCase):
 
 class TestRead(_Iso):
     def test_calibrated_agreeing_lanes_make_a_strong_read(self):
+        # calibration machinery needs the gate: enable explicitly (retired in prod, MIRROR_GATE=0)
+        os.environ["MIRROR_GATE"] = "1"
+        self.addCleanup(os.environ.__setitem__, "MIRROR_GATE", "0")
         _seed({"venue_leadlag|chop|1h": {"n": 200, "correct": 130},   # 65% trusted
                "mtf_agree|chop|1h": {"n": 200, "correct": 128}})
         self._patch_votes({"venue_leadlag": ("LONG", 0.8), "mtf_agree": ("LONG", 0.7)})
@@ -73,13 +76,15 @@ class TestRead(_Iso):
         self.assertEqual(r["n_calibrated"], 2)
         self.assertGreater(r["cal_strength"], 0.9)
 
-    def test_anti_signal_lane_is_flipped_by_the_gate(self):
-        _seed({"venue_leadlag|chop|1h": {"n": 200, "correct": 60}})   # 30% → invert
+    def test_retired_gate_never_inverts_an_anti_signal_lane(self):
+        # Mirror Gate RETIRED 2026-07-16 (CONVENTIONS §16: direction must be EARNED — never
+        # invert). Production config MIRROR_GATE=0: an "anti-signal" lane passes through raw.
+        os.environ["MIRROR_GATE"] = "0"
+        _seed({"venue_leadlag|chop|1h": {"n": 200, "correct": 60}})   # 30% — would have inverted
         self._patch_votes({"venue_leadlag": ("LONG", 0.9)})
         r = self.de.read("ETH/USDT:USDT", "CRYPTO", "futures", regime="chop")
-        self.assertEqual(r["direction"], "SHORT")                     # LONG vote inverted
-        self.assertEqual(r["votes"][0]["action"], "invert")
-        self.assertTrue(r["votes"][0]["calibrated"])
+        self.assertEqual(r["direction"], "LONG")                      # NOT flipped
+        self.assertNotEqual(r["votes"][0].get("action"), "invert")
 
     def test_uncalibrated_lane_votes_but_does_not_move_cal_strength(self):
         _seed({"venue_leadlag|chop|1h": {"n": 5, "correct": 4}})      # n too small
@@ -106,6 +111,8 @@ class TestEvaluate(_Iso):
 
     def test_trade_mode_exits_on_calibrated_opposing_read(self):
         os.environ["DIR_EXIT"] = "trade"
+        os.environ["MIRROR_GATE"] = "1"                # calibration needs the gate machinery
+        self.addCleanup(os.environ.__setitem__, "MIRROR_GATE", "0")
         _seed({"venue_leadlag|chop|1h": {"n": 200, "correct": 130}})  # trusted
         self._patch_votes({"venue_leadlag": ("SHORT", 0.9)})
         d = self.de.evaluate(symbol="ETH/USDT:USDT", direction="LONG", segment="futures",

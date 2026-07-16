@@ -224,16 +224,32 @@ def collect(symbol: str, *, market: str = "CRYPTO", segment: str = "futures",
             except Exception:
                 pass
 
-    # 1) confirmed-hypothesis support — the AI-Scientist research loop endorses a direction
-    if _flag("BRAIN_SRC_HYPOTHESIS"):
+    # NB (B1 fix 2026-07-16): hypothesis.support() and experience.recall() score the HINTED
+    # side (their bias means "the hinted direction is right"), while _emit records an ABSOLUTE
+    # p_up. Recording the relative score directly made `hypothesis` vote LONG 100% of the time.
+    def _rel_to_abs(p_rel: float | None, hint: str) -> float | None:
+        if p_rel is None:
+            return None
+        return p_rel if hint != "SHORT" else round(1.0 - p_rel, 4)
+
+    # 1) confirmed-hypothesis support — the AI-Scientist research loop endorses a direction.
+    # Side-differential gate (B1 fix 2026-07-16): generic hypotheses whose conditions ignore
+    # direction match BOTH sides with the same bias — that carried zero directional information
+    # yet emitted a constant ~0.976 vote on every LONG-hinted candidate. Probe both sides; only
+    # a hypothesis set that actually DISTINGUISHES the sides may vote.
+    if _flag("BRAIN_SRC_HYPOTHESIS") and dir_hint in ("LONG", "SHORT"):
         try:
             led = _hypothesis_ledger()
             if led is not None:
-                sup = led.support({"market": market, "symbol": symbol,
-                                   "market_regime_entry": regime or "",
-                                   "direction": dir_hint})
-                if sup.get("n"):
-                    _emit("hypothesis", _bias_to_p(sup["bias"]))
+                ctx = {"market": market, "symbol": symbol,
+                       "market_regime_entry": regime or ""}
+                other = "SHORT" if dir_hint == "LONG" else "LONG"
+                sup = led.support({**ctx, "direction": dir_hint})
+                sup_o = led.support({**ctx, "direction": other})
+                differential = (sup.get("n", 0) != sup_o.get("n", 0)
+                                or abs(sup.get("bias", 0.0) - sup_o.get("bias", 0.0)) > 1e-6)
+                if sup.get("n") and differential:
+                    _emit("hypothesis", _rel_to_abs(_bias_to_p(sup["bias"]), dir_hint))
         except Exception:
             pass
 
@@ -242,10 +258,11 @@ def collect(symbol: str, *, market: str = "CRYPTO", segment: str = "futures",
         try:
             bank = _experience_bank()
             if bank is not None:
+                _xh = dir_hint if dir_hint in ("LONG", "SHORT") else "LONG"
                 rc = bank.recall({"market": market, "symbol": symbol,
-                                  "direction": dir_hint or "LONG"}, k=10)
+                                  "direction": _xh}, k=10)
                 if getattr(rc, "n", 0) >= 3 and abs(getattr(rc, "bias", 0.0)) > 1e-6:
-                    _emit("experience_recall", _bias_to_p(rc.bias))
+                    _emit("experience_recall", _rel_to_abs(_bias_to_p(rc.bias), _xh))
         except Exception:
             pass
 

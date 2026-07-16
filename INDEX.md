@@ -1827,7 +1827,7 @@ _Unit tests for BrainExecutor's options/prediction segment cycles (audit gap 4).
 
 ## `tests/test_brain_sources.py`
 _tests/test_brain_sources.py — brain lenses as truth-ledger-weighted direction sources._
-- **classes:** TestBrainSources
+- **classes:** TestBrainSources, TestHintRelativeRecordingFix
 - **imports:** numpy, os, pandas, pathlib, tempfile, unittest
 
 ## `tests/test_broker_features.py`
@@ -2893,6 +2893,11 @@ _Tests for trading/broker_sense/volume_profile.py — VP / Value-Area engine._
 - **functions:** `_bar(ts, o, h, l, c, v)`; `_flat_at(price, n, vol, ts0, step)`
 - **imports:** __future__, trading.broker_sense, unittest
 
+## `tests/test_vote_log.py`
+_vote_log: write-only per-candidate vote vector — bounded, never raises, never read back._
+- **classes:** VoteLogTest
+- **imports:** json, tempfile, unittest
+
 ## `tests/test_watchlist_study.py`
 _Tests for trading/broker_sense/watchlist_study — W watchlist study funnel._
 - **classes:** _FakeReader, _Iso, TestPropose, TestStudyRound, TestFuse, TestPatterns
@@ -3290,6 +3295,11 @@ _trading/brain/learner.py — the brain's self-directed LEARNING + SELF-EVALUATI
 - **functions:** `get_learner() -> KnowledgeLearner`
 - **imports:** __future__, time
 
+## `trading/brain/lesson_recall.py`
+_Per-symbol recall of closed-trade LESSONS — the reader exit reflections never had._
+- **functions:** `_seed_once() -> None`; `note(symbol, lesson) -> None`; `recent(symbol, k) -> list[str]`
+- **imports:** __future__, threading, time
+
 ## `trading/brain/memory_search.py`
 _trading/brain/memory_search.py — cross-session FULL-TEXT search over the brain's whole memory._
 - **classes:** MemorySearch
@@ -3435,7 +3445,7 @@ _trading/brain/surface.py — W2 scientific-method rails for EVERY self-tuning o
 ## `trading/brain/symbol_move_net.py`
 _trading/brain/symbol_move_net.py — the brain's OUTPUT network, changed on owner ask 2026-07-13._
 - **classes:** _NumpyRidge, _NumpyLogRegDir, SymbolMoveNet
-- **functions:** `enabled() -> bool`; `_market_context(trade) -> dict`; `_ram_row(trade) -> list[float]`; `move_feature_row(trade) -> list[float]`; `_move_pct(trade) -> float | None`; `get_move_net(closed_rows) -> SymbolMoveNet`; `refresh(closed_rows) -> dict`; `ensure_trained_once() -> bool`; `consult(ctx) -> dict`
+- **functions:** `enabled() -> bool`; `_market_context(trade) -> dict`; `_ram_row(trade) -> list[float]`; `move_feature_row(trade) -> list[float]`; `serve_feature_row(trade) -> list[float]`; `_move_pct(trade) -> float | None`; `get_move_net(closed_rows) -> SymbolMoveNet`; `refresh(closed_rows) -> dict`; `ensure_trained_once() -> bool`; `consult(ctx) -> dict`
 - **imports:** __future__, math, os, trading.brain.trade_features
 
 ## `trading/brain/track_record.py`
@@ -4469,8 +4479,8 @@ _trading/direction/brain_sources.py — brain lenses → MEASURED directional so
 
 ## `trading/direction/dir_exit.py`
 _trading/direction/dir_exit.py — D-exit: the directional EXIT oracle (Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str | None`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
-- **imports:** __future__, os
+- **functions:** `_should_claim(symbol, segment, direction) -> bool`; `_env_f(name, default) -> float`; `mode() -> str`; `_horizon() -> str | None`; `read(symbol, market, segment) -> dict`; `evaluate() -> dict`; `status() -> dict`
+- **imports:** __future__, os, threading, time
 
 ## `trading/direction/direction_model.py`
 _trading/direction/direction_model.py — the direction-aware model (proposal B, 2026-07-13)._
@@ -4520,13 +4530,18 @@ _trading/direction/regime.py — D5: the direction regime classifier (goal Pilla
 
 ## `trading/direction/river_source.py`
 _trading/direction/river_source.py — River online learner as a measured direction source._
-- **functions:** `_new_model()`; `_state_path()`; `_load() -> dict`; `_save() -> None`; `_features_from_filters(filters) -> dict`; `_clean(features) -> dict`; `learn(features, up) -> None`; `predict(features) -> float | None`; `train_from_journal(max_rows) -> dict`; `ensure_trained() -> None`; `status() -> dict`
+- **functions:** `_new_model()`; `_state_path()`; `_load() -> dict`; `_save() -> None`; `_features_from_filters(filters) -> dict`; `_clean(features) -> dict`; `learn(features, up) -> None`; `predict(features) -> float | None`; `_row_features(r) -> dict`; `_price_up(r)`; `learn_from_trade(r) -> bool`; `train_from_journal(max_rows) -> dict`; `ensure_trained() -> None`; `status() -> dict`
 - **imports:** __future__, pickle, threading, time
 
 ## `trading/direction/truth_ledger.py`
 _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._
 - **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_mirror_price(symbol, epoch) -> float | None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit, journal) -> dict`; `_backfill_journal_locked(rep, limit, journal) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, fcntl, json, math, os, pathlib, time, trading
+
+## `trading/direction/vote_log.py`
+_Write-only per-candidate VOTE LOG — every lens's simultaneous opinion, one JSONL row._
+- **functions:** `_path() -> Path`; `_enabled() -> bool`; `log() -> None`
+- **imports:** __future__, json, os, pathlib, time, trading
 
 ## `trading/evidence.py`
 _trading/evidence.py — W3 evidence lane: baselines, counterfactuals, autonomy gates,_

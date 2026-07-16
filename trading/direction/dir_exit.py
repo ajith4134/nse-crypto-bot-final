@@ -39,6 +39,29 @@ from __future__ import annotations
 import os
 
 
+import threading
+import time
+
+_CLAIM_LOCK = threading.Lock()
+_CLAIM_LAST: dict = {}                 # (symbol, segment) -> (direction, ts)
+_CLAIM_HEARTBEAT_S = 900.0             # re-claim an UNCHANGED opinion at most every 15 min
+
+
+def _should_claim(symbol: str, segment: str, direction: str) -> bool:
+    """One ledger claim per OPINION, not per tick: claim when the direction changed for this
+    (symbol, segment), or when the unchanged opinion is older than the 15-min heartbeat."""
+    now = time.time()
+    with _CLAIM_LOCK:
+        prev = _CLAIM_LAST.get((symbol, segment))
+        if prev is not None and prev[0] == direction and now - prev[1] < _CLAIM_HEARTBEAT_S:
+            return False
+        _CLAIM_LAST[(symbol, segment)] = (direction, now)
+        if len(_CLAIM_LAST) > 4096:                    # bound the cache (whole-universe scans)
+            for k in list(_CLAIM_LAST)[:1024]:
+                _CLAIM_LAST.pop(k, None)
+        return True
+
+
 def _env_f(name: str, default: float) -> float:
     try:
         return float(os.environ.get(name, "") or default)
@@ -171,7 +194,13 @@ def evaluate(*, symbol: str, direction: str, market: str = "CRYPTO",
         res["cal_opposing"] = cal_opposing
         thr = _env_f("DIR_EXIT_STRENGTH", 0.6)
         # shadow claim: the read's current direction, so "dir_exit" earns a hit-rate.
-        if record and r["direction"] in ("LONG", "SHORT"):
+        # B1 churn fix (2026-07-16): evaluate() runs per open position per tick, and recording
+        # every call made dir_exit 67% of ALL ledger volume with the SAME opinion re-claimed
+        # dozens of times inside one label window (plus chop-jitter flip-flops: within-5-min
+        # self-consistency measured 0.694). Claim only when the read's direction CHANGES for
+        # this symbol, or on a 15-minute heartbeat — one opinion, one claim.
+        if record and r["direction"] in ("LONG", "SHORT") and _should_claim(
+                symbol, segment, r["direction"]):
             try:
                 from trading.direction import truth_ledger
                 truth_ledger.record(symbol=symbol, market=market, segment=segment,

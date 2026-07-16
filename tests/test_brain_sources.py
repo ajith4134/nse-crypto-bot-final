@@ -117,3 +117,67 @@ class TestBrainSources(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHintRelativeRecordingFix(unittest.TestCase):
+    """B1 fix (2026-07-16): hypothesis/experience biases score the HINTED side; the emitted
+    p_up must be converted to an absolute direction. Before the fix, `hypothesis` recorded
+    LONG 100% of the time (measured on 903 ledger rows)."""
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        import trading.state as state
+        self._orig = state.STATE_DIR
+        state.STATE_DIR = pathlib.Path(self._tmp)
+        for k, v in {"BRAIN_SOURCES": "1", "BRAIN_SRC_HYPOTHESIS": "1",
+                     "BRAIN_SRC_EXPERIENCE": "0", "BRAIN_SRC_NEWS": "0",
+                     "BRAIN_SRC_RIVER": "0", "BRAIN_SRC_WORLDMODEL": "0",
+                     "BRAIN_SRC_CONCEPT": "0"}.items():
+            os.environ[k] = v
+        from trading.direction import brain_sources as bs
+        self.bs = bs
+        bs._CACHE.clear()
+
+    def tearDown(self):
+        import trading.state as state
+        state.STATE_DIR = self._orig
+        self.bs._CACHE.clear()
+
+    def _with_support(self, bias, side=None):
+        class _Led:
+            def support(self, ctx):
+                # side=None models GENERIC hypotheses (same answer for both directions —
+                # must be gated out); side="LONG"/"SHORT" models hypotheses that genuinely
+                # distinguish the sides (only the favored side gets support)
+                if side is not None and ctx.get("direction") != side:
+                    return {"bias": 0.0, "n": 0, "statements": []}
+                return {"bias": bias, "n": 3, "statements": []}
+        import time as _t
+        self.bs._CACHE["hypothesis"] = (_Led(), _t.time())
+
+    def test_short_hint_with_positive_support_votes_short(self):
+        self._with_support(0.8, side="SHORT")     # "the hinted side wins" — hint is SHORT
+        out = dict(self.bs.collect("BTC/USDT:USDT", market="CRYPTO", segment="futures",
+                                   direction_hint="SHORT", record=False))
+        self.assertIn("hypothesis", out)
+        self.assertLess(out["hypothesis"], 0.5)   # absolute p_up must say DOWN
+
+    def test_long_hint_with_positive_support_votes_long(self):
+        self._with_support(0.8, side="LONG")
+        out = dict(self.bs.collect("BTC/USDT:USDT", market="CRYPTO", segment="futures",
+                                   direction_hint="LONG", record=False))
+        self.assertGreater(out["hypothesis"], 0.5)
+
+    def test_no_hint_emits_nothing(self):
+        self._with_support(0.8, side="LONG")      # relative support needs a hint to interpret
+        out = dict(self.bs.collect("BTC/USDT:USDT", market="CRYPTO", segment="futures",
+                                   direction_hint=None, record=False))
+        self.assertNotIn("hypothesis", out)
+
+    def test_direction_agnostic_support_abstains(self):
+        # generic hypotheses (same support both sides) carried no direction info yet used to
+        # emit a constant ~0.976 vote — the side-differential gate must silence them
+        self._with_support(0.8, side=None)
+        out = dict(self.bs.collect("BTC/USDT:USDT", market="CRYPTO", segment="futures",
+                                   direction_hint="LONG", record=False))
+        self.assertNotIn("hypothesis", out)

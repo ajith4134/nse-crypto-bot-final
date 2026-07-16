@@ -448,8 +448,15 @@ class BrainExecutor:
                         and _reads:                       # CONTESTS the preliminary lean (LLM — skipped
                     from trading.brain import debate_gate as _dbg   # in the fast breadth lane)
                     _prelim = "long" if (sum(p for _, p in _reads) / len(_reads)) >= 0.5 else "short"
-                    _dc = _dbg.get_debate_gate().contest(
-                        _psym, _prelim, features=_asig.feature_dict(_col["signals"]))
+                    _dfeats = _asig.feature_dict(_col["signals"])
+                    try:                                  # B2 fix: past lessons finally get a reader
+                        from trading.brain import lesson_recall as _lr
+                        _lsn = _lr.recent(_psym, k=2)
+                        if _lsn:
+                            _dfeats = {**_dfeats, "past_lessons": " | ".join(_lsn)[:400]}
+                    except Exception:
+                        pass
+                    _dc = _dbg.get_debate_gate().contest(_psym, _prelim, features=_dfeats)
                     if _dc.get("direction") != "neutral":
                         _reads.append(("debate", _dc["p_up"]))
             except Exception:
@@ -531,6 +538,13 @@ class BrainExecutor:
                              segment=self.segment or "futures", regime=regime,
                              symbol=_psym, coverage=_col["coverage"])
             out["_signals"] = _col.get("signals")     # reused by the lane's record batch (no 2nd collect)
+            try:                                      # write-only vote log (B1 diversity study)
+                from trading.direction import vote_log as _vlog
+                _vlog.log(symbol=_psym, market="CRYPTO", segment=self.segment or "futures",
+                          lane="breadth", reads=_reads, regime=regime,
+                          decided=(out.get("direction") or "abstain"))
+            except Exception:
+                pass
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
                 _side = out["direction"].upper()
                 # a gate-clearing strategy that AGREES with the fused side DRIVES → tag = its name
@@ -961,6 +975,14 @@ class BrainExecutor:
                         _ldo = _ld.decide(_reads, market="CRYPTO",
                                           segment=self.segment or "futures", regime=_lreg,
                                           symbol=sym)
+                        try:                          # write-only vote log (B1 diversity study)
+                            from trading.direction import vote_log as _vlog
+                            _vlog.log(symbol=sym, market="CRYPTO",
+                                      segment=self.segment or "futures", lane="selective",
+                                      reads=_reads, regime=_lreg,
+                                      decided=(_ldo.get("direction") or "abstain"))
+                        except Exception:
+                            pass
                         if not _ldo.get("abstained") and _ldo.get("direction") in ("long", "short"):
                             _lact = _ldo["direction"].upper()
                             try:

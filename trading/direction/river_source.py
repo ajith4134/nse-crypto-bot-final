@@ -2,9 +2,14 @@
 
 A drift-aware River model (StandardScaler → LogisticRegression) that predicts P(price up) from
 the SAME ``{m_<name>: p_up}`` feature dict the direction_model (proposal B) uses — so there is no
-train/serve skew. It is bootstrapped once from the closed-trade journal (each trade's decision
-snapshot gives the features; its realized outcome gives the label ``up = (direction==LONG) ==
-(net_pnl>0)``), then keeps learning online as trades close.
+train/serve skew. It is bootstrapped from the closed-trade journal and then keeps learning online
+as trades close via :func:`learn_from_trade` (called from freqtrade_ingest._learn_from_close).
+
+Label honesty (B2 fix 2026-07-16): the label is the realized PRICE direction
+(``exit_price > entry_price``), never the P&L sign — net P&L includes fees, which flip the label
+on small winners (measured: the system was above chance on direction while losing money, so
+P&L-sign labels carried systematic noise and the model latched 96.7% one-sided). Rows without
+both prices are skipped rather than approximated.
 
 Exposed to :mod:`trading.direction.brain_sources` as the ``river_online`` source. Like every
 other lens it is fused by measured edge on the Truth Ledger, so it starts weightless and earns
@@ -127,10 +132,56 @@ def predict(features: dict) -> float | None:
     return round(float(min(1.0, max(0.0, p_up))), 4)
 
 
+def _row_features(r: dict) -> dict:
+    """Feature dict from a closed-trade journal row — shared by bootstrap and the live
+    close-path learner so train == serve == learn features."""
+    snap = r.get("decision_snapshot") or {}
+    mc = snap.get("market_context") or {} if isinstance(snap, dict) else {}
+    feats = _features_from_filters(mc.get("filters") or {})
+    # add cheap numeric context features when present (same names live can supply)
+    for ck in ("pct_change_24h", "funding_rate_entry", "fear_greed_index"):
+        v = r.get(ck, mc.get(ck) if isinstance(mc, dict) else None)
+        if v is not None:
+            try:
+                feats["c_" + ck] = float(v)
+            except (TypeError, ValueError):
+                pass
+    return feats
+
+
+def _price_up(r: dict):
+    """Realized price direction of a closed row: True/False, or None when unknowable
+    (missing/equal prices). Never inferred from P&L sign — fees flip small winners."""
+    try:
+        ep, xp = float(r.get("entry_price")), float(r.get("exit_price"))
+    except (TypeError, ValueError):
+        return None
+    if ep == xp or ep <= 0 or xp <= 0:
+        return None
+    return xp > ep
+
+
+def learn_from_trade(r: dict) -> bool:
+    """Online update from ONE closed trade row (journal schema dict). This is the live
+    learning path the model was always documented to have (B2 found it had no caller).
+    Returns True iff a sample was actually learned. Never raises."""
+    try:
+        up = _price_up(r)
+        if up is None:
+            return False
+        feats = _row_features(r)
+        if not feats:
+            return False
+        learn(feats, up)
+        return True
+    except Exception:
+        return False
+
+
 def train_from_journal(max_rows: int = 4000) -> dict:
     """Bootstrap the model from closed trades: features from decision_snapshot.market_context
-    .filters, label ``up = (direction==LONG) == (net_pnl>0)``. Idempotent-ish (adds samples).
-    Returns {learned, scanned}. Never raises."""
+    .filters, label = realized price direction (rows without prices are skipped).
+    Idempotent-ish (adds samples). Returns {learned, scanned}. Never raises."""
     learned = scanned = 0
     try:
         from trading import state
@@ -139,26 +190,10 @@ def train_from_journal(max_rows: int = 4000) -> dict:
         for r in list(rows)[-max_rows:]:
             scanned += 1
             try:
-                d = str(r.get("direction", "")).upper()
-                pnl = r.get("net_pnl")
-                if d not in ("LONG", "SHORT") or pnl is None or float(pnl) == 0.0:
+                if str(r.get("direction", "")).upper() not in ("LONG", "SHORT"):
                     continue
-                snap = r.get("decision_snapshot") or {}
-                mc = snap.get("market_context") or {} if isinstance(snap, dict) else {}
-                feats = _features_from_filters(mc.get("filters") or {})
-                # add cheap numeric context features when present (same names live can supply)
-                for ck in ("pct_change_24h", "funding_rate_entry", "fear_greed_index"):
-                    v = r.get(ck, mc.get(ck) if isinstance(mc, dict) else None)
-                    if v is not None:
-                        try:
-                            feats["c_" + ck] = float(v)
-                        except (TypeError, ValueError):
-                            pass
-                if not feats:
-                    continue
-                up = (d == "LONG") == (float(pnl) > 0.0)
-                learn(feats, up)
-                learned += 1
+                if learn_from_trade(r):
+                    learned += 1
             except Exception:
                 continue
     except Exception:
