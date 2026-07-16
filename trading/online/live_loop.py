@@ -1553,6 +1553,20 @@ class LiveTradeLoop:
             "market_context": ot.get("ctx"),
             "psychology": ot.get("psych"),
         }
+        # The entry microstructure vector (2026-07-16, step 1 of the quality-gate rebuild). The gate
+        # it will replace is a measured no-op with ZERO correlation to profit, and its replacement —
+        # a calibrated forecast of THIS trade's outcome — cannot be fitted from what we recorded
+        # before today. Field choice is evidence-driven (research/gate-rebuild/): book STATE leads,
+        # order flow is demoted, and liquidity_regime + clock_phase are recorded as the CONDITIONERS
+        # a flat pooled model was missing. RAM-only, so it costs the decision path no network call;
+        # a fault here must never block a trade.
+        try:
+            from trading.brain.entry_vector import entry_vector
+            ev = entry_vector(symbol, market=market)
+            if ev:
+                snap["entry_vector"] = ev
+        except Exception:
+            pass
         return _safe(snap)
 
     def _close_trade(self, market, symbol, price, mode) -> dict:

@@ -38,6 +38,15 @@ class TestOrderFlow(unittest.TestCase):
         self._hyd.start()
         self.addCleanup(self._hyd.stop)
         self.addCleanup(ui_market._STORE.clear)
+        # isolate from the LIVE UI-only governor (2026-07-16): ui_data.enabled() reads the durable
+        # state file trading/state/ui_only_mode.json, which the running brain FLIPS BY ITSELF. When
+        # it is on, features() returns before the /futures/data steps and this suite's REST
+        # assertions vanish (KeyError: crowd_long_pct) — a green/red result that depends on what
+        # production happened to decide a minute ago. This suite tests the mirror+REST path, so the
+        # flag is pinned OFF here rather than inherited.
+        self._uio = mock.patch.object(of, "_ui_only", lambda: False)
+        self._uio.start()
+        self.addCleanup(self._uio.stop)
         # seed the mirror with a funding + two liquidations for BTCUSDT.
         # get_mirror() is a process-wide SINGLETON: since RAM became primary (2026-07-16) this
         # seed OUTRANKS any capture, so leaving it behind silently breaks other suites' capture
