@@ -2107,7 +2107,7 @@ _Regression: entry_meta.lookup must parse the sidecar file ONCE per file change.
 
 ## `tests/test_entry_vector.py`
 _tests/test_entry_vector.py — the entry-time microstructure vector (gate-rebuild step 1)._
-- **classes:** TestClockPhase, TestLiquidityRegime, TestEntryVector
+- **classes:** TestClockPhase, TestLiquidityRegime, TestEntryVector, TestTier5LabelAndCost, TestEntryVectorExtras, TestCoverage
 - **imports:** time, trading.brain, trading.broker_sense.binance_stream, unittest
 
 ## `tests/test_evidence_lane.py`
@@ -3181,7 +3181,7 @@ _trading/brain/dreamer.py — Counterfactual Dream-Trainer (invented 2026-07-10)
 
 ## `trading/brain/entry_vector.py`
 _trading/brain/entry_vector.py — the microstructure feature vector recorded AT ENTRY._
-- **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `clock_phase(now) -> dict`; `liquidity_regime(spread_bps, depth_q) -> str | None`; `_book_state(sym) -> dict`; `_flow(sym) -> dict`; `_carry(sym) -> dict`; `_volatility(sym) -> dict`; `entry_vector(symbol) -> dict`
+- **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `clock_phase(now) -> dict`; `liquidity_regime(spread_bps, depth_q) -> str | None`; `_book_state(sym) -> dict`; `_flow(sym) -> dict`; `_carry(sym) -> dict`; `_volatility(sym) -> dict`; `_impact_inputs(sym) -> dict`; `_cross_asset(sym) -> dict`; `barriers(price, sigma) -> dict`; `costs(sym) -> dict`; `entry_vector(symbol) -> dict`
 - **imports:** __future__, os, time
 
 ## `trading/brain/entryexit.py`

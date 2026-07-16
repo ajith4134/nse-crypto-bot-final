@@ -215,27 +215,154 @@ def _volatility(sym: str) -> dict:
     return out
 
 
-def entry_vector(symbol: str, *, market: str = "crypto") -> dict:
-    """The full entry-time microstructure vector for `symbol`. RAM-only; never raises.
+def _impact_inputs(sym: str) -> dict:
+    """Tier-5: the three inputs the FITTED square-root impact law needs, plus the trailing stats.
+
+    Research [52]: on Binance BTC/USD perps the law holds with **delta = 0.59** (not the textbook 0.5)
+    as I = k*sigma_T*(Q/V_T)^delta, over a T = 1h trailing window. So slippage needs intended size Q
+    (added by the caller — only the executor knows it), trailing 1h volatility sigma_T, and trailing
+    1h volume V_T. [19] warns that the naive alternative our 20-level book invites — walking the book
+    — UNDER-predicts impact, so the law is the right tool. [18] delta is regime-dependent (it collapses
+    in thin books / liquidation cascades), so the regime fields are recorded alongside, and delta must
+    be re-fit on OUR venue rather than imported.
+    """
+    out: dict = {"ev_sigma_1h": None, "ev_volume_1h": None, "ev_impact_delta_ref": 0.59}
+    try:
+        import math
+        from trading.broker_sense import binance_stream as bs
+        rows = bs.ohlcv(sym, "5m", 12)                     # ~1h of 5m bars from the RAM mirror
+        if rows and len(rows) >= 6:
+            closes = [float(r[4]) for r in rows if r and r[4]]
+            rets = [math.log(closes[i] / closes[i - 1]) for i in range(1, len(closes))
+                    if closes[i] > 0 and closes[i - 1] > 0]
+            if len(rets) >= 5:
+                mu = sum(rets) / len(rets)
+                out["ev_sigma_1h"] = round((sum((r - mu) ** 2 for r in rets)
+                                            / (len(rets) - 1)) ** 0.5, 8)
+        t = bs.get_mirror().ticker(sym)
+        if t and t.get("quote_volume") is not None:
+            # 24h quote volume / 24 = a crude 1h estimate. Named honestly: it is NOT the
+            # recency-weighted V_T the paper fits, so a later fit must re-derive it.
+            out["ev_volume_1h"] = round(float(t["quote_volume"]) / 24.0, 2)
+    except Exception:
+        pass
+    return out
+
+
+def _cross_asset(sym: str) -> dict:
+    """Research [128]: cross-asset OFI adds nothing CONTEMPORANEOUSLY but DOES raise out-of-sample R²
+    when FORECASTING — so each coin's row carries BTC/ETH flow. [129]: the structure is sparse (LASSO),
+    which is why this records the two majors only and not all 200 coins."""
+    out: dict = {"ev_btc_ofi_n": None, "ev_eth_ofi_n": None, "ev_btc_ret_5m": None}
+    try:
+        from trading.broker_sense import book_ofi
+        for tag, ref in (("ev_btc_ofi_n", "BTCUSDT"), ("ev_eth_ofi_n", "ETHUSDT")):
+            if ref == sym:
+                continue                                    # don't duplicate a coin against itself
+            s = book_ofi.series(ref)
+            if s is not None and not s.empty:
+                v = s.iloc[-1].get("of_ofi_n")
+                if v is not None and v == v:
+                    out[tag] = float(v)
+    except Exception:
+        pass
+    try:
+        from trading.broker_sense.binance_stream import get_mirror
+        t = get_mirror().ticker("BTCUSDT")
+        if t and t.get("pct_change") is not None:
+            out["ev_btc_ret_5m"] = float(t["pct_change"])   # regime context: the whole market's tape
+    except Exception:
+        pass
+    return out
+
+
+def barriers(price: float | None, sigma: float | None, *, pt_mult: float = 1.0,
+             sl_mult: float = 1.0, vertical_s: int = 14_400) -> dict:
+    """Tier-5: the triple-barrier spec, recorded so the LABELS ARE REPRODUCIBLE.
+
+    Research [14]: barriers are the rolling std of log returns x a multiple, plus a vertical time
+    barrier — so an entry row must carry the point-in-time volatility, the multiples, the resulting
+    upper/lower PRICE levels, and the vertical-barrier timestamp. [36][37]: sample-uniqueness weights
+    additionally need the entry timestamp AND the eventual barrier-touch time t1 (filled at exit, not
+    here) — overlapping labels are non-IID and must be down-weighted, so without these a future fit
+    cannot even weight its samples correctly.
+    """
+    out: dict = {"ev_pt_mult": pt_mult, "ev_sl_mult": sl_mult,
+                 "ev_vertical_barrier_s": vertical_s,
+                 "ev_vertical_barrier_ts": round(time.time() + vertical_s, 3),
+                 "ev_pt_price": None, "ev_sl_price": None}
+    try:
+        if price and sigma and price > 0 and sigma > 0:
+            out["ev_pt_price"] = round(price * (1.0 + pt_mult * sigma), 10)
+            out["ev_sl_price"] = round(price * (1.0 - sl_mult * sigma), 10)
+    except Exception:
+        pass
+    return out
+
+
+def costs(sym: str, *, size_usd: float | None = None, entry_type: str = "taker") -> dict:
+    """Tier-5: the net-edge cost terms. Research [72]: a fee-only model inflates annualized return
+    from 2.726 to 4.308 (+58%) and Sharpe 2.049 -> 2.506 versus a fully-costed run — fees AND slippage
+    AND funding carry, or the target is a fiction. [43]: at just 0.3 ticks of slippage most tested
+    configurations went NEGATIVE. [89][124]: the fill assumption can FLIP the sign of the result —
+    taker profited through the 2025-10-10 flash crash while maker took catastrophic adverse selection
+    — so the intended fill side is recorded, not assumed.
+    """
+    out: dict = {"ev_entry_type": entry_type, "ev_size_usd": size_usd,
+                 "ev_fee_bps": None, "ev_slippage_bps_est": None, "ev_participation": None}
+    try:
+        # Binance USD-M perp defaults; env-overridable rather than hardcoded per CONVENTIONS.
+        out["ev_fee_bps"] = float(os.getenv("EV_TAKER_FEE_BPS", "4.5") or 4.5) \
+            if entry_type == "taker" else float(os.getenv("EV_MAKER_FEE_BPS", "1.8") or 1.8)
+        imp = _impact_inputs(sym)
+        sig, vol = imp.get("ev_sigma_1h"), imp.get("ev_volume_1h")
+        if size_usd and sig and vol and vol > 0:
+            part = float(size_usd) / float(vol)             # participation rate Q/V_T
+            out["ev_participation"] = round(part, 10)
+            # I = k * sigma_T * (Q/V_T)^delta  — the FITTED Binance-perp form [52], k=1 pending our
+            # own re-fit ([17][18]: the exponent is venue- and regime-specific; do not trust 0.5).
+            out["ev_slippage_bps_est"] = round(sig * (part ** 0.59) * 1e4, 4)
+    except Exception:
+        pass
+    return out
+
+
+def entry_vector(symbol: str, *, market: str = "crypto", price: float | None = None,
+                 size_usd: float | None = None, entry_type: str = "taker") -> dict:
+    """The full entry-time vector for `symbol`. RAM-only; never raises.
+
+    `price`/`size_usd`/`entry_type` come from the CALLER (only the executor knows the intended size
+    and fill side) and unlock the Tier-5 label + cost fields — without them the row still records
+    every market-state field, but a future fit cannot reconstruct the labels or the net edge.
 
     Returns {} when disabled or non-crypto. Missing inputs are honest Nones. `ev_ts` + the per-block
-    age fields let a later fit audit staleness rather than assume freshness.
+    age fields let a later fit audit staleness rather than assume freshness [48].
     """
     if not enabled() or str(market).lower() != "crypto":
         return {}
     sym = _norm(symbol)
     if not sym:
         return {}
-    out: dict = {"ev_ts": round(time.time(), 3), "ev_symbol": sym}
+    t0 = time.time()
+    out: dict = {"ev_ts": round(t0, 3), "ev_symbol": sym}
     try:
-        out.update(_book_state(sym))          # Tier-2 — the strongest predictor
-        out.update(_flow(sym))                # Tier-3 — demoted, kept for the horizon test
+        out.update(_book_state(sym))          # Tier-2 — the strongest predictor [62][135]
+        out.update(_flow(sym))                # Tier-3 — demoted [61]; kept for the horizon test
         out.update(_carry(sym))               # Tier-4
-        out.update(_volatility(sym))          # Tier-1 conditioner + label scale
-        out.update(clock_phase())             # Tier-1 conditioner
-        # Tier-1: the regime the flow features are only meaningful WITHIN
+        out.update(_volatility(sym))          # Tier-1 conditioner + label scale [14][34]
+        out.update(clock_phase())             # Tier-1 conditioner [66][67][68]
+        out.update(_cross_asset(sym))         # [128] cross-asset OFI helps FORECASTING (not impact)
+        out.update(_impact_inputs(sym))       # Tier-5 [52] square-root law inputs
+        out.update(costs(sym, size_usd=size_usd, entry_type=entry_type))   # Tier-5 [72][43][89]
+        out.update(barriers(price if price is not None else out.get("ev_mid"),
+                            out.get("ev_sigma_logret_5m")))                # Tier-5 [14][36]
+        # Tier-1: the regime the flow features are only meaningful WITHIN [63][136]
         out["ev_liquidity_regime"] = liquidity_regime(out.get("ev_spread_bps"),
                                                       out.get("ev_depth_bid_20"))
+        # [48]: feed vs order latency must be separable — record when WE finished reading, so a fit
+        # can measure how stale the inputs already were at decision time instead of assuming zero.
+        out["ev_build_ms"] = round((time.time() - t0) * 1000.0, 2)
+        out["ev_decision_ts"] = round(time.time(), 3)
         filled = sum(1 for k, v in out.items() if k.startswith("ev_") and v is not None)
         out["ev_filled"] = filled                       # coverage meter — honest sample-size signal
     except Exception:

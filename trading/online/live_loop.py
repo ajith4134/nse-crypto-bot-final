@@ -1560,9 +1560,19 @@ class LiveTradeLoop:
         # order flow is demoted, and liquidity_regime + clock_phase are recorded as the CONDITIONERS
         # a flat pooled model was missing. RAM-only, so it costs the decision path no network call;
         # a fault here must never block a trade.
+        # price/size/fill-side come from HERE because only the executor knows them, and without them
+        # the Tier-5 label + cost fields cannot be built: barriers need the entry price [14], and the
+        # square-root slippage term needs the intended notional Q [52]. Fee-only costing overstates
+        # returns by ~58% [72], and the maker/taker assumption can flip the sign of the result [89].
         try:
             from trading.brain.entry_vector import entry_vector
-            ev = entry_vector(symbol, market=market)
+            _sz = None
+            try:
+                _sz = abs(float(price) * float(size)) if price and size else None
+            except (TypeError, ValueError):
+                _sz = None
+            ev = entry_vector(symbol, market=market, price=price, size_usd=_sz,
+                              entry_type=str(ot.get("entry_type") or "taker"))
             if ev:
                 snap["entry_vector"] = ev
         except Exception:

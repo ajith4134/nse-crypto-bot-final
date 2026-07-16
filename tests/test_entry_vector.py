@@ -132,6 +132,85 @@ class TestEntryVector(unittest.TestCase):
         self.assertEqual(v["ev_gofi"], -277.7)
         self.assertEqual(v["ev_book_n"], 362.0)
 
+class TestTier5LabelAndCost(unittest.TestCase):
+    """Tier-5 is what makes the data FITTABLE: without barriers the triple-barrier labels are
+    irreproducible [14][36], and without costs the target is a fiction — a fee-only model inflates
+    annualized return by ~58% [72] and 0.3 ticks of slippage flipped most configs negative [43]."""
+
+    def test_barriers_are_volatility_scaled_and_reproducible(self):
+        b = ev.barriers(price=100.0, sigma=0.01, pt_mult=2.0, sl_mult=1.0, vertical_s=3600)
+        self.assertAlmostEqual(b["ev_pt_price"], 100.0 * (1 + 2.0 * 0.01))   # sigma x multiple [14]
+        self.assertAlmostEqual(b["ev_sl_price"], 100.0 * (1 - 1.0 * 0.01))
+        self.assertEqual(b["ev_pt_mult"], 2.0)
+        self.assertEqual(b["ev_vertical_barrier_s"], 3600)
+        self.assertGreater(b["ev_vertical_barrier_ts"], time.time())        # the t1 deadline
+
+    def test_barriers_without_volatility_are_none_not_guessed(self):
+        b = ev.barriers(price=100.0, sigma=None)
+        self.assertIsNone(b["ev_pt_price"])
+        self.assertIsNone(b["ev_sl_price"])
+
+    def test_costs_record_the_fill_side_that_can_flip_the_sign(self):
+        """[89][124]: same signal, taker profited through the flash crash while maker took
+        catastrophic adverse selection. The assumption is recorded, never assumed."""
+        t = ev.costs("BTCUSDT", size_usd=1000.0, entry_type="taker")
+        m = ev.costs("BTCUSDT", size_usd=1000.0, entry_type="maker")
+        self.assertEqual(t["ev_entry_type"], "taker")
+        self.assertEqual(m["ev_entry_type"], "maker")
+        self.assertGreater(t["ev_fee_bps"], m["ev_fee_bps"])       # taker pays more
+        self.assertEqual(t["ev_size_usd"], 1000.0)
+
+    def test_slippage_uses_the_fitted_059_exponent_not_the_textbook_05(self):
+        """[52]: on Binance perps the square-root law fits delta=0.59, not 0.5. [19]: walking the
+        book (the naive alternative our 20-level snapshot invites) UNDER-predicts impact."""
+        with mock.patch.object(ev, "_impact_inputs",
+                               return_value={"ev_sigma_1h": 0.01, "ev_volume_1h": 1_000_000.0,
+                                             "ev_impact_delta_ref": 0.59}):
+            c = ev.costs("BTCUSDT", size_usd=10_000.0)
+        part = 10_000.0 / 1_000_000.0
+        self.assertAlmostEqual(c["ev_participation"], part, 10)
+        self.assertAlmostEqual(c["ev_slippage_bps_est"], 0.01 * (part ** 0.59) * 1e4, 3)
+
+    def test_entry_vector_threads_caller_price_and_size_into_tier5(self):
+        m = get_mirror()
+        m._book["BTCUSDT"] = {"bids": [[100.0, 5.0]], "asks": [[101.0, 3.0]], "ts": time.time()}
+        self.addCleanup(m._book.pop, "BTCUSDT", None)
+        v = ev.entry_vector("BTC/USDT:USDT", price=100.5, size_usd=5000.0, entry_type="maker")
+        self.assertEqual(v["ev_entry_type"], "maker")
+        self.assertEqual(v["ev_size_usd"], 5000.0)
+        self.assertIn("ev_vertical_barrier_ts", v)
+        self.assertIn("ev_decision_ts", v)                          # [48] staleness audit
+        self.assertIsNotNone(v["ev_build_ms"])
+
+
+class TestEntryVectorExtras(unittest.TestCase):
+    def test_cross_asset_ofi_is_recorded_for_forecasting(self):
+        """[128]: cross-asset OFI adds nothing contemporaneously but DOES raise OOS R2 when
+        forecasting. [129]: sparse — the two majors only, never all 200 coins."""
+        import pandas as pd
+        from trading.broker_sense import book_ofi
+        fake = pd.DataFrame([{"ts": time.time(), "of_ofi_n": 2.5}])
+        with mock.patch.object(book_ofi, "series", return_value=fake):
+            x = ev._cross_asset("SOLUSDT")
+        self.assertEqual(x["ev_btc_ofi_n"], 2.5)
+        self.assertEqual(x["ev_eth_ofi_n"], 2.5)
+
+    def test_cross_asset_does_not_duplicate_a_coin_against_itself(self):
+        import pandas as pd
+        from trading.broker_sense import book_ofi
+        fake = pd.DataFrame([{"ts": time.time(), "of_ofi_n": 2.5}])
+        with mock.patch.object(book_ofi, "series", return_value=fake):
+            x = ev._cross_asset("BTCUSDT")
+        self.assertIsNone(x["ev_btc_ofi_n"])          # BTC vs BTC is not a cross-asset feature
+
+
+class TestCoverage(unittest.TestCase):
+    def setUp(self):
+        m = get_mirror()
+        m._book["BTCUSDT"] = {"bids": [[100.0 - i, 2.0] for i in range(20)],
+                              "asks": [[101.0 + i, 1.0] for i in range(20)], "ts": time.time()}
+        self.addCleanup(m._book.pop, "BTCUSDT", None)
+
     def test_coverage_meter_counts_filled_fields(self):
         v = ev.entry_vector("BTC/USDT:USDT")
         self.assertGreater(v["ev_filled"], 8)
