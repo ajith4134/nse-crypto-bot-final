@@ -613,11 +613,6 @@ class BrainExecutor:
                 # AFTER a REST round-trip, so the lane paid full latency to be told no.
                 #
                 # 1) SPOT CANNOT SHORT. A SHORT read on spot means "do not buy" — so SKIP it.
-                #    Never flip it to long: that would fabricate a direction the brain did not
-                #    choose, and this lane's whole purpose is to record what the brain believed.
-                if _side == "SHORT" and (self.segment or "futures") == "spot":
-                    rep["skipped"] += 1
-                    continue
                 # ONE BAD SYMBOL MUST NOT KILL THE CYCLE (root cause of "futures never opens",
                 # 2026-07-16). place_order -> engine_client._check RAISES FreqtradeError on any
                 # API-level refusal. This loop caught the RETURNED refusal ({"ok": False}, our own
