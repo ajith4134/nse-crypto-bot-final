@@ -1,0 +1,1462 @@
+# Workflow research journal — wf_57b21e69-3a8
+
+## 1. entry-1
+
+```
+{
+  "type": "started",
+  "key": "v2:60ee63643c7497c2e68a8480e2a9b29fe472e62259da6f3c117edc3d1a7ca69a",
+  "agentId": "ad36862c756999d75"
+}
+```
+
+## 2. entry-2
+
+```
+{
+  "question": "What makes a crypto perpetual-futures trade-entry edge model ultra-advanced and reliable BEYOND formulas \u2014 (1) features/predictors with documented out-of-sample power (microstructure, cross-sectional/context, regime, derived/path-dependent), (2) data we may not have and whether it's worth adding, (3) model architectures with real evidence for LOB/tabular finance and what actually beats a well-tuned GBM, (4) target/label design and horizon selection, (5) feature selection/attribution that survives multiple testing, (6) how these pipelines silently fail \u2014 given true L2 20-level book @500ms for 200 coins, aggTrade, OI/long-short 10min, funding, liquidations, 5m bars, CPU-only, and a current gate (in-sample backtest Sharpe) with zero correlation to realized profit (-0.031, n=260, 29.2% win). Rank by evidence strength and state exactly which fields to snapshot AT ENTRY.",
+  "summary": "The question spans four separable literatures \u2014 microstructure feature engineering, model-architecture benchmarks, labeling/validation methodology, and crypto-native alt-data \u2014 plus a practitioner layer explaining why backtest metrics decorrelate from live P&L. Each angle targets one literature with its own canonical sources so together they cover features, data, models, targets, selection, and failure modes with minimal overlap.",
+  "angles": [
+    {
+      "label": "academic / microstructure predictors",
+      "query": "order book imbalance queue position depth slope order flow imbalance VPIN Amihud Roll Hasbrouck lambda out-of-sample predictive power short horizon returns crypto perpetual futures",
+      "rationale": "Targets peer-reviewed and arXiv microstructure work establishing which book/trade-derived predictors have documented OOS forecasting power at sub-minute-to-minute horizons \u2014 the core of section (1) and the basis for evidence ranking and entry-snapshot fields."
+    },
+    {
+      "label": "architectures / head-to-head benchmarks",
+      "query": "DeepLOB CNN-LSTM transformer versus gradient boosting LightGBM TabPFN benchmark limit order book prediction deep learning does not outperform trees tabular finance",
+      "rationale": "Attacks section (3): benchmark evidence for LOB deep nets vs well-tuned GBMs on tabular financial data, including the 'trees still win' literature, and which options are CPU-feasible."
+    },
+    {
+      "label": "labeling & validation methodology",
+      "query": "triple barrier labeling meta-labeling purged combinatorial cross-validation deflated Sharpe ratio MDA clustered feature importance Lopez de Prado backtest overfitting",
+      "rationale": "Covers sections (4) and (5) plus the broken gate itself: canonical methodology for target design, horizon/barrier choice, multiple-testing-robust feature importance, and metrics (DSR/PBO/CSCV) that should replace in-sample Sharpe."
+    },
+    {
+      "label": "crypto-native data sources worth adding",
+      "query": "crypto perpetual funding rate basis open interest liquidation cascade CVD cumulative volume delta exchange netflow options gamma exposure IV skew predictive power study",
+      "rationale": "Covers section (2) \u2014 evidence on signals already held (funding, OI, liquidations) vs potentially missing (CVD, liquidation heatmaps, options skew/GEX, on-chain flows), and whether published power justifies ingestion cost."
+    },
+    {
+      "label": "practitioner / skeptical failure modes",
+      "query": "why backtest Sharpe does not predict live trading PnL look-ahead bias feature leakage regime drift alpha decay quant practitioner postmortem crypto market making",
+      "rationale": "Covers section (6) and explains the observed -0.031 correlation: practitioner retrospectives on leakage, survivorship, non-stationarity, and the exact mechanics by which in-sample metrics decouple from realized profit."
+    }
+  ]
+}
+```
+
+## 3. entry-3
+
+```
+{
+  "type": "started",
+  "key": "v2:cfa5e3c494e4938c20a5cdafaac7441916305fd63cfae4dfbcfa3c075da35f7b",
+  "agentId": "a9e48564208b1836d"
+}
+```
+
+## 4. entry-4
+
+```
+{
+  "type": "started",
+  "key": "v2:66699024844585ae82ba1a139bfa4af6e4c1b73b6ee298d60214bae3b18fbad3",
+  "agentId": "aff58f53d29ca005e"
+}
+```
+
+## 5. entry-5
+
+```
+{
+  "type": "started",
+  "key": "v2:c8d2a3732039463ea38707f3cb11a57f1de8a09693a6c838ce7be53cb3af8c3c",
+  "agentId": "aa38e2349ccac8de5"
+}
+```
+
+## 6. entry-6
+
+```
+{
+  "type": "started",
+  "key": "v2:41cd9d354777d03bed3841f04d5498e18e697bcbd47baac7fb27b9ed296a5468",
+  "agentId": "ae0aa04c0cad132d7"
+}
+```
+
+## 7. entry-7
+
+```
+{
+  "type": "started",
+  "key": "v2:ae9d8c3f02056e9414377373fe51117b563b7f9c40c0c88c4d2443b6ba2a849c",
+  "agentId": "aa280d2f428b8ceb4"
+}
+```
+
+## 8. entry-8
+
+```
+{
+  "results": [
+    {
+      "url": "https://arxiv.org/abs/2112.13213v1",
+      "title": "Cont, Cucuringu & Zhang (2021) \u2014 Price Impact of Order Flow Imbalance: Multi-level, Cross-sectional and Forecasting",
+      "relevance": "high",
+      "snippet": "The anchor paper for evidence-ranking book-derived predictors. Establishes that (a) best-level OFI has a near-linear contemporaneous price-impact relation with slope inverse to depth; (b) deeper-level OFIs raise in-sample R2 but DEGRADE out-of-sample past a few levels \u2014 direct warning for a 20-level book; (c) multi-level OFIs are severely multicollinear (PC1 > 80% of variance), so the defensible construction is an *integrated OFI* (PCA-weighted across levels), not 20 raw level features; (d) lagged CROSS-ASSET OFI does improve forecasting of future returns even though contemporaneous cross-impact does not \u2014 supports snapshotting BTC/ETH OFI alongside the traded coin's. Entry-snapshot implication: integrated_ofi (levels 1-5, depth-normalized), best-level OFI, book depth at touch, plus BTC/ETH lagged OFI."
+    },
+    {
+      "url": "https://arxiv.org/html/2607.09230v1",
+      "title": "When Does Order Flow Matter? State-Dependent L2 Liquidity-State Transitions in Crypto Futures",
+      "relevance": "high",
+      "snippet": "Closest match to the exact data setup (L2 crypto perp futures, Binance-style). Core finding: OFI's predictive power is STATE-DEPENDENT \u2014 it conditions on the liquidity/regime state of the book rather than being a stationary signal, which is precisely why an unconditional in-sample-Sharpe gate produces ~zero correlation to realized profit. Argues for snapshotting the liquidity state (spread, depth, resilience/refill after impact) AT ENTRY as an interaction/gating variable rather than treating OFI as a standalone score. Supports regime tagging (HMM/change-point) as a first-class entry field."
+    },
+    {
+      "url": "https://stoye.economics.cornell.edu/docs/Easley_ssrn-4814346.pdf",
+      "title": "Easley et al. \u2014 Microstructure and Market Dynamics in Crypto Markets (Journal of Financial Markets)",
+      "relevance": "high",
+      "snippet": "Peer-reviewed crypto-specific evidence on which classical liquidity/toxicity metrics survive out of sample: tests Kyle lambda, VPIN, Roll measure/Roll impact, Amihud across major crypto assets and finds microstructure measures of liquidity and price discovery DO carry predictive power for price dynamics. VPIN is validated as a toxicity/adverse-selection warning (upper-quartile VPIN \u2192 outsized absolute returns), and is volume-clock updated so it adapts to information arrival \u2014 computable from aggTrade on CPU. Best single source for ranking lambda/VPIN/Roll above Amihud."
+    },
+    {
+      "url": "https://www.sciencedirect.com/science/article/pii/S0378426620303022",
+      "title": "Brauneis, Mestel, Riordan & Theissen \u2014 How to measure the liquidity of cryptocurrency markets? (Journal of Banking & Finance)",
+      "relevance": "high",
+      "snippet": "Critical negative result that prunes the feature list: the popular AMIHUD illiquidity ratio FAILS to capture time-series variation of liquidity in crypto because the volume-liquidity relation is positive in crypto (opposite of Amihud's 2002 equity assumption). Benchmarks low-frequency proxies against true high-frequency spread/depth measures and identifies which proxies actually track the intraday truth. Direct instruction: prefer realized spread / effective spread / depth-based measures over Amihud in the entry snapshot."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.00776v1",
+      "title": "Explainable Patterns in Cryptocurrency Microstructure",
+      "relevance": "medium",
+      "snippet": "Binance perpetual futures L2 books at ~1s with CatBoost (CPU-friendly GBM) \u2014 nearly the exact target stack. Finds feature-importance rankings are STABLE ACROSS ASSETS and map to microstructure theory (OFI, spread, adverse selection), which supports pooled cross-coin training over 200 coins rather than per-coin fitting. Relevant to section (3) as evidence a well-tuned GBM on well-formed microstructure features is the competitive baseline, and to section (5) for clustered/stable importance rather than raw SHAP ranks."
+    },
+    {
+      "url": "https://www.frontiersin.org/journals/blockchain/articles/10.3389/fbloc.2026.1811716/full",
+      "title": "Microstructure alpha: hierarchical learning and cross-asset transfer in cryptocurrency markets (Frontiers in Blockchain)",
+      "relevance": "medium",
+      "snippet": "Addresses the cross-sectional/context layer: cross-asset transfer of microstructure alpha across crypto pairs, hierarchical (cluster/sector) learning, and how BTC/ETH-anchored structure carries information to alts. Relevant to the 200-coin universe \u2014 supports snapshotting BTC/ETH beta, cluster momentum and dispersion at entry, and to whether pooled/hierarchical models beat per-symbol models. Newer and less independently replicated than the Cont and Easley work, hence medium."
+    }
+  ]
+}
+```
+
+## 9. entry-9
+
+```
+{
+  "type": "started",
+  "key": "v2:612d38ed22deea5d3fd5daf744c3f5fffe422a5c0eda518534e6c7806f42c4af",
+  "agentId": "ad11684a241d699c6"
+}
+```
+
+## 10. entry-10
+
+```
+{
+  "type": "started",
+  "key": "v2:af2819c5b6801511ff58c5e4b87fcff6c7a146f6f1a374ef7059f04908e65dd2",
+  "agentId": "ac30530df372d42cf"
+}
+```
+
+## 11. entry-11
+
+```
+{
+  "type": "started",
+  "key": "v2:65518f11c529790b7ae704709baa27b788099f111a6538b849ffd2a29f6d9b35",
+  "agentId": "a09a2c88fcc988cd9"
+}
+```
+
+## 12. entry-12
+
+```
+{
+  "type": "started",
+  "key": "v2:ee891db67f321ee99d95050d72e9c4cf575348591aa2cf04587213a643dce3d7",
+  "agentId": "a504e7e43b3ee8dc6"
+}
+```
+
+## 13. entry-13
+
+```
+{
+  "type": "started",
+  "key": "v2:a0c7f59ed401fed1ac07bef97b7a8578e80e22a8cd472e476fd1fea9f6cde1c4",
+  "agentId": "af981b9288d364e95"
+}
+```
+
+## 14. entry-14
+
+```
+{
+  "type": "started",
+  "key": "v2:80b7a02ce5eab98515571d1b55b155e6435df13387c26132b38bb3901192ff59",
+  "agentId": "a9ea3399c0d1e900c"
+}
+```
+
+## 15. entry-15
+
+```
+{
+  "results": [
+    {
+      "url": "https://www.garp.org/hubfs/Whitepapers/a1Z1W0000054x6lUAA.pdf",
+      "title": "The 10 Reasons Most Machine Learning Funds Fail \u2014 Marcos L\u00f3pez de Prado (GARP whitepaper)",
+      "relevance": "high",
+      "snippet": "The canonical practitioner taxonomy of exactly why ML pipelines with strong in-sample metrics produce zero or negative live edge. Names the specific mechanics behind a -0.031 backtest-Sharpe-to-profit correlation: the Sisyphus/one-path backtest paradigm, non-IID overlapping labels inflating apparent skill, chronological (non-purged) CV leakage, integer-differentiation destroying memory or stationarity, multiple-testing selection bias without deflation, and backtesting used as a research tool rather than a falsification tool. Directly covers section (6) and prescribes the fixes (triple-barrier labels, meta-labeling, sample uniqueness weighting, CPCV, DSR) that gate replacement for an in-sample Sharpe gate."
+    },
+    {
+      "url": "https://arxiv.org/pdf/2502.18625",
+      "title": "The Market Maker's Dilemma: Navigating the Fill Probability vs. Post-Fill Returns Trade-Off (Albers, Cucuringu, Howison, Shestopaloff)",
+      "relevance": "high",
+      "snippet": "Live trading experiment on Binance BTC perpetuals \u2014 the closest empirical analogue to the current setup (crypto perps, L2 book). Documents a *negative* correlation between maker fill likelihood and post-fill returns: the orders your backtest most confidently assumes it fills are precisely the ones with the worst realized returns. This is a first-principles explanation for near-zero or inverted backtest\u2192profit correlation that has nothing to do with the signal being wrong \u2014 the selection into fills is adversarial. Also shows front-of-queue vs back-of-queue position flips sign of returns regardless of queue size, making queue position an entry-snapshot field, not a backtest assumption."
+    },
+    {
+      "url": "https://github.com/nkaz001/hftbacktest",
+      "title": "hftbacktest \u2014 tick-level backtester with queue position, latency, and L2/L3 order book modeling (Binance/Bybit perps)",
+      "relevance": "high",
+      "snippet": "Practitioner tooling that operationalizes the fill-realism critique for exactly this data profile (crypto perps, full tick L2 book, Binance/Bybit examples, CPU-only, Rust/Python). Relevant because a backtest that assumes touch-fills or mid-quote fills will report a Sharpe uncorrelated with live PnL by construction; this models queue position, order latency, cancel/replace, and feed vs order latency asymmetry. Useful both as a replacement gate and as a source of entry-time fields to snapshot (queue-ahead volume, depth at touch, latency at decision time)."
+    },
+    {
+      "url": "https://www.davidhbailey.com/dhbpapers/deflated-sharpe.pdf",
+      "title": "The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting, and Non-Normality \u2014 Bailey & L\u00f3pez de Prado",
+      "relevance": "high",
+      "snippet": "The formal reason a raw in-sample Sharpe carries no information once many variants have been tried: expected max Sharpe under the null grows with the number of trials, so the selected strategy's Sharpe is mostly selection noise. Gives the closed-form correction using trial count, sample length, skew and kurtosis \u2014 and crypto perp return distributions are exactly the skewed/fat-tailed case where the non-normality adjustment bites hardest. Pairs with PBO (probability of backtest overfitting): if selected strategies underperform the median of trials out-of-sample, the selection process itself is the defect, which is a testable explanation for n=260 / 29.2% win rate."
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Purged_cross-validation",
+      "title": "Purged cross-validation (purging + embargo) \u2014 overview and rationale",
+      "relevance": "medium",
+      "snippet": "Concise statement of the leakage mechanic that most silently inflates in-sample scores in path-dependent labeling: when labels span a horizon (triple-barrier, MFE/MAE, time-to-barrier), train and test samples overlap in time and the model sees the test outcome through the label window. Purging removes overlapping-label observations and the embargo removes serial-correlation bleed after the test fold. Directly relevant to sections (4) and (6) \u2014 any horizon-based label on 500ms book data or 5m bars requires purge+embargo or the OOS number is fiction."
+    },
+    {
+      "url": "https://dev.to/tomasz_dobrowolski_35d32c/look-ahead-bias-in-volatility-backtests-why-most-vrp-percentiles-silently-cheat-and-how-to-fix-4jg0",
+      "title": "Look-Ahead Bias in Volatility Backtests \u2014 Why Most VRP Percentiles Silently Cheat (and How to Fix It)",
+      "relevance": "medium",
+      "snippet": "Practitioner post-mortem quantifying one very common and easy-to-miss leak: percentile/z-score/rank features computed over the full sample rather than expanding-window. Reports ~15\u201330% Sharpe inflation from full-sample percentiles vs walk-forward on a 5+ year window. Highly applicable here because regime/vol-percentile gating and cross-sectional ranking (breadth, dispersion, BTC-beta percentile, funding z-score) are all normalization features \u2014 each must be computed with data available at entry only. Gives the operational test: for every feature and filter, could this exact value have been known at the moment the order was placed?"
+    }
+  ]
+}
+```
+
+## 16. entry-16
+
+```
+{
+  "type": "started",
+  "key": "v2:2d73650a286107773f5479dc0e334065651988381d810198e00ca259c36d72e8",
+  "agentId": "a2afe82d7e5ffcfc5"
+}
+```
+
+## 17. entry-17
+
+```
+{
+  "results": [
+    {
+      "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2460551",
+      "title": "The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality \u2014 Bailey & L\u00f3pez de Prado",
+      "relevance": "high",
+      "snippet": "Direct replacement for the broken gate. DSR corrects the two exact pathologies behind an in-sample Sharpe with -0.031 correlation to profit: selection bias under multiple testing (you tried N strategy/feature configs and kept the max) and non-Normal returns (crypto perp P&L is skewed/fat-tailed, and the 29.2% win rate with positive expectancy implies exactly the tail-heavy shape that inflates naive SR). Requires snapshotting the number of trials N, variance of trial SRs, and the skew/kurtosis of the return series \u2014 none of which an in-sample Sharpe records. Gate rule: a strategy is only admitted if DSR > 0 at the chosen confidence, not if backtest SR is high."
+    },
+    {
+      "url": "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf",
+      "title": "The Probability of Backtest Overfitting (PBO via CSCV) \u2014 Bailey, Borwein, L\u00f3pez de Prado, Zhu (full PDF)",
+      "relevance": "high",
+      "snippet": "Free full text of the CSCV method that produces PBO \u2014 the probability that the in-sample-best configuration underperforms the median out-of-sample. This is the quantitative diagnostic for precisely the observed symptom (rank in backtest carries zero information about realized profit); a PBO near 0.5 means the selection procedure itself is noise. CSCV splits the timeline into S blocks and evaluates all C(S, S/2) train/test combinations, yielding a distribution of OOS ranks rather than one path \u2014 feasible CPU-only on 5m bars. Also the precursor to CPCV (combinatorial purged CV), which adds purging/embargo needed once triple-barrier labels span multiple bars."
+    },
+    {
+      "url": "https://hudsonthames.org/wp-content/uploads/2022/04/Does-Meta-Labeling-Add-to-Signal-Efficacy.pdf",
+      "title": "Does Meta-Labeling Add to Signal Efficacy? \u2014 Singh & Joubert (Journal of Financial Data Science)",
+      "relevance": "high",
+      "snippet": "Covers target/label design (section 4) with controlled experiments rather than assertion. Separates side (direction) from size (take/skip + bet size): the primary model emits the side, triple-barrier labels the outcome, and a secondary binary meta-model predicts whether that specific signal will be profitable. Directly applicable to a 29.2%-win entry model \u2014 meta-labeling is designed to raise precision and cut false positives while leaving the direction engine untouched, and its target (will THIS trade hit the profit barrier first) is far better posed than raw sign. Also formalizes the triple barrier: upper (take-profit), lower (stop), vertical (max holding time), with barriers set from realized-vol so horizon and class balance are controlled rather than accidental."
+    },
+    {
+      "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3517595",
+      "title": "Clustered Feature Importance \u2014 Marcos L\u00f3pez de Prado (SSRN 3517595)",
+      "relevance": "high",
+      "snippet": "Section (5) canonical source. Explains why MDA/MDI/SHAP rankings are unreliable under substitution effects \u2014 when features share predictive information (endemic in a microstructure set: book slope, OBI, microprice, depth all encode the same imbalance), individually permuting them makes each look unimportant and importance is split arbitrarily among correlated twins. CFI fixes this by clustering features first (correlation-distance + hierarchical clustering, number of clusters via ONC) and permuting whole clusters, giving importance that is robust to linear and non-linear substitution. Also documents SHAP instability: default single-iteration implementations do not converge, and residual top-feature variability persists from substitution."
+    },
+    {
+      "url": "https://www.garp.org/hubfs/Whitepapers/a1Z1W0000054x6lUAA.pdf",
+      "title": "The 10 Reasons Most Machine Learning Funds Fail \u2014 Marcos L\u00f3pez de Prado (GARP whitepaper)",
+      "relevance": "high",
+      "snippet": "Best single enumeration for section (6) \u2014 the silent-failure taxonomy. Covers the sidereal sins: backtesting through a single historical path (walk-forward overfits to one sequence of events), leakage from labels overlapping the test window (requires purging + embargo), chronological k-fold on serially-correlated features, ignoring non-IID sampling, sizing by in-sample metrics, and \u2014 most on-point here \u2014 treating the backtest as a research tool rather than a sanity check, which is the mechanism that produces a high-Sharpe backtest with no relationship to realized P&L. Also motivates event-based sampling (dollar/volume bars) over fixed 5m clock bars, which matters for a 200-coin perp universe with wildly uneven activity."
+    },
+    {
+      "url": "https://random-docs.readthedocs.io/en/latest/implementations/feature_importance.html",
+      "title": "Feature Importance \u2014 mlfinlab documentation (MDI, MDA, SFI, clustered MDI/MDA)",
+      "relevance": "medium",
+      "snippet": "Implementation-level reference for section (5): reference code and API for MDI, MDA (with purged CV as the scoring loop), single-feature importance, and clustered MDI/MDA, plus the ONC clustering step that chooses the feature clusters. Pure-Python/sklearn and CPU-friendly, so it runs on the stated hardware. Useful because it shows how MDA must be scored under PurgedKFold rather than plain KFold \u2014 running MDA on leaky folds reproduces the same false-confidence failure as the current in-sample Sharpe gate. Note the mlfinlab package itself later went closed-source; the documented algorithms are the durable part and are straightforward to re-implement."
+    }
+  ]
+}
+```
+
+## 18. entry-18
+
+```
+{
+  "type": "started",
+  "key": "v2:fb44bbe1e20a4ce1ae9359146aa5c65bbe9797361477d13ec8871cb23212b195",
+  "agentId": "a920cee26b875cafd"
+}
+```
+
+## 19. entry-19
+
+```
+{
+  "results": [
+    {
+      "url": "https://arxiv.org/pdf/2411.06327",
+      "title": "Return and Volatility Forecasting Using On-Chain Flows in Cryptocurrency Markets",
+      "relevance": "high",
+      "snippet": "Directly answers section (2) for on-chain data with proper IN-SAMPLE *and* OUT-OF-SAMPLE regression tests \u2014 the only source found with real OOS discipline. Key result: USDT (stablecoin) net inflows to exchanges predict higher BTC/ETH returns at 1h and 2h horizons and lower volatility at 6h; USDT flow acts as a buy-side liquidity proxy. BTC/ETH exchange netflow itself is weaker for returns than stablecoin inflow. Implication: if only one on-chain feed is added, add stablecoin exchange-inflow, not coin netflow. Horizon (1-2h) is far longer than a 500ms book \u2014 it is a context/regime field to snapshot at entry, not a trigger."
+    },
+    {
+      "url": "https://www.sciencedirect.com/science/article/pii/S1386418126000029",
+      "title": "Order flow and cryptocurrency returns (Journal of Empirical Finance)",
+      "relevance": "high",
+      "snippet": "Panel-regression + VAR over a large cross-section of crypto: order flow's predictive effect on future returns is 'universally strong even after conditioning on lagged returns', and the relation STRENGTHENS at longer horizons \u2014 supporting a permanent (informational) rather than transient price-impact view. This is the strongest published evidence that signed aggressor flow (the raw ingredient of CVD, which we already have via aggTrade) is a genuine predictor, and that persistence \u2014 not instantaneous imbalance \u2014 is where the edge lives. Argues for snapshotting cumulative signed flow over multiple lookbacks at entry rather than a single instantaneous OFI."
+    },
+    {
+      "url": "https://arxiv.org/html/2506.05764v2",
+      "title": "Exploring Microstructural Dynamics in Cryptocurrency Limit Order Books: Better Inputs Matter More Than Stacking Another Hidden Layer",
+      "relevance": "high",
+      "snippet": "Title is the finding, and it maps onto the stated context (in-sample Sharpe gate with -0.031 correlation to profit): on crypto LOB data, engineered input quality dominates model depth \u2014 cumulative/aggregated book supply-demand asymmetries precede short-horizon mid-price moves, while extra layers add little. Direct evidence for section (3) that a well-tuned GBM over good book inputs is the bar, and for prioritizing new DATA (cumulative depth, cross-level aggregation) over new architectures. Uses the same true L2 depth we already ingest."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.00776v1",
+      "title": "Explainable Patterns in Cryptocurrency Microstructure",
+      "relevance": "high",
+      "snippet": "Binance Futures perpetual order books + trades at 1-second frequency, Jan 2022 - Oct 2025, across BTC/LTC/ETC/ENJ/ROSE (an order of magnitude apart in market cap). Finds the SAME engineered book/trade features carry near-identical predictive importance and SHAP dependence shapes across all assets \u2014 evidence that a single cross-sectional model over 200 coins is defensible rather than needing per-coin fitting. Also relevant to section (5): it is one of the few crypto papers that reports SHAP dependence shape stability rather than one-off rankings. Matches our venue, instrument, and depth exactly."
+    },
+    {
+      "url": "https://arxiv.org/abs/2607.09230",
+      "title": "When Does Order Flow Matter? State-Dependent L2 Liquidity-State Transitions in Crypto Futures",
+      "relevance": "medium",
+      "snippet": "Binance BTCUSDT/ETHUSDT futures 2023-2026, top-20 L2 book + trade flow + macro-event windows \u2014 an exact match to our data spec (true L2 20-level + aggTrade). Frames a supervised discrete liquidity-STATE transition task, explicitly distinct from latent-regime detection and from price-direction prediction. Directly relevant to section (4)/(2): order flow's predictive value is conditional on liquidity state, so a liquidity-state field should be snapshotted at entry as a gating/context variable \u2014 and predicting state transitions may be a better-conditioned label than predicting sign."
+    },
+    {
+      "url": "https://www.sciencedirect.com/science/article/pii/S1544612326008688",
+      "title": "Bitcoin option expiration, gamma exposure, and intraday price reversals (Finance Research Letters)",
+      "relevance": "medium",
+      "snippet": "The one quantified effect size found for crypto options/GEX: on days with BOTH high option open interest AND negative dealer gamma exposure, pre-expiration returns run ~0.17% lower than other days, with stronger price pressure in short-gamma states. Honest read for the ingestion-cost question in section (2): the effect is real but small, BTC-only, calendar-conditional (expiry proximity), and does not extend to a 200-coin perp universe where almost no alt has a liquid options surface. Suggests GEX/skew is at best a BTC/ETH-only context field near expiry, not a general feed worth the Deribit ingestion cost."
+    }
+  ]
+}
+```
+
+## 20. entry-20
+
+```
+{
+  "results": [
+    {
+      "url": "https://arxiv.org/pdf/2308.01915",
+      "title": "LOB-Based Deep Learning Models for Stock Price Trend Prediction: A Benchmark Study (Prata et al.)",
+      "relevance": "high",
+      "snippet": "The single most decision-relevant paper for section (3). Independent re-benchmark of ~15 published LOB deep nets (DeepLOB, TransLOB, BiN-CTABL, DeepLOB-Attention, etc.) trained on FI-2010 and re-tested on fresh LOB-2021/2022 data. Every headline model collapses out-of-sample: F1 drops to 48-61% (near-random for 3-class), BiN-CTABL loses ~19.6% F1 across all horizons. Authors attribute it to collective overfitting to the 10-day FI-2010 benchmark, which is far too short to test robustness. Directly says DeepLOB features on CRYPTO produced a low-Sharpe strategy. This is the empirical case that LOB deep-net SOTA claims do not transfer \u2014 and it mirrors the user's own -0.031 backtest-to-profit correlation. Implication for entry-snapshot design: the deep-net edge was never in the architecture, so spend the budget on features/labels, not on a CNN-LSTM."
+    },
+    {
+      "url": "https://arxiv.org/pdf/2207.08815",
+      "title": "Why do tree-based models still outperform deep learning on typical tabular data? (Grinsztajn, Oyallon, Varoquaux \u2014 NeurIPS 2022 D&B)",
+      "relevance": "high",
+      "snippet": "The canonical 'trees still win' benchmark: 45 datasets, hyperparameter-search budget equalized across XGBoost/RF vs deep nets. Trees remain SOTA at medium scale (~10K samples) even before accounting for their far lower compute. Crucially the three diagnosed *causes* map onto this exact problem: (a) trees learn irregular/non-smooth target functions better \u2014 financial signal is discontinuous at regime boundaries; (b) NNs are much more damaged by uninformative features \u2014 a 200-coin \u00d7 20-level book \u00d7 500ms feature blob is mostly noise; (c) rotational invariance of NNs destroys per-column meaning. Strongest theoretical justification for a well-tuned GBM as the CPU-only default and for aggressive feature selection before any net."
+    },
+    {
+      "url": "https://arxiv.org/html/2512.00888v1",
+      "title": "Light-Weight Benchmarks Reveal the Hidden Hardware Cost of Zero-Shot Tabular Foundation Models",
+      "relevance": "high",
+      "snippet": "Settles the TabPFN question on CPU-only hardware. Tuned GBMs stay competitive: absolute accuracy gains from TabPFN/TabICL are typically under 1 percentage point, while TabPFN inference is >2,000x slower than trees and TabICL ~11,000x (needing ~9GB GPU memory). XGBoost answers full test batches in 5-19ms; LightGBM/RF are close behind and need no GPU. For 200 coins at 500ms book cadence with no GPU, this is a hard architectural veto on TabPFN in the live entry path \u2014 at most an offline/research-tier model. Also relevant to the project's known TabPFN occlusion CPU-freeze problem."
+    },
+    {
+      "url": "https://arxiv.org/abs/2402.03970",
+      "title": "Tabular Data: Is Deep Learning all you need? (Zabergja et al.)",
+      "relevance": "medium",
+      "snippet": "The adversarial counterweight \u2014 include it so the ranking is honest rather than one-sided. Re-runs the comparison over 68 datasets from an established benchmark with *modern* tabular DL and reports a partial paradigm shift, with DL methods outperforming classical approaches under equalized tuning. The nuance that matters: the win requires per-dataset tuning budget and large-ish clean data, conditions a 260-sample-outcome trading loop does not meet. Read against Grinsztajn, the defensible conclusion is 'GBM first, revisit DL only once n and feature quality justify it', not 'trees always'."
+    },
+    {
+      "url": "https://link.springer.com/article/10.1007/s10462-024-10715-4",
+      "title": "LOB-based deep learning models for stock price trend prediction: a benchmark study (Artificial Intelligence Review, peer-reviewed version)",
+      "relevance": "medium",
+      "snippet": "Peer-reviewed journal version of the Prata benchmark \u2014 useful as the citable form of the same result and for its detail on labelling/horizon design, which bears on section (4). Documents how FI-2010's smoothed mid-price labels and its k-step horizons manufacture apparent accuracy that vanishes on real data, and how class-balance choices in the benchmark inflate reported F1. Directly relevant to target design: the reported failure mode is as much a label artifact as an architecture one."
+    },
+    {
+      "url": "https://arxiv.org/pdf/2309.11400",
+      "title": "Transformers versus LSTMs for electronic trading (Hu et al.)",
+      "relevance": "medium",
+      "snippet": "Head-to-head on the specific architecture question the angle asks about: systematically compares transformer variants against LSTM baselines on LOB/electronic-trading data, and finds LSTM-based models remain competitive or superior \u2014 vanilla attention over raw book state does not deliver the gains it does in NLP, and vision-transformer-style encoders without an LSTM head are notably weak. Supports the conclusion that the sequence-model family is not where the reliable edge lives; deltas between architectures are 1-3% and are swamped by the out-of-sample collapse Prata documents."
+    }
+  ]
+}
+```
+
+## 21. entry-21
+
+```
+{
+  "type": "started",
+  "key": "v2:4c4fd7d769ff97be96c46264e1e4a17b329df1751a28dc879895bc3746601b71",
+  "agentId": "a58cb8845a8a684a7"
+}
+```
+
+## 22. entry-22
+
+```
+{
+  "type": "started",
+  "key": "v2:bb7122e5ecbc69f304f0dfeb3638a67a299254f280d1a63839919840f8147fb2",
+  "agentId": "a7a9a85e99b04af7a"
+}
+```
+
+## 23. entry-23
+
+```
+{
+  "claims": [
+    {
+      "claim": "Order flow imbalance, bid-ask spread, book depth, and VWAP-to-mid deviation are the dominant short-horizon predictors of crypto perp returns by mean-absolute SHAP, and their ranking is STABLE across assets of very different liquidity (BTC vs long-tail ENJ/ROSE) \u2014 implying these are the entry-snapshot fields with the strongest documented cross-asset generalization.",
+      "quote": "order flow imbalance, spreads, and VWAP-to-mid deviations dominate mean absolute SHAP ... The same families of features dominate the SHAP summaries across large-cap and mid/long-tail cryptoassets",
+      "importance": "central"
+    },
+    {
+      "claim": "A gradient-boosted tree model (CatBoost) on top-of-book + trade-flow tabular features is sufficient to produce statistically significant tradable signals on crypto perps \u2014 no deep LOB architecture (DeepLOB/transformer) was required, and deep order-book levels were explicitly omitted as redundant.",
+      "quote": "CatBoost is particularly well-suited for exploratory model fitting because it handles a wide range of heterogeneous, sometimes sparse or collinear tabular features ... deep order book levels and redundant aggregates are omitted",
+      "importance": "central"
+    },
+    {
+      "claim": "Label design matters more than architecture: replacing squared error with a direction-aware loss (GMADL) that rewards sign correctness is what converts forecasts into tradable signals \u2014 i.e. train on directional/risk-adjusted loss rather than plain magnitude regression.",
+      "quote": "direction-aware loss functions ... emphasize directional correctness, rewarding predictions that correctly match the sign of the realized return",
+      "importance": "central"
+    },
+    {
+      "claim": "Leakage-safe evaluation requires walk-forward CV with an explicit temporal GAP (purge/embargo) between train and validation, and SHAP attribution computed on held-out samples \u2014 not in-sample. This directly contradicts an in-sample-backtest-Sharpe gate.",
+      "quote": "walk-forward validation procedures ... temporal gap between training and validation sets ... out-of-sample explanations are computed using SHAP values",
+      "importance": "central"
+    },
+    {
+      "claim": "Execution style, not signal quality, decides survival in tail regimes: with the SAME model, taker execution profited from the 2025-10-10 flash crash while maker execution suffered catastrophic losses via adverse selection (repeatedly filled on the bid into a falling market); taker strategies were statistically significant (p<0.05 on ETC/ENJ/ROSE) while ALL maker strategies were not.",
+      "quote": "the model correctly enters a short position, capturing a significant profit from the price decline ... [maker] repeatedly gets filled on the bid side, accumulating a losing long position ... For maker strategies, all p-values exceed 0.05.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2026-01-31",
+  "sourceQuality": "primary"
+}
+```
+
+## 24. entry-24
+
+```
+{
+  "claims": [
+    {
+      "claim": "Order flow imbalance computed across MULTIPLE order-book levels (not just the best bid/ask) carries additional explanatory power for price moves beyond best-level OFI \u2014 directly implying that a 20-level L2 snapshot should record per-level OFI, not just top-of-book.",
+      "quote": "First, we examine the contemporaneous price impact of multi-level OFIs and reveal their additional explanatory power.",
+      "importance": "central"
+    },
+    {
+      "claim": "A PCA-integrated OFI (first principal component across per-level OFIs) outperforms individual-level OFIs both in-sample AND out-of-sample \u2014 i.e. the dimensionality reduction is not an in-sample artifact.",
+      "quote": "We propose an integrated OFI by applying PCA to OFIs across different levels, leading to superior results in both in-sample and out-of-sample.",
+      "importance": "central"
+    },
+    {
+      "claim": "Cross-impact terms (other assets' order flow affecting this asset's price) are SUBSUMED by multi-level OFI: once multi-level OFIs are in the model, cross-impact adds nothing to contemporaneous explanatory power \u2014 so multi-level own-book OFI should be built before any cross-sectional order-flow machinery.",
+      "quote": "However, once multi-level OFIs have been incorporated, cross-impact terms cannot provide additional explanatory power.",
+      "importance": "central"
+    },
+    {
+      "claim": "For FORECASTING future returns (as opposed to contemporaneous impact), cross-sectional OFIs DO add value, significantly raising out-of-sample R^2 \u2014 meaning a per-coin entry snapshot should include OFI of correlated coins (e.g. BTC/ETH), even though cross-impact is redundant contemporaneously.",
+      "quote": "Last, we apply price-impact and cross-impact models to predict future returns, and provide evidence that cross-sectional OFIs significantly increase both in-sample and out-of-sample R\u00b2.",
+      "importance": "central"
+    },
+    {
+      "claim": "The cross-impact structure is sparse: LASSO regularization is required because only a small subset of cross-asset order-flow terms matter \u2014 a warning against dumping all 200 coins' OFI into an unregularized model.",
+      "quote": "Unlike previous works, we leverage LASSO to highlight the sparsity of the cross-impact terms.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2021-12-25",
+  "sourceQuality": "primary"
+}
+```
+
+## 25. entry-25
+
+```
+{
+  "claims": [
+    {
+      "claim": "Realistic fill simulation for perp market-making/HFT strategies requires explicit modeling of order queue position and both feed and order latency \u2014 a backtester that omits these produces fills that do not correspond to live results, which directly explains a gate whose in-sample Sharpe has zero correlation to realized profit.",
+      "quote": "Latency Modeling: Accounts for both feed and order latencies using provided or custom models \u2014 Queue Position Simulation: Incorporates order queue position into fill simulations",
+      "importance": "central"
+    },
+    {
+      "claim": "The project sets an explicit falsifiable validation standard for a backtest gate: a backtest over a period must reproduce the live results of the same strategy over that exact period; this is a stricter and checkable replacement for an in-sample Sharpe gate.",
+      "quote": "if you run a live trading strategy in January 2025, the backtest for that exact period should produce results that closely align with the actual results",
+      "importance": "central"
+    },
+    {
+      "claim": "Both overly optimistic and overly pessimistic backtest assumptions are treated as failure modes \u2014 i.e., a backtest gate can silently fail in either direction, not just by over-fitting upward.",
+      "quote": "backtesting must accurately simulate real-world conditions ... explicitly warns against both \"overly pessimistic\" and \"overly optimistic\" approaches",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Full L2 (market-by-price) and L3 (market-by-order) order book reconstruction with tick-by-tick simulation is achievable on CPU-only infrastructure for Binance Futures and Bybit perps, using Rust plus Numba-JIT'd Python strategy callbacks \u2014 no GPU is implied anywhere in the stack.",
+      "quote": "Order Book Reconstruction: Full Level-2 (Market-By-Price) and Level-3 (Market-By-Order) order book rebuilding ... Numba JIT Integration: Python strategies can run within Numba JIT functions for performance ... Live Trading: Rust-only deployment for Binance Futures and Bybit",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Order-book imbalance and queue-position-based signals are treated as first-class, documented strategy families for large-tick assets rather than speculative research ideas, indicating these microstructure predictors are the practitioner-validated baseline for perp entry edge.",
+      "quote": "Extensive tutorials cover grid trading, market-making with alpha signals, order book imbalance strategies, and queue-based approaches for large tick-size assets.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2025-12-10 (latest release rust-v0.9.4 & py-v2.4.4; repo ongoing, 1,038 commits)",
+  "sourceQuality": "primary"
+}
+```
+
+## 26. entry-26
+
+```
+{
+  "claims": [
+    {
+      "claim": "Pre-event L2 liquidity state (discretized terciles of spread, depth-20, imbalance-20) is the dominant predictor of post-event liquidity regime, and order flow adds value only as an overlay on top of the L2 state model \u2014 never as a replacement. This implies an entry snapshot must capture the L2 state variables first, with order-flow features layered on.",
+      "quote": "Order flow provides further incremental value only when layered on top of the L2 state model, not as a replacement",
+      "importance": "central"
+    },
+    {
+      "claim": "Order flow's incremental predictive value is state-dependent and rises monotonically with stress regime: for ETH the order-flow gain is +0.004 (calm), +0.020 (mixed), +0.038 (stressed) at the 1-minute horizon \u2014 so a regime/liquidity-state field must be snapshotted at entry to condition on when order-flow features are trustworthy.",
+      "quote": "The increment rises monotonically from calm to mixed to stressed",
+      "importance": "central"
+    },
+    {
+      "claim": "Order-flow edge does not generalize across assets: pooled order-flow overlay improvement is +0.010 at both horizons vs a null 95th percentile of +0.004/+0.003, but per-asset ETH clears (+0.020 1m, +0.016 5m) while BTC does not (+0.001 1m, +0.003 5m). Cross-sectional pooling can therefore manufacture a false edge that is really one asset.",
+      "quote": "No BTC regime clears at both horizons",
+      "importance": "central"
+    },
+    {
+      "claim": "A shallow nonlinear gradient-boosted classifier over L2 book-shape features beats both the coarse-state baseline (+0.044 at 1m, +0.060 at 5m) and multinomial/ordered logit over continuous L2 features, which actually worsens on the coarse state (\u22120.048 at 1m, \u22120.034 at 5m). Linear models over continuous book features are worse than simple discretized state.",
+      "quote": "A shallow nonlinear L2-shape model adds a robust further predictive gain",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Volatility-regime terciles are a much weaker conditioning variable than liquidity state: volatility terciles contribute only +0.008 to +0.015 versus the L2 state's +0.026 to +0.029, so liquidity state should be preferred over vol regime as the snapshot-at-entry context field.",
+      "quote": "Volatility terciles contribute only +0.008 to +0.015 versus state's +0.026 to +0.029",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2026-07-10",
+  "sourceQuality": "primary"
+}
+```
+
+## 27. entry-27
+
+```
+{
+  "type": "started",
+  "key": "v2:f965133548fadaff279d235854155e1c3316d3f8bdab3c9736b284863db8a1c4",
+  "agentId": "ac4a66b23c0d94223"
+}
+```
+
+## 28. entry-28
+
+```
+{
+  "type": "started",
+  "key": "v2:4b9f7a6c284825c6f60ab33f7c8e8b11e9cd5e225d69c717b7959b07a0031cc8",
+  "agentId": "a45727702e7ba1a1f"
+}
+```
+
+## 29. entry-29
+
+```
+{
+  "type": "started",
+  "key": "v2:186f471b5e5641c8c9184b35085c8497882610448ef38803faecd24c87d78629",
+  "agentId": "a429452793e4af2f4"
+}
+```
+
+## 30. entry-30
+
+```
+{
+  "type": "started",
+  "key": "v2:d7626643f31415bdcba0f8ac491364cdf7b9aa50686ad615a47c99e07a891192",
+  "agentId": "a325d731c8fd2a625"
+}
+```
+
+## 31. entry-31
+
+```
+{
+  "claims": [
+    {
+      "claim": "Under purged, embargoed walk-forward CV (k=12, 60-min embargo, 5-min purge) on 3.4M minute-level Binance spot+perp observations across 6 coins, LightGBM was SIGNIFICANTLY WORSE than a random walk out-of-sample (R2 = -10.94%, Diebold-Mariano = -6.83), while plain OLS on the same microstructure features gained only +1.23% R2 (DM = 1.28, not significant). This directly falsifies the assumption that a well-tuned GBM on microstructure features beats a naive baseline at 5-min horizons.",
+      "quote": "gradient-boosted models overfit severely under proper leakage controls",
+      "importance": "central"
+    },
+    {
+      "claim": "Range-based spread proxies and realised volatility are the most robust/stably-selected microstructure predictors at minute frequency (stability-selection scores: realised vol 0.84, 5-min momentum 0.83, Corwin-Schultz spread proxy 0.79 vs 0.5 threshold), whereas the Amihud illiquidity ratio and Kyle's lambda were individually INSIGNIFICANT. Corwin-Schultz spread coefficient = -0.0031 (most significant).",
+      "quote": "All features are stably selected at minute frequency, with range-based spread proxies and realised volatility the most robust.",
+      "importance": "central"
+    },
+    {
+      "claim": "Cross-asset transfer fails in crypto microstructure: a model trained on one cryptocurrency achieves only ~0.1-0.2 zero-shot transfer correlation to a different coin, while SAME-asset cross-venue transfer (spot <-> perp futures) is substantially higher (block-diagonal structure). Implication: per-symbol models, not one pooled 200-coin model; but spot and perp of the same coin can share a model.",
+      "quote": "Models trained on one cryptocurrency do not transfer to others",
+      "importance": "central"
+    },
+    {
+      "claim": "5-min-rebalance microstructure strategies require 124-204x notional daily turnover, and at Binance VIP-0 fees (10 bps spot, 2-5 bps futures) plus half-spread slippage every net Sharpe was deeply negative (-52 to -10). Any entry-edge gate must therefore be scored NET of fees+half-spread at realistic turnover, not on gross in-sample Sharpe.",
+      "quote": "no strategy survives realistic exchange fees",
+      "importance": "central"
+    },
+    {
+      "claim": "LightGBM's failure is regime-concentrated, not uniform: OOS R2 is ~0% in calm markets but about -25% in high-volatility markets and similarly catastrophic in down-markets, because the model latches onto tail events. This argues for an explicit volatility/regime state variable snapshotted at entry and regime-conditional abstention.",
+      "quote": "catastrophic high-volatility and down-market performance confirms that LightGBM latches onto tail events",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2026-06-11",
+  "sourceQuality": "primary"
+}
+```
+
+## 32. entry-32
+
+```
+{
+  "type": "started",
+  "key": "v2:5fd252847430921b1d0fe6c5739451d8df7793efc800ed48595cf7a217654718",
+  "agentId": "a392e4c7b1ce968dc"
+}
+```
+
+## 33. entry-33
+
+```
+{
+  "claims": [
+    {
+      "claim": "Roll measure (serial-correlation/effective-spread proxy) and VPIN are the two dominant out-of-sample predictors of crypto price dynamics, ranked by out-of-sample MDA \u2014 while Kyle's lambda is essentially useless (near-zero MDA) and Amihud/Roll-impact only occasionally matter. This directly ranks which microstructure fields to snapshot at entry: own Roll, own VPIN, plus BTC Roll/VPIN and ETH Roll/VPIN as cross-market features.",
+      "quote": "For prediction of each market statistic, the Roll measure is the most important feature as measured by MDA. VPIN is the second most important measure and the Roll impact measure is third most important. ... In our crypto sample, own VPIN shows up frequently as an important feature; and only occasionally do the own Roll impact measure or the Amihud measure have importance. The own Kyle measure typically has a low, nearly-zero MDA score.",
+      "importance": "central"
+    },
+    {
+      "claim": "The predictable target is the SIGN OF CHANGE IN REALIZED VOLATILITY (accuracy 0.56\u20130.58, AUC 0.53\u20130.54 over a ~1,500-bar / ~1-day look-ahead), NOT return direction \u2014 the paper never predicts price direction. Skewness is entirely unpredictable (accuracy/AUC = 0.50). This is a label-design result: microstructure measures forecast the second moment and autocorrelation, not the sign of returns.",
+      "quote": "Predictive accuracy is greatest for the sign of the change in realized volatility. For both of accuracy measures, the average accuracy of prediction ranges from 0.56 to 0.58 depending on the number of bars used. This is a remarkably high accuracy level for random forest predictions in financial applications ... However, as the last two columns of Table 7 show, skewness is not predictable; for skewness we find predictive accuracy of 0.5",
+      "importance": "central"
+    },
+    {
+      "claim": "Cross-sectional structure is real but NARROW: only BTC and ETH Roll/VPIN carry cross-market predictive power for other coins; all other cross-crypto features have near-zero MDA. So a 200-coin cross-feature matrix should be pruned to BTC/ETH lead features rather than all-pairs.",
+      "quote": "Across all other cryptos and labels we study, Roll measures for BTC and ETH have strong predictability signified by high MDA scores. All other cross-crypto features typically have very low MDA scores. This suggests that trade in BTC and ETH leads price changes and volatility in other cryptos",
+      "importance": "central"
+    },
+    {
+      "claim": "Crypto VPIN levels are roughly double those of established futures markets (0.45\u20130.47 vs 0.22\u20130.23 for E-mini S&P 500 and crude oil), indicating structurally higher order-flow toxicity/adverse selection \u2014 a level effect an entry model should condition on, not just the delta.",
+      "quote": "ELO (2012) found (using a slightly different methodology) average VPINs for the E-mini S&P500 and crude oil futures of 0.22 to 0.23 whereas these are range from .45 to .47. Such high toxicity is consistent with greater information-based trading in crypto markets.",
+      "importance": "supporting"
+    },
+    {
+      "claim": "These microstructure\u2192dynamics relationships are regime-stable: splitting the Jan-2021\u2013Jul-2023 sample at the onset of 'crypto winter' produced no material change in predictability, and swapping random forest for logistic regression gave similar results \u2014 evidence that Roll/VPIN edges are not regime-drift artifacts, though scale-dependent measures (Roll, Amihud, Kyle's \u03bb) shift with price level while Roll Impact and VPIN (scale-free) stay stable and are therefore the safer fields to persist.",
+      "quote": "the five market microstructure variables that we consider, Roll measure, Amihud measure and Kyle's \u03bb are proportional to the scale of price while Roll Impact and VPIN are not. As such, ... there is a more pronounced change in the Roll measure, the Amihud measure and Kyle's \u03bb. On the other hand, the values of Roll Impact and VPIN are comparably more stable before and after",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2024-04 (SSRN working paper #4814346, dated April 2024; PDF created 2024-04-26, modified 2024-05-01; later published in Journal of Financial Markets)",
+  "sourceQuality": "primary"
+}
+```
+
+## 34. entry-34
+
+```
+{
+  "type": "started",
+  "key": "v2:5cf6d8816b9fbfc77bcd14013c3da874a6747002e46ec577dfe1c4c36e46e2f5",
+  "agentId": "a05bfcb165a5e8952"
+}
+```
+
+## 35. entry-35
+
+```
+{
+  "claims": [],
+  "sourceQuality": "unreliable",
+  "publishDate": "N/A \u2014 page does not exist (HTTP 404)"
+}
+```
+
+## 36. entry-36
+
+```
+{
+  "type": "started",
+  "key": "v2:826586057bd413870a6b7246a3d6d9ea8141cad887db8af7e0ee8007a5cb17ab",
+  "agentId": "a01d615e424a421cf"
+}
+```
+
+## 37. entry-37
+
+```
+{
+  "claims": [
+    {
+      "claim": "Computing a percentile rank of an indicator (e.g. VRP) against the FULL sorted history rather than only strictly-prior data is look-ahead leakage \u2014 the canonical silent failure mode for any percentile/z-score/rank feature.",
+      "quote": "On any given date t, compute the percentile of VRP[t] against that full sorted list. That's leakage.",
+      "importance": "central"
+    },
+    {
+      "claim": "Full-sample percentile gating inflates backtest Sharpe by roughly 15\u201330% versus walk-forward percentiles over a 5+ year window \u2014 i.e. leakage in a single feature can account for a large share of apparent in-sample edge.",
+      "quote": "a short-strangle strategy gated on 'VRP percentile > 80' will typically show 15\u201330% higher Sharpe on full-sample percentiles than on walk-forward percentiles over a 5+ year window",
+      "importance": "central"
+    },
+    {
+      "claim": "Full-sample percentiles distort ranks non-uniformly across time: extremes are under-assigned early in the sample and over-assigned late, so the bias is not a constant offset that can be calibrated away.",
+      "quote": "Under-assign extreme percentiles in early history (the extremes that hadn't yet happened are in the denominator). Over-assign extreme percentiles in late history",
+      "importance": "supporting"
+    },
+    {
+      "claim": "The fix is to snapshot, at each decision time t, the percentile computed against only VRP values strictly before t \u2014 with a strictly-less-than timestamp predicate, not less-than-or-equal (the bar containing t must be excluded).",
+      "quote": "At each date t, compute the percentile of VRP[t] against the distribution of VRP values from strictly before t",
+      "importance": "central"
+    },
+    {
+      "claim": "ML models fed full-sample percentile features will learn the leakage-encoded signal itself; walk-forward percentiles must be used as the feature, not just as a backtest gate.",
+      "quote": "The article recommends using walk-forward percentiles as features to prevent models from learning leakage-encoded signals.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2026-04-15",
+  "sourceQuality": "blog"
+}
+```
+
+## 38. entry-38
+
+```
+{
+  "type": "started",
+  "key": "v2:bb9891c8ca48d71495317705a0b94f9878f13352b778e6dc3423aefee00df89f",
+  "agentId": "a9c6c0356c4883b1d"
+}
+```
+
+## 39. entry-39
+
+```
+{
+  "claims": [
+    {
+      "claim": "Repeatedly iterating an ML model against backtest results produces a false discovery in roughly 20 iterations at the standard 5% significance level \u2014 and walk-forward/out-of-sample framing does not protect against this. This directly indicts using backtest Sharpe as a selection gate.",
+      "quote": "It does not matter if the backtest is a walk-forward out-of-sample. The fact that we are repeating a test over and over on the same data will likely lead to a false discovery. This methodological error is so notorious among statisticians that they consider it scientific fraud... It typically takes about 20 such iterations to discover a (false) investment strategy subject to the standard significance level (false positive rate) of 5%.",
+      "importance": "central"
+    },
+    {
+      "claim": "Selecting the max-Sharpe strategy across I trials on a true martingale yields an expected maximum Sharpe bounded by sqrt(2*log[I]) despite a true Sharpe of zero; therefore the number of trials I must be tracked or FWER/FDR/PBO cannot be computed, and the Deflated Sharpe Ratio adjusts the rejection threshold SR* for trial multiplicity using the variance across trials' Sharpe estimates.",
+      "quote": "Even though the true Sharpe ratio is zero, we expect to find one strategy with a Sharpe ratio of... it is imperative to control for the number of trials (I) in the context of WF backtesting. Without this information, it is not possible to determine the Family-Wise Error Rate (FWER), False Discovery Rate (FDR), Probability of Backtest Overfitting (PBO) or similar.",
+      "importance": "central"
+    },
+    {
+      "claim": "Fixed-time-horizon labeling (predicting return over a fixed h bars vs a constant threshold tau) is defective because a constant threshold ignores observed volatility and ignores stop-outs; the triple-barrier method instead labels by which exit condition fires first (profit-take, stop-loss scaled to estimated volatility, or bar-count expiry), making the label path-dependent.",
+      "quote": "the same threshold \ud835\udf0f is applied regardless of the observed volatility... The large majority of labels will be 0, even if return was predictable and statistically significant. Third, it is simply unrealistic to build a strategy that profits from positions that would have been stopped-out by the fund, exchange (margin call) or investor.",
+      "importance": "central"
+    },
+    {
+      "claim": "Side and size should be learned by two separate models rather than one: a primary model predicts the sign/side (tuned for high recall), and a secondary meta-labeling model predicts whether the primary's positive is true or false, raising F1 and limiting overfitting because ML never decides the side.",
+      "quote": "the role of the secondary ML algorithm is to determine whether a positive from the primary (side decision) model is true or false. It is not its purpose to come up with a betting opportunity. Its purpose is to determine whether we should act or pass on the opportunity that has been presented... the effects of overfitting are limited when you apply meta-labeling, because ML will not decide the side of your bet, only the size.",
+      "importance": "central"
+    },
+    {
+      "claim": "Standard k-fold CV leaks in finance because serially correlated features (X_t \u2248 X_t+1) combine with time-overlapping labels (Y_t \u2248 Y_t+1), letting a classifier score well on irrelevant features; the fix is purging (drop training observations whose label spans overlap the test labels) plus an embargo of h \u2248 0.01*T bars after each test set.",
+      "quote": "Then, placing t and t+1 in different sets leaks information. When a classifier is first trained on (\ud835\udc4b\ud835\udc61, \ud835\udc4c\ud835\udc61), and then it is asked to predict E[\ud835\udc4c\ud835\udc61+1] based on an observed \ud835\udc4b\ud835\udc61+1, this classifier is more likely to achieve \ud835\udc4c\ud835\udc61+1 = E[\ud835\udc4c\ud835\udc61+1] even if X is an irrelevant feature. In the presence of irrelevant features, leakage leads to false discoveries... A small value \u210e \u2248 .01\ud835\udc47, where \ud835\udc47 is the number of bars, often suffices to prevent all leakage.",
+      "importance": "central"
+    }
+  ],
+  "publishDate": "2018-01-27 (first version 2017-12-25)",
+  "sourceQuality": "primary"
+}
+```
+
+## 40. entry-40
+
+```
+{
+  "type": "started",
+  "key": "v2:cd13679f986454cd9ac2b32ccbe4b3044c8ebe71d36b00f8ed4e3edc95cbaf9b",
+  "agentId": "a8a008bf58cc7b738"
+}
+```
+
+## 41. entry-41
+
+```
+{
+  "claims": [
+    {
+      "claim": "In a live Binance BTC-perp experiment (232,897 minimum-sized maker orders, Feb 12-19 2024; 127,051 filled), fill probability and post-fill return are NEGATIVELY correlated: orders posted with a favorable-looking book (large opposite-side queue, small near-side queue = adverse imbalance) fill with high probability precisely because the next price move goes against them (adverse selection). Consequence: any entry model whose signal is 'follow the order-book imbalance' at the touch is systematically selecting the losing side, and the viable maker edge is CONTRARIAN to the prevailing OBI.",
+      "quote": "We document a fundamental trade-off: a negative correlation between maker fill likelihood and post-fill returns. This dictates that viable maker strategies often require a contrarian approach, counter-trading the prevailing order book imbalance. These dynamics render commonly-cited strategies highly unprofitable, leading us to model `Reversals': situations where a contrarian maker strategy at the touch proves effective.",
+      "importance": "central"
+    },
+    {
+      "claim": "Prediction accuracy is decoupled from economic value and must never be the gate; with a ~15% reversal base rate a model gets 85% accuracy by always predicting 'no', and conversely a model whose out-of-sample predictions are mostly FALSE POSITIVES can still be economically valuable if the post-fill returns of its selected orders beat randomly-placed orders. The paper's actual gate is a two-sample t-test of the strategy's post-fill returns against a random-order baseline, reported per decision threshold (e.g. t=3.06, p=0.0011 at the 0.30 LR threshold).",
+      "quote": "In the realm of trading, traditional metrics for evaluating classification models, such as prediction accuracy, often fall short of capturing the true metric of interest: economic significance or trading profit. Consider, for instance, that in our data set, only about 15% of orders are reversals. A model could achieve an ostensibly high prediction accuracy of 85% simply by always predicting a non-reversal. However, such a model would never trigger any trading activity, thereby failing to generate any profit or trading edge.",
+      "importance": "central"
+    },
+    {
+      "claim": "The naive/commonly-cited market-making strategy is measurably negative-expectancy on the most liquid crypto market: -0.44 bp average realized roundtrip return NET of the best-case 0.5 bp/leg maker rebate, at 15,380 fills/day, annualized Sharpe -109. Gating the SAME strategy on a predicted-reversal probability >0.24 flips it to +0.71 bp average roundtrip at 327 roundtrips/day, Sharpe +11.97 \u2014 i.e. the edge lives entirely in the entry FILTER, not the strategy. The authors explicitly caveat that this Sharpe assumes minimum order size and the best possible rebate and would degrade materially otherwise.",
+      "quote": "The naive strategy incurs an average loss of 0.44 basis points per roundtrip (net of rebates), occurring at a high frequency, which explains its poor Sharpe ratio. At a higher threshold, such as 0.24 for the Logistic Regression model, the number of roundtrips remains relatively large (327 per day), and the average return (0.71) constitutes a significant improvement over the naive strategy. ... The Sharpe ratio improves from -109 for the naive strategy to 11.97 for the Logistic Regression-based strategy at the 0.24 threshold",
+      "importance": "central"
+    },
+    {
+      "claim": "A plain LOGISTIC REGRESSION on 173 hand-built microstructure features beats a random forest benchmark on the same features at the thresholds that matter: on the out-of-sample Undirectional test, at threshold 0.40 LR yields +2.11 bp mean 5s post-fill return vs RF -0.33 bp; at 0.46 LR +3.45 bp vs RF +0.05 bp. RF only reaches positive returns at the extreme 0.46-0.50 thresholds. The authors avoided PCA/dimensionality reduction by DESIGNING the features to be near-orthogonal (consecutive non-overlapping lookback windows per timescale; timescales separated by ~1 order of magnitude), and encoded features direction-agnostically ('near-side'/'opposite-side' rather than bid/ask) so buys and sells share one model.",
+      "quote": "This is achieved by utilizing consecutive non-overlapping lookback windows for each fixed time scale. When different time scales are considered, they differ by approximately an order of magnitude, ensuring that the overlap between lookback windows across these scales is small. ... This allows us to train our models\u2014logistic regression and random forest\u2014directly on the original feature set without the need for additional pre-processing or dimensionality reduction",
+      "importance": "supporting"
+    },
+    {
+      "claim": "The exact entry-time feature set (all 173 computable at submission, no look-ahead) is enumerated in 4 groups: (1) Price Dynamics \u2014 stdev_100/stdev_500 (stdev of last 100/500 ten-second returns), plus per-timescale {100ms, 1s, 5s, 30s, 300s} x 3 non-overlapping windows {w0,w1,w2} of amplitude (max-min) and ret_vwap (log return of window VWAP vs current top-of-book); (2) Trade Volume Patterns \u2014 max_size, avg_size, buy_count, sell_count, total_buy, total_sell per window; (3) Momentum \u2014 ret_autocov (autocovariance of consecutive-trade returns), ret_sum, trade_intensity (avg time between trades) per window; (4) LOB State \u2014 top_bid_liq, top_ask_liq, ob_bid_half/ob_ask_half (bp distance from touch to VWAP of executing $500K that side), totb_mean (avg top-of-book survival time over past 10 min), age (seconds since last top-of-book price change). Fitted coefficients say reversals follow a sharp 100ms price drop after oscillating (low-autocovariance) 15s price action.",
+      "quote": "In total, our model uses 173 features, all of which are observable at the time of order submission, thus ensuring that the model's predictions are actionable from a trading standpoint: traders can compute the model's prediction in real-time and decide whether to proceed with posting the order or wait for a more opportune moment.",
+      "importance": "central"
+    }
+  ],
+  "publishDate": "2025-02-25 (arXiv v1); v2 revised 2025-11-23 (PDF dated November 25, 2025)",
+  "sourceQuality": "primary"
+}
+```
+
+## 42. entry-42
+
+```
+{
+  "type": "started",
+  "key": "v2:96cd8035b74f6b3137f6d3dda18884d2902154ab744e4a577153192757282fd9",
+  "agentId": "a63cb572c4e80323b"
+}
+```
+
+## 43. entry-43
+
+```
+{
+  "claims": [
+    {
+      "claim": "In-sample backtest Sharpe alone is not a valid selection gate: the expected MAXIMUM Sharpe across N trials is strictly greater than zero even when true skill is exactly zero, and grows with N and with the variance of the trials' Sharpes. Therefore any 'best backtest Sharpe' selected from a search over strategies/parameters carries a guaranteed upward bias that must be subtracted before the number is interpretable. Falsifiable via Eq.(1): E[max SR_n] = E[{SR_n}] + sqrt(V[{SR_n}]) * ((1-gamma)*Z^-1[1-1/N] + gamma*Z^-1[1-1/(Ne)]), gamma = Euler-Mascheroni ~0.5772.",
+      "quote": "After a sufficient number of trials, it is guaranteed that a researcher will always find a misleadingly profitable strategy, a false positive. Random samples contain patterns, and a systematic search through a large space of strategies will eventually lead to identifying one that profits from the chance configuration of how the random data have fallen. ... Equation 1 tells us that, as the number of independent trials (N) grows, so will grow the expected maximum of {SR_n}. ... we will observe better candidates even if there is no investment skill associated with this strategy class",
+      "importance": "central"
+    },
+    {
+      "claim": "Overfit backtests do not merely fail to generalize \u2014 in series with memory (mean reversion / equilibrium restoring), they produce SYSTEMATICALLY NEGATIVE out-of-sample performance ('loss maximization'), because the optimizer selects the rules that profited from the most extreme in-sample random patterns, which are precisely the patterns that get undone. This directly predicts the observed sign of the project's gate: a NEGATIVE (not merely zero) correlation between in-sample Sharpe and realized profit (-0.031, 29.2% win rate) is the expected signature of overfitting-under-memory, not bad luck.",
+      "quote": "Backtest overfitting tends to identify the trading rules that would profit from the most extreme random patterns in sample. In presence of memory effects, those extreme patters must be undone, which means that backtest overfitting will lead to loss maximization. See Bailey et al. (2014) for a formal mathematical proof of this statement. Unfortunately, most financial series exhibit memory effects, a situation that makes backtest overfitting a particularly onerous practice, and may explain why so many systematic funds fail to perform as advertised.",
+      "importance": "central"
+    },
+    {
+      "claim": "To deflate a Sharpe ratio you must record FIVE fields beyond mean and stdev of returns, and these are exactly the fields that must be snapshotted at strategy-selection/entry time: (i) N = number of INDEPENDENT trials that led to the selection, (ii) V[{SR_n}] = variance of the Sharpe ratios across all trials attempted (including the discarded/negative ones), (iii) T = sample length in observations, (iv) skewness of the selected strategy's returns, (v) kurtosis of the selected strategy's returns. Without N and V[{SR_n}] logged at selection time, DSR is not computable after the fact \u2014 the discarded trials must be retained.",
+      "quote": "Note that the standard SR is computed as a function of two estimates: Mean and standard deviation of returns. DSR deflates SR by taking into consideration five additional variables: The non-Normality of the returns, the length of the returns series, the variance of the SRs tested, as well as the number of independent trials involved in the selection of the investment strategy.",
+      "importance": "central"
+    },
+    {
+      "claim": "Concrete magnitude of the correction, falsifiable by recomputation: an annualized Sharpe of 2.5 measured over 5 years of DAILY data (T=1250) is NOT significant at 95% once selection bias is accounted for. With N=1000 independent trials, V[{SR_n}]=1/2 (non-annualized), skew=-3 and kurtosis=10, the deflated threshold SR_0 ~= 0.1132 (non-annualized) and DSR ~= 0.9004 \u2014 i.e. only a 90% chance the true SR exceeds zero. The same 2.5 Sharpe WOULD have passed at 95% had it come from only N=46 independent trials.",
+      "quote": "The analyst responds that N=1000, V[{SR_n}]=1/2, T=1250, skew=-3 and kurt=10. ... Shortly after, the investor declines the analyst's proposal. Why? Because the investor has determined that this is not a legitimate empirical discovery at a 95% confidence level. ... The investor has recognized that there is only a 90% chance that the true SR associated with this strategy is greater than zero. Should the strategist have made his discovery after running only N=46 independent trials, the investor may have allocated some funds, as DSR would have been 0.9505, above the 95% confidence level.",
+      "importance": "central"
+    },
+    {
+      "claim": "The holdout / train-test split and k-fold cross-validation CANNOT prevent backtest overfitting, because they score a model as if a single trial had occurred while ignoring the growth in false positives across repeated applications; applying holdout ~20 times makes a false positive EXPECTED rather than unlikely at a 95% level. Corollary claim: non-Normality is an independent inflation source that interacts with N \u2014 in the worked example, had returns been Normal (skew=0, kurt=3), DSR would have reached 0.95 at N=88 rather than N=46, i.e. negative skew and fat tails roughly halved the number of trials the evidence could tolerate.",
+      "quote": "the reader should understand why the holdout method can not prevent backtest overfitting: Holdout assesses the generality of a model as if a single trial had taken place, again ignoring the rise in false positives as more trials occur. If we apply the holdout method enough times (say 20 times for a 95% confidence level), false positives are no longer unlikely: They are expected. ... If the strategy had exhibited Normal returns (skew=0, kurt=3), DSR=0.95 after N=88 independent trials.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2014-07-31 (this version; first version 2014-04-15; PDF created 2014-08-07). Published in The Journal of Portfolio Management, 2014 (listed as forthcoming on this preprint). SSRN abstract 2460551.",
+  "sourceQuality": "primary"
+}
+```
+
+## 44. entry-44
+
+```
+{
+  "claims": [
+    {
+      "claim": "In-sample Sharpe ratio is not merely uninformative about out-of-sample performance \u2014 the relationship is INVERSE: higher IS Sharpe predicts LOWER OOS Sharpe, so no IS-Sharpe threshold can be used as a selection gate. This directly falsifies the project's current gate (in-sample backtest Sharpe, measured correlation to profit -0.031, n=260, 29.2% win) and predicts that raising the IS-Sharpe bar would make live results worse, not better.",
+      "quote": "We cannot hope escaping the risk of overfitting by exceeding some SR IS threshold. On the contrary, it appears that the higher the SR IS, the lower the SR OOS.",
+      "importance": "central"
+    },
+    {
+      "claim": "In an overfit backtest, a Sharpe ratio between 1 and 3 carries zero information about OOS representativeness: in the paper's worked example 100% of in-sample Sharpes were positive while ~78% of the corresponding out-of-sample Sharpes were negative. A near-zero IS-Sharpe-vs-profit correlation is therefore the EXPECTED signature of an overfit selection process, not an anomaly.",
+      "quote": "Whereas 100% of the SR IS are positive, about 78% of the SR OOS are negative. Also, Sharpe ratios IS range between 1 and 3, indicating that backtests with high Sharpe ratios tell us nothing regarding the representativeness of that result.",
+      "importance": "central"
+    },
+    {
+      "claim": "Overfitting is unavoidable whenever more than one strategy configuration is tried, and the hold-out / train-test-split method cannot assess a backtest because it ignores the number of trials. The number of trials must be recorded and reported as a first-class field \u2014 an unreported trial count makes any backtest statistic uninterpretable. (Implication for entry-model design: the count of strategies/configs/features searched must be snapshotted alongside every candidate.)",
+      "quote": "Fifth, as long as the researcher tries more than one strategy configuration, overfitting is always present (see Bailey et al. [1] for a proof). The hold-out method does not take into account the number of trials attempted before selecting a particular strategy configuration, and consequently hold-out cannot correctly assess a backtest's representativeness.",
+      "importance": "central"
+    },
+    {
+      "claim": "A few hundred search iterations over even a small parameter space is sufficient to produce strategies that look highly profitable in-sample while performing terribly out-of-sample \u2014 the authors demonstrate this with a public tool. This sets a concrete falsifiable bound: any pipeline that evaluates hundreds of strategies/feature sets (e.g. a 142-strategy library sweep) will manufacture spurious IS Sharpe by construction.",
+      "quote": "After a few hundred iterations, it is trivial to find highly profitable strategies in-sample, despite the small number of parameters involved. Performance out-of-sample is, of course, utterly disappointing. The tool is available at http://datagrid.lbl.gov/backtest/index.php.",
+      "importance": "central"
+    },
+    {
+      "claim": "CSCV yields two DISTINCT and separately-reportable diagnostics that should replace a single IS-Sharpe gate: PBO (the rate at which the IS-optimal config underperforms the OOS median, derived from a distribution of logits) and the OOS probability of loss Prob[R < 0]. They are independent \u2014 a strategy can have PBO ~= 0 yet still be unprofitable. The paper's contrast is quantitative: an overfit example scores PBO 74%, a real strategy scores PBO 0.04% with ~3% OOS probability of loss.",
+      "quote": "The lower plot of Figure 2 shows the distribution of logits for the same strategy, with a PBO of 74%. ... This represents the rate at which optimal IS strategies underperform the median of the OOS trials.",
+      "importance": "central"
+    }
+  ],
+  "publishDate": "2015-02-27 (revised version February 2015; original working-paper versions circulated 2013-2014)",
+  "sourceQuality": "primary"
+}
+```
+
+## 45. entry-45
+
+```
+{
+  "type": "started",
+  "key": "v2:4c7d20e56f5c29c15499ed370b62a03ad5b8c98637c98d832d4d73611d2cf3c5",
+  "agentId": "a3479dea33804b204"
+}
+```
+
+## 46. entry-46
+
+```
+{
+  "claims": [
+    {
+      "claim": "On real crypto perp LOB data (Bybit BTC/USDT, 40 levels, 500ms horizon), a well-tuned XGBoost matches or beats DeepLOB and CNN+LSTM \u2014 0.7281 vs 0.7189 binary accuracy \u2014 meaning deep LOB architectures give no edge over GBM on this task.",
+      "quote": "\"Adding an extra CNN layer to a CNN + LSTM based architecture did not yield the substantial accuracy gains\u2026rather, data quality, noise\u2010handling assumptions, and training methodology drive performance.\" \u2026 \"simpler models such as XGBoost and logistic regression marginally outperform\u2026more complex neural networks by 1\u20132%.\"",
+      "importance": "central"
+    },
+    {
+      "claim": "Feature/input quality dominates architecture depth: hand-crafted microstructure features (mid-price, level-1 order imbalance, five-level aggregate imbalance, 1/i-weighted mid-price change) plus Savitzky\u2013Golay noise filtering produced the top accuracies, and the paper attributes performance to inputs and noise-handling rather than model capacity.",
+      "quote": "\"rather, data quality, noise\u2010handling assumptions, and training methodology drive performance\" \u2014 features noted as exhibiting \"approximately linear effects\" and helping models \"ignore nonlinear noise.\"",
+      "importance": "central"
+    },
+    {
+      "claim": "Adding short book history (sequence length T=10 vs T=1 over 100ms snapshots) yields a small but real out-of-sample gain \u2014 XGBoost 57.32% \u2192 59.49% (+2.17%), logistic regression 55.51% \u2192 57.16% (+1.65%) \u2014 at ~4.4x training cost (7m04s vs 1m36s).",
+      "quote": "XGBoost: 57.32% \u2192 59.49% accuracy (+2.17%); Logistic Regression: 55.51% \u2192 57.16% accuracy (+1.65%). Training time trade-off: XGBoost T=10 took 7 minutes 4 seconds vs. 1 minute 36 seconds for T=1.",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Label design used is directional classification of mid-price move at 100/500/1000ms horizons, with class imbalance handled by inverse-frequency loss weighting and, for ternary labels, tuning the stationary band \u03b5 to equalize class frequencies.",
+      "quote": "**Ternary**: Up, Flat (stationary), Down with threshold \u03b5 defining the stationary band (\u2212\u03b5 \u2264 \u0394p/p \u2264 +\u03b5) \u2026 Inverse-frequency weighting in loss function and, for ternary classification, tuning \u03b5 to achieve \"roughly equal class frequencies.\"",
+      "importance": "supporting"
+    },
+    {
+      "claim": "The result is evidentially weak for generalization: all findings rest on a single trading day of one symbol (BTC/USDT, Jan 30 2025) with a plain chronological 80/20 split and no regime/multi-day robustness testing, so accuracy numbers should not be treated as regime-robust out-of-sample edge.",
+      "quote": "\"Our experiments were conducted on a single trading day\u2026over roughly 100,000 snapshots\u2026further testing on additional days and under different market conditions is needed to assess robustness.\"",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2025-06 (arXiv 2506.05764v2; paper states May 2025)",
+  "sourceQuality": "primary"
+}
+```
+
+## 47. entry-47
+
+```
+{
+  "publishDate": "2021-01-04 (available online); Journal of Banking and Finance, Vol. 124 (2021), article 106041. Received 22 July 2020, accepted 27 December 2020.",
+  "sourceQuality": "primary",
+  "claims": [
+    {
+      "claim": "In crypto markets, the Amihud (2002) illiquidity ratio is the WORST performer at tracking time-series variation in true (order-book-derived) liquidity \u2014 it is essentially uncorrelated with quoted spread, effective spread, price impact and cost-of-roundtrip, and the correlation sign is even negative (wrong direction). Tested on BTCUSD/ETHUSD across Bitfinex, Bitstamp and Coinbase Pro, 2017-12-16 to 2019-12-16, against 50-level order-book benchmarks. This directly falsifies Amihud as a usable illiquidity feature for crypto entry models unless sign-corrected.",
+      "quote": "The measure that performs worst in our horse race is the Amihud (2002) illiquidity ratio. It is virtually uncorrelated with the benchmark measures, and the sign of the correlation is even negative.",
+      "importance": "central"
+    },
+    {
+      "claim": "The mechanism behind Amihud's failure is that crypto violates its core assumption: volume is POSITIVELY related to execution costs in crypto (higher trading activity \u2192 wider spreads / higher impact), whereas Amihud assumes the opposite. Any feature built on the 'volume implies liquidity' premise will carry an inverted sign in crypto. The authors note this is not crypto-unique \u2014 Bogousslavsky and Collin-Dufresne (2020) document the same for large US stocks.",
+      "quote": "The poor performance is driven by the relationship between volume and liquidity that is assumed to be negative in Amihud (2002) and is positive in cryptocurrency markets. The positive relation between bid-ask spreads and volume is at odds with most theoretical predictions but has recently also been documented by Bogousslavsky and Collin-Dufresne (2020) for large US stocks.",
+      "importance": "central"
+    },
+    {
+      "claim": "High/low-price-based estimators (Corwin-Schultz 2012 and Abdi-Ranaldo 2017) best capture the TIME-SERIES variation of true liquidity in crypto, with daily-frequency correlations of 0.54-0.75 against quoted spread, effective spread and cost-of-roundtrip, rising to 0.86 against price impact for both estimators. This holds across all data frequencies, all three exchanges, all four benchmarks, both coins, and across high/low return, volatility and volume sub-samples.",
+      "quote": "The Corwin and Schultz (2012) estimator exhibits the highest time series correlation and the Abdi and Ranaldo (2017) estimator the second-highest correlation with the quoted spread, the effective spread and the cost of a roundtrip trade, with correlations ranging from 0.54 to 0.75. The correlation with the price impact is markedly higher, at 0.86 for both the Corwin and Schultz (2012) and Abdi and Ranaldo (2017) estimator.",
+      "importance": "central"
+    },
+    {
+      "claim": "The Roll (1984) serial-covariance spread estimator performs WORST at capturing the level of the effective spread, and Roll/Corwin-Schultz/Abdi-Ranaldo all suffer a frequency-dependent small-sample bias: their estimated values inflate strongly as the estimation window lengthens. This means any of these three computed at a bar frequency different from the one it was validated at is not comparable \u2014 a concrete look-ahead/mis-specification trap for feature construction.",
+      "quote": "One striking observation is that the levels of the Roll (1984), Abdi and Ranaldo (2017) and Corwin and Schultz (2012) estimators appear to strongly depend on the data frequency. All three measures deliver values which increase strongly as we move to lower data frequencies.",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Simple trade-count and dollar-volume proxies are strong (not weak) descriptors of crypto liquidity \u2014 correlating 0.82 and 0.80 respectively with price impact at daily frequency \u2014 but with a POSITIVE sign, meaning higher trading activity predicts HIGHER execution costs. At the 15-day frequency the volume-based proxies beat all other proxies on three of four benchmarks. Separately, a PCA composite of the low-frequency proxies did not improve on the best individual proxy.",
+      "quote": "the number of transactions and the dollar trading volume are highly correlated with the four benchmark measures, and particularly so with the price impact (with correlation coefficients of 0.82 and 0.80 for the number of transactions and the dollar volume, respectively. What is most surprising is the sign of the coefficients. Both measures are positively related to the benchmark measures, implying that higher trading activity is associated with higher execution costs.",
+      "importance": "supporting"
+    }
+  ]
+}
+```
+
+## 48. entry-48
+
+```
+{
+  "claims": [
+    {
+      "claim": "Meta-labeling restricts the ML model to a binary trade/pass (size) decision while an exogenous primary model fixes the side, so the secondary model's label is 'was the primary's call correct', not the direction itself. This is directly transferable: the entry-edge model should snapshot the primary signal's side plus context features, and be trained to predict whether THAT signal was right \u2014 not to re-predict direction.",
+      "quote": "I call this problem meta-labeling because we want to build a secondary ML model that learns how to use a primary exogenous model. The ML algorithm will be trained to decide whether to take the bet or pass, a purely binary prediction. When the predicted label is 1, we can use the probability of this secondary prediction to derive the size of the bet, where the side (sign) of the position has been set by the primary model.",
+      "importance": "central"
+    },
+    {
+      "claim": "Meta-labeling cannot rescue a weak primary signal \u2014 it can only trim downside. The paper concedes its own primaries (SMA crossover, Bollinger bands) are poor signal generators, which bounds the entire result: the demonstrated gains are conditional on a primary that already has genuine in-sample edge.",
+      "quote": "as much as we show that meta-labeling works, it also needs a good primary algorithm that should have good performance in in-sample tests. One then needs to combine that algorithm with a rich set of features that are contextual, relevant and intuitive. If the algorithm is bad then meta-labeling would likely only reduce the downside.",
+      "importance": "central"
+    },
+    {
+      "claim": "The out-of-sample precision gain is near-negligible despite dramatic accuracy jumps: mean-reversion precision moved 0.17\u21920.20 with accuracy 17%\u219263%, and trend-following 0.48\u21920.54 with accuracy 48%\u219255%. The accuracy leap is driven almost entirely by correctly declining trades (true negatives), NOT by better trade selection \u2014 precision on taken trades barely moved. In-sample/validation gains (accuracy 20%\u219277%) collapsed out-of-sample, which is exactly the in-sample-metric-to-real-profit decoupling pattern.",
+      "quote": "This test data is completely out-of-sample. The precision jumps from 0.17 to 0.20 and the accuracy from 17% to 63%. This should translate to improved strategy performance metrics as well.",
+      "importance": "central"
+    },
+    {
+      "claim": "Fixed-threshold directional labels are invalid under heteroskedastic returns and ignore stop-loss/take-profit exits; triple-barrier labeling with volatility-scaled horizontal barriers plus a vertical time barrier labels the realized PATH instead of the next directional move. Barriers are sized as a user-defined multiple of the rolling stdev of log returns \u2014 so the label adapts to the volatility regime at entry.",
+      "quote": "First the threshold level is usually static and stock returns are known to be heteroskedastic, the volatility changes over time and a fixed threshold value fails to account for this. Second, using this -1, 0, 1 scheme fails to account for positions that would have been closed by stop loss or profit taking orders.",
+      "importance": "central"
+    },
+    {
+      "claim": "Meta-labeled datasets are severely class-imbalanced toward 'do not trade', and the authors handled it by up-sampling with replacement BEFORE training \u2014 a choice that, combined with grid-search CV on non-purged folds, is a known leakage vector (resampled duplicates land in both train and validation folds), plausibly explaining the validation-to-OOS collapse.",
+      "quote": "we found that meta-labeling often resulted in unbalanced classes - to trade (=1) or not to trade (=0) with many more instances of not to trade. We used up-sampling to balance these classes prior to training the machine-learning algorithm (Random Forest).",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "Circa 2019 (capstone report; data ends 2019-01-31, references accessed March 2019). PDF hosted at hudsonthames.org under /2022/04/ \u2014 April 2022 upload date, not the authoring date.",
+  "sourceQuality": "primary"
+}
+```
+
+## 49. entry-49
+
+```
+{
+  "claims": [
+    {
+      "claim": "Across a curated 45-dataset tabular benchmark with a fair hyperparameter-search budget (~20,000 compute hours per learner), tree-based models (XGBoost, Random Forests) remain state-of-the-art versus deep learning methods on medium-sized tabular data (~10K samples) \u2014 i.e. a well-tuned GBM is the correct default baseline for tabular finance features, and deep tabular nets must earn their place empirically.",
+      "quote": "Results show that tree-based models remain state-of-the-art on medium-sized data (~10K samples) even without accounting for their superior speed.",
+      "importance": "central"
+    },
+    {
+      "claim": "Neural networks on tabular data are NOT robust to uninformative features, whereas tree-based models are \u2014 so a wide, exploratory microstructure feature set (many weak/dead predictors) systematically disadvantages NN architectures relative to GBMs.",
+      "quote": "This leads to a series of challenges which should guide researchers aiming to build tabular-specific NNs: 1. be robust to uninformative features, 2. preserve the orientation of the data, and 3. be able to easily learn irregular functions.",
+      "importance": "central"
+    },
+    {
+      "claim": "NNs are biased toward smooth solutions and struggle to learn irregular/non-smooth target functions, while tree-based models handle them natively \u2014 relevant because entry-edge targets over order-book features are typically non-smooth (threshold/regime-like).",
+      "quote": "3. be able to easily learn irregular functions",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Rotation-invariant learners (MLPs) lose performance because tabular features have meaningful individual orientation; preserving per-feature orientation matters, which argues against PCA-style rotation/orthogonalization of engineered microstructure features before modeling.",
+      "quote": "2. preserve the orientation of the data",
+      "importance": "supporting"
+    },
+    {
+      "claim": "The paper's conclusions rest on an explicit benchmarking methodology that jointly accounts for model fitting AND hyperparameter search across 45 datasets from varied domains, with all raw search results released \u2014 i.e. the tree-vs-DL comparison is not a single-tuning-budget artifact.",
+      "quote": "We define a standard set of 45 datasets from varied domains with clear characteristics of tabular data and a benchmarking methodology accounting for both fitting models and finding good hyperparameters.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2022-07-18",
+  "sourceQuality": "primary"
+}
+```
+
+## 50. entry-50
+
+```
+{
+  "claims": [
+    {
+      "claim": "The expected maximum Sharpe ratio across N independent trials grows without bound as N increases even when true skill is exactly zero (E[SR]=0), so a high backtest Sharpe carries no evidential weight unless N is disclosed. Falsifiable via Eq. (1)/(6): E[max{SR_n}] = sqrt(V[{SR_n}]) * ((1-gamma)*Z^-1[1-1/N] + gamma*Z^-1[1-1/(N*e)]), gamma = Euler-Mascheroni ~0.5772.",
+      "quote": "Equation 1 tells us that, as the number of independent trials (N) grows, so will grow the expected maximum of {SR_n}. ... This is a consequence of purely random behavior, because we will observe better candidates even if there is no investment skill associated with this strategy class",
+      "importance": "central"
+    },
+    {
+      "claim": "Backtest overfitting in financial series with memory effects produces systematically NEGATIVE out-of-sample performance, not merely zero \u2014 i.e. selecting on in-sample backtest results is loss-maximizing, which predicts a sub-50% win rate exactly like the observed 29.2%/n=260 gate failure.",
+      "quote": "Backtest overfitting tends to identify the trading rules that would profit from the most extreme random patterns in sample. In presence of memory effects, those extreme patters must be undone, which means that backtest overfitting will lead to loss maximization. ... Unfortunately, most financial series exhibit memory effects",
+      "importance": "central"
+    },
+    {
+      "claim": "Holdout and k-fold cross-validation do NOT prevent backtest overfitting, because they score a model as if a single trial occurred; applied ~20 times at 95% confidence, false positives become expected rather than unlikely. This falsifies the common assumption that adding a train/test split repairs a Sharpe-based gate.",
+      "quote": "the reader should understand why the holdout method can not prevent backtest overfitting: Holdout assesses the generality of a model as if a single trial had taken place, again ignoring the rise in false positives as more trials occur. If we apply the holdout method enough times (say 20 times for a 95% confidence level), false positives are no longer unlikely: They are expected",
+      "importance": "central"
+    },
+    {
+      "claim": "A valid deflated significance test requires exactly five fields beyond the strategy's own Sharpe, which must be snapshotted at selection/trial time: number of independent trials N, variance of Sharpes across trials V[{SR_n}], sample length T, skewness, and kurtosis. N and V[{SR_n}] cannot be reconstructed post hoc and are the fields pipelines most often fail to record.",
+      "quote": "DSR deflates SR by taking into consideration five additional variables: The non-Normality of the returns (skewness, kurtosis), the length of the returns series (T), the variance of the SRs tested (V[{SR_n}]), as well as the number of independent trials involved in the selection of the investment strategy (N).",
+      "importance": "central"
+    },
+    {
+      "claim": "Worked example quantifies the deflation: an annualized Sharpe of 2.5 over T=1250 daily observations (5 years) with N=100 trials, skewness -3, kurtosis 10 deflates to DSR ~0.90 (fails a 95% bar); the same 2.5 Sharpe would have passed (DSR=0.9505) had it come from only N=46 trials, and under Normal returns (skew=0, kurt=3) DSR=0.95 held up to N=88 trials.",
+      "quote": "the investor has determined that this is not a legitimate empirical discovery at a 95% confidence level. ... The investor has recognized that there is only a 90% chance that the true SR associated with this strategy is greater than zero. Should the strategist have made his discovery after running only N=46 independent trials, the investor may have allocated some funds, as DSR would have been 0.9505, above the 95% confidence level. ... If the strategy had exhibited Normal returns, DSR=0.95 after N=88 independent trials.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2014-07-31 (first version 2014-04-15; Journal of Portfolio Management, forthcoming 2014)",
+  "sourceQuality": "primary"
+}
+```
+
+## 51. entry-51
+
+```
+{
+  "claims": [
+    {
+      "claim": "Gradient-boosted trees matched or exceeded zero-shot tabular foundation models (TabPFN-1.0, TabICL-base) on 3 of 4 binary-classification datasets, with accuracy gaps typically under 1 percentage point and statistically insignificant (p=0.74) \u2014 i.e. no measured accuracy edge for TFMs over a well-tuned GBM.",
+      "quote": "TabICL gains +0.8 pp on Higgs but pays \u224840,000\u00d7 more latency (960 s) and 9 GB VRAM.",
+      "importance": "central"
+    },
+    {
+      "claim": "TabPFN inference is >2,000x slower than XGBoost and TabICL ~11,000x slower (960 s vs 0.019 s per test batch on Higgs), while XGBoost runs 5-19 ms per batch \u2014 a decisive argument against TFMs in a CPU-only, 500ms-cadence, 200-coin perp pipeline.",
+      "quote": "over 2,000\u00d7 slower than XGBoost",
+      "importance": "central"
+    },
+    {
+      "claim": "TabPFN-1.0 cannot process datasets exceeding ~10,000 rows due to architectural constraints, capping its use as a primary entry-edge model on large perp feature histories.",
+      "quote": "TabPFN cannot process datasets exceeding 10,000 rows due to architectural constraints.",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Tabular foundation models require substantial VRAM (TabPFN 0.8-4.4 GB; TabICL consistently >8 GB, peaking at 9.3 GB on Higgs) whereas tree ensembles require zero VRAM \u2014 making GBMs the only viable option on CPU-only hardware.",
+      "quote": "TabICL \u201cconsistently exceeds 8 GB,\u201d reaching 9.3 GB on Higgs",
+      "importance": "supporting"
+    },
+    {
+      "claim": "The authors explicitly recommend zero-shot TFMs only for prototyping/low-stakes small-data work, and state production use needs quantisation/distillation/redesign or hybrid pipelines.",
+      "quote": "zero-shot tabular foundation models are best suited for rapid prototyping or low-stakes experimentation on small datasets",
+      "importance": "central"
+    }
+  ],
+  "publishDate": "2025-12 (arXiv 2512.00888v1; exact day not stated on page)",
+  "sourceQuality": "primary"
+}
+```
+
+## 52. entry-52
+
+```
+{
+  "claims": [
+    {
+      "claim": "On-chain exchange net-flow predictors yield statistically significant but economically negligible return predictability: adjusted R2 for all intraday return regressions is 0.000-0.003, meaning on-chain flows explain at most ~0.3% of intraday return variance even in-sample. This caps their value as a standalone entry-edge feature.",
+      "quote": "1-hour return - ETH v ETH 0.000093* (1.829) -0.017*** (-5.809)  0.001  0.000096* (1.889) -0.017*** (-5.958) -0.031*** (-6.727) 0.002 2-hour return - ETH v ETH 0.0002* (1.835) -0.0078** (-1.986)  0.000",
+      "importance": "central"
+    },
+    {
+      "claim": "On-chain net flows predict VOLATILITY far more reliably than direction/returns: BTC net inflows have no return predictive power (t=0.208 at 1h) yet negatively predict BTC volatility at t=-10.950 across all intraday intervals. This implies on-chain flows should be snapshotted as a volatility/risk-sizing input, not a direction signal.",
+      "quote": "Third, BTC net inflows generally lack predictive power for BTC returns (except at 4 hours) but are negatively associated with volatility across all intraday intervals.",
+      "importance": "central"
+    },
+    {
+      "claim": "The sign of on-chain net-flow return prediction is asset-specific and does not generalize: ETH net inflows negatively predict ETH returns at all intraday intervals, while USDT net inflows positively predict BTC and ETH returns. A single pooled cross-coin on-chain coefficient would therefore be mis-signed for some assets.",
+      "quote": "We find that differing significantly from forecasting patterns for BTC, ETH net inflows negatively predict ETH returns and volatility.",
+      "importance": "central"
+    },
+    {
+      "claim": "The return-predictive power of USDT net inflows decays to zero beyond 2 hours (1h t=5.903, 2h t=2.595, 3h t=0.444, 4h t=-0.021, 6h t=-0.114), so the usable horizon for on-chain flow signals is 1-2 hours \u2014 far longer than a 500ms/5m book-driven entry model and requiring explicit horizon matching.",
+      "quote": "3-hour return - USDT v ETH 3.0\u00b410-4* (1.697) 1.5\u00b410-6  (0.444)  -0.000  3.0\u00b410-4* (1.774) 2.5\u00b410-6  (0.733) -0.0562*** (-6.898) 0.003 4-hour return - USDT v ETH 3.0\u00b410-4  (1.644) -8.3\u00b410-8  (-0.021)  -0.000",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Evidence scope is limited to BTC, ETH and USDT exchange net flows over Dec 2017-Jan 2023 at 1-6h frequencies, with the authors themselves conceding USDT volatility results are unstable across subsamples and sometimes sign-flipped versus hypothesis \u2014 i.e. no evidence supports extending on-chain flows to a 200-coin perp universe at 5m.",
+      "quote": "While USDT produces some statistically significant results to forecast volatility of ETH, the results are not consistent across sample periods tested. Besides, some results are opposite to our hypotheses. Hence, we do not find consistent statistically significant relationships of USDT net inflows to forecast volatility for ETH.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2024-11-10 (arXiv v1); revised 2025-09-01 (v2); paper header dated June 2025",
+  "sourceQuality": "primary"
+}
+```
+
+## 53. entry-53
+
+```
+{
+  "claims": [
+    {
+      "claim": "The paper's predictor is FX order flow across 11 major currencies (\"world order flow\"), NOT crypto-exchange limit-order-book or aggTrade microstructure flow \u2014 so it does not speak to L2/queue/VPIN-style entry features despite the title.",
+      "quote": "Our analysis is based on a set of international order flows denominated in 11 major currencies that reflect world order flow.",
+      "importance": "supporting"
+    },
+    {
+      "claim": "World (FX) order flow beats economic fundamentals for OUT-OF-SAMPLE prediction of crypto returns, and the advantage is larger for non-linear ML models than linear ones \u2014 evidence that non-linearity adds real OOS power on this predictor class, and that the result is not a limits-to-arbitrage artifact.",
+      "quote": "Order flow tends to dominate economic fundamentals for out-of-sample prediction, especially in the context of non-linear machine learning models, and its performance cannot be explained by limits to arbitrage.",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Order flow's price impact on cryptocurrency returns is permanent rather than transitory \u2014 relevant to label/horizon design, since a permanent-impact signal argues for longer holding horizons rather than mean-reversion-style scalp exits.",
+      "quote": "Overall, our findings indicate that order flow has a permanent effect on cryptocurrency returns.",
+      "importance": "supporting"
+    },
+    {
+      "claim": "Order flow carries both explanatory (contemporaneous) and predictive information for cryptocurrency returns; the study is framed cross-sectionally (across coins), not as a single-asset entry-timing problem.",
+      "quote": "We find that world order flow has strong explanatory and predictive power for cryptocurrency returns.",
+      "importance": "tangential"
+    }
+  ],
+  "publishDate": "2026-01-15",
+  "sourceQuality": "primary"
+}
+```
+
+## 54. entry-54
+
+```
+{
+  "claims": [
+    {
+      "claim": "All 15 benchmarked SOTA LOB deep-learning models suffered a large out-of-sample performance collapse when moved from the FI-2010 benchmark to unseen LOBSTER market data (NASDAQ 2021/2022), falling to only 48-61% F1 versus ~82% on FI-2010 \u2014 i.e. in-benchmark accuracy did not transfer to new data. The best model, BINCTABL, lost ~19.6% F1 on average across horizons.",
+      "quote": "the overall performance of all models on the LOB-2021/2022 dataset is still significantly lower than on the FI-2010 dataset, ranging 48-61% in F1-score... In particular, BINCTABL experiences an average decrease of approximately 19.6% in F1-Score across all horizons, resulting in a generalizability score of 73.5%.",
+      "importance": "central"
+    },
+    {
+      "claim": "Published F1 claims for LOB deep-learning models did not reproduce: measured performance differed considerably from claimed performance and the ranking of systems reordered under independent evaluation. About half of all hyperparameter-search runs diverged to F1 <= 33% (below the 3-class random baseline), showing extreme hyperparameter sensitivity. TRANSLOB and ATNBoF were the worst offenders.",
+      "quote": "Except for a few systems, there is a considerable difference between the claimed performances and those measured in both robustness and generalizability experiments... All models are very sensitive to hyperparameters, in fact, they diverged (F1-score \u2264 33%) during the hyperparameters search for about half of the runs.",
+      "importance": "central"
+    },
+    {
+      "claim": "Classification skill did not convert into profit: in the LOB-2021 trading simulation (no fees, no slippage, 1 share/trade), model returns were driven mainly by the underlying stock's daily return, not by model quality \u2014 only the two stocks with the highest positive daily returns were profitable, and the two with the most negative daily returns lost money for most models. This is direct evidence that a high-F1/high-backtest-metric gate can have near-zero correlation with realized profit.",
+      "quote": "The strongest correlation observed is between the daily returns of the stocks, as shown in Table 3, and the returns of the strategy described above. In fact, the two stocks with the highest positive daily returns (namely LSTR and NFLX) are the only ones for which the strategy is profitable.",
+      "importance": "central"
+    },
+    {
+      "claim": "Architecture complexity did not win: the top model was BINCTABL (a bilinear/attention layer with Adaptive Bilinear Normalization), which beat the second-best DLA by up to 9.2% F1, while heavier transformer architectures (TRANSLOB, AXIALLOB) ranked among the worst. Ensembles/stacking of the 15 models (including a META-LOB meta-learner) FAILED to beat the single best model, attributed to high agreement among base models. Also, none of the top three models used the conventional h=100 long input window, implying short context suffices.",
+      "quote": "Regrettably, ensemble models (the last two rows in Table 2) do not exceed the performance of the top-performing models, which is probably due to the relatively high agreement rate among systems... none of the top three models in our study utilize h = 100 long market observations as input, despite it being a common practice in the literature",
+      "importance": "central"
+    },
+    {
+      "claim": "Label design (horizon k and threshold theta) mechanically controls class balance and therefore apparent accuracy: with the 3-class up/stationary/down labelling on averaged future mid-price, the stationary class falls from 63% at k=1 to 25% at k=10, all models are biased toward predicting the stationary class, and the stock with the best measured performance (CSCO) was simply the most stationary one (18-65-17% train balance) \u2014 i.e. reported skill partly reflects label imbalance rather than predictive edge.",
+      "quote": "the class composition for different values of k is k = 1, U: 18%, S: 63%, D:19%; k = 5, U: 32%, S: 35%, D:33%; k = 10, U: 37%, S: 25%, D:38%.",
+      "importance": "supporting"
+    }
+  ],
+  "publishDate": "2023-08-03 (arXiv v1 announced; v2 dated 2023-09-19; paper states initial submission 2023-07-05). Preprint, under review at time of posting.",
+  "sourceQuality": "primary"
+}
+```
+
+## 55. entry-55
+
+```
+{
+  "type": "started",
+  "key": "v2:507e23854a2083ed9d9583567d64a178b118a2ee78ccce36fe5e5aa5adc7ccea",
+  "agentId": "a5b573a6e31622557"
+}
+```
+
+## 56. entry-56
+
+```
+{
+  "type": "started",
+  "key": "v2:11bf77d8100ac4460558fcf21d31adb500e5cb20425d476881b1692877846171",
+  "agentId": "abc45bfb8685e59bb"
+}
+```
+
+## 57. entry-57
+
+```
+{
+  "type": "started",
+  "key": "v2:a82e0689fa5d99293d8141f24b625dff8b8c768494824ac593a8db0658e0cc37",
+  "agentId": "ad83fd78d7287fe15"
+}
+```
+
+## 58. entry-58
+
+```
+{
+  "type": "started",
+  "key": "v2:e17d4e8506c5949df60a4626ebe373130f577f33f89f102d1a90fc6dc83c6c84",
+  "agentId": "a3671ac1c05e4fbfe"
+}
+```
+
+## 59. entry-59
+
+```
+{
+  "type": "started",
+  "key": "v2:32065d07402136ea62c6be6d0e2b3457b8e95762688db6a14e22c23c26d361c6",
+  "agentId": "a574629e608a2cf76"
+}
+```
+
+## 60. entry-60
+
+```
+{
+  "type": "started",
+  "key": "v2:0a644bfa9784402280afe7f97da45dc465008157a43d06e1a52a164bd19a5a48",
+  "agentId": "ac8fff0f900b1c2cd"
+}
+```
+
+## 61. entry-61
+
+```
+{
+  "type": "started",
+  "key": "v2:2d5a4550a938d5b456272447b5783743e1d1f761fd379dfcd0fecaf32d7db5c8",
+  "agentId": "aecab7959ab4a412e"
+}
+```
+
+## 62. entry-62
+
+```
+{
+  "type": "started",
+  "key": "v2:f648a8697a1a5bb9a757d2493a32a510c760b4dd699f9a12f0820b49f3047fa0",
+  "agentId": "a1067f0da99ea2321"
+}
+```
+
+## 63. entry-63
+
+```
+{
+  "type": "started",
+  "key": "v2:3fbe2e63785f29d744412504e2fbf3d5a32b02f49dc2cf2b48ca01b7500b704b",
+  "agentId": "a1d0e6c61616e40ef"
+}
+```
+
+## 64. entry-64
+
+```
+{
+  "type": "started",
+  "key": "v2:1a1109e51158085ae6583d1815c1d9f55895749aca830f2a0ce99af08b742bbf",
+  "agentId": "a2ae84ef50e63804e"
+}
+```
+
+## 65. entry-65
+
+```
+{
+  "refuted": true,
+  "evidence": "OVERREACH + SELF-CONTRADICTED BY PRIMARY SOURCE. The quote is genuine (Cont, Cucuringu & Zhang, arXiv:2112.13213, published Quantitative Finance 23(10):1373-93, 2023) and is correctly scoped to CONTEMPORANEOUS impact. But the claim's prescriptive clause (\"so multi-level own-book OFI should be built before any cross-sectional order-flow machinery\") is refuted by the SAME abstract's next finding: \"lagged cross-asset OFIs do improve the forecasting of future returns\", with lagged cross-impact manifesting at short-term horizons and decaying rapidly. Contemporaneous explanatory power and forward predictive power are distinct; a null in the former does not transfer to the latter. A trade-ENTRY edge model is exclusively a forecasting problem, so the claim invokes the one result that does not apply to the use case and omits the one that does.\n\nThree specific defects:\n1. SCOPE ERROR: contemporaneous-regression redundancy exported to a forecasting prescription. The paper's Section on forecasting explicitly finds the opposite for the predictive case.\n2. ASSET-CLASS MISMATCH: study is US equities (Nasdaq, consolidated tape, single primary venue). Target context is crypto perps, 200 coins, fragmented across venues. Cross-venue/cross-asset flow informativeness is DRIVEN by fragmentation, which is absent in the source setting. Crypto-specific counter-evidence: \"Fragmentation, Price Formation and Cross-Impact in Bitcoin Markets\" (arXiv:2108.09750, Quantitative Finance / Applied Mathematical Finance 2022) finds trade flow arrives first on one venue then trickles to others via cancellations/taker orders, so the CROSS-SECTION of trade flows has explanatory power over FUTURE returns. Also MDPI Journal of Risk and Financial Management 14(5):103 finds asymmetric Granger causality across perp venues (Bybit->Binance funding significant in 62% of windows vs 21% reverse; OKX->Binance 55% vs 25%), i.e. exploitable cross-venue lead-lag that own-book multi-level OFI cannot capture.\n3. MISREAD OF \"SUBSUMED\": the paper shows cross-impact is redundant for DECOMPOSING simultaneous price moves under a sparse model; it never shows multi-level own-book OFI CONTAINS cross-asset information. Its own lagged results demonstrate it does not.\n\nSource quality is high (Rama Cont is a top microstructure authority; peer-reviewed in Quantitative Finance; not marketing/press-release/forum). Not outdated per se (2021 v1, 2023 published), though pre-dates the crypto-perp microstructure literature it is being applied to. The refutation is not about source quality or currency \u2014 it is that the claim selectively quotes a paper whose complementary finding contradicts the claim's operational conclusion.\n\nNOTE: the build-ordering advice may be defensible on OTHER grounds (multi-level OFI is cheap, CPU-friendly, and the paper does show integrated multi-level OFI beats best-level OFI via PCA), but that is not the argument made, and the claim as stated must be rejected. Practical implication for the asker: at 500ms L2 across 200 coins, build multi-level OFI AND lagged cross-asset OFI; the paper supports the former's value and explicitly supports the latter's predictive value. Snapshot at entry: per-level OFI L1-L20, PCA-integrated OFI, plus lagged cross-asset OFI vector (BTC/ETH + cluster peers) at short lags.",
+  "confidence": "high",
+  "counterSource": "https://arxiv.org/abs/2112.13213 (the primary source itself \u2014 abstract states \"lagged cross-asset OFIs do improve the forecasting of future returns\", contradicting the claim's prescriptive conclusion); https://www.tandfonline.com/doi/full/10.1080/1350486X.2022.2080083 (Fragmentation, Price Formation and Cross-Impact in Bitcoin Markets \u2014 cross-section of trade flows predicts future returns in fragmented crypto markets); https://www.mdpi.com/2227-7072/14/5/103 (asymmetric Granger causality across crypto perp venues)"
+}
+```
+
+## 66. entry-66
+
+```
+{
+  "type": "started",
+  "key": "v2:890bd0b465427162066ea27e677b1e2feaa022c044ec0da15940d0ae1204beda",
+  "agentId": "aa4ce0b3095170a52"
+}
+```
+
+## 67. entry-67
+
+```
+{
+  "refuted": true,
+  "evidence": "OVERREACH + SELF-CONTRADICTED BY THE SAME ABSTRACT. The quote is genuine (verified verbatim in arXiv 2112.13213v1 abstract), but it is cherry-picked from a two-part finding. The same abstract states: \"lagged cross-asset OFIs do improve the forecasting of future returns\" \u2014 authors report this significantly improves OUT-OF-SAMPLE R2 at short intraday horizons (decaying rapidly with horizon). The claim quotes the contemporaneous half and suppresses the predictive half.\n\nWHY THIS KILLS THE CLAIM'S CONCLUSION: The paper's null result is scoped to CONTEMPORANEOUS impact (explaining interval t's return using interval t's flow) \u2014 a quantity structurally unavailable at entry time. A trade-entry edge model is a FORECASTING problem, which is precisely the regime where the paper says cross-asset OFI DOES add power. The claim's operative prescription (\"so multi-level own-book OFI should be built before any cross-sectional order-flow machinery\") is a non-sequitur that the source affirmatively contradicts for the stated use case (crypto perps, 500ms L2, 5m bars \u2014 exactly the short horizons where the paper finds lagged cross-impact works).\n\n\"SUBSUMED\" IS UNSUPPORTED EVEN CONTEMPORANEOUSLY: paper reports a small-but-nonzero +0.71% incremental in-sample R2 for cross terms (vs 2.71% for best-level OFI). That is a marginal-value finding in a sparse-model comparison, not a spanning/subsumption result.\n\nDOMAIN TRANSFER FAILURE: study is NASDAQ EQUITIES \u2014 top 100 S&P 500 components, LOBSTER data, 2017-01-01 to 2019-12-31, minute-level. Target context is crypto perps, which have a dominant single-factor (BTC/ETH beta) structure with markedly stronger cross-asset lead-lag than US equities. This makes cross-sectional flow MORE likely to carry independent predictive signal in crypto, not less \u2014 the transfer, if anything, runs against the claim.\n\nSOURCE QUALITY IS NOT THE DEFECT: Cont/Cucuringu/Zhang, published Quantitative Finance 23(10), 2023 \u2014 primary, peer-reviewed, appropriate strength. Refutation rests on the source contradicting the claim when read in full, not on source weakness.\n\nSALVAGEABLE KERNEL (much weaker than claim): multi-level OFI beating best-level-only OFI is well-supported, and building it early is defensible as a cheap strong baseline. That does NOT license deprioritizing cross-sectional order flow in a predictive entry model.",
+  "confidence": "high",
+  "counterSource": "https://arxiv.org/html/2112.13213v4 (same paper, published version) \u2014 abstract: \"lagged cross-asset OFIs do improve the forecasting of future returns\"; authors report significant out-of-sample R2 improvement at short intraday horizons. Also https://www.tandfonline.com/doi/abs/10.1080/14697688.2023.2236159 (Quantitative Finance 23(10), 2023). Crypto-domain counterevidence: https://arxiv.org/html/2607.09230v1 (state-dependent L2 order-flow, Binance BTCUSDT/ETHUSDT perps 2023-2026) and https://arxiv.org/html/2602.00776v1 (stable cross-asset LOB feature importance across BTC/LTC/ETC/ENJ/ROSE, Binance Futures 1s, 2022-2025)."
+}
+```
+
+## 68. entry-68
+
+```
+{
+  "refuted": false,
+  "evidence": "CLAIM SURVIVES ADVERSARIAL REVIEW. (1) Quote-vs-claim: no overreach. The quote says \"contemporaneous price impact of multi-level OFIs and reveal their additional explanatory power\" \u2014 the claim asserts \"explanatory power for price moves,\" which is exactly the contemporaneous framing. The claim does NOT overclaim predictive power from this quote. (2) Source quality exceeds the bar for a modest incremental claim: Cont, Cucuringu & Zhang, \"Cross-impact of order flow imbalance in equity markets,\" arXiv 2112.13213 (v1 2021-12-25, v4 2023-06-13), PEER-REVIEWED in Quantitative Finance Vol 23 No 10 (2023), tandfonline 10.1080/14697688.2023.2236159, also Oxford ORA. (3) INDEPENDENT CORROBORATION from a second primary source \u2014 the MLOFI paper (Xu/Gould/Cont, Oxford ORA uuid:9b7d0422) on LOBSTER Nasdaq data reports OUT-OF-SAMPLE ridge-regression RMSE reductions of 65-75% (large-tick stocks) and 15-30% (small-tick) using 10-level MLOFI vs best-level-only OFI. Two independent primary sources, not one. (4) Two targeted refutation searches (\"no additional predictive power / best-level sufficient\" and crypto-perp-specific) surfaced ZERO credible dissent; the first returned only irrelevant hits (video-prediction hierarchies, leadership research). (5) Not marketing: academic, single-level OFI used as explicit baseline, in/out-of-sample separated. (6) Not outdated: LOB depth mechanics are structural, not fast-moving like model architectures. QUALIFICATIONS (qualify, do not refute): (a) Primary source is EQUITIES (Nasdaq), not crypto perps \u2014 the weakest joint; but crypto corroboration exists (Binance Futures perp LOB multi-level studies arXiv 2607.09230; crypto order imbalance documented out-of-sample predictive for 4-12h returns, EFMA Anastasopoulos/Gradojevic). (b) The paper's actual prescription is INTEGRATED OFI via PCA across levels, not 20 raw per-level OFIs fed to a model. The claim's implication still holds (per-level snapshot is a PREREQUISITE for computing the PCA variable), but naively adding 20 collinear per-level columns is precisely the multiple-testing/overfit mode already causing the -0.031 profit correlation at n=260. (c) Gains concentrate in first few levels beyond best; 20 levels not specifically validated as optimal, but capture is cheap and PCA handles collapse. ENTRY-SNAPSHOT IMPLICATION (supported): record per-level OFI for all 20 levels PLUS the PCA-integrated OFI scalar. Bonus for the 200-coin setup: Cont et al. find that once multi-level OFI is integrated, CONTEMPORANEOUS cross-asset impact terms add no explanatory power, but LAGGED cross-asset OFIs DO improve forecasting of future returns at short horizons (decaying rapidly) \u2014 so also snapshot lagged BTC/ETH integrated-OFI at entry.",
+  "confidence": "high",
+  "counterSource": "No contradicting source found. Two refutation-targeted searches returned no credible dissent. Nearest qualifications are internal to the literature, not contradictions: (i) the equity-to-crypto-perp transfer is an inference, though supported by independent crypto LOB work (arXiv 2607.09230, Binance Futures perps 1s data 2022-2025); (ii) Cont et al. themselves show diminishing returns and recommend PCA-integrated OFI over raw per-level regressors, which constrains HOW the per-level fields should be modeled but confirms they must be RECORDED."
+}
+```
+
+## 69. entry-69
+
+```
+{
+  "refuted": true,
+  "confidence": "high",
+  "counterSource": "Cont, Cucuringu & Zhang, \"Cross-impact of order flow imbalance in equity markets,\" arXiv:2112.13213 (v4, June 2023) / Quantitative Finance 23(10), 2023 \u2014 https://arxiv.org/abs/2112.13213 and https://www.tandfonline.com/doi/full/10.1080/14697688.2023.2236159. Corroborating crypto-specific: \"Fragmentation, Price Formation and Cross-Impact in Bitcoin Markets\" (Applied Mathematical Finance, 2022, https://www.tandfonline.com/doi/full/10.1080/1350486X.2022.2080083); \"Cross-cryptocurrency return predictability,\" J. Econ. Dyn. Control 2024 (https://www.sciencedirect.com/science/article/abs/pii/S0165188924000551).",
+  "evidence": "SELF-REFUTED BY THE SOURCE'S OWN ABSTRACT. The supporting quote is real but is cut off one sentence early. Full abstract (verbatim, fetched from arXiv:2112.13213): \"...multi-asset models with cross-impact do not provide additional explanatory power FOR CONTEMPORANEOUS IMPACT compared to a sparse model without cross-impact terms. ON THE OTHER HAND, WE SHOW THAT LAGGED CROSS-ASSET OFIs DO IMPROVE THE FORECASTING OF FUTURE RETURNS. We also establish that this lagged cross-impact mainly manifests at short-term horizons and decays rapidly in time.\"\n\n(1) OVERREACH/MISREAD \u2014 the claim drops the scope qualifier \"for contemporaneous impact\" and generalizes a same-interval R\u00b2 result into a general \"cross-impact adds nothing.\" The paper's null is CONTEMPORANEOUS ONLY. Contemporaneous OFI\u2192return regression is unusable for trade entry anyway (you need the interval's own order flow to predict that interval's return \u2014 a look-ahead trivially).\n\n(2) DIRECTLY CONTRADICTED ON THE ACTUAL USE CASE \u2014 the research question here is a trade-ENTRY EDGE model, i.e. forecasting. On forecasting, the same paper finds the opposite: the forward-looking cross-impact model (all cross-sectional OFIs as candidate predictors, LASSO-regularized) \"can significantly increase R\u00b2 values compared to the forward-looking price-impact model\" and \"yields more consistent and higher profits.\" So the claim's prescription \u2014 build multi-level own-book OFI \"before ANY cross-sectional order-flow machinery\" \u2014 is contradicted by the very paper cited as its primary source. Multi-level OFI kills cross-impact in the contemporaneous regression precisely BECAUSE contemporaneous cross-impact was largely an artifact of omitted own-book depth; that mechanism says nothing about lagged cross-asset lead-lag, which the paper affirms.\n\n(3) OUTDATED / SUPERSEDED CITATION \u2014 the claim cites v1 (25 Dec 2021). The paper has v2 (Feb 2022), v3 (Feb 2023), v4 (13 Jun 2023) and was peer-published in Quantitative Finance 23(10) 2023. Citing a superseded preprint for a strong prescriptive claim is a source-quality failure, especially when later versions foreground the forecasting result.\n\n(4) DOMAIN TRANSFER UNJUSTIFIED \u2014 the study is Nasdaq/US EQUITIES (100 stocks, 1-min/short intervals), not crypto perps. Crypto-specific evidence points the other way: Bitcoin markets are fragmented across venues with documented CROSS-EXCHANGE order-flow price formation (Applied Math Finance 2022 stresses \"incorporating cross-exchange order flow signals into predictive models of asset returns in the cryptocurrency market\"), and cross-cryptocurrency return predictability is established on Binance data (lagged returns of other coins predict the focal coin; BTC reacts first, smaller alts lag via limited attention). For 200 perps with a dominant BTC/ETH beta factor, cross-sectional order flow is a stronger prior than in equities, not a weaker one.\n\nVERDICT: cross-sectional/lagged cross-asset OFI must NOT be deprioritized. Correct reading: build multi-level OFI (PCA-integrated across the 20 levels available at 500ms) AND lagged cross-asset OFI (BTC/ETH\u2192alt, short horizons, decaying fast) \u2014 they are complements for a predictive entry model. The only true part of the claim is that multi-level own-book OFI subsumes cross-impact in a contemporaneous regression, which is not the model being built."
+}
+```
+
+## 70. entry-70
+
+```
+{
+  "type": "started",
+  "key": "v2:32b25abaf504291f116f110b825a6a2d43ced5ac11a251c4b71b660b84bda9ea",
+  "agentId": "a6af23e955bf8fe3e"
+}
+```
+
+## 71. entry-71
+
+```
+{
+  "type": "started",
+  "key": "v2:cf62be3fdd6fac7e118e0316b509f31f5a288eb33b4998bcd23d06e8ea50fa16",
+  "agentId": "ae57117562bf16e8f"
+}
+```
+
+## 72. entry-72
+
+```
+{
+  "type": "started",
+  "key": "v2:bf41239333cd7b83533d452aacfb7f87ac81b73fbef222a48f89ab4dcef41e4f",
+  "agentId": "a3ee7e61d5bae2c24"
+}
+```
+
+## 73. entry-73
+
+```
+{
+  "refuted": false,
+  "evidence": "CLAIM SURVIVES ADVERSARIAL REVIEW. (1) QUOTE FIDELITY: The claim maps near-verbatim onto the primary abstract (arXiv 2112.13213v1, Cont/Cucuringu/Zhang, submitted 2021-12-25): \"we examine the contemporaneous price impact of multi-level OFIs and reveal their additional explanatory power.\" Critically, the claim says \"explanatory power,\" NOT \"predictive power\" \u2014 it does not overreach on the one axis where overreach was most likely. (2) INDEPENDENT REPLICATION by a separate group: Xu, Gould & Howison, \"Multi-Level Order-Flow Imbalance in a Limit Order Book\" (arXiv 1907.06230) \u2014 out-of-sample goodness-of-fit improves with EACH additional price level for all 6 stocks; ridge on 10-level MLOFI cuts forecast RMSE 65-75% (large-tick) / 15-30% (small-tick) vs best-level-only OFI; robust across sampling schemes, OLS/ridge, and intraday seasonality. Two independent groups, same direction. (3) SOURCE QUALITY MATCHES CLAIM STRENGTH: Rama Cont is a leading researcher in this exact subfield; primary arXiv + SSRN (abstract_id=3993561); not marketing, not a press release, not forum speculation. (4) NOT OUTDATED: 2019 + 2021 core, actively extended by 2025-26 crypto LOB literature. (5) CRYPTO REFUTATION HUNTED AND NOT FOUND: nearest candidate arXiv 2506.05764v2 cuts FOR the claim (40 levels = 71.5% acc vs 10 levels = 58.4%, 5 levels = 58.0%), though confounded by sample-size filtering rather than a clean ablation = weak corroboration only. QUALIFICATIONS THAT DO NOT REFUTE: (a) Both core papers measure CONTEMPORANEOUS mid-price change \u2014 a ~70% contemporaneous R2 is useless for entry timing; the tradeable evidence is Cont's separate forecasting section (cross-sectional OFIs significantly raise in-sample AND out-of-sample R2; PCA-integrated OFI \"superior in both in-sample and out-of-sample\"). (b) Primary source is Nasdaq EQUITIES, not crypto perps; tick-size split matters \u2014 65-75% gain for large-tick vs only 15-30% small-tick, and BTCUSDT perp is extremely small-tick, so expect the LOW end. (c) Gains show sharply diminishing returns past ~2-4 levels, so levels 5-20 add marginal value \u2014 this qualifies the \"20-level\" framing. (d) Per-level OFIs are severely collinear; ridge/PCA is REQUIRED, and dumping 20 raw per-level OFIs into a GBM unorthogonalized can hurt \u2014 but this REINFORCES the recording implication, since PCA-integrated OFI cannot be computed without per-level inputs. ENGINEERING IMPLICATION HOLDS INDEPENDENTLY: per-level OFI is a strict superset of top-of-book OFI \u2014 collapsible to top-of-book later, never recoverable from a top-only snapshot. SNAPSHOT AT ENTRY: per-level OFI for levels 1-20 (bid/ask size deltas per level between consecutive 500ms snapshots), plus the PCA-integrated OFI scalar and a ridge-shrunk 2-4-level aggregate, since those are the specifications with actual out-of-sample evidence.",
+  "confidence": "high",
+  "counterSource": "Strongest counter-evidence located, none sufficient to refute: (1) arXiv 2506.05764v2 (crypto LOB) treats depth as a data-filtering constraint rather than a feature-engineering ablation, so its 40-vs-10-vs-5-level accuracy gap is confounded by sample size \u2014 cannot be cited as clean crypto support. (2) Xu/Gould/Howison + Cont both fit CONTEMPORANEOUS price change, not future returns \u2014 the widely-cited ~70% R2 and 65-75% RMSE numbers are explanatory, not an entry edge; misreading them as predictive is the main failure mode this claim invites. (3) Diminishing returns past ~2-4 levels (per MLOFI literature) undercuts the value of the full 20-level depth, though not the multi-level>best-level core. (4) Small-tick regime (crypto perps) shows only 15-30% RMSE gain vs 65-75% for large-tick, materially shrinking expected effect size on BTCUSDT/ETHUSDT."
+}
+```
+
+## 74. entry-74
+
+```
+{
+  "type": "started",
+  "key": "v2:f21b387337038eaccb004c277381d940dcc2824c6c85fa1d9e2485617b403c36",
+  "agentId": "abc9d7d6481acf807"
+}
+```

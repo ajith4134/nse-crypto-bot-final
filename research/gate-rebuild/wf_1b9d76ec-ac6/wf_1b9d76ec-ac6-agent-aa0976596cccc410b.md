@@ -1,0 +1,3 @@
+# Agent agent-aa0976596cccc410b — wf_1b9d76ec-ac6
+
+The fetch succeeded. Worth being upfront about the fit: this paper is an **agent-based simulation** study of equity market impact (calibrated against Tokyo Stock Exchange), not an empirical crypto-perp study. It touches the research question at exactly one point — the slippage/impact term in a net-edge cost model (item 5) — and says nothing about labeling, purged CV/CPCV/PBO/DSR, conformal calibration, or which fields to snapshot at entry. It also can't validate the square-root law empirically; it *reproduces* it in a simulator whose agents were built to produce it, which is a weaker form of evidence than the "empirically-validated" bar the question sets. I've rated the claims accordingly rather than inflating them.

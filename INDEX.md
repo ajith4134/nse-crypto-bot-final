@@ -2918,6 +2918,11 @@ _tools/remote_login_browser.py — a HEADFUL chromium the operator drives over V
 - **functions:** `_on_term(_sig, _frame)`; `main() -> int`
 - **imports:** __future__, os, pathlib, signal, sys, time, trading, trading.broker_sense.brokers
 
+## `tools/save_workflow_research.py`
+_tools/save_workflow_research.py — rescue completed workflow-agent results to durable files._
+- **functions:** `_iter_json(path)`; `_text_of(obj) -> str`; `_last_assistant_text(path) -> str`; `save_run(run_dir, out_dir) -> dict`; `main() -> None`
+- **imports:** __future__, argparse, json, os, pathlib, re
+
 ## `tools/skill_learnings.py`
 _tools/skill_learnings.py — self-improving skills (Hermes-Agent / "self-improving Claude skills")._
 - **functions:** `_path(skill) -> Path`; `skill_exists(skill) -> bool`; `read(skill) -> str`; `record(skill) -> dict`; `_count_entries(text) -> int`; `all_skills() -> list[str]`; `status() -> dict`; `_main() -> int`

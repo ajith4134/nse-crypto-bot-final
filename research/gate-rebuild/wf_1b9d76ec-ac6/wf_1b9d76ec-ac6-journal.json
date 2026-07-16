@@ -1,0 +1,1533 @@
+[
+  {
+    "type": "started",
+    "key": "v2:10d83eed68c50b5a75a0e3d2bb4e6adff73c87cc287dfd15ac26a24daabf6470",
+    "agentId": "a6b5105becbbad57e"
+  },
+  {
+    "type": "result",
+    "key": "v2:10d83eed68c50b5a75a0e3d2bb4e6adff73c87cc287dfd15ac26a24daabf6470",
+    "agentId": "a6b5105becbbad57e",
+    "result": {
+      "question": "What is the state-of-the-art, empirically-validated way to estimate the expected edge of a crypto perpetual-futures trade AT ENTRY, and exactly what data must be recorded at entry to fit and validate it? Cover labeling (triple-barrier, meta-labeling, sample uniqueness/weights), microstructure alphas with documented predictive power and horizons (multi-level OFI, queue imbalance, microprice, VPIN, Kyle's lambda, trade-sign imbalance, book slope/depth, taker flow, OI change, funding, liquidations), validation (purged/embargoed K-fold, CPCV, PBO, deflated Sharpe), calibration + abstention (conformal, isotonic/Platt), net-edge cost models (maker/taker fees, slippage, funding carry), and the true horizon of order-flow predictive power. Context: crypto perps, L2 20-level book @500ms for 200 coins, aggTrade taker flow, OI + long/short 10min, funding, liquidations, 5m bars. Current gate is an in-sample backtest Sharpe over 142 strategies with ZERO correlation to realized profit (-0.031, n=260, 29.2% win rate; highest-score quartile is the worst). Must state exactly which fields to snapshot at entry to fit and validate the replacement.",
+      "summary": "The question spans four separable literatures \u2014 ML-finance labeling/validation methodology (L\u00f3pez de Prado lineage), market-microstructure alpha research (OFI/microprice/VPIN and their empirical horizons), crypto-perp-specific signals (funding/OI/liquidations), and prediction calibration/abstention plus net-of-cost economics. I split the angles along those lines, add a skeptical angle on whether these methods survive out-of-sample in crypto, and a practitioner angle on the concrete feature/schema record kept at entry.",
+      "angles": [
+        {
+          "label": "labeling-and-validation-methodology",
+          "query": "triple-barrier labeling meta-labeling sample uniqueness purged embargoed CPCV probability of backtest overfitting deflated Sharpe ratio crypto empirical study",
+          "rationale": "Covers items (1) and (3): the L\u00f3pez de Prado stack \u2014 triple-barrier, meta-labeling, average uniqueness/sequential bootstrap weights, purged+embargoed K-fold, combinatorial purged CV, PBO and deflated Sharpe \u2014 and how they replace an in-sample Sharpe gate."
+        },
+        {
+          "label": "microstructure-alpha-predictive-power-and-horizon",
+          "query": "multi-level order flow imbalance Cont Kukanov Stoikov price impact predictive horizon seconds queue imbalance microprice VPIN Kyle lambda empirical R2 decay",
+          "rationale": "Covers (2) and (6): which order-flow features have documented predictive power, effect sizes, and \u2014 critically \u2014 the horizon at which OFI/queue-imbalance predictive power actually lives (typically sub-minute, decaying fast), which determines whether a 500ms book snapshot helps a multi-hour perp trade."
+        },
+        {
+          "label": "crypto-perp-specific-signals",
+          "query": "crypto perpetual futures funding rate open interest change liquidations taker buy sell volume predict returns empirical study Binance BTC perpetual",
+          "rationale": "Perp-native signals (funding carry, OI delta, long/short ratio, liquidation cascades, taker flow) have their own literature and horizons (hours-to-days) distinct from equity microstructure \u2014 and match the 10-min OI / funding / liquidation data actually available."
+        },
+        {
+          "label": "calibration-abstention-and-net-edge-costs",
+          "query": "conformal prediction trading signal abstention isotonic calibration Platt scaling expected value net of taker fee slippage funding carry crypto perpetual execution cost model",
+          "rationale": "Covers (4) and (5): turning a raw score into a calibrated probability, abstaining when uncertain (conformal/CPS), and converting p(win) into expected edge net of maker/taker fees, slippage/market impact and funding carry \u2014 the actual go/no-go arithmetic at entry."
+        },
+        {
+          "label": "skeptical-does-it-survive-oos",
+          "query": "do microstructure order flow imbalance signals survive out of sample crypto machine learning trading overfitting critique replication failure alpha decay",
+          "rationale": "Contrarian check: much of this literature fails to replicate net of costs. Needed because our existing gate showed \u22120.031 correlation and an inverted top quartile \u2014 the replacement must be judged against evidence of alpha decay, data-snooping, and failed replications, not just papers claiming R\u00b2."
+        },
+        {
+          "label": "practitioner-entry-snapshot-schema",
+          "query": "open source crypto orderbook feature engineering entry snapshot schema L2 20 level book features machine learning trade signal github feature store limit order book",
+          "rationale": "Implementation angle: real repos/feature stores that define the exact per-entry field list (book levels, OFI windows, microprice, spread, depth slope, trade-sign imbalance, OI/funding/liq state, plus label-side fields like barrier params, event time, concurrency for uniqueness weights) \u2014 what to literally write into the entry row."
+        }
+      ]
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:c76b999168a82165bff961b9ba1f2def2eae150ebf201ff0950dffbbb98dc2ab",
+    "agentId": "ae35184a527eae65c"
+  },
+  {
+    "type": "started",
+    "key": "v2:a9ff6cd2c06fba0321d271cdaababf28d56e0065ce1b69bac5f58c3fdb4102fc",
+    "agentId": "a8be35d0b0aec9b5a"
+  },
+  {
+    "type": "started",
+    "key": "v2:6e3e2895a539438f9369a01822886ab3ac330c2290a575a3b917c858f4a85e27",
+    "agentId": "aac1f40c5873df3d0"
+  },
+  {
+    "type": "started",
+    "key": "v2:68f6332c4ec5cb14e05f47224c9eda9e4832c75b08eeeedd71b622f04498e22e",
+    "agentId": "ad627524dd943d849"
+  },
+  {
+    "type": "started",
+    "key": "v2:5c6bab20d6419ea338f51a99fa9b63f45a5564c6705a32c2a1638f08675858b4",
+    "agentId": "abcc55ce75322be99"
+  },
+  {
+    "type": "started",
+    "key": "v2:46565673b3290ef56215b2066f927749d93d350104aa2f37b8543d1ac280a1c5",
+    "agentId": "a3bc40e0cf672bdb2"
+  },
+  {
+    "type": "result",
+    "key": "v2:5c6bab20d6419ea338f51a99fa9b63f45a5564c6705a32c2a1638f08675858b4",
+    "agentId": "abcc55ce75322be99",
+    "result": {
+      "results": [
+        {
+          "url": "https://www.sciencedirect.com/science/article/abs/pii/S0950705124011110",
+          "title": "Backtest overfitting in the machine learning era: A comparison of out-of-sample testing methods in a synthetic controlled environment (Arian, Norouzi M., Seco \u2014 Knowledge-Based Systems)",
+          "relevance": "high",
+          "snippet": "The single most decision-relevant hit for item (3): a controlled head-to-head of K-Fold, Purged K-Fold, Walk-Forward and CPCV, scored by BOTH Probability of Backtest Overfitting and Deflated Sharpe Ratio. CPCV wins on both metrics. This is the empirical justification for replacing an in-sample-Sharpe gate (their -0.031 correlation to realized profit is exactly the pathology PBO quantifies): CPCV yields a DISTRIBUTION of OOS Sharpes across combinatorial path splits, so PBO (fraction of trials where the in-sample-best rank falls below median OOS) and DSR (Sharpe deflated by the number of trials, N=142 here, and by the variance/skew/kurtosis of the trial set) become computable. Free preprint of the same work: papers.ssrn.com/sol3/Delivery.cfm/SSRN_ID4686376. Directly implies the entry-snapshot must carry a trial_id/config_hash and per-trade timestamps so trials can be counted and paths purged."
+        },
+        {
+          "url": "https://link.springer.com/article/10.1186/s40854-025-00866-w",
+          "title": "Algorithmic crypto trading using information-driven bars, triple barrier labeling and deep learning (Financial Innovation, 2025)",
+          "relevance": "high",
+          "snippet": "The closest empirical match to the actual context: crypto (BTC/ETH), triple-barrier labeling, information-driven bars (tick/volume/dollar imbalance bars) rather than fixed 5m time bars, evaluated with purged CV. Relevant because aggTrade taker flow + 500ms L2 for 200 coins is exactly the raw material for dollar-imbalance bars, and the paper tests whether event-driven sampling beats time bars for label quality. Fixes the barrier parameterization question: barriers should be set as multiples of a realized-vol estimate (daily/rolling sigma) so that up/down barriers are symmetric in risk units, with a vertical (time) barrier that defines the holding horizon \u2014 implying entry snapshot must record: t_entry, sigma_estimate_at_entry, pt_mult, sl_mult, t1 (vertical barrier timestamp), and the realized label + touch time."
+        },
+        {
+          "url": "https://hudsonthames.org/wp-content/uploads/2022/04/Does-Meta-Labeling-Add-to-Signal-Efficacy.pdf",
+          "title": "Does Meta-Labeling Add to Signal Efficacy? \u2014 Singh & Joubert (Hudson & Thames)",
+          "relevance": "high",
+          "snippet": "The empirical test of item (1)'s meta-labeling half, and the most direct prescription for the replacement gate. Meta-labeling separates SIDE (direction, from the primary model \u2014 here the 142 strategies / direction driver) from SIZE (a secondary binary classifier trained on the primary model's own realized outcomes: 1 = the primary's call was correct, 0 = it wasn't). Because the secondary model only ever sees actual signals, it raises precision/F1 and \u2014 crucially \u2014 outputs a probability that maps to position size, so low-confidence signals get sized to ~zero rather than being traded. This is the structural fix for a 29.2% win rate with best-quartile-is-worst behavior: the secondary model can LEARN that the high-in-sample-Sharpe quartile is anti-predictive. Entry snapshot must therefore record the primary model's side, its raw score, AND all secondary features (microstructure state) so the meta-model is fittable retrospectively."
+        },
+        {
+          "url": "https://en.wikipedia.org/wiki/Purged_cross-validation",
+          "title": "Purged cross-validation \u2014 Wikipedia",
+          "relevance": "medium",
+          "snippet": "Concise, correct reference definition of the purging + embargo mechanics needed to implement item (3) without leakage. Purging = drop training observations whose LABEL SPAN [t_entry, t_touch] overlaps the test window; embargo = additionally drop a fixed fraction (typ. 1% of samples) immediately AFTER each test window to kill serial-correlation leakage. Load-bearing consequence for the snapshot schema: purging is impossible unless every row stores BOTH the entry time and the label-resolution time (t1 / barrier-touch time) \u2014 a single 'trade time' column silently defeats it. Also frames CPCV as N-choose-k combinatorial train/test groupings producing many backtest PATHS, which is the input PBO/DSR need."
+        },
+        {
+          "url": "https://github.com/Neyt/How-To-Backtest-Correctly",
+          "title": "How-To-Backtest-Correctly \u2014 production-grade L\u00f3pez de Prado implementation (GitHub)",
+          "relevance": "medium",
+          "snippet": "Reuse-first hit: a working reference implementation of the full AFML stack (triple-barrier, meta-labeling, concurrency/average-uniqueness sample weights, sequential bootstrap, purged+embargoed K-fold, CPCV, PBO, DSR) rather than reimplementing from the book. Relevant to the sample-uniqueness piece of item (1): with overlapping triple-barrier labels, IID assumptions break \u2014 weight each sample by its average uniqueness (inverse of concurrent-label count over its lifespan) and/or return attribution, and bag with max_samples=avgU or use sequential bootstrap. Practical note: 200 coins at 500ms produce heavily overlapping labels, so uniqueness weights are not optional here. (Compare also mlfinlab / eslazarev's purged-cross-validation for a sklearn-compatible splitter.)"
+        },
+        {
+          "url": "https://arxiv.org/pdf/2512.12924",
+          "title": "Interpretable Hypothesis-Driven Trading: A Rigorous Walk-Forward Validation Framework for Market Microstructure Signals (arXiv 2512.12924)",
+          "relevance": "medium",
+          "snippet": "Bridges this angle to items (2) and (6): applies the purged/walk-forward validation discipline specifically to MARKET MICROSTRUCTURE signals (order-flow-type features), i.e. exactly the OFI/queue-imbalance/microprice family the replacement gate would be fit on. Useful as the methodological template for testing whether an order-flow alpha survives out-of-sample at a stated horizon, and for the hypothesis-first (rather than search-142-strategies-and-pick-the-max) framing that keeps the trial count \u2014 and therefore the DSR deflation penalty \u2014 small. Recent (Dec 2025) so it postdates most of the CPCV literature above."
+        }
+      ]
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:df70c7d0b3cb61d87388bb2f33f518f516d62ca8bffa418c72859b2b6a1e7c50",
+    "agentId": "aa8cb12b9b4fae1f6"
+  },
+  {
+    "type": "started",
+    "key": "v2:40194bd13a4de745a969907293f6240fcfbe79ca145b9a3cdcc4be8a5908a550",
+    "agentId": "ae293e7121c928706"
+  },
+  {
+    "type": "started",
+    "key": "v2:adeb1c4dac7b3306a0d6dc5001060730a0bed5520cf848cd94e8834cf23e69c9",
+    "agentId": "aa99be5172439be76"
+  },
+  {
+    "type": "started",
+    "key": "v2:dd8c9a2414ea013e186b762a2be467687ad18bf5d17e51193e47fe9e8b21a417",
+    "agentId": "a1a633ad6b20a4e44"
+  },
+  {
+    "type": "started",
+    "key": "v2:fe8fd6173e8331b38172c4d1446115f04c64ef0a7a12fe7ede797f2fc6abe6e3",
+    "agentId": "a73bc3a31cbd17c12"
+  },
+  {
+    "type": "result",
+    "key": "v2:c76b999168a82165bff961b9ba1f2def2eae150ebf201ff0950dffbbb98dc2ab",
+    "agentId": "ae35184a527eae65c",
+    "result": {
+      "results": [
+        {
+          "url": "https://arxiv.org/pdf/2110.14914",
+          "title": "Trading via Selective Classification (arXiv:2110.14914)",
+          "relevance": "high",
+          "snippet": "The closest paper to the abstention angle: trains ML classifiers on intraday futures LOB data to predict next-period direction, then converts BOTH selective (reject-option) and non-selective classifiers into actual trading strategies and measures P&L. Demonstrates that abstaining on low-confidence bars improves risk-adjusted return vs. always-trading \u2014 i.e. the exact replacement for a 'trade every signal above backtest-Sharpe' gate. Also relevant to the entry-snapshot question: it fixes the per-decision feature vector (LOB state at decision time) and the label horizon together, which is what makes the accept/abstain threshold fittable after the fact."
+        },
+        {
+          "url": "https://arxiv.org/pdf/2512.22476",
+          "title": "AutoQuant: An Auditable Expert-System Framework for Execution-Constrained Auto-Tuning in Cryptocurrency Perpetual Futures (arXiv:2512.22476)",
+          "relevance": "high",
+          "snippet": "Most directly on the net-edge arithmetic for crypto perps. Specifies a conservative, uniformly-applied trading-cost model with three separable components: (a) fees proportional to absolute turnover with an explicit maker/taker mixture parameter (pure-taker reduces to the taker fee), (b) slippage as a per-trade bps cost on absolute turnover, and (c) funding charged on SIGNED nominal exposure using the 8h funding series rescaled to bar length. Crucially it applies the identical cost model in backtest and live simulation \u2014 which is the discipline missing from an in-sample Sharpe gate. Implies the entry snapshot must record: side, notional, intended order type (maker/taker), quoted fee tier, spread at entry, and the current + next-settlement funding rate with time-to-settlement."
+        },
+        {
+          "url": "https://arxiv.org/pdf/2305.07559",
+          "title": "PRIME: A Price-Reverting Impact Model of a Cryptocurrency Exchange (arXiv:2305.07559)",
+          "relevance": "high",
+          "snippet": "Crypto-exchange-specific empirical impact/slippage model calibrated on real LOB data, with a transient (price-reverting) component rather than a flat bps assumption. This is the piece that turns a true 20-level L2 book into an at-entry executable-cost estimate: you can walk the book for the immediate cost and use the reverting-impact fit for the decay. Argues for snapshotting the full 20-level bid/ask price+size ladder at entry (not just top-of-book), since walking-the-book cost and book slope are only recoverable from the ladder."
+        },
+        {
+          "url": "https://arxiv.org/html/2512.12844v1",
+          "title": "Selective Conformal Risk Control (arXiv:2512.12844)",
+          "relevance": "medium",
+          "snippet": "Unifies conformal prediction with selective classification: distribution-free finite-sample risk control on the ACCEPTED subset, with abstention used to buy efficiency. This is the formal version of 'only trade when the model is confident enough that p(win) clears the cost hurdle', and it gives a calibration-set-based threshold rather than a hand-tuned one. Practical implication for the entry record: every candidate \u2014 including ones that were skipped \u2014 needs its score and features logged, otherwise the calibration set is selection-biased and coverage guarantees break."
+        },
+        {
+          "url": "https://arxiv.org/pdf/2504.18278",
+          "title": "A Comprehensive Review of Classifier Probability Calibration Metrics (arXiv:2504.18278)",
+          "relevance": "medium",
+          "snippet": "Survey of how to MEASURE whether a score is a real probability: Brier score, log loss, ECE/reliability curves, and the failure modes of each. Directly addresses step (4) \u2014 the current gate's -0.031 correlation to realized profit is a calibration failure, and these metrics are the diagnostic that would have caught it before deployment. Pairs with the standard fixes (isotonic, Platt, beta calibration, Venn-Abers for interval-valued outputs). Requires storing the raw uncalibrated score at entry alongside the realized triple-barrier label, so the calibration map can be refit out-of-sample."
+        },
+        {
+          "url": "https://arxiv.org/html/2607.04280",
+          "title": "Order Splitting and Liquidity Replenishment Are Jointly Necessary for the Square-Root Law of Market Impact (arXiv:2607.04280)",
+          "relevance": "medium",
+          "snippet": "Establishes the mechanism behind the square-root impact law (impact ~ sigma * sqrt(Q/V)) across asset classes including crypto, and shows which conditions must hold for it to apply. Gives the parametric slippage term for the net-edge formula when order size is non-trivial relative to book depth. Fixes the at-entry fields needed to evaluate it: intended quantity Q, recent traded volume V over the impact window, and realized volatility sigma at the trade's horizon \u2014 none of which are recoverable retroactively at 500ms fidelity if not snapshotted."
+        }
+      ]
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:81567440843bc85220b34eadb2821a12346f521cbdecc1424fbf296c93990efc",
+    "agentId": "abf845a2a95d66e7f"
+  },
+  {
+    "type": "result",
+    "key": "v2:6e3e2895a539438f9369a01822886ab3ac330c2290a575a3b917c858f4a85e27",
+    "agentId": "aac1f40c5873df3d0",
+    "result": {
+      "results": [
+        {
+          "url": "https://github.com/nicolezattarin/LOB-feature-analysis",
+          "title": "nicolezattarin/LOB-feature-analysis \u2014 Feature engineering of a Limit Order Book (GitHub)",
+          "relevance": "high",
+          "snippet": "The closest thing to a literal per-entry field list for an L2 book. Extracts the Cont/Kukanov/Stoikov OFI family (single- and multi-level OFI/MLOFI), order-book imbalance, depth and book-slope features, spread, and trade-sign imbalance directly from LOB snapshots, with the price-impact regressions that motivate each field. Directly answers 'which book-derived columns to write into the entry row' for a 20-level 500ms book, and its OFI window construction (per-level bid/ask delta between consecutive snapshots) is the exact computation our snapshot must store inputs for."
+        },
+        {
+          "url": "https://github.com/hudson-and-thames/mlfinlab/blob/master/mlfinlab/sampling/concurrent.py",
+          "title": "mlfinlab \u2014 sampling/concurrent.py: num_concurrent_events + get_av_uniqueness_from_triple_barrier (GitHub)",
+          "relevance": "high",
+          "snippet": "The reference implementation for the label-side fields the entry row must carry: t1 (vertical-barrier / event end time), pt/sl barrier multiples, event start time as index, and the concurrency\u2192average-uniqueness\u2192sample-weight chain. Two labels are concurrent if their [entry, exit] spans overlap; uniqueness = mean reciprocal concurrency over the label's lifespan. This is what makes purged/embargoed CV and sample weighting possible after the fact \u2014 if entry_time, t1, barrier params, and side aren't snapshotted, the replacement gate cannot be fit or validated. Also the source for meta-labeling (primary side \u2192 secondary size/take-or-skip model), which is the natural replacement for a raw backtest-Sharpe gate."
+        },
+        {
+          "url": "https://github.com/nkaz001/hftbacktest",
+          "title": "nkaz001/hftbacktest \u2014 HFT/market-making backtester with L2/L3 tick data, queue position, and latency models (GitHub)",
+          "relevance": "high",
+          "snippet": "The validation-side counterpart: it is the credible way to turn an entry-snapshot signal into a *net-edge* number for crypto perps. Full L2 order-book reconstruction from Binance Futures / Bybit feeds, order-fill simulation that accounts for queue position, feed and order latency models, and maker-vs-taker fee handling \u2014 plus a 'Market Making with Alpha \u2014 Order Book Imbalance' example that shows the imbalance\u2192forecast\u2192fill\u2192PnL loop end to end. Same algorithm code runs backtest and live, which is exactly the in-sample/realized gap that killed the 142-strategy Sharpe gate (-0.031 correlation)."
+        },
+        {
+          "url": "https://arxiv.org/html/2602.00776v1",
+          "title": "Explainable Patterns in Cryptocurrency Microstructure (arXiv 2602.00776)",
+          "relevance": "high",
+          "snippet": "Recent, and squarely on our data: Binance Futures perpetual order books + trades. Validates a microstructure feature set (order-flow imbalance, spread, adverse selection) via SHAP tied back to theory, and \u2014 critically \u2014 tests tradability with both a conservative top-of-book taker backtest and a fixed-depth maker backtest, i.e. net-of-cost edge rather than in-sample Sharpe. Useful as a modern reference for which alphas survive on perps and at what horizon, and for the maker/taker cost split our net-edge model needs."
+        },
+        {
+          "url": "https://github.com/sstoikov/microprice",
+          "title": "sstoikov/microprice \u2014 official Micro-Price estimator implementation (GitHub)",
+          "relevance": "medium",
+          "snippet": "Stoikov's own code + sample data for the microprice: a martingale-by-construction 'fair price' conditional on book state, expressed as a mid-price adjustment driven by spread and top-of-book imbalance, empirically a better short-horizon predictor than mid or weighted-mid. Defines exactly which raw fields the entry snapshot must hold to compute or reconstruct it (bid/ask price, bid/ask size at top-of-book, tick-discretized spread, imbalance bucket). A Binance ETHBTC replication (shaileshkakkar/MicroPriceIndicator) confirms it transfers to crypto book data. Note the horizon caveat: microprice edge lives at seconds, not minutes \u2014 bounds what it can contribute to a 5m-bar gate."
+        },
+        {
+          "url": "https://dm13450.github.io/2022/02/02/Order-Flow-Imbalance.html",
+          "title": "Dean Markwick \u2014 Order Flow Imbalance: A High Frequency Trading Signal",
+          "relevance": "medium",
+          "snippet": "Practitioner walkthrough of OFI as a tradeable signal with working code: how to bucket the book updates into OFI over a chosen window, regress contemporaneous and forward returns on it, and \u2014 the part that matters for us \u2014 how the R\u00b2 and predictive power decay as the horizon lengthens. Concrete evidence for the 'what horizon does order-flow power actually live at' sub-question, and a sanity check on window choice for the OFI columns in the entry row (multiple windows, e.g. 1s/5s/30s/5m, should be snapshotted rather than one)."
+        }
+      ]
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:5d8fe66b0ef61761661d3cf8406cb98c1b9aeeab055aa06513fc7413664f406e",
+    "agentId": "a438d180d0d619e3f"
+  },
+  {
+    "type": "result",
+    "key": "v2:a9ff6cd2c06fba0321d271cdaababf28d56e0065ce1b69bac5f58c3fdb4102fc",
+    "agentId": "a8be35d0b0aec9b5a",
+    "result": {
+      "results": [
+        {
+          "url": "https://arxiv.org/html/2607.09230v1",
+          "title": "When Does Order Flow Matter? State-Dependent L2 Liquidity-State Transitions in Crypto Futures",
+          "relevance": "high",
+          "snippet": "VERIFIED via full-text fetch. Closest match to the stack actually available: Binance BTCUSDT/ETHUSDT perps, Jan 2023\u2013mid 2026, top-20 L2 levels per side (same depth as our book) reduced to three descriptors \u2014 relative spread, top-20 depth, top-20 imbalance \u2014 plus signed taker volume, trade counts, VWAP. Horizons 1min and 5min ONLY. Validation is a model for the replacement gate: rolling monthly out-of-sample folds, event-clustered bootstrap (whole events as resampling units, not minutes), blocked permutation tests stratified by month/symbol/regime, per-asset testing to avoid pooling artifacts. Headline finding cuts against naive OFI use: the coarse calm/mixed/stressed L2 REGIME dominates (+0.045 at 5min), and 'order flow provides further incremental value only when layered on top of the L2 state model, not as a replacement' \u2014 ETH gains under stress (+0.030 at 5min), BTC shows no established benefit at either horizon. Directly implies entry snapshot must record the regime label, not just raw OFI."
+        },
+        {
+          "url": "https://arxiv.org/html/2602.00776v1",
+          "title": "Explainable Patterns in Cryptocurrency Microstructure",
+          "relevance": "high",
+          "snippet": "VERIFIED via full-text fetch. Binance Futures perps at 1-second frequency, Jan 2022\u2013Oct 2025, five coins across market-cap tiers (BTC, LTC, ETC, ENJ, ROSE) \u2014 establishes which features generalize across a heterogeneous universe like our 200 coins. Target is log(mid_t+3s/mid_t): a 3-SECOND horizon, i.e. order-flow predictive power measured at seconds, far below any tradeable perp horizon. Validation directly answers the question's item (3): walk-forward CV with explicit purging windows between train and test, inner-fold hyperparameter tuning, outer folds for true forward performance. Findings: OFI, spreads and VWAP deviations dominate SHAP importance uniformly across all five assets despite liquidity differences; imbalance shows monotone effect with diminishing returns at extremes; wider spreads mean less predictability; larger relative tick size amplifies imbalance's contribution. Gives a concrete, defensible entry-field list (mid, spread, L1 volumes, net signed volume, buy/sell VWAP deviation)."
+        },
+        {
+          "url": "https://arxiv.org/abs/2607.09426",
+          "title": "The Quarter-Hour Effect: Periodic Algorithmic Trading and Return Predictability in Cryptocurrency Futures",
+          "relevance": "high",
+          "snippet": "NOT independently verified \u2014 snippet-level evidence only. Reported to find that quarter-hour opening order imbalance forecasts FOUR-to-TWELVE-HOUR returns across six Binance perpetual contracts, with weaker signals at finer marks. If it holds, this is the single most load-bearing source for question item (6) and the only candidate located so far placing order-flow predictive power at an hours horizon compatible with perp holding periods \u2014 every other verified source tops out at 5 minutes. Implies the entry snapshot must carry a wall-clock/quarter-hour phase field, which no purely microstructural feature list would capture. Given it carries the angle's central claim alone and contradicts the two verified papers, confirm against full text before relying on it."
+        },
+        {
+          "url": "https://www.prestolabs.io/research/can-funding-rate-predict-price-change",
+          "title": "Can Funding Rate Predict Price Change? \u2014 Presto Research",
+          "relevance": "medium",
+          "snippet": "NOT verified; quant-shop blog rather than peer-reviewed, so treat the number as indicative. Directly on the perp-native angle: reports funding-rate changes account for ~12.5% of variation in price changes over a 7-DAY window, with predictive power decaying in subsequent periods \u2014 explicitly concluding funding is unreliable for SINGLE-asset prediction but more useful applied CROSS-SECTIONALLY across many assets. That framing matters for our setup: funding should enter as a cross-sectional rank across the 200-coin universe at entry, not as a per-coin level, and its horizon (days) is orders of magnitude above the seconds-to-minutes OFI horizon \u2014 the two cannot share a label horizon."
+        },
+        {
+          "url": "https://www.mdpi.com/2227-7390/14/2/346",
+          "title": "The Two-Tiered Structure of Cryptocurrency Funding Rate Markets",
+          "relevance": "medium",
+          "snippet": "NOT verified; ranked on snippet evidence. Peer-reviewed (Mathematics, MDPI), uses a high-frequency panel of funding rates across multiple exchanges and symbols, enabling both cross-sectional analysis of market fragmentation and time-series analysis of funding dynamics, persistence and convergence. Relevant to the entry-snapshot question because documented funding persistence determines whether funding carry over the intended hold is forecastable at entry \u2014 a required term in the net-edge cost model (item 5) alongside maker/taker fees and slippage. The cross-exchange 'two-tier' finding also suggests venue-relative funding, not just Binance funding, may carry signal."
+        },
+        {
+          "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6693260",
+          "title": "Do Order-Book States Predict Passive-Buy Toxicity? Evidence from BTC Perpetual Futures",
+          "relevance": "medium",
+          "snippet": "NOT verified; SSRN working paper (unrefereed). BTC perps, L2 order-book states and adverse selection \u2014 the toxicity/VPIN thread of item (2). Reported finding is a useful caution for the replacement gate: recent sell pressure relative to best-bid depth predicts lower short-horizon returns and higher passive-buy adverse-selection risk, BUT raw order-flow imbalance is 'weaker and less stable' than composite pressure-versus-CAPACITY measures. Converges with the verified 2607.09230 result that raw OFI underperforms state/capacity-conditioned constructions \u2014 i.e. the entry snapshot should record depth-normalized pressure (flow \u00f7 available depth), not bare signed flow. Matters for the maker/taker fee decision in item (5): passive fills are only cheaper if not adversely selected."
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:40194bd13a4de745a969907293f6240fcfbe79ca145b9a3cdcc4be8a5908a550",
+    "agentId": "ae293e7121c928706",
+    "result": {
+      "claims": [],
+      "sourceQuality": "unreliable",
+      "publishDate": "N/A \u2014 page does not exist"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:edfbdbbc3fd65a784aff564eb7e30f9f57b075ff2fb85245b4f6952e76a43d29",
+    "agentId": "aaeb858b8934a2f6e"
+  },
+  {
+    "type": "started",
+    "key": "v2:98fe25028101c765e4df9c874507e0a5bc4e3a8549ac3e2fdcdc275f21507cf0",
+    "agentId": "a02cf28c9712c4d1c"
+  },
+  {
+    "type": "result",
+    "key": "v2:68f6332c4ec5cb14e05f47224c9eda9e4832c75b08eeeedd71b622f04498e22e",
+    "agentId": "ad627524dd943d849",
+    "result": {
+      "results": [
+        {
+          "url": "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf",
+          "title": "The Probability of Backtest Overfitting (Bailey, Borwein, L\u00f3pez de Prado, Zhu)",
+          "relevance": "high",
+          "snippet": "The direct diagnosis of our broken gate. PBO/CSCV formalizes exactly the pathology we measured: when you select the best of N=142 in-sample Sharpes, the IS\u2192OOS relationship is not merely zero but systematically INVERTED \u2014 the paper shows the OOS rank of the IS-optimal configuration is negatively related to IS Sharpe when the strategies have no real edge. Our \u22120.031 correlation with a worst-performing top quartile is the textbook CSCV signature, not a bug. Provides the replacement gate's acceptance test: compute PBO via combinatorially-symmetric cross-validation over the trial set, and reject any selection procedure with PBO > ~0.5. Also gives Minimum Backtest Length, which bounds how many strategies you may even test given our sample size (n=260 trades is far below the length needed to justify 142 trials). Skeptical takeaway: no amount of better microstructure features fixes a selection procedure that is itself the source of the inversion \u2014 the gate must be replaced before the alphas are."
+        },
+        {
+          "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2460551",
+          "title": "The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality (Bailey & L\u00f3pez de Prado)",
+          "relevance": "high",
+          "snippet": "The quantitative multiple-testing haircut our 142-strategy tournament never applied. DSR deflates the observed max Sharpe by the number of independent trials, the variance of trial Sharpes, and the sample length, and additionally corrects for skew/kurtosis \u2014 critical for crypto perps whose returns are fat-tailed and liquidation-driven (our own journal shows +17.8k tail-heavy P&L, which means naive SR massively overstates significance). Directly relevant to the 'what to record at entry' requirement: DSR needs the FULL trial distribution (every candidate's Sharpe, not just the winner) and per-trade return series with timestamps, so the entry snapshot must persist trial_id / strategy_id / candidate_score_vector, not just the selected strategy. Skeptical framing: DSR routinely turns a nominally Sharpe-2 backtest into a statistically insignificant one once trial count is honest \u2014 expect most of the 142 to vanish."
+        },
+        {
+          "url": "https://onlinelibrary.wiley.com/doi/10.1111/mafi.12413",
+          "title": "Deep Order Flow Imbalance: Extracting Alpha at Multiple Horizons from the Limit Order Book (Kolm, Turiel, Westray, Mathematical Finance 2023)",
+          "relevance": "high",
+          "snippet": "The best-evidenced answer to the horizon question, and the strongest steel-man of multi-level OFI \u2014 but it also bounds the claim. Uses multi-level OFI (the Cont/Kukanov/Stoikov construction) across LOB levels with proper walk-forward/OOS design, and finds predictive power lives at SECONDS to a few minutes, decaying sharply beyond; the paper's own framing is that the effective forecast horizon is on the order of a couple of average price changes. This is the contrarian bomb for our design: our OI/long-short data is 10-minute and our bars are 5m, so those inputs live entirely OUTSIDE the horizon where OFI alpha is documented to exist. Our true 500ms 20-level L2 across 200 coins is exactly the right instrument for the horizons that ARE documented \u2014 but only if the entry snapshot records level-by-level OFI over explicit lookback windows (e.g. 1s/5s/30s), the book timestamp, and the label horizon, and only if the strategy trades at seconds-to-minutes, not hours."
+        },
+        {
+          "url": "https://dm13450.github.io/2022/02/02/Order-Flow-Imbalance.html",
+          "title": "Order Flow Imbalance \u2014 A High Frequency Trading Signal (Dean Markwick)",
+          "relevance": "high",
+          "snippet": "An honest independent replication that reaches the skeptical conclusion the academic papers avoid: OFI DOES have statistically real predictive power on returns, and yet the trading strategy built on it has a poor Sharpe once you cross the spread. This is the exact gap our project keeps falling into \u2014 R\u00b2/accuracy on a label is not net edge. Reinforces the crucial point that the literature's headline numbers (e.g. 0.53\u20130.73 directional accuracy) are gross-of-cost signal detection, and a ~0.53 sign accuracy at 500ms cannot pay a round-trip taker fee plus half-spread on 200 perps. Implies the replacement gate must be a NET-edge gate: entry snapshot must record best_bid/best_ask (spread), our own fee tier + maker/taker flag, expected queue position, and the funding rate accrual over the intended hold, so the label is realized_net_return, not raw mid-price direction."
+        },
+        {
+          "url": "https://arxiv.org/html/2506.05764v2",
+          "title": "Exploring Microstructural Dynamics in Cryptocurrency Limit Order Books: Better Inputs Matter More Than Stacking Another Hidden Layer (arXiv 2506.05764)",
+          "relevance": "medium",
+          "snippet": "Crypto-native, and useful in two opposite directions. Supportive: with 40-level LOB, binary accuracy reaches ~0.71\u20130.73 at 500ms\u20131000ms horizons versus ~0.53 with only 5 levels at 100ms \u2014 direct evidence that DEPTH of book (which we have, 20 levels at 500ms) is what buys the edge, and that our current 5m-bar/142-strategy framing is throwing away the informative input. Skeptical caveat that must be applied: the paper explicitly OMITS transaction costs and is a pure signal-detection exercise, and the headline ~0.73 depends on Savitzky-Golay filtering of the target \u2014 a smoothing step that leaks future information into the label and inflates accuracy. Treat 0.71+ as unattainable; treat the depth/horizon lesson as the actionable part. Entry-snapshot implication: record all 20 levels of price+size per side, not aggregated imbalance, so features can be re-derived without refitting bias."
+        },
+        {
+          "url": "https://arxiv.org/html/2602.00776v1",
+          "title": "Explainable Patterns in Cryptocurrency Microstructure (arXiv 2602.00776)",
+          "relevance": "medium",
+          "snippet": "The closest analogue to our situation and the clearest OOS-degradation evidence: crypto LOB features with gradient boosting show substantial in-sample performance collapsing on held-out blocks, with the authors reporting that overfitting WORSENS once purged walk-forward controls (train window + deliberate temporal gap before validation, hyperparameters tuned only in an inner CV, outer window never touched) are imposed. This is the validation protocol our gate must adopt wholesale. Also gives an evidence-ranked feature ordering via SHAP \u2014 OFI is a dominant/leading predictor with a monotone-but-concave effect on returns (diminishing marginal impact at extremes), which argues for recording RAW OFI magnitude at entry so the concavity can be fit rather than a pre-thresholded signal. Cross-asset stability of feature importance across heterogeneous coins supports pooling our 200 perps with sample-uniqueness weights rather than fitting 200 separate per-coin models on ~n=1 data each."
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:df70c7d0b3cb61d87388bb2f33f518f516d62ca8bffa418c72859b2b6a1e7c50",
+    "agentId": "aa8cb12b9b4fae1f6",
+    "result": {
+      "claims": [
+        {
+          "claim": "The repo implements the triple-barrier method as a path-aware replacement for fixed-horizon labels, labeling by whichever of profit-take / stop-loss / max-holding-period barrier is hit first \u2014 directly applicable to labeling crypto perp entries.",
+          "quote": "Triple-Barrier Method \u2013 Replaces fixed-horizon labels with path-aware labeling based on whichever barrier is hit first (profit-taking, stop-loss, or max holding period)",
+          "importance": "central"
+        },
+        {
+          "claim": "The repo implements meta-labeling as a two-model architecture that separates direction prediction from sizing/conviction, with the secondary model emitting a bet size in [0,1] \u2014 i.e. the secondary model is the abstention/sizing gate, not the direction model.",
+          "quote": "Meta-Labeling (Corrective AI) \u2013 Two-model architecture separating direction prediction from sizing/conviction; secondary model outputs bet sizes 0-1",
+          "importance": "central"
+        },
+        {
+          "claim": "The repo implements purging + embargoing and CPCV, generating many backtest paths rather than a single walk-forward, with purging/embargoing applied to all splits \u2014 the concrete replacement for a single in-sample backtest Sharpe gate.",
+          "quote": "Combinatorial Purged Cross-Validation (CPCV) \u2013 Generates thousands of backtest paths instead of single walk-forward tests, applying purging/embargoing to all splits",
+          "importance": "central"
+        },
+        {
+          "claim": "The framework asserts multiple-testing bias (uncorrected selection across many trials) is the leading cause of false strategy discoveries, and implements Deflated Sharpe Ratio plus PBO (computed from CPCV paths) to correct/quantify it \u2014 bearing directly on selecting a winner from 142 strategies.",
+          "quote": "Deflated Sharpe Ratio (DSR) \u2013 Corrects for multiple testing bias; the framework notes this as \"the #1 cause of false discoveries\"",
+          "importance": "central"
+        },
+        {
+          "claim": "Market-microstructure features including VPIN and Kyle's Lambda are NOT implemented in this repo \u2014 they are only roadmap items, so this source provides no validated microstructure alpha code or horizons.",
+          "quote": "\ud83d\udd1c Planned Roadmap Items (Not yet implemented) ... Market Microstructure features (VPIN, Kyle's Lambda)",
+          "importance": "supporting"
+        }
+      ],
+      "sourceQuality": "blog"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:46565673b3290ef56215b2066f927749d93d350104aa2f37b8543d1ac280a1c5",
+    "agentId": "a3bc40e0cf672bdb2",
+    "result": {
+      "results": [
+        {
+          "url": "https://onlinelibrary.wiley.com/doi/10.1111/mafi.12413",
+          "title": "Deep order flow imbalance: Extracting alpha at multiple horizons from the limit order book (Kolm, Turiel, Westray, Mathematical Finance 2023)",
+          "relevance": "high",
+          "snippet": "THE single most directly on-point source for the horizon question. Explicitly benchmarks multi-level OFI (Cont/Kukanov/Stoikov lineage) as a predictor across a ladder of horizons rather than one, using 115 NASDAQ names. Core findings for our design: (a) stacked/multi-level OFI dominates best-level-only OFI and raw book state as an input representation; (b) out-of-sample R2 is meaningful at horizons of ~1s to a few minutes and decays sharply beyond that; (c) as horizon lengthens, models must be trained per-horizon \u2014 a signal fit at 500ms does not transfer. Direct implication: a 500ms L2 snapshot is an input to a sub-minute-to-minutes forecast, NOT to a multi-hour perp hold. If our trades hold for hours, book-derived OFI belongs in the ENTRY-TIMING/execution layer, not the edge estimator."
+        },
+        {
+          "url": "https://arxiv.org/pdf/1011.6402",
+          "title": "The Price Impact of Order Book Events (Cont, Kukanov, Stoikov)",
+          "relevance": "high",
+          "snippet": "The foundational OFI paper and the canonical definition our multi-level OFI must match. Establishes the near-LINEAR relation between OFI (cumulative signed change in best-bid/ask queue sizes over an interval) and contemporaneous mid-price change, with high explanatory power (R2 typically ~0.65-0.70 in-sample) at 10s intervals \u2014 but this is largely CONTEMPORANEOUS/impact, not forward-predictive edge. Critical caution for our replacement gate: high R2 on same-interval price change is an impact relation, and naively reading it as predictive alpha is a classic error. Also gives the price-impact coefficient (inverse of depth) which is the empirical Kyle's-lambda analogue to snapshot at entry."
+        },
+        {
+          "url": "https://arxiv.org/html/2607.09230v1",
+          "title": "When Does Order Flow Matter? State-Dependent L2 Liquidity-State Transitions in Crypto Futures (2026)",
+          "relevance": "high",
+          "snippet": "Crypto-perp-native and directly matches our data shape: Binance BTCUSDT/ETHUSDT perps, L2 book + aggregate trade flow, 2023\u2013mid-2026. Key result for our gate design: apparent predictive content from microstructure features is CONCENTRATED IN CALM, TRENDING REGIMES and vanishes during stress episodes. This is a regime-conditional edge, meaning any single unconditional coefficient will be misleading \u2014 it argues for recording a liquidity/regime STATE label at entry (book depth, spread, realized vol, event memory) and either conditioning the model on it or abstaining in the states where flow carries no information. Also explains why a pooled in-sample fit like our 142-strategy Sharpe gate can score well while having zero realized-profit correlation."
+        },
+        {
+          "url": "https://stoye.economics.cornell.edu/docs/Easley_ssrn-4814346.pdf",
+          "title": "Microstructure and Market Dynamics in Crypto Markets (Easley et al.)",
+          "relevance": "high",
+          "snippet": "Covers the VPIN / Kyle's lambda / toxicity side of the question specifically in crypto, from VPIN's own originator. The load-bearing distinction it establishes: VPIN predicts future ABSOLUTE returns (volatility/toxicity), not direction. That means VPIN in our entry snapshot is a SIZING and ABSTENTION input (and a slippage-cost predictor), never a directional alpha \u2014 pairing VPIN magnitude with a separate flow-direction signal is the correct construction. Also validates Kyle's lambda as the crypto price-discovery/liquidity measure, i.e. the field to snapshot for the net-edge cost model rather than the signal model."
+        },
+        {
+          "url": "https://www.tandfonline.com/doi/full/10.1080/14697688.2023.2236159",
+          "title": "Cross-impact of order flow imbalance in equity markets (Cont, Cucuringu, Zhang, Quantitative Finance 2023)",
+          "relevance": "high",
+          "snippet": "The multi-level + cross-sectional extension of OFI, and the most useful source for a 200-coin universe. Two results transfer directly: (1) integrating DEEPER book levels into a multi-level OFI raises both in-sample and out-of-sample R2 over best-level OFI \u2014 justifying our 20-level book capture rather than top-of-book only; (2) cross-sectional/cross-asset OFI adds forward-predictive power that own-asset OFI misses, and the paper is careful to separate contemporaneous price impact from genuine FORWARD prediction (where out-of-sample R2 is far smaller). Argues our entry snapshot should record not just the coin's own multi-level OFI but a market-wide/basket OFI aggregate at the same timestamp."
+        },
+        {
+          "url": "https://arxiv.org/html/2602.00776v1",
+          "title": "Explainable Patterns in Cryptocurrency Microstructure (2026)",
+          "relevance": "medium",
+          "snippet": "Closest match to our exact data pipeline: Binance Futures perpetual order books + trades at 1-SECOND frequency, Jan 2022\u2013Oct 2025, with an ML pipeline using TIME-SERIES CROSS-VALIDATION and explicit feature-importance/stability analysis across assets. Relevant on two of our axes at once: which flow features actually carry stable importance across coins (stability across assets is the honest test our 142-strategy gate lacks), and the validation discipline (purged time-series CV rather than in-sample scoring). Useful as a concrete template for the feature list to snapshot at entry, though it is a preprint and effect sizes should be treated as unverified until we replicate."
+        }
+      ]
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:206cfdbf004743a430384657bedc1c08e0bde40aa9f23f6163bcbbf2d4bd98c0",
+    "agentId": "a55c96f2940e995a6"
+  },
+  {
+    "type": "started",
+    "key": "v2:becaefc745bf507c37139de1158c1f411e8854dd703730d88a0a01792b110094",
+    "agentId": "aa0976596cccc410b"
+  },
+  {
+    "type": "started",
+    "key": "v2:cf6bfeaec9c412574382883a0f1dcab970491e7f6b74eb12c907a1b64fe4d946",
+    "agentId": "a8f6f86de1cc8d5f1"
+  },
+  {
+    "type": "result",
+    "key": "v2:dd8c9a2414ea013e186b762a2be467687ad18bf5d17e51193e47fe9e8b21a417",
+    "agentId": "a1a633ad6b20a4e44",
+    "result": {
+      "claims": [
+        {
+          "claim": "Triple-barrier labeling combined with CUSUM event-filtered (information-driven) sampling produced positive trading performance net of transaction costs, and outperformed both fixed-interval time bars and next-bar prediction \u2014 supporting replacement of a fixed-horizon/backtest-Sharpe gate with event-sampled triple-barrier labels.",
+          "quote": "The innovative combination of CUSUM-filtered data with Triple Barrier labeling outperforms traditional time bars and next-bar prediction, achieving consistently positive trading performance even after accounting for transaction costs.",
+          "importance": "central"
+        },
+        {
+          "claim": "Triple-barrier labels were parameterized as symmetric \u00b12.5% profit-take/stop-loss barriers with a 24-period vertical (time) barrier for the most frequent input intervals, and \u00b15% for less frequent intervals \u2014 a concrete, reproducible label spec to record at entry (barrier levels + max holding periods).",
+          "quote": "we assumed 24 periods for vertical barriers and symmetric upper and lower barriers of 2.5% for the most frequent input intervals and 5% for the other intervals",
+          "importance": "central"
+        },
+        {
+          "claim": "The event filter and bar-sampling thresholds tested were 1%, 2%, and 3% CUSUM/range thresholds, volume bars at 30K/50K/100K ETH, and dollar bars at $50M/$100M/$150M \u2014 i.e., sampling is a tunable hyperparameter that must itself be snapshotted alongside each entry.",
+          "quote": "thresholds of 1%, 2%, and 3% for both the CUSUM filter and range bars",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The study evaluated transformer-family architectures (vanilla Transformer encoder, FEDformer, Autoformer) against other deep learning and classical ML baselines on BTC and ETH from January 2018 to June 2023, using 33 technical indicators plus sine/cosine time encodings as inputs \u2014 notably NO L2/microstructure features (no OFI, microprice, VPIN, queue imbalance, funding, OI).",
+          "quote": "vanilla Transformer encoder, FEDformer, and Autoformer\u2014alongside other deep learning architectures and classical machine learning models",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The paper does NOT apply meta-labeling, sample uniqueness/weighting, or purged/embargoed cross-validation, CPCV, PBO, or deflated Sharpe \u2014 so its 'outperformance' claim carries the same overfitting/leakage exposure the research question is trying to eliminate, and it cannot be cited as validation methodology.",
+          "quote": "The paper does not explicitly discuss meta-labeling, sample weights, or purged/embargoed cross-validation methods.",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2025-12-15",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:1327744903171ff0b6dc4229c01ba4e09bf48c4614d1d4acb7c0b0bb4d4e669c",
+    "agentId": "a91b15bd588d6c6ec"
+  },
+  {
+    "type": "result",
+    "key": "v2:adeb1c4dac7b3306a0d6dc5001060730a0bed5520cf848cd94e8834cf23e69c9",
+    "agentId": "aa99be5172439be76",
+    "result": {
+      "claims": [
+        {
+          "claim": "Meta-labeling is architecturally a two-model split: a primary (exogenous, possibly rule-based) model sets the SIDE of the trade, and a secondary ML classifier decides only trade/no-trade (size), with the secondary model's predicted probability used to derive bet size. This means the entry snapshot must record the primary model's side AND the secondary model's probability separately.",
+          "quote": "I call this problem meta-labeling because we want to build a secondary ML model that learns how to use a primary exogenous model. The ML algorithm will be trained to decide whether to take the bet or pass, a purely binary prediction. When the predicted label is 1, we can use the probability of this secondary prediction to derive the size of the bet, where the side (sign) of the position has been set by the primary model.",
+          "importance": "central"
+        },
+        {
+          "claim": "Meta-labeling's measured out-of-sample gains are on filtering false positives / risk-adjusted performance, not on raw precision: on S&P500 e-mini, the mean-reversion strategy's OOS precision rose only 0.17 -> 0.20 (accuracy 17% -> 63%) and the trend-following strategy's OOS precision rose 0.48 -> 0.54 (accuracy 48% -> 55%); the trend-following meta-model did NOT beat the primary on all metrics, only on a risk-adjusted basis.",
+          "quote": "This test data is completely out-of-sample. The precision jumps from 0.17 to 0.20 and the accuracy from 17% to 63%. ... This test data is completely out-of-sample. The precision increases from 0.48 to 0.54 and the accuracy from 48% to 55%. ... The above is slightly di\ufb00erent to the mean reverting strategy as it doesnt out perform on all the metrics however it does outperform on a risk adjusted basis.",
+          "importance": "central"
+        },
+        {
+          "claim": "Meta-labeling cannot rescue a bad primary signal \u2014 it requires a primary model with genuine (high-recall) predictive power; against a bad primary it only limits the downside rather than creating edge. Directly bears on whether a meta-label layer can be bolted onto a 142-strategy gate that has zero measured correlation to realized profit.",
+          "quote": "as much as we show that meta-labeling works, it also needs a good primary algorithm that should have good performance in in-sample tests. One then needs to combine that algorithm with a rich set of features that are contextual, relevant and intuitive. If the algorithm is bad then meta-labeling would likely only reduce the downside.",
+          "importance": "central"
+        },
+        {
+          "claim": "The entry-time label/feature pipeline is: CUSUM event filter thresholded on point-in-time volatility -> triple-barrier labels whose horizontal barriers are set as the rolling standard deviation of log returns times a user-defined multiple (e.g. [1,1] = 1 sigma) plus a vertical time barrier. Therefore the entry snapshot must include point-in-time volatility, the barrier multiples, the resulting upper/lower price levels, and the vertical-barrier timestamp.",
+          "quote": "We employ CUSUM \ufb01lter as suggested by L\u00f3pez de Prado 2018 with the threshold of point-in-time volatility. ... At a given time stamp, 3 barriers are set. An upper and lower horizontal barrier to represent a take pro\ufb01t and stop loss levels. A third and vertical barrier is placed to represent the end of the duration of the trade. ... The horizontal barriers are determined by calculating the daily standard deviation of the log returns multiplied by a user de\ufb01ned multiple. For example a [1, 1] tuple will set both barriers to be equal to 1 standard deviation.",
+          "importance": "central"
+        },
+        {
+          "claim": "This paper's own validation does NOT use purged/embargoed CV or sample-uniqueness weights despite overlapping triple-barrier labels \u2014 it uses random K-fold CV with grid search plus up-sampling with replacement to fix class imbalance, and admits an iterative in-sample tuning loop. Its reported numbers are therefore optimistically biased and it is not evidence for the validation half of the question.",
+          "quote": "Divide the samples into K CV folds or groups at random. ... we found that meta-labeling often resulted in unbalanced classes - to trade (=1) or not to trade (=0) with many more instances of not to trade. We used up-sampling to balance these classes prior to training the machine-learning algorithm (Random Forest). ... We iterate over this step number of times until we see in-sample results that are acceptable.",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2019-08-09 (PDF creation date; posted to hudsonthames.org April 2022)",
+      "sourceQuality": "secondary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:becaefc745bf507c37139de1158c1f411e8854dd703730d88a0a01792b110094",
+    "agentId": "aa0976596cccc410b",
+    "result": {
+      "claims": [
+        {
+          "claim": "Market impact follows a square-root law in participation rate: normalized impact I/\u03c3_D = c\u00b7(Q/V_D)^\u03b4 with \u03b4\u22480.5 and c\u22480.98, implying an order of 1% of daily volume incurs ~1% of daily volatility in impact. This gives a concrete, parameterized slippage term for a net-edge cost model at entry \u2014 requiring order size Q and a daily-volume estimate V_D to be snapshotted.",
+          "quote": "The normalized impact formula I/\u03c3D = c(Q/VD)^\u03b4 with \u03b4\u22480.5 implies impact scales as square-root of participation rate. With c\u22480.98, a 1% of daily volume order experiences roughly 1% price impact (in units of daily volatility).",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The simulated impact exponent is \u03b4 = 0.539 \u00b1 0.048 across 2,000 simulated stocks, versus a Tokyo Stock Exchange empirical benchmark of 0.489 \u2014 i.e. the square-root exponent is NOT exactly 0.5 and the simulated value sits above the equity-market empirical value, so any cost model importing \u03b4=0.5 carries a calibration error that must be re-fit on the target venue (this paper's evidence is equity ABM, never crypto perps).",
+          "quote": "The ABM achieves \u27e8\u03b4\u27e9=0.539\u00b10.048 across 2,000 simulated stocks, closely matching Tokyo Stock Exchange benchmark of 0.489.",
+          "importance": "tangential"
+        },
+        {
+          "claim": "The square-root exponent is jointly produced by order splitting and liquidity replenishment: removing order splitting collapses \u03b4 from 0.549 to 0.324, and removing HFT liquidity-replenishing agents drops it to 0.386. Therefore \u03b4\u22480.5 is regime-dependent, and in venues/periods where metaorder splitting or market-making is absent (e.g. thin alt-perp books, liquidation cascades), a square-root cost model will misprice impact.",
+          "quote": "Removing order splitting causes \u03b4 to collapse from 0.549 to 0.324, the largest single change among all scenarios.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Competing single-mechanism theories of the square-root law are quantitatively falsified in this simulation \u2014 GGPS over-predicts impact by ~2x, FGLW by ~4x, and LOB-walking (static book-depth integration) under-predicts. This directly undercuts estimating slippage at entry by walking the L2 book, which is the naive method available from a 20-level book snapshot.",
+          "quote": "GGPS and FGLW over-predict by factors of two and four respectively, while LOB walking under-predicts.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Execution-strategy micro-details are second-order to the splitting/replenishment interplay: perturbations preserving both mechanisms move \u03b4 by less than 10%. This implies a net-edge cost model needs participation rate and a liquidity-regime indicator far more than it needs fine-grained execution-tactic fields.",
+          "quote": "Perturbations that leave both [splitting and replenishment] intact...move \u03b4 by less than 10%, indicating execution strategy details (split rule shape, momentum patterns) matter less than the fundamental interplay between order fragmentation and liquidity provision.",
+          "importance": "tangential"
+        }
+      ],
+      "publishDate": "2026-07-05",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:5836e53bff27502a64fe0728ae73960865bc4bf1ecf8824267fe790582cf02ab",
+    "agentId": "a406fbfb9045c2ea1"
+  },
+  {
+    "type": "started",
+    "key": "v2:565d1e4df36aa5845676fd78b6e2492015bdebab3e71e548510a646f20d40492",
+    "agentId": "affb051878c4c3279"
+  },
+  {
+    "type": "result",
+    "key": "v2:206cfdbf004743a430384657bedc1c08e0bde40aa9f23f6163bcbbf2d4bd98c0",
+    "agentId": "a55c96f2940e995a6",
+    "result": {
+      "publishDate": "2025-12-14 (arXiv:2512.12844v1)",
+      "sourceQuality": "primary",
+      "claims": [
+        {
+          "claim": "SCRC provides a risk guarantee that is CONDITIONAL ON ACCEPTANCE (non-abstention), not marginal: for a selected test point, expected loss is bounded by alpha, and the probability of being selected is at least xi. This is exactly the guarantee shape a trade-entry gate needs (\"of the trades I actually take, the error rate is <= alpha\"), which standard marginal conformal prediction does NOT provide.",
+          "quote": "the resulting selective classifier satisfies \ud835\udd3c[l(C_\u03bb\u0302\u2082(X_{n+1}),Y_{n+1})|g(X_{n+1})\u22651\u2212\u03bb\u0304\u2081]\u2264\u03b1, and the selection coverage satisfies \u2119(g(X_{n+1})\u22651\u2212\u03bb\u0304\u2081)\u2265\u03be.",
+          "importance": "central"
+        },
+        {
+          "claim": "Naive selection/abstention BREAKS the exchangeability that conformal validity depends on; validity is only restored if the selection rule is symmetric across calibration and test points. A gate that thresholds on a score fitted only to calibration data (the obvious implementation) forfeits the guarantee unless corrected.",
+          "quote": "for any permutation \u03c3 of [n+1] and index i\u2208[n+1], \u03c3(i)\u2208\u2110(\ud835\udc9f)\u27fai\u2208\u2110(\ud835\udc9f^\u03c3)",
+          "importance": "central"
+        },
+        {
+          "claim": "The two implementable variants trade computation against strictness of assumption: SCRC-T computes the selection threshold jointly over calibration AND test data to preserve exact exchangeability, whereas SCRC-I uses calibration-only thresholds and recovers only a high-probability (PAC, DKW-based) guarantee under an i.i.d. assumption. For a live trade gate that cannot see future test points, only the SCRC-I style calibration-only route is deployable, and it is the weaker guarantee.",
+          "quote": "with probability at least 1\u2212\u03b4 over the calibration sample, \ud835\udd3c[l(C_\u03bb\u0302\u2082(X_{n+1}),Y_{n+1})|g(X_{n+1})\u22651\u2212\u03bb\u0302\u2081\u2032]\u2264\u03b1.",
+          "importance": "central"
+        },
+        {
+          "claim": "The paper's guarantees rest entirely on exchangeability of (X_i,Y_i) and it contains no treatment of distribution shift, temporal dependence, or non-exchangeable data. Applied to crypto perp entries \u2014 where returns are serially dependent, regime-shifting, and overlapping-labeled \u2014 the stated guarantees do NOT transfer without an adaptive/weighted-conformal modification (e.g. ACI), so this method cannot be adopted as-is for the entry gate.",
+          "quote": "(X_i,Y_i)_{i=1}^{n+1} are exchangeable",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Empirical validation is confined to static image classification (CIFAR-10 with ResNet-18, Diabetic Retinopathy Detection with ResNet-34), with results reported as prediction-set size (~2.3-2.6 classes at xi=0.7, alpha=0.1). There is zero empirical evidence for financial, trading, or time-series data, so the method's edge-estimation value here is methodological (guarantee shape) rather than validated performance.",
+          "quote": "Selected samples: ~2.4\u20132.5 classes in prediction set",
+          "importance": "supporting"
+        }
+      ]
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:174be0afe913afecb876cfee749128d4677fe3549d3a9a79cc3e9437e3b13a2b",
+    "agentId": "afa7aef730b290796"
+  },
+  {
+    "type": "result",
+    "key": "v2:1327744903171ff0b6dc4229c01ba4e09bf48c4614d1d4acb7c0b0bb4d4e669c",
+    "agentId": "a91b15bd588d6c6ec",
+    "result": {
+      "claims": [
+        {
+          "claim": "The repository implements Order Flow Imbalance in both single-level and multi-level (MLOFI) form, defining OFI as the imbalance between demand and supply at the best bid and ask prices \u2014 i.e. it provides reference code for the Cont/Kukanov/Stoikov-family OFI feature we would compute from our 20-level book, but only for the OFI construction itself.",
+          "quote": "**Order Flow Imbalance (OFI)**: Defined as \"the imbalance between demand and supply at the best bid and ask prices.\" The repository implements both single-level OFI and Multi-Level OFI (MLOFI).",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The repository reports NO regression models, R^2 values, coefficients, or validation metrics \u2014 it therefore supplies zero empirical evidence about the predictive power or horizon of OFI, PIN, or any other LOB feature, and cannot be cited as validation for a net-edge model.",
+          "quote": "**No regression models, R\u00b2 values, coefficients, or validation metrics are reported** in the README. The document is descriptive rather than empirical.",
+          "importance": "central"
+        },
+        {
+          "claim": "The feature set is limited to four features \u2014 order-size distribution, OFI/MLOFI, PIN (Easley et al. MLE), and per-trade realized volatility \u2014 and does NOT include microprice, queue imbalance, book slope/depth, VPIN, Kyle's lambda, funding, open interest, or liquidations, so it covers only a small fraction of the entry-snapshot fields required.",
+          "quote": "The repository engineers four primary LOB features: 1. **Distribution of Order Sizes** ... 2. **Order Flow Imbalance (OFI)** ... 3. **Probability of Informed Trading (PIN)** ... 4. **Volatility**",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The analysis uses volume-based bars (threshold 1,000,000 shares) and estimates volatility per trade at market-order intervals rather than fixed clock time \u2014 supporting the L\u00f3pez de Prado argument that event/volume clocks, not 5m time bars, are the correct sampling basis for microstructure features.",
+          "quote": "**Frequency**: Volume-based bars (threshold = 1,000,000 shares) ... \"Realized volatility per trade\" estimated from price returns at market order intervals rather than fixed time intervals.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The data is Deutsche B\u00f6rse equities (via the db-lob package) with tick size 0.0001 and multi-level examples shown only up to the 2nd level \u2014 i.e. an equity venue, not crypto perpetuals, so any implied parameters do not transfer to 200-coin 20-level 500ms perp books without refitting.",
+          "quote": "**Instruments**: Uses Deutsche B\u00f6rse data via db-lob package ... **Tick size**: 0.0001 ... **Levels**: Multi-level analysis (examples show up to 2nd level)",
+          "importance": "tangential"
+        }
+      ],
+      "sourceQuality": "blog"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:f56b9efe199de5789ccc027ad39a7b22617b8111ff4782cb80c524ef0bd37729",
+    "agentId": "ae1ef7d618bb2187e"
+  },
+  {
+    "type": "result",
+    "key": "v2:81567440843bc85220b34eadb2821a12346f521cbdecc1424fbf296c93990efc",
+    "agentId": "abf845a2a95d66e7f",
+    "result": {
+      "publishDate": "2025-12-15 (arXiv:2512.12924v1 submitted Dec 15, 2025; paper dated December 16, 2025)",
+      "sourceQuality": "primary",
+      "claims": [
+        {
+          "claim": "SCOPE CAVEAT \u2014 this source does NOT study any of the L2 microstructure alphas in the research question. Despite the title's 'Market Microstructure Signals', the tested signals are five hand-crafted DAILY OHLCV heuristics (institutional accumulation, flow momentum, mean reversion, breakouts, range-bound value) on 100 US equities. Verbatim text search of the full 35-page PDF returns ZERO standalone occurrences of OFI, queue imbalance, microprice, book slope, PBO, embargo, triple-barrier, meta-labeling, conformal, or perpetual. VPIN and Kyle are mentioned only as literature citations, never computed. The paper contributes NO evidence on order-flow predictive horizons, and nothing on crypto perps.",
+          "quote": "Single Asset Class: Focus on US equities limits generalizability. Extensions to futures, currencies, fixed income, or cryptocurrencies would test whether framework and signals apply broadly.",
+          "importance": "central"
+        },
+        {
+          "claim": "Statistical power arithmetic that directly indicts small-n edge validation: with 34 out-of-sample folds and an observed effect size d=0.17, the study attains only 12% power, and ~540 independent test periods would be needed for 80% power. This transfers directly to our n=260 gate-vs-profit correlation \u2014 at realistic trading effect sizes, a few hundred observations cannot distinguish a real edge from zero, so our measured -0.031 correlation is consistent with both 'no edge' and 'small edge we cannot resolve'.",
+          "quote": "Statistical Power Limitations: With 34 folds and effect size d = 0.17, the study achieves only 12% statistical power. Approximately 540 independent test periods would be required for 80% power at the observed effect size. This reflects inherent sample size limitations in trading system validation\u2014even 10 years of quarterly tests provide modest statistical power for small effects.",
+          "importance": "central"
+        },
+        {
+          "claim": "Strict walk-forward validation with information-set discipline collapses reported performance by 1-2 orders of magnitude relative to published backtest claims: 0.55% annualized return, Sharpe 0.33, p=0.34 (statistically insignificant) across 34 independent OOS periods, versus the 15-30% annual returns typical in the literature. This is direct empirical support for our finding that in-sample backtest Sharpe over 142 strategies is not a valid edge gate.",
+          "quote": "We demonstrate that rigorous walk-forward validation dramatically tempers conclusions, with our modest 0.55% return contrasting sharply with typical published claims of 15-30% annual returns that likely reflect data mining and lookahead bias.",
+          "importance": "central"
+        },
+        {
+          "claim": "Signal edge is regime-conditional, not stationary: the same signals produced +0.60% quarterly in high-volatility 2020-2024 but -0.16% in stable 2015-2019, and the authors' stated mechanism is that informed-trading detection requires sufficient information arrival. The prescribed remedy is regime-gated abstention \u2014 allocate zero in low-volatility regimes \u2014 which argues that any entry-edge model must snapshot a realized-volatility / information-arrival regime feature at entry and be permitted to abstain.",
+          "quote": "Theoretical Insight: Market microstructure theory predicts that informed trading detection requires sufficient information arrival. During low-volatility periods, reduced information flow and dominant noise trading render daily microstructure signals ineffective. [...] Practical Deployment: The system should be scaled by realized volatility regimes. In low-volatility environments, allocation to the strategy should be minimal or zero.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The paper endorses Combinatorial Purged Cross-Validation as the best-performing anti-overfitting validator (citing Arian et al. 2024), with walk-forward retained for realistic simulation \u2014 supporting a CPCV + walk-forward pairing for our replacement gate. NOTE: the authors claim to 'combine rigorous walk-forward validation with deflated Sharpe ratios' but never actually report a Deflated Sharpe or PBO figure for their own results anywhere in the paper \u2014 DSR/CSCV appear only in the literature review and reference list. Treat the DSR/PBO endorsement as citation, not demonstration.",
+          "quote": "Recent work by Arian et al. [2024] compares validation methods for machine learning in finance, finding that Combinatorial Purged Cross-Validation shows superiority in mitigating over-fitting risks, though walk-forward remains the industry standard for realistic trading simulation.",
+          "importance": "supporting"
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:565d1e4df36aa5845676fd78b6e2492015bdebab3e71e548510a646f20d40492",
+    "agentId": "affb051878c4c3279",
+    "result": {
+      "claims": [
+        {
+          "claim": "Average sample uniqueness for triple-barrier labels is computed from exactly two inputs: the label end-time series t1 (the timestamp at which the first barrier is touched) and the close-price series index \u2014 meaning an entry snapshot must record, per event, both the entry timestamp (index) and the eventual barrier-touch timestamp t1 to fit sample weights at all.",
+          "quote": ":param close_series_index: (pd.Series) Close prices index\n:param label_endtime: (pd.Series) Label endtime series (t1 for triple barrier events)",
+          "importance": "central"
+        },
+        {
+          "claim": "The uniqueness calculation is a two-stage algorithm: first num_concurrent_events counts, for each bar, how many labels' [entry, t1] spans overlap that bar; then _get_average_uniqueness averages 1/(concurrency) over each event's lifespan to produce a per-event weight. Overlapping labels therefore mechanically receive down-weighted, non-IID sample weights.",
+          "quote": "This function uses close series prices and label endtime (when the first barrier is touched) to compute the number of concurrent events per bar.",
+          "importance": "central"
+        },
+        {
+          "claim": "This implementation is a direct codification of L\u00f3pez de Prado's Advances in Financial Machine Learning Snippet 4.1 (p. 60) and Snippet 4.2 (p. 62) \u2014 i.e., the concurrency/uniqueness weighting scheme is a published, citable method rather than a library-specific invention.",
+          "quote": "Advances in Financial Machine Learning, Snippet 4.1, page 60.\nEstimating the Uniqueness of a Label",
+          "importance": "supporting"
+        },
+        {
+          "claim": "get_av_uniqueness_from_triple_barrier consumes the output of labeling.get_events() directly, establishing the required pipeline order: triple-barrier events must be generated first, and the resulting events DataFrame (containing t1) is the canonical carrier of the fields needed for uniqueness weighting.",
+          "quote": ":param triple_barrier_events: (pd.DataFrame) Events from labeling.get_events()",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The publicly hosted master version of this file contains only docstrings with `pass` bodies \u2014 every function implementation has been stripped \u2014 so the repository cannot be used as a working reference implementation and the algorithm must be reimplemented from the AFML snippets it cites.",
+          "quote": ":return: (pd.Series) Average uniqueness over event's lifespan for each index in triple_barrier_events\n    \"\"\"\n    pass",
+          "importance": "tangential"
+        }
+      ],
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:2ce69f0ddaf8a98e701f08d0bde7553ba077ef9b0b88dabe5b3c8f5e3035af19",
+    "agentId": "a30882a11b8a40a8d"
+  },
+  {
+    "type": "started",
+    "key": "v2:bb63345fcd0fb199ed807db1769de43797875d42005f1ab741432c88d0204924",
+    "agentId": "a2cfd405ffa1da3a8"
+  },
+  {
+    "type": "result",
+    "key": "v2:5d8fe66b0ef61761661d3cf8406cb98c1b9aeeab055aa06513fc7413664f406e",
+    "agentId": "a438d180d0d619e3f",
+    "result": {
+      "sourceQuality": "primary",
+      "publishDate": "2021-10-28 (v1), v2 2021-10-31; published at ACM ICAIF'21",
+      "claims": [
+        {
+          "claim": "Abstention (selective classification via the SGR algorithm thresholding softmax confidence) improved directional accuracy in EVERY tested configuration \u2014 all 4 model classes x 4 feature sets \u2014 at realized test coverage of 37-63% (binary) and 17-55% (ternary). Direct empirical support for an abstention gate on a direction classifier, but gains are small in absolute terms (LSTM/FS4: 53.66% -> 56.52% at 38.14% coverage; LR/FS2: 53.50% -> 55.79% at 47.53% coverage).",
+          "quote": "The resulting coverage levels show quite stringent selectivity, ranging between 37% and 63% for the binary classifiers, and between 17% and 55% for ternary classifiers. We see that in every single case (i.e., across all classification approaches and feature sets), the selectivity results in an improvement in accuracy.",
+          "importance": "central"
+        },
+        {
+          "claim": "Classification accuracy is NOT a valid proxy for trading P&L: ternary selective classifiers achieved the HIGHEST selective accuracy (up to 63.00%) yet produced WORSE backtest Sharpe than binary selective classifiers (which peaked at only ~56.5% accuracy). Tuning on an accuracy-like metric (MCC) rather than realized net P&L was flagged by the authors as a defect to fix \u2014 the same failure mode as ranking strategies by a score uncorrelated with realized profit.",
+          "quote": "the ternary classifiers worked quite differently from the binary classifiers and appeared promising when looking only at accuracy, but in the end provided worse backtesting results. It would be interesting to explore hyperparameter optimization based on backtesting results directly, rather than the MCC criterion.",
+          "importance": "central"
+        },
+        {
+          "claim": "The measured edge is almost entirely consumed by transaction costs: at slippage of just 0.3 ticks per contract, most of the 32 (model x feature-set x selective/non-selective) configurations had NEGATIVE Sharpe; only a minority were profitable, best Sharpe = 0.57 (RF ternary selective, FS3), best binary selective = 0.33 (NN, FS1). LSTMs were never profitable. Implication: an entry-edge estimator must be fit and validated on a net-of-cost target, not a gross one.",
+          "quote": "In Table 4, the Sharpe Ratio results of all the classifiers and features sets are presented for slippage set to 0.3 ticks. At this level of slippage, many configurations are not profitable, but some are",
+          "importance": "central"
+        },
+        {
+          "claim": "The value of abstention INCREASES with transaction costs \u2014 selective classifiers beat their non-selective counterparts by a widening margin as slippage rises from 0 to 0.5 ticks, because abstention avoids position flips and the slippage paid on each contract traded. Argues an abstention gate is worth more, not less, in a high-cost venue (crypto perps: taker fees + funding).",
+          "quote": "As slippage increases, both binary and ternary selective classifiers have better Sharpe Ratio values compared to their respective non-selective classifiers.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Richer feature sets did not improve results: FS4 (adding trade-direction/aggressiveness i.e. taker-flow features plus volume-at-price to OHLCV + moving averages) was beaten by the minimal FS2, and FS3 was the WORST; random forests degraded on richer sets, attributed to overfitting. Transfer caveat: features were on 30-minute bars of CME metals futures (GC/HG/PA/PL/SI, 97482 bars, 2011-02-14 to 2019-05-31), NOT 500ms L2 crypto book \u2014 so this is weak evidence against microstructure alphas at sub-minute horizons; it only shows bar-aggregated taker flow adds nothing at a 30-minute horizon.",
+          "quote": "In terms of the feature sets while the results are mixed, it is certainly fair to say that there is no clear evidence of a benefit to using the richer feature sets, with FS2 arguably being the best choice on balance.",
+          "importance": "supporting"
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:5836e53bff27502a64fe0728ae73960865bc4bf1ecf8824267fe790582cf02ab",
+    "agentId": "a406fbfb9045c2ea1",
+    "result": {
+      "claims": [
+        {
+          "claim": "Realistic crypto-perp execution simulation requires full order-book reconstruction from Level-2 market-by-price or Level-3 market-by-order feeds \u2014 implying the entry snapshot must carry full multi-level book state, not just top-of-book or bar data.",
+          "quote": "Full order book reconstruction based on Level-2 Market-By-Price and Level-3 Market-By-Order feeds.",
+          "importance": "central"
+        },
+        {
+          "claim": "Net-edge estimation for passive/limit entries must model order queue position at fill time; hftbacktest treats queue-position modeling as a first-class, swappable component of fill simulation rather than an optional refinement.",
+          "quote": "Order fill simulation that takes into account the order queue position, using provided models or your own custom model.",
+          "importance": "central"
+        },
+        {
+          "claim": "Both feed latency (data arrival) and order latency (round-trip to exchange) must be modeled separately, meaning an entry snapshot needs its own exchange-timestamp and local-receipt-timestamp fields to be usable for edge fitting.",
+          "quote": "Backtest accounting for both feed and order latency, using provided models or your own custom model.",
+          "importance": "central"
+        },
+        {
+          "claim": "The project's stated validation bar is period-matched live-vs-backtest reconciliation: a backtest replayed over the exact period a strategy traded live should closely reproduce the live results \u2014 a falsifiable alternative to in-sample backtest Sharpe as a gate.",
+          "quote": "Accurate backtesting is the foundation... your backtesting truly reflects real-world execution... if you run a live trading strategy in January 2025, the backtest for that exact period should produce results that closely align with the actual results.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The tooling targets exactly the venues in question (Binance Futures, Bybit) and points to hosted Binance USD-M tick datasets, so L2-based entry-edge fitting on crypto perps is an already-operational workflow; MIT-licensed, Rust-cored (75.9%) with a Python 3.11+ API, latest release rust-v0.9.4 / py-v2.4.4.",
+          "quote": "Rust (75.9%), Python (24.1%) | MIT | Python 3.11+ | rust-v0.9.4 & py-v2.4.4 (Dec 10, 2025)",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2025-12-10 (latest release rust-v0.9.4 / py-v2.4.4; continuously-updated repository, no single publish date)",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:c07972125511672a250f1b8f0ba5359e194392ae5ec4601da1eaf7a5bc83e0a3",
+    "agentId": "aabe61a9189b22f37"
+  },
+  {
+    "type": "started",
+    "key": "v2:ae6026d089199f393b360e2eadbd357d0d477dc6ea1bece6e522a3cb49330204",
+    "agentId": "aa37b6bb6da2e031d"
+  },
+  {
+    "type": "result",
+    "key": "v2:98fe25028101c765e4df9c874507e0a5bc4e3a8549ac3e2fdcdc275f21507cf0",
+    "agentId": "a02cf28c9712c4d1c",
+    "result": {
+      "claims": [
+        {
+          "claim": "On Binance BTC/USD perpetual futures, order-flow market impact is large and positive only at the contemporaneous 5-second bucket and turns slightly negative for all subsequent lags, with cumulative impact decaying as a power law over ~100 subsequent 5s periods (~500 seconds). This bounds the horizon at which taker-flow impact information lives to roughly seconds-to-minutes, not hours \u2014 directly testable against our aggTrade + 500ms L2 data.",
+          "quote": "The coefficients show a large initial impact at t = 0, followed by the reversion in impact, as exhibited by small negative coefficients at t> 0. When the cumulative market impact of a unit order at time t is plotted over 100 periods as before (Figure 5), a decay in market impact following a power law can be observed.",
+          "importance": "central"
+        },
+        {
+          "claim": "The Square-Root law of market impact holds empirically on Binance BTC/USD perps with a fitted exponent of delta = 0.59 (not the assumed 0.5), in the form I(Q,T) = k*sigma_T*(Q/V_T)^delta, where sigma_T is realized volatility and V_T is a recency-weighted average traded volume over a T = 1 hour trailing window. This gives a concrete, checkable slippage/net-edge cost model requiring exactly three snapshot fields at entry: intended net size Q, trailing 1h volatility sigma_T, and trailing 1h weighted volume V_T.",
+          "quote": "Using the data, we numerically find the value of \u03b4 using an optimisation routine. The results of the optimisation yield an outcome \u03b4 = 0.59.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Market impact in BTC/USD perps is intertemporally conditional on the SIGN of the previous period's net taker flow: 5s periods following net-buy flow realize systematically lower impact than periods following net-sell flow. This makes lagged signed net taker volume a required entry-snapshot field, since impact/slippage at entry is not a function of current order size alone.",
+          "quote": "This analysis indicates that periods following a previous period of net buy orders on average cause a lower market impact than those following a period of net sell orders. This means the previous order exerts market impact pressures in the opposite direction on the current period, evidencing reversion in impact.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Trade-sign (order-sign) autocorrelation in BTC/USD perps decays as a clean power law, empirically confirming metaorder splitting in crypto perps. This means trade-sign imbalance carries persistent, long-memory predictive structure and that consecutive aggTrade signs are NOT independent \u2014 which invalidates IID sample assumptions in any CV scheme fit on overlapping order-flow windows.",
+          "quote": "As shown in Figure 6, the BTC/USD Futures market exhibit a clean power-law decay in this autocorrelation of order signs, supporting the existence of these meta orders.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The paper's empirical impact findings are derived only from executed-order (Level 3 trade) data on Binance BTC/USD perps from July 2020 to October 2021, WITHOUT limit-order submission or cancellation data \u2014 so its delta = 0.59 and decay-kernel results are not validated against book-dynamics features (queue imbalance, book slope, cancellations), and the authors explicitly defer empirical tuning and derivation to future work rather than presenting an out-of-sample validation.",
+          "quote": "we queried data from the USD/BTC perpetual futures market from July 2020 to October 2021. This is an order-by-order breakdown of all executed orders during this period. Unfortunately, data is unavailable for limit order submissions and cancellations, somewhat limiting the scope of our research.",
+          "importance": "tangential"
+        }
+      ],
+      "publishDate": "2023-05-12",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:d63443044b3072a4b1fe019d1fc2e1efd15165d5d529a6b9e8c7561ad66825ec",
+    "agentId": "a4606790ed81975ee"
+  },
+  {
+    "type": "result",
+    "key": "v2:cf6bfeaec9c412574382883a0f1dcab970491e7f6b74eb12c907a1b64fe4d946",
+    "agentId": "a8f6f86de1cc8d5f1",
+    "result": {
+      "claims": [
+        {
+          "claim": "Equal-width (fixed-bin) ECE systematically UNDERESTIMATES true miscalibration and is a lower bound; equal-mass/quantile binning (ACE / ECE-EM) has strictly lower bias and faster convergence. Directly falsifiable: if you gate trades on a fixed-bin ECE, your model is more miscalibrated than the number says \u2014 switch the abstention gate's calibration check to quantile bins.",
+          "quote": "It is shown in [67] that binning-based estimators with bins of equal mass have lower bias than estimators with bins of equal width. ... Choosing a data-dependent binning scheme is known to provide much faster convergence than fixed bins [75]. Furthermore, the calibration error approximated by the use of fixed bins is a lower bound, which underestimates true miscalibration [75].",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The standard 'plugin' ECE estimator is biased and produces too many false alarms \u2014 it rejects well-calibrated models too often. Any hypothesis test of 'is my entry-edge model calibrated?' must use the de-biased estimator (subtracting the c_b(1-c_b)/(n_b-1) term for l2, or a Monte-Carlo bias correction for l1), otherwise the calibration test itself is invalid.",
+          "quote": "The so-called \"plugin estimator\" (PL) of the \ud835\udc592 calibration error in (29) is biased [38]. ... Using the plugin calibration error estimator to test for calibration leads to rejecting well-calibrated models too often [38]. That is, there are too many false alarms when attempting to detect miscalibrated models [83]. Therefore, the de-biased estimator should be used for more refined hypothesis testing.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Brier score and NLL conflate accuracy with calibration and are not 'complete' (a perfectly calibrated classifier does not score zero even at infinite N). Falsifiable consequence: a low Brier/log-loss on an entry-edge model is NOT evidence the probabilities are trustworthy enough to size on \u2014 calibration must be measured with a dedicated calibration metric alongside the proper score.",
+          "quote": "Like the Brier Score, NLL is easy to compute, but conflates accuracy and calibration [25] and is not \"complete\" (where a perfectly calibrated classifier would produce a metric value of zero over a hypothetical infinite-sized dataset) [7]. As with the Brier score, NLL is strictly proper and can be decomposed into reliability, resolution, and uncertainty [74].",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Kernel/KDE-based calibration estimators outperform bin-based metrics on the rate of decline of mean-squared error with sample size \u2014 i.e. at the finite sample sizes of a trade journal (hundreds to thousands of entries), a KDE calibration estimator is measurably more efficient than binned ECE.",
+          "quote": "Among the disadvantages of bin-based metrics are the arbitrary grouping of data points into bins, and discrete jumps between bins. Kernel-based metrics seek to obtain a smooth calibration curve based on a locally weighted sum of the data points. ... Kernel estimates generally perform better than bin-based metrics on various criteria, such as rate of decline of mean-squared error with sample size [17].",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Binned calibration error is not a fixed quantity: it increases monotonically with bin count, true calibration is unmeasurable with finitely many bins, and on FINITE datasets ECE can go either way (under- or over-estimate). So any single reported ECE number is an artifact of the bin choice and cannot be compared across models unless bin scheme and N are held fixed.",
+          "quote": "A general problem with bin-based schemes is that the true calibration is unmeasurable with a finite number of bins. As the number of bins is increased, the measured calibration error increases [38]. It is also the case that any binned version of calibration error underestimates the true calibration error in the limit of infinite data. However, for finite data sets ECE can under or overestimate the calibration error [67].",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2025-04-25",
+      "sourceQuality": "secondary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:5a5d2ee704351a8d2e112fed8f85ce9f173df95462478c3f78af751f958d11dd",
+    "agentId": "a160f6872007c93c0"
+  },
+  {
+    "type": "result",
+    "key": "v2:f56b9efe199de5789ccc027ad39a7b22617b8111ff4782cb80c524ef0bd37729",
+    "agentId": "ae1ef7d618bb2187e",
+    "result": {
+      "claims": [
+        {
+          "claim": "Order flow adds only marginal predictive value over a pure L2 book-shape baseline for 1m/5m state transitions in BTC/ETH perps: pooled overlay improvement was +0.010 vs a flow-shuffle null 95th percentile of +0.004 (1m) / +0.003 (5m) \u2014 i.e. barely above noise, and for BTC no regime cleared the flow test at both horizons.",
+          "quote": "for BTC no regime clears the corresponding order-flow tests at both horizons",
+          "importance": "central"
+        },
+        {
+          "claim": "The pre-event L2 liquidity state (spread, top-20 depth, top-20 imbalance) is a stronger predictor than order flow, improving over the marginal baseline by +0.034 (1m) and +0.045 (5m) \u2014 roughly 3-4x the order-flow overlay's +0.010.",
+          "quote": "the pre-event L2 liquidity state is the primary predictive object",
+          "importance": "central"
+        },
+        {
+          "claim": "Order-flow predictive power is state-dependent and concentrates in stressed liquidity regimes: for ETH the 1-minute overlay increment rises monotonically from +0.004 (calm) to +0.020 (mixed) to +0.038 (stressed), implying entry snapshots must record the liquidity regime to condition on it.",
+          "quote": "rises monotonically from calm to mixed to stressed",
+          "importance": "central"
+        },
+        {
+          "claim": "Absolute predictability of L2 state transitions at 1-5 minute horizons is low: the L2-shape model reached 0.586 (1m) and 0.554 (5m) classification accuracy against majority base rates of 0.571 and 0.532 \u2014 an edge of only ~1.5-2.2 percentage points over always guessing the majority class.",
+          "quote": "0.586 at one minute and 0.554 at five minutes",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Validation used rolling monthly out-of-sample folds with event-clustered validation and a permutation null with feature shuffling blocked by month, symbol, and pre-event state \u2014 a concrete blocked-permutation protocol for testing whether an order-flow feature beats chance, over 47,513 windows per horizon.",
+          "quote": "47,513 windows per horizon, 18,631 of them event windows (BTC 9,330, ETH 9,301)",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2026-07-10",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:cf3c0a940e71e337f6298df226cab58c1889a356134acbe04a799a0aa00c69ee",
+    "agentId": "ade77f677d988ea81"
+  },
+  {
+    "type": "result",
+    "key": "v2:2ce69f0ddaf8a98e701f08d0bde7553ba077ef9b0b88dabe5b3c8f5e3035af19",
+    "agentId": "a30882a11b8a40a8d",
+    "result": {
+      "claims": [
+        {
+          "claim": "Order imbalance measured at quarter-hour clock openings forecasts crypto perpetual-futures returns at a 4-to-12-hour horizon \u2014 i.e. order-flow predictive power in this study lives at multi-hour, not second- or minute-scale, horizons, and is conditional on clock phase.",
+          "quote": "This opening activity is not only predictable out of sample but also informative: its order imbalance forecasts four-to-twelve-hour returns, weaker at finer marks.",
+          "importance": "central"
+        },
+        {
+          "claim": "Predictive power of order imbalance is strongest at quarter-hour marks and monotonically weaker at finer clock marks (one- and five-minute), implying that time-of-clock phase must be recorded at entry as a conditioning variable for any order-flow alpha.",
+          "quote": "its order imbalance forecasts four-to-twelve-hour returns, weaker at finer marks",
+          "importance": "central"
+        },
+        {
+          "claim": "Binance perpetual contracts exhibit periodic bursts in volatility and volume at one-, five-, and quarter-hour marks, so unconditional pooling of order-flow features across clock phases mixes structurally different regimes.",
+          "quote": "Cryptocurrency markets exhibit periodic bursts in volatility and volume at one-, five-, and quarter-hour marks.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The periodic bursts are attributable to algorithmic participation, identified via a decline in trade-size roundness within the bursts \u2014 making trade-size roundness a recordable, cheap proxy for algo participation at entry.",
+          "quote": "we associate these bursts with algorithmic trading: trade-size roundness declines sharply within them, a behavioral signature of algorithmic participation",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Conventional (non-phase-resolved) autocorrelation measures conceal the serial dependence in order flow and returns that exists at quarter-hour openings, meaning standard time-series diagnostics will fail to detect this effect.",
+          "quote": "The Autocorrelation Map, a clock-phase-resolved display, reveals serial dependence in order flow and returns at the quarter-hour openings that conventional measures conceal.",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2026-07-10",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:ec61288abd2f091166368b95fb88ffb951e9f9eb7b672e53324e3d4f22389bf6",
+    "agentId": "a7f4c87be4f3ea7cf"
+  },
+  {
+    "type": "result",
+    "key": "v2:edfbdbbc3fd65a784aff564eb7e30f9f57b075ff2fb85245b4f6952e76a43d29",
+    "agentId": "aaeb858b8934a2f6e",
+    "result": {
+      "claims": [
+        {
+          "claim": "Selecting strategy configurations by in-sample optimization score carries a measured 58.6% probability of backtest overfitting (CSCV/PBO), even when strict t+1 execution and realistic costs are already enforced \u2014 i.e. strict semantics and cost realism do NOT rescue a score-ranked gate, which is the exact failure mode of an in-sample-Sharpe selector over 142 strategies.",
+          "quote": "The resulting PBO estimate in our BTC snapshot is materially above zero (PBO= 0.586 under a standard 8-segment CSCV design with 70 combinatorial splits over the top-40 Stage I candidates), indicating that data-snooping risk remains substantial even under strict execution and realistic cost modeling. These diagnostics are used defensively and are not interpreted as proof of persistent alpha.",
+          "importance": "central"
+        },
+        {
+          "claim": "On BTC/USDT 4h perps with parameters held fixed, a fee-only cost model inflates annualized return from 2.726 to 4.308 (CAGR, decimal; +58%) and Sharpe from 2.049 to 2.506 versus a fully costed run including slippage and funding; a zero-cost run inflates further to 5.225 CAGR / 2.711 Sharpe. Net-edge estimation must therefore charge fees AND slippage AND funding carry, not fees alone.",
+          "quote": "Variant Ann. (CAGR, dec.) Sharpe MaxDD Trades / Rigorous (fees+slippage+funding) 2.726 2.049 0.265 636 / Standard (fee-only) 4.308 2.506 0.262 636 / Naive (zero-cost, upper bound) 5.225 2.711 0.260 535",
+          "importance": "central"
+        },
+        {
+          "claim": "The effective number of trials for a deflated-Sharpe adjustment must count window re-evaluations and cost-scenario evaluations as selection degrees of freedom, not just the optimizer trials: 40 configs x 9 windows x 9 cost scenarios yields Ntotal in [360, 3240], and after that deflation the flagship configuration's long-window Sharpe provides no evidence against a zero-true-Sharpe null.",
+          "quote": "we approximate the total number of effective trials as Ntotal \u2208 [Nopt \u00d7Nwindows, Nopt \u00d7Nwindows \u00d7Nscen] ... yielding Ntotal \u2208 [360, 3240]. ... In the current reproducible snapshot, the long-window Sharpe is close to zero, and the DSR-style diagnostic does not suggest that Sharpe alone provides strong evidence against a zero-true-Sharpe null after accounting for multiple trials.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "This paper contributes NOTHING to the microstructure-alpha, labeling, or entry-snapshot portions of the question: its entire empirical result set is generated from 4-hour OHLCV plus an 8-hour funding series only \u2014 no order book, no trade-level flow, no OI, no liquidations \u2014 and the framework explicitly refuses to generate or evaluate predictive signals.",
+          "quote": "both Stage I tuning and Stage II screening are reproduced from the standardized 4-hour (4h) OHLCV (Open, High, Low, Close, Volume) series together with the aligned 8-hour funding series under STRICT4H semantics; no auxiliary 1m/15m inputs are required to regenerate the reported Stage I/II tables and figures.",
+          "importance": "tangential"
+        },
+        {
+          "claim": "Contrary to the common assumption that same-bar (t+0) execution universally inflates backtest results, across the top-30 Stage I trials on BTC/USDT 4h the median NAIVE-minus-STRICT uplift in annualized return was -0.018 with only 36.7% of trials showing positive uplift \u2014 so look-ahead-in-execution is not the source of the score/profit gap; selection bias is.",
+          "quote": "the median uplift (NAIVE minus STRICT) in annualized return is negative and the fraction of trials with positive uplift is below 50%, indicating that naive same-bar execution does not act as a universal performance booster in this setting.",
+          "importance": "tangential"
+        }
+      ],
+      "publishDate": "2025-12-27",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:fe8fd6173e8331b38172c4d1446115f04c64ef0a7a12fe7ede797f2fc6abe6e3",
+    "agentId": "a73bc3a31cbd17c12",
+    "result": {
+      "claims": [
+        {
+          "claim": "PROVENANCE CAVEAT \u2014 the source body could not be retrieved (ScienceDirect/SSRN/ACM all 403). This claim comes from a search-engine summary of the abstract, NOT verified against the paper: the study reports CPCV (Combinatorial Purged Cross-Validation) as superior to traditional out-of-sample methods at mitigating overfitting, evidenced by lower Probability of Backtest Overfitting (PBO) and a superior Deflated Sharpe Ratio test statistic. Directly relevant to replacing an in-sample-Sharpe gate. TREAT AS UNVERIFIED PENDING FULL-TEXT ACCESS.",
+          "quote": "The analysis unveils the marked superiority of the Combinatorial Purged (CPCV) method in mitigating overfitting risks, outperforming traditional methods as evidenced by its lower Probability of Backtest Overfitting (PBO) and superior Deflated Sharpe Ratio (DSR) test statistic. [SEARCH-SNIPPET, NOT FETCHED FROM SOURCE]",
+          "importance": "central"
+        },
+        {
+          "claim": "PROVENANCE CAVEAT \u2014 from search-engine summary of the abstract, not verified against the paper: Walk-Forward validation is reported to perform poorly at preventing false discoveries, with higher temporal variability and weaker stationarity than CPCV. Bears on validation-method choice for the entry-edge model. TREAT AS UNVERIFIED.",
+          "quote": "Walk-Forward exhibits notable shortcomings in false discovery prevention, characterized by increased temporal variability and weaker stationarity, contrasting with CPCV's demonstrable stability and efficiency. [SEARCH-SNIPPET, NOT FETCHED FROM SOURCE]",
+          "importance": "central"
+        },
+        {
+          "claim": "PROVENANCE CAVEAT \u2014 from search-engine summary of the abstract, not verified: the paper introduces two CPCV variants, Bagged CPCV (ensemble-based) and Adaptive CPCV (dynamic adjustment to market conditions). TREAT AS UNVERIFIED.",
+          "quote": "The paper introduces novel variants of CPCV, including Bagged CPCV and Adaptive CPCV, which enhance robustness through ensemble approaches and dynamic adjustments based on market conditions. [SEARCH-SNIPPET, NOT FETCHED FROM SOURCE]",
+          "importance": "supporting"
+        },
+        {
+          "claim": "VERIFIED via Crossref API (not the paywalled page): the paper's reference list confirms its methodological lineage \u2014 it cites de Prado 'Advances in Financial Machine Learning' (2018), Bailey et al. 'The probability of backtest overfitting' (J. Comput. Finance 2016), and Bailey & de Prado 'The Deflated Sharpe Ratio' (J. Portf. Manag. 2014). This confirms PBO and DSR are the paper's actual evaluation metrics and that those three works are the canonical primary sources to consult directly.",
+          "quote": "\"article-title\":\"The probability of backtest overfitting\",\"author\":\"Bailey\",\"year\":\"2016\" ... \"article-title\":\"The deflated sharpe ratio: Correcting for selection bias, backtest overfitting and non-normality\",\"author\":\"Bailey\",\"year\":\"2014\" ... \"series-title\":\"Advances in Financial Machine Learning\",\"author\":\"de Prado\",\"year\":\"2018\"",
+          "importance": "supporting"
+        },
+        {
+          "claim": "VERIFIED via Crossref API: the 'synthetic controlled environment' is built on Heston (1993) stochastic-volatility and Merton (1976) jump-diffusion processes, and the authors published a reference implementation (RiskLabAI Python/Julia libraries, plus a repo specifically implementing this paper). LIMITATION for the research question: results are from SYNTHETIC simulated price processes, not real crypto perpetual-futures order-flow data, so the CPCV-beats-walk-forward finding is not empirically validated on crypto microstructure. The RiskLabAI code is directly reusable for building a CPCV/PBO/DSR gate.",
+          "quote": "\"series-title\":\"Python implementation of the paper: Backtest overfitting in the machine learning era\",\"author\":\"RiskLabAI\",\"year\":\"2024\" ... \"article-title\":\"A closed-form solution for options with stochastic volatility...\",\"author\":\"Heston\",\"year\":\"1993\" ... \"article-title\":\"Option pricing when underlying stock returns are discontinuous\",\"author\":\"Merton\",\"year\":\"1976\"",
+          "importance": "central"
+        }
+      ],
+      "publishDate": "2024-10-18 (online); published in print Knowledge-Based Systems Vol. 305, December 2024. SSRN preprint dated 2024-01-06. Verified via Crossref/OpenAlex.",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:d63443044b3072a4b1fe019d1fc2e1efd15165d5d529a6b9e8c7561ad66825ec",
+    "agentId": "a4606790ed81975ee",
+    "result": {
+      "claims": [
+        {
+          "claim": "Top-of-book OFI on BTCUSD (Coinbase, 1-second buckets) explains ~40% of CONTEMPORANEOUS return variance but only ~3% of NEXT-bucket return variance \u2014 i.e. ~92% of the apparent explanatory power of OFI is same-bar contamination, not prediction. Any entry-time edge model must be fit on properly lagged close-to-close returns or it will report a ~13x inflated R\u00b2.",
+          "quote": "In-sample R\u00b2: 0.3972 / Test set R\u00b2: 0.4105 [open-close, flawed] ... In-sample R\u00b2: 0.0337 / Out-of-sample R\u00b2: 0.0305 [close-close, properly lagged]",
+          "importance": "central"
+        },
+        {
+          "claim": "The correctly-specified predictive OFI signal remains highly statistically significant out-of-sample (coefficient 0.144, t-stat 49.33, p<1e-99, OOS R\u00b2 0.0305 vs IS 0.0337 \u2014 almost no IS/OOS decay), so OFI's directional information at the ~1-second horizon is real and survives OOS, unlike our 142-strategy backtest-Sharpe gate.",
+          "quote": "Coefficient: 0.144358 (t-stat: 49.33, p < 1e-99) ... In-sample R\u00b2: 0.0337 ... Out-of-sample R\u00b2: 0.0305",
+          "importance": "central"
+        },
+        {
+          "claim": "Statistically-significant-and-OOS-stable OFI still produces only a 53.0% hit ratio and a Sharpe of 0.12, which is not tradeable once costs are applied \u2014 proving that statistical significance of a microstructure alpha is NOT sufficient for a net-edge gate; a fee/slippage cost model must be applied before the signal is accepted.",
+          "quote": "Sharpe ratio < 1 shows that there is not much actual information ... [trading costs] will destroy the return profile",
+          "importance": "central"
+        },
+        {
+          "claim": "OFI's documented predictive power in this study lives at the ~1-second bucket horizon, computed from best-bid/best-ask price and size changes only (top-of-book, no multi-level depth), with five-minute rolling averages used only for normalization \u2014 the article provides no evidence for OFI predictive power at minute or hour horizons.",
+          "quote": "\"1 second\" buckets aggregating order flow changes. Five-minute rolling averages also used for normalization. No statement provided regarding duration of predictive power.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The recommended practical deployment of an OFI signal of this strength is as an overlay on market-making or execution algorithms rather than as a standalone directional entry signal, implying OFI should enter our entry-edge model as a cost/timing term rather than the primary direction driver.",
+          "quote": "suggests practical applications limited to \"market-making algorithm\" or \"execution algorithm\" overlays rather than standalone trading signal",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2022-02-02",
+      "sourceQuality": "blog"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:174be0afe913afecb876cfee749128d4677fe3549d3a9a79cc3e9437e3b13a2b",
+    "agentId": "afa7aef730b290796",
+    "result": {
+      "claims": [
+        {
+          "claim": "The paper's entire empirical edge estimate lives at a 3-second horizon on Binance Futures perps: the target is the log mid-price return 3 seconds ahead, fit on 1-second order book + trade snapshots. This is direct evidence that documented order-flow predictive power in crypto perps lives at the seconds scale, not minutes/hours \u2014 and that a 500ms L2 snapshot is the right sampling rate for it, while a 5m-bar / backtest-Sharpe gate operates far outside the horizon where these features are shown to work.",
+          "quote": "r_{t\u2192t+3s} = log(mid_{t+3s}/mid_t) where mid_t = (ask_0 + bid_0)/2 ... Data sourced from \"Binance Futures perpetual contract order books and trades on 1-second frequency starting from January 1st, 2022 up to October 12th, 2025.\"",
+          "importance": "central"
+        },
+        {
+          "claim": "Order flow imbalance is the dominant predictive feature and its effect is monotone with concavity at the extremes \u2014 the relationship is nonlinear and saturates, so the entry snapshot must record the raw signed imbalance value (not a bucketed or binary version) for the curve to be fittable.",
+          "quote": "order flow imbalance has a largely monotone effect with concavity at extremes",
+          "importance": "central"
+        },
+        {
+          "claim": "A deliberately SHALLOW feature set is used and deep book levels are explicitly rejected as noise. The named entry-snapshot schema is: mid price, spread, level-1 bid/ask volumes, signed order flow / net traded volume, and buy-VWAP\u2212mid plus sell-VWAP\u2212mid deviations. This contradicts the assumption that all 20 L2 levels are needed for edge estimation.",
+          "quote": "Deep order book levels and redundant aggregates are omitted to avoid introducing noise.",
+          "importance": "central"
+        },
+        {
+          "claim": "Predictive effects are conditional on spread \u2014 wider spreads attenuate predictive effects and yield lower-confidence signals via adverse selection. Spread-at-entry is therefore a required snapshot field and a natural abstention/gating variable; edge is not stationary across spread regimes.",
+          "quote": "wider spreads associate with attenuated predictive effects and lower-confidence signals, in line with elevated adverse selection risk",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The execution/cost assumption flips the sign of the result on the SAME signal: modeled as taker (buy at best ask, sell at best bid, inventory marked to the unfavorable side), ARC/IR is positive on ETC (5.78/8.97), ENJ (4.06/6.58), ROSE (7.00/5.28) with p<0.05; the maker version loses on ENJ (\u22120.81) and ETC (\u22120.07) and took catastrophic adverse-selection losses in the Oct 10 2025 flash crash. Net edge is inseparable from the fill assumption, so entry snapshots must record best bid, best ask, and intended fill side.",
+          "quote": "Buys executed at the best ask and sells at the best bid, reflecting realistic taker costs. ... Inventory is marked to the unfavorable side of the book (longs to the bid, shorts to the ask). ... p-value is below 0.05 for ETC, ENJ, and ROSE, indicating statistical significance.",
+          "importance": "central"
+        }
+      ],
+      "publishDate": "2026-01-31 (arXiv v1, listing 2602.00776)",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:5a5d2ee704351a8d2e112fed8f85ce9f173df95462478c3f78af751f958d11dd",
+    "agentId": "a160f6872007c93c0",
+    "result": {
+      "claims": [
+        {
+          "claim": "OFI, defined at Level-1 as the net signed change in best bid/ask queue sizes (aggregating limit orders, market orders and cancellations), explains contemporaneous mid-price changes linearly with an average R^2 of 65% across 50 S&P 500 stocks over 10-second intervals \u2014 and this is a CONTEMPORANEOUS/instantaneous-impact regression, not an out-of-sample forecast, so it is not itself evidence of predictive edge.",
+          "quote": "the order flow imbalance ... explains mid-price changes over short time scales in a linear fashion, for a large sample of stocks, with an average R2 of 65%. The resulting price impact model relates prices, trades, limit orders and cancelations in a simple way: it is linear, requires the estimation of a single parameter and it is robust across stocks and across timescales.",
+          "importance": "central"
+        },
+        {
+          "claim": "OFI strictly dominates trade-sign/volume imbalance (TI): average R^2 65% for OFI vs 32% for TI, and when both are regressed together TI's average t-statistic falls by a factor of four and is significant in only 31% of subsamples \u2014 i.e. taker-flow imbalance adds nothing once book-event OFI is recorded.",
+          "quote": "Comparing the two we observe that OFIk explains price changes better than TIk - the average R2 for order flow imbalance is 65% compared to 32% for the trade imbalance. When two variables are used together to explain price changes, the dependence on trade imbalance becomes questionable. The average t-statistic of TIk decreases by a factor of four and the coefficients \u03b8T,i are statistically significant in only 31% of subsamples.",
+          "importance": "central"
+        },
+        {
+          "claim": "The price impact coefficient beta is inversely proportional to market depth with exponent lambda ~= 1 (beta = c/AD^lambda; lambda=1 not rejected for 35 of 50 stocks), so any entry snapshot must record average best bid/ask queue size (depth) alongside OFI to normalize the coefficient \u2014 beta is not a constant, it varies intraday with depth.",
+          "quote": "estimates \u03bb are very close to 1 across stocks and the hypothesis {\u03bb = 1} cannot be rejected for 35 out of 50 stocks. The restricted model (with \u03bb = 1) also demonstrates a good quality of fit, making this a good approximation. However, the coefficient c is generally different from c = 1/2",
+          "importance": "central"
+        },
+        {
+          "claim": "The relation is stable across aggregation timescales from ~10 quote updates (sub-second) up to 10 minutes, with fit generally improving as the interval lengthens; event-level autocorrelations vanish after ~10 seconds, which is why the authors use a 10-second grid.",
+          "quote": "We use a uniform grid in time {t0,...,tN} with a timescale tk\u2212tk\u22121 \u2261 \u2206t = 10 seconds ... we repeated our calculations on a subsample of stocks for different values of \u2206t, ranging from 10 quote updates (usually less than half of a second in our data) up to 10 minutes. The fit of our model generally increases with \u2206t, but the rest of the results stays the same.",
+          "importance": "central"
+        },
+        {
+          "claim": "A large part of the 65% R^2 is mechanical/tautological because OFI contains price-changing events; excluding those events drops R^2 to 35-60%. Also, the apparent concave 'square-root' price impact of trade volume is a statistical artifact of aggregation, not a real law.",
+          "quote": "To test that the high R2 in our regressions is not due to this tautology, we estimated (4) on a subsample of stocks, excluding the price-changing events from OFIk. With this change the R2 declined, but remained in the 35%-60% region.",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2011-03 (arXiv:1011.6402v3, 13 Apr 2011; v1 Nov 2010)",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:bb63345fcd0fb199ed807db1769de43797875d42005f1ab741432c88d0204924",
+    "agentId": "a2cfd405ffa1da3a8",
+    "result": {
+      "claims": [
+        {
+          "claim": "Under backtest overfitting the in-sample-to-out-of-sample performance relationship is NEGATIVE, not merely zero: the regression slope beta of SR_OOS on SR_IS is negative in most practical cases, so ranking strategies by IS Sharpe actively selects the worst OOS performers. This directly predicts the observed -0.031 correlation and 'highest-score quartile is the WORST' pattern in a 142-strategy IS-Sharpe gate.",
+          "quote": "For a regression Rn* = alpha + beta*Rn* + eps, the beta will be negative in most practical cases, due to compensation effects described in Bailey et al. [1]. An intuitive explanation for this negative slope is that overfit backtests minimize future performance: The model is so fit to past noise, that it is often rendered unfit for future signal. ... We cannot hope escaping the risk of overfitting by exceeding some SR IS threshold. On the contrary, it appears that the higher the SR IS, the lower the SR OOS.",
+          "importance": "central"
+        },
+        {
+          "claim": "A high in-sample Sharpe ratio carries essentially zero information about OOS validity: in a controlled experiment on a pure random walk (no true signal), a seasonal strategy search produced SR_IS between 1 and 2.2 with 100% positive IS Sharpes, yet ~53% of SR_OOS were negative and PBO was 55%. CSCV correctly diagnosed the overfit; a PSR-Stat of 2.83 (implying <1% chance true Sharpe < 0) did NOT.",
+          "quote": "Figure 7 shows that approx. 53% of the SR OOS are negative, despite all SR IS being positive and ranging between 1 and 2.2. Figure 8 plots the distribution of logits, which implies that, despite the elevated SR IS, the PBO is as high as 55%. ... Sharpe ratios IS range between 1 and 3, indicating that backtests with high Sharpe ratios tell us nothing regarding the representativeness of that result.",
+          "importance": "central"
+        },
+        {
+          "claim": "Overfitting is unavoidable whenever more than one strategy configuration is tried (proven in Bailey et al.), and hold-out / single train-test splits cannot assess a backtest because they ignore the number of trials attempted. The correct output is therefore not a pass/fail but a probability conditional on trial count \u2014 meaning a 142-strategy selection gate is guaranteed-overfit by construction unless trial count is explicitly modeled.",
+          "quote": "Fifth, as long as the researcher tries more than one strategy configuration, overfitting is always present (see Bailey et al. [1] for a proof). The hold-out method does not take into account the number of trials attempted before selecting a particular strategy configuration, and consequently hold-out cannot correctly assess a backtest's representativeness. In short, the hold-out method leaves the investor guessing to what degree the backtest is overfit. The answer to the question \"is this backtest overfit?\" is not a true-or-false, but a non-null probability that depends on the number of trials involved (input ignored by hold-out).",
+          "importance": "central"
+        },
+        {
+          "claim": "PBO is defined as the probability that the configuration selected as optimal in-sample underperforms the MEDIAN of the N configurations out-of-sample, estimated via CSCV as phi = integral of f(lambda) from -inf to 0 over the logit distribution; the authors give an explicit operational reject threshold of PBO > 0.05, and recommend S = 16 partitions (yielding 12,780 combinations, sigma[f(lambda)] < 0.0045) with N >> 10 trials for granularity.",
+          "quote": "The PBO defined in Section 2.1 may now be estimated using the CSCV method with phi = integral(0,-inf) f(lambda)dlambda. This represents the rate at which optimal IS strategies underperform the median of the OOS trials. ... In accordance with standard applications of the Neyman-Pearson framework, a customary approach would be to reject models for which PBO is estimated to be greater than 0.05.",
+          "importance": "central"
+        },
+        {
+          "claim": "CSCV yields a stochastic-dominance test that directly answers whether an IS selection procedure beats random selection among the N candidates \u2014 if the distribution of OOS performance for IS-optimal picks does not dominate the overall OOS distribution, the selection procedure adds no value. Separately, OOS probability of loss Prob[R_n* < 0] is a distinct diagnostic: it can be high even when PBO ~ 0, meaning the strategy is simply bad rather than overfit.",
+          "quote": "A further application of the results derived in Section 2.2 is to determine whether the distribution of Rn* across all c in CS stochastically dominates over the distribution of all R. Should that not be the case, it would present strong evidence that strategy selection optimization does not provide consistently better OOS results than a random strategy selection. ... Note that, even if phi ~ 0, Prob[Rn*c < 0] could be high, in which case the strategy's performance OOS is probably poor for reasons other than overfitting.",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2015-02-27 (revised version, February 2015; PDF creation date D:20150227; later published in Journal of Computational Finance 20(4), 2017)",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:cf3c0a940e71e337f6298df226cab58c1889a356134acbe04a799a0aa00c69ee",
+    "agentId": "ade77f677d988ea81",
+    "result": {
+      "claims": [
+        {
+          "claim": "The paper does NOT predict return direction or trade edge at all \u2014 its labels are the sign of the change in distributional/liquidity statistics (realized volatility, kurtosis, Jarque-Bera, serial correlation, skewness), not future returns. It is therefore evidence that microstructure measures forecast volatility/liquidity regime, not directional edge.",
+          "quote": "The price dynamics we focus on are measures of changes in the distribution of realized returns. The specific price dynamics measures we predict are: the sign of the change in the sequential correlation, the sign of the change in the Jarque-Bera statistic, the sign of the change in realized volatility, the sign of the change in kurtosis, and the sign of the change in the skewness.",
+          "importance": "central"
+        },
+        {
+          "claim": "Random-forest predictive accuracy from 5 microstructure measures (Roll, Roll impact, Kyle's lambda, Amihud, VPIN) across 5 coins is only 0.52\u20130.58 (AUC 0.53\u20130.54 on average); it is highest for the sign of change in realized volatility (0.56\u20130.58) and exactly 0.50 \u2014 i.e. zero skill \u2014 for skewness.",
+          "quote": "If we exclude skewness, predictive accuracy for our entire sample period ranges (across accuracy measures, the number of bars used and labels) from 0.52 to 0.58. ... Predictive accuracy is greatest for the sign of the change in realized volatility. For both of accuracy measures, the average accuracy of prediction ranges from 0.56 to 0.58 depending on the number of bars used.",
+          "importance": "central"
+        },
+        {
+          "claim": "The predictive horizon is one day ahead from features built on 1-minute bars with 50- or 100-bar lookback windows, re-predicted every minute; the authors handle overlapping-sample leakage by pushing the prediction far enough ahead to avoid overlapping data rather than by purging/embargo, and the paper contains zero use of purged K-fold, CPCV, PBO, deflated Sharpe, triple-barrier, meta-labeling, or conformal prediction.",
+          "quote": "Note that we are predicting changes in market statistics one day ahead and we make predictions every minute. So even small amounts of accuracy (above 0.5) can be valuable. ... when we want to predict the sign of the change in a market statistic we predict it over enough future time bars to avoid using overlapping data.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "In crypto, Kyle's lambda carries essentially no feature importance (near-zero MDA), the Roll measure is the single most important own feature, and own VPIN is frequently important \u2014 a ranking that differs from futures markets where Amihud and VPIN dominated. BTC and ETH Roll/VPIN carry cross-market predictive power while other coins' cross-measures have virtually none.",
+          "quote": "In futures markets, the Amihud measure and VPIN were the most important own measures. In our crypto sample, own VPIN shows up frequently as an important feature; and only occasionally do the own Roll impact measure or the Amihud measure have importance. The own Kyle measure typically has a low, nearly-zero MDA score.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "The entire study is built only on Binance 1-minute OHLCV candlestick bars for the top-5 coins (BTC, ETH, ADA, SOL, XRP), Jan 2021\u2013Jul 2023 \u2014 no L2 order book, no order-flow imbalance, no queue imbalance, no microprice, and zero mentions of perpetual futures, funding rates, open interest, or liquidations. Its VPIN levels of 0.45\u20130.47 far exceed the 0.22\u20130.23 found for E-mini S&P500 and crude oil futures.",
+          "quote": "The format of the data is the standard time-bar candle-stick with 1-minute intervals, including open, close, high, low price and volume aggregated from tick data within each interval. All features and labels in this study are derived from this data. ... The VPIN measure is remarkably stable across currencies, but its level is surprising: ELO (2012) found (using a slightly different methodology) average VPINs for the E-mini S&P500 and crude oil futures of 0.22 to 0.23 whereas these are range from .45 to .47.",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2024-04 (paper dated April 2024; PDF created 2024-04-26, modified 2024-05-01; SSRN abstract 4814346)",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:c07972125511672a250f1b8f0ba5359e194392ae5ec4601da1eaf7a5bc83e0a3",
+    "agentId": "aabe61a9189b22f37",
+    "result": {
+      "claims": [
+        {
+          "claim": "Selecting the best of N backtested strategies inflates Sharpe even with ZERO true skill: the expected MAXIMUM Sharpe across N independent trials grows as E[max SR] = E[SR] + sqrt(V[SR]) * ((1-gamma)*Z^-1(1-1/N) + gamma*Z^-1(1-1/(N*e))), where gamma is Euler-Mascheroni (~0.5772). This is directly falsifiable by simulation and is implemented in the paper's own Python snippet (getExpMaxSR). Directly indicts a max-Sharpe-over-142-strategies gate: with N~142 the null threshold is roughly 2.5 sigma of the cross-trial SR dispersion, so the winner's Sharpe carries no evidence of skill unless it exceeds that.",
+          "quote": "the expected maximum of {SR_n} after N>1 independent trials can be approximated as: E[max{SR_n}] = E[{SR_n}] + sqrt(V[{SR_n}]) ((1-gamma) Z^-1[1-1/N] + gamma Z^-1[1-1/(N e)]) ... Consequently, it is not surprising to obtain good backtest results or meet better portfolio managers as we parse through more candidates. This is a consequence of purely random behavior, because we will observe better candidates even if there is no investment skill associated with this strategy class",
+          "importance": "central"
+        },
+        {
+          "claim": "Backtest overfitting does not merely produce zero out-of-sample edge \u2014 in the presence of memory effects (which most financial series exhibit) it systematically produces NEGATIVE out-of-sample performance, i.e. loss maximization. This is the precise mechanism predicting the observed pathology that the highest-backtest-score quartile is the WORST realized performer (-0.031 correlation, 29.2% win rate): the selection gate is not noise, it is inverted, and the paper claims a formal proof exists in Bailey et al. (2014).",
+          "quote": "Backtest overfitting tends to identify the trading rules that would profit from the most extreme random patterns in sample. In presence of memory effects, those extreme patters must be undone, which means that backtest overfitting will lead to loss maximization. See Bailey et al. (2014) for a formal mathematical proof of this statement. Unfortunately, most financial series exhibit memory effects, a situation that makes backtest overfitting a particularly onerous practice, and may explain why so many systematic funds fail to perform as advertised.",
+          "importance": "central"
+        },
+        {
+          "claim": "To compute DSR and thus validate ANY selected strategy, exactly seven quantities must be recorded \u2014 five beyond the standard Sharpe inputs: (1) SR_hat of the selected strategy, (2) T = sample length (number of return observations), (3) skewness of the selected strategy's returns, (4) kurtosis of its returns, (5) V[{SR_n}] = variance of estimated Sharpe ratios ACROSS ALL trials (including rejected ones), (6) N = number of INDEPENDENT trials. This mandates logging every rejected trial's Sharpe, not just the winner's \u2014 a concrete data-capture requirement for any replacement gate.",
+          "quote": "Note that the standard SR_hat is computed as a function of two estimates: Mean and standard deviation of returns. DSR deflates SR by taking into consideration five additional variables: The non-Normality of the returns (skew, kurt), the length of the returns series (T), the variance of the SRs tested (V[{SR_n}]), as well as the number of independent trials involved in the selection of the investment strategy (N).",
+          "importance": "central"
+        },
+        {
+          "claim": "Holdout and k-fold cross-validation CANNOT prevent backtest overfitting, because they assess generality as if a single trial occurred; applying holdout ~20 times makes a false positive at 95% confidence expected rather than unlikely. Falsifiable and directly relevant: any proposed replacement gate that relies on plain OOS holdout or vanilla K-fold over 142 strategies inherits the same defect the current gate has.",
+          "quote": "the reader should understand why the holdout method can not prevent backtest overfitting: Holdout assesses the generality of a model as if a single trial had taken place, again ignoring the rise in false positives as more trials occur. If we apply the holdout method enough times (say 20 times for a 95% confidence level), false positives are no longer unlikely: They are expected.",
+          "importance": "central"
+        },
+        {
+          "claim": "When M trials are correlated rather than independent, the number of implied independent trials is N_hat = rho_hat + (1 - rho_hat) * M, where rho_hat is the average off-diagonal correlation of trial returns; average correlation is bounded below by -1/(M-1). Using M instead of N overstates the threshold. Concretely falsifiable, and load-bearing for a 142-strategy library where strategies are heavily correlated: the effective N must be estimated from the cross-strategy return correlation matrix (or via entropy/information-theoretic redundancy), which requires storing per-trial return series.",
+          "quote": "It is critical to understand that the N used to compute E[max{SR_n}] corresponds to the number of independent trials. Suppose that we run M trials, where only N trials are independent, N<M. Clearly, using M instead of N will overstate E[max{SR_n}] ... Given an estimated average correlation rho_hat, we could therefore interpolate between these two extreme outcomes to obtain N_hat = rho_hat + (1 - rho_hat) M",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2014-07-31 (first version 2014-04-15; Journal of Portfolio Management, forthcoming 2014)",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:ec61288abd2f091166368b95fb88ffb951e9f9eb7b672e53324e3d4f22389bf6",
+    "agentId": "a7f4c87be4f3ea7cf",
+    "result": {
+      "claims": [
+        {
+          "claim": "Integrated multi-level OFI (first PCA principal component of OFIs across the top 10 book levels, each scaled by average depth) massively outperforms best-level/top-of-book OFI for explaining contemporaneous returns: in-sample adjusted R\u00b2 87.14% vs 71.16%, and out-of-sample R\u00b2 83.83% vs 64.64% on 30-minute-window fits of 1-minute bins. Implication for entry snapshot: record per-level order flow at all L2 levels (not just L1 imbalance), plus average depth for scaling.",
+          "quote": "we first observe that PI[1] can explain 71.16% of the in-sample variation of a stock's contemporaneous returns... with an average adjusted R2 value of 87.14% and a standard deviation of 9.16%, indicating the effectiveness of our integrated OFIs. ... Table 5: Out-of-sample performance for contemporaneous returns. Best-level OFIs / Integrated OFIs \u2014 PI[1] CI[1] PII CII \u2014 OS R2 64.64 66.03 83.83 83.62",
+          "importance": "central"
+        },
+        {
+          "claim": "Contemporaneous explanatory power does NOT transfer to prediction: for one-minute-AHEAD returns, every model tested (best-level OFI, integrated OFI, cross-asset OFI, and autoregressive returns) has NEGATIVE mean out-of-sample R\u00b2, from -0.37 to -0.10 \u2014 i.e. all are worse than predicting zero. This is a direct, peer-reviewed instance of the user's failure mode: high in-sample/contemporaneous fit with zero-to-negative realized predictive value. The authors argue negative R\u00b2 still permits economic gain, so P&L (not R\u00b2 or fit score) must be the gate.",
+          "quote": "Table 8: Out-of-sample performance for one-minute-ahead returns. Best-level OFIs / Integrated OFIs / Returns \u2014 FPI[1] FCI[1] FPII FCII AR CAR \u2014 OS R2 -0.37 -0.10 -0.36 -0.10 -0.36 -0.10 ... Most of the empirical literature in return prediction focuses its evaluations on out-of-sample R2. However, we remark that negative R2 values do not imply that the forecasts are economically meaningless",
+          "importance": "central"
+        },
+        {
+          "claim": "Order-flow predictive power lives at SHORT horizons and decays rapidly: cross-asset OFI forecasting advantage is concentrated at short-term horizons, and annualized PnL of the models is measured across a 1/3/10/30-minute grid with cross-asset models' PnL declining fastest as the horizon lengthens. This bounds the useful entry-edge horizon for order-flow features to roughly seconds-to-minutes, not hours.",
+          "quote": "We also establish that this lagged cross-impact mainly manifests at short-term horizons and decays rapidly in time. ... It appears that superior forecasting ability arises from cross-asset terms at short horizons. However, the PnL of cross-asset models declines more quickly over longer horizons.",
+          "importance": "central"
+        },
+        {
+          "claim": "Multi-level OFIs are highly collinear \u2014 the first principal component alone explains over 89% of total variance across the 10 levels \u2014 which is why a single PCA-integrated OFI variable is preferred over feeding 10 raw level-OFIs to the model, explicitly as an overfitting-avoidance measure.",
+          "quote": "there exist strong correlations between multi-level OFIs, and that the first principal component can explain over 89% of the total variance among multi-level OFIs. In order to make use of the information embedded in multiple LOB levels and avoid overfitting, we propose an integrated version of OFIs via Principal Components Analysis (PCA)... which only preserves the first principal component.",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Once multi-level information is integrated into OFI, cross-asset (cross-impact) terms add essentially nothing to contemporaneous price impact \u2014 only a 0.71 percentage-point in-sample R\u00b2 gain, and out-of-sample the cross-impact model is actually slightly WORSE (83.62% vs 83.62% for the single-asset integrated model). Cross-asset OFI only earns its keep in the LAGGED/forecasting setting, and for portfolio-level returns.",
+          "quote": "the increments of the in-sample R2 are smaller when using integrated OFIs (87.85%-87.14%=0.71%), compared to the counterpart using best-level OFIs ... integrated OFIs cannot provide extra explanatory power to the price impact model with integrated OFIs.",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "2023-06-13 (arXiv v4; paper dated May 2023; published in Quantitative Finance vol. 23, 2023; first draft December 2021)",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:ae6026d089199f393b360e2eadbd357d0d477dc6ea1bece6e522a3cb49330204",
+    "agentId": "aa37b6bb6da2e031d",
+    "result": {
+      "claims": [
+        {
+          "claim": "Differencing the limit order book into stationary order-flow inputs materially beats feeding raw order-book levels to the same neural architectures; stationarity of the RHS inputs \u2014 not model complexity \u2014 is the dominant driver of out-of-sample forecast accuracy. In the paper's own R2_OS charts, OF-input models span roughly 0 to +1.25% while raw-LOB-input models run negative (to about -2.0%) at short horizons, and simple LSTMs match or beat CNN-LSTM/DeepLOB once inputs are converted to order flow.",
+          "quote": "While raw order book states can be used as input to the forecasting models, we achieve state-of-the-art predictive accuracy by training simpler \"off-the-shelf\" artificial neural networks on stationary inputs derived from the order book. Specifically, models trained on order flow significantly outperform most models trained directly on order books.",
+          "importance": "central"
+        },
+        {
+          "claim": "Order-flow predictive power lives in EVENT time, not clock time: the effective forecast horizon is approximately two (to three) average price changes. The paper defines a stock-specific increment dt = 2.34e7 / N milliseconds, where N is the average number of non-zero tick-by-tick mid-price returns per day, and tests horizons of (1/5)*k*dt for k=1..10 \u2014 i.e. between 0 and 2 average price changes. This directly answers the 'seconds vs minutes vs hours' question: horizon must be normalized per instrument by its own update/price-change rate, because 'information flows at different rates for different stocks and so horizon cannot be constant in time across stocks.'",
+          "quote": "Finally, we demonstrate that the effective horizon of stock specific forecasts is approximately two average price changes.",
+          "importance": "central"
+        },
+        {
+          "claim": "Multi-level ORDER FLOW (per-level bid and ask flows concatenated, OF_t in R^20 over 10 levels) outperforms multi-level ORDER FLOW IMBALANCE (bid minus ask, OFI_t in R^10) as a model input \u2014 the subtraction that defines OFI destroys information the network can otherwise use. Stripping prices from the LOB helps, but concatenated order flow is still the best RHS. This is a falsifiable design instruction: snapshot per-level signed bid-OF and ask-OF SEPARATELY rather than only their difference.",
+          "quote": "What if we use an OFI or volume-only LOB RHS? (removing prices helps but OF is the best)",
+          "importance": "central"
+        },
+        {
+          "claim": "The achievable out-of-sample R2 at these horizons is small in absolute terms (roughly 0-1.25%, averaging up to ~4-5% for the most predictable stocks), and the authors' claim that this converts to profit rests on horizon speed rather than any demonstrated net-of-cost backtest \u2014 the deck presents no transaction-cost, fee, or slippage model. The only concession to execution reality is a fixed 10ms latency buffer. So this paper validates SIGNAL, not NET EDGE; a cost model must be supplied separately before treating R2_OS ~1% as tradeable.",
+          "quote": "Significant alpha at all horizons for the OF models. Small R2 but high profitability due to the short horizons",
+          "importance": "supporting"
+        },
+        {
+          "claim": "Validation is strict rolling walk-forward, not random K-fold: a (1,4,1) week configuration \u2014 1 week validation for early stopping, 4 weeks training, 1 week out-of-sample test \u2014 stepped forward 3 weeks at a time, over Jan 1 2019 to Jan 31 2020 LOBSTER data on 115 Nasdaq stocks, yielding 12 x 115 x 18 (models x stocks x time periods) separately fitted networks. All independent and dependent variables are winsorized and Z-scored. A fixed 10ms latency buffer is inserted into every interval to mimic a production setting.",
+          "quote": "To mimic a real life production setting we perform (for each symbol) rolling fits over our time period. We choose a (1,4,1) configuration. The first week is for validation (early stopping). The middle 4 weeks are for training. The final week is for out of sample testing. We then step this forward by 3 weeks",
+          "importance": "supporting"
+        }
+      ],
+      "publishDate": "Mathematical Finance 33(4), pp. 1044-1081, October 2023 (peer-reviewed version); original working paper posted to SSRN 5 August 2021; authors' presentation deck dated 14 June 2023",
+      "sourceQuality": "primary"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:0be9df063a9c95ee6a53f70f019a79ffde296e3f800efcdd417060c588c3b067",
+    "agentId": "a383136ec0597928c"
+  },
+  {
+    "type": "started",
+    "key": "v2:3c84f885dcdaefebb05ca864b38fffe0b5af6e4f45ca3265c21d3db7ccbdc4f3",
+    "agentId": "ae7a3f6c244b2358b"
+  },
+  {
+    "type": "started",
+    "key": "v2:e16580a3c44f01d1e1462d2f9c04c878fb31b2d79ef00a375ae55448d9813f98",
+    "agentId": "ac4cdf739e1d17f6b"
+  },
+  {
+    "type": "started",
+    "key": "v2:eca15f7bdaa2d6a1345dff88c39df44e89c71659ef9da3d4e214d5fe696bd81a",
+    "agentId": "a6ff3713e83f52938"
+  },
+  {
+    "type": "started",
+    "key": "v2:2de27fd09c2c1e2560cc1af565580bf31b56417ab6975f1f6a28aeb99a4aa439",
+    "agentId": "a6e66e3632e90b145"
+  },
+  {
+    "type": "started",
+    "key": "v2:34b310febc3185af84e6c9dc5074450de93ad42dd31d65be4e16483d35d3d873",
+    "agentId": "a2968081c77b66615"
+  },
+  {
+    "type": "started",
+    "key": "v2:8253946b07d147ff3e4923c28c806a7df5a85e706aaa085d93b07f0383ab286e",
+    "agentId": "a680ba8882fec6c50"
+  },
+  {
+    "type": "started",
+    "key": "v2:9fd5f544c621801226f1f6dfd5c55b3f1677319152e9b374c2d75415ebe83a11",
+    "agentId": "a6a991e5584165fe3"
+  },
+  {
+    "type": "started",
+    "key": "v2:26c492c135579b152566d5fe4f5408d645e4ea3a5e99bcfb5fc94951659fd2f3",
+    "agentId": "aee488f3d26827673"
+  },
+  {
+    "type": "started",
+    "key": "v2:38fd44629cccdedd0574cab216781320b146ee8b18a157d12b9ff886d3db68eb",
+    "agentId": "ac4a807751663f871"
+  },
+  {
+    "type": "result",
+    "key": "v2:8253946b07d147ff3e4923c28c806a7df5a85e706aaa085d93b07f0383ab286e",
+    "agentId": "a680ba8882fec6c50",
+    "result": {
+      "refuted": false,
+      "evidence": "Attempted refutation on all five checklist axes; the claim survives each.\n\n(1) Quote-support / overreach: The Crossref reference list I pulled directly from api.crossref.org/works/10.1016/j.knosys.2024.112477 (Arian, Norouzi Mobarekeh, Seco \u2014 Knowledge-Based Systems Vol. 305, Dec 2024) contains refs #12 \"A closed-form solution for options with stochastic volatility...\" (Heston 1993), #13 \"Option pricing when underlying stock returns are discontinuous\" (Merton 1976), plus #1 \"RiskLab AI Python Library\", #2 \"RiskLab AI Julia Library\", #3 \"Python implementation of the paper: Backtest overfitting in the machine learning era\". The claim infers the synthetic environment is BUILT on Heston/Merton from a reference list, which alone would be an inference \u2014 but independent confirmation from the paper's own abstract closes the gap: \"a Synthetic Controlled Environment incorporating advanced models like the Heston Stochastic Volatility, Merton Jump Diffusion, and Drift-Burst Hypothesis, alongside regime-switching models.\" So the claim is under-complete (omits drift-burst #16 and regime-switching Heston #28/#30/#31, all in the same ref list) but not wrong. Under-completeness is not refutation.\n\n(2) Contradicting evidence: found none. The paper's own title \u2014 \"...in a Synthetic Controlled Environment\" \u2014 is the strongest possible corroboration of the claim's stated LIMITATION (synthetic simulated price processes, not real crypto perp order-flow). Nothing disputes that CPCV-beats-walk-forward was established only on simulated paths; the abstract's own framing (\"lower PBO and superior DSR Test Statistic\" vs K-Fold/Purged K-Fold/Walk-Forward) is entirely within the synthetic setting. No crypto-microstructure validation of that finding surfaced.\n\n(3) Source quality vs claim strength: primary \u2014 peer-reviewed Elsevier journal article + Crossref's authoritative metadata for that DOI. Claim strength is modest (a provenance + limitation statement), so source quality exceeds the bar.\n\n(4) Outdated: 2024 publication, 2026 now. CPCV/PBO/DSR are L\u00f3pez de Prado-lineage methods, not a fast-moving benchmark race; two years does not stale a \"this paper used synthetic data\" provenance claim, which is immutable.\n\n(5) Marketing/cherry-pick: no. It is a reference-list fact plus a limitation that CUTS AGAINST the paper's applicability \u2014 the opposite of promotional framing. Notably the claim volunteers the weakness rather than hiding it.\n\n(6) Verified the \"directly reusable\" sub-claim independently rather than accepting it: risklab.ai/research/backtesting/backtesting_cross_validation states \"Full source: Python (github.com/RiskLabAI/RiskLabAI.py) \u00b7 Julia (github.com/RiskLabAI/RiskLabAI.jl)\" and documents CPCV/purged validators. Authors Arian and Seco are RiskLab AI-affiliated, supporting \"the authors published a reference implementation.\" Weakest link: that page did not itself confirm PBO and DSR are implemented in the library (only CPCV/purged validators), so \"directly reusable for a CPCV/PBO/DSR gate\" is confirmed for CPCV, plausible-but-unverified for PBO/DSR. This is a partial qualification on one clause, not grounds to kill the claim.\n\nNet: the claim is accurate, primary-sourced, current, and self-qualifying. Refuting it would be the error here.",
+      "confidence": "high",
+      "counterSource": "No contradicting source found. Closest qualification: risklab.ai's CPCV page confirms open-source Python/Julia code and CPCV/purged validators but does not explicitly document PBO or Deflated Sharpe Ratio implementations, leaving that clause of \"directly reusable for building a CPCV/PBO/DSR gate\" verified only for CPCV. Additionally, the claim under-describes the synthetic environment: the abstract lists Drift-Burst Hypothesis and regime-switching models alongside Heston/Merton (refs #16, #28, #30, #31), which the claim omits \u2014 an incompleteness, not a contradiction."
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:66eb18ba285ece0ed8a6a10754155e29f9abbc8a8842de30c5faa72f88c8da83",
+    "agentId": "a72b1e270c6cb8d14"
+  },
+  {
+    "type": "result",
+    "key": "v2:34b310febc3185af84e6c9dc5074450de93ad42dd31d65be4e16483d35d3d873",
+    "agentId": "a2968081c77b66615",
+    "result": {
+      "refuted": false,
+      "confidence": "medium",
+      "counterSource": "https://arxiv.org/html/2512.12924v1 (Interpretable Hypothesis-Driven Trading: A Rigorous Walk-Forward Validation Framework for Market Microstructure Signals, Dec 2025) \u2014 walk-forward is still used and defended as the realistic-simulation standard in current microstructure work; and secondary sources note CPCV's own weakness (high implementation complexity, silent-failure risk in purge/embargo/path-aggregation code). Neither contradicts the paper's finding, but both qualify \"just use CPCV\" as an operational conclusion.",
+      "evidence": "ADVERSARIAL ATTEMPT FAILED \u2014 the claim survives, but its provenance caveat should be UPGRADED, not kept.\n\n1) Provenance resolved. Primary URL (sciencedirect S0950705124011110) returns HTTP 403 to WebFetch, as do the SSRN PDF mirror (abstractid=4686376) and the ACM/Elsevier DOI listing (10.1016/j.knosys.2024.112477). However the disputed sentence was reproduced VERBATIM and identically from two independent search passes indexing three separate hosts (ScienceDirect, SSRN abstract 4778909, dl.acm.org): \"Walk-Forward exhibits notable shortcomings in false discovery prevention, characterized by increased temporal variability and weaker stationarity, contrasting with CPCV's demonstrable stability and efficiency.\" This is the paper's own published ABSTRACT text, not a search engine's paraphrase. The claim's caveat (\"from search-engine summary of the abstract\") is therefore too weak a description of what it is \u2014 but it is also not an overreach.\n\n2) Quote supports claim (checklist 1): the claim is a hedged restatement (\"is reported to perform poorly...\") of near-verbatim abstract text. No overreach. Abstract also corroborates the mechanism: CPCV beats K-Fold, Purged K-Fold and \"especially Walk-Forward\" on lower PBO and higher Deflated Sharpe Ratio test statistic.\n\n3) Source quality (checklist 3): Knowledge-Based Systems (Elsevier, Q1, peer-reviewed), Vol 305, Nov 2024; authors Hamid R. Arian, Daniel Norouzi M., Luis A. Seco (Toronto/RiskLab). This is a primary peer-reviewed source, adequate for a claim of this (modest, methodological) strength.\n\n4) Not outdated (checklist 4): 2024 publication, directly on-topic for a 2026 validation-method decision. No superseding result found.\n\n5) Not marketing (checklist 5): peer-reviewed journal article, not a vendor benchmark.\n\nMATERIAL QUALIFICATION the downstream report MUST carry: the paper's title is \"...in a SYNTHETIC CONTROLLED ENVIRONMENT\". The WF-vs-CPCV ranking is established on simulated data with known ground truth, NOT on real crypto perp order flow. Generalization to a 500ms L2 / aggTrade entry-edge model is an extrapolation the paper does not make. Also note the claim only says CPCV > WF at FALSE-DISCOVERY CONTROL; it says nothing about WF being wrong for realistic path/latency simulation, where WF remains standard (arXiv 2512.12924). Correct operational reading for the entry-edge gate: use CPCV+PBO+DSR as the SELECTION/false-discovery filter over the 142-strategy pool, and keep a strictly-forward walk-forward replay as the final realism check \u2014 not either/or.\n\nConfidence is medium (not high) solely because full text could not be fetched behind three paywalls; only the abstract-level assertion is corroborated, and the paper's effect sizes / experimental design are unverified."
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:ddf9bc6fe5f9295f3976cfc490d201924753bd9106ed309ff53f1268afa748ab",
+    "agentId": "a96655be30177e5ed"
+  },
+  {
+    "type": "result",
+    "key": "v2:e16580a3c44f01d1e1462d2f9c04c878fb31b2d79ef00a375ae55448d9813f98",
+    "agentId": "ac4cdf739e1d17f6b",
+    "result": {
+      "refuted": false,
+      "evidence": "Attempted refutation on all five checklist axes; every element of the claim survived independent verification.\n\n(1) Quote-support gap CLOSED by independent evidence. The supplied quote is only a Crossref reference list, which alone would be an overreach (citing Heston/Merton \u2260 building the generator on them). I therefore verified directly: RiskLabAI's own methodology page (https://www.risklab.ai/research/backtesting/backtesting_synthetic_data) states verbatim \"This model generates prices with stochastic volatility (Heston) and sudden price jumps (Merton)\" and describes a \"Heston-Merton model\" whose \"parameters ... are controlled by a hidden Markov-switching process.\" So the claim is TRUE even though the quote under-supports it.\n\n(2) Paper identity confirmed. Crossref (10.1016/j.knosys.2024.112477) returns: Arian, Norouzi Mobarekeh, Seco, \"Backtest overfitting in the machine learning era: A comparison of out-of-sample testing methods in a synthetic controlled environment,\" Knowledge-Based Systems Vol. 305, Dec 2024. Reference list contains Heston (1993) RFS 6(2):327, Merton (1976) JFE 3(1):125, plus corroborating refs #28-31 (regime-switching Heston: Papanicolaou 2014, Xie 2022, Elliott 2016; Hanson 2004 jump-diffusion market params) \u2014 consistent with a Heston+Merton+Markov-switching generator, not incidental citation.\n\n(3) \"Synthetic, not real crypto\" LIMITATION is correct and is the paper's own framing \u2014 it is in the TITLE (\"in a synthetic controlled environment\"). No crypto, no perp, no order-flow data anywhere in the 34-item reference list or abstract. The claim's caution is if anything understated.\n\n(4) \"CPCV-beats-walk-forward\" is accurately characterized: abstract states CPCV showed \"marked superiority in mitigating overfitting risks, outperforming traditional methods like K-Fold, Purged K-Fold, and especially Walk-Forward, as evidenced by its lower Probability of Backtest Overfitting (PBO) and superior Deflated Sharpe Ratio (DSR)\". I specifically checked for a CSCV-vs-CPCV mischaracterization (a plausible confusion, since RiskLabAI docs describe CSCV as the PBO submatrix technique) \u2014 the paper's headline method genuinely is Combinatorial Purged CV, so no misread.\n\n(5) Reference implementation EXISTS and is locatable: Crossref refs #1-3 list \"RiskLab AI python library\", \"RiskLab AI julia library\", and \"Python implementation of the paper: Backtest overfitting in the machine learning era\" (2024); located at github.com/RiskLabAI/Notebooks.py/tree/main/backtest/backtest_overfitting_in_the_ml_era. \"Directly reusable\" is the softest part of the claim (unverified by code read) but is a modest engineering assertion, not an extraordinary one.\n\n(6) Source quality matches claim strength: peer-reviewed Elsevier journal (KBS, Q1) + author-published code + Crossref primary metadata. Not marketing, not a press release, not forum speculation. Not outdated: 2024, and CPCV/PBO/DSR (Bailey/L\u00f3pez de Prado lineage) is a stable methodological literature, not a fast-moving benchmark race; no contradicting source found disputing the synthetic-only scope.\n\nNET: claim is accurate, appropriately hedged, and its stated limitation is exactly the right one for the research question \u2014 CPCV/PBO/DSR is the correct replacement gate for the -0.031-correlation in-sample Sharpe gate, but its superiority evidence is synthetic and must be re-established on the project's own real crypto perp entry snapshots.",
+      "confidence": "high",
+      "counterSource": "https://www.risklab.ai/research/backtesting/backtesting_synthetic_data (author-published methodology, corroborates rather than contradicts: \"This model generates prices with stochastic volatility (Heston) and sudden price jumps (Merton)\"); https://api.crossref.org/works/10.1016/j.knosys.2024.112477 (primary metadata + full reference list); https://dl.acm.org/doi/abs/10.1016/j.knosys.2024.112477; https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4686376 (SSRN preprint, 403 on fetch \u2014 not used as evidence)"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:0e6ae9b540f0b116cbe57c72b8f9b1a39e9b00dba55f463b71578ed9d3f0f030",
+    "agentId": "acc85b571b217c2c4"
+  },
+  {
+    "type": "result",
+    "key": "v2:eca15f7bdaa2d6a1345dff88c39df44e89c71659ef9da3d4e214d5fe696bd81a",
+    "agentId": "a6ff3713e83f52938",
+    "result": {
+      "refuted": false,
+      "evidence": "SURVIVES REFUTATION, with required qualifiers. (1) Source is real and correctly cited: Arian, Norouzi M. & Seco, \"Backtest overfitting in the machine learning era: A comparison of out-of-sample testing methods in a synthetic controlled environment,\" Knowledge-Based Systems Vol. 305 (2024), DOI 10.1016/j.knosys.2024.112477. The claim's PII S0950705124011110 maps correctly to that DOI. Existence independently confirmed via dblp (Luis Seco), ACM DL, SSRN 4686376 and 4778909, ouci.dntb.gov.ua. This is peer-reviewed Elsevier, not a preprint/blog/marketing piece -- source quality matches claim strength. (2) Quote support: the claim does not overreach its quote; it restates the abstract's finding sentence and adds only a hedged relevance note. (3) Corroboration beyond the snippet: two independently-phrased searches reproduce the same finding sentence AND surface detail absent from the original snippet -- the comparison set is explicitly K-Fold, Purged K-Fold, Walk-Forward (WF called out as weakest on false-discovery prevention, with \"increased temporal variability and weaker stationarity\"); the paper introduces novel Bagged CPCV and Adaptive CPCV variants; validation includes historical S&P 500 data. This indicates real indexed abstract content, not a hallucinated echo. (4) Contradiction hunt FAILED to refute: a targeted search for CPCV critiques (\"flawed/overstated/limitations\") found NO credible source disputing the CPCV-superiority finding. Only two qualifications surfaced, neither refuting: (a) CPCV's purging/combinatorial-path logic is bug-prone with silent failures (off-by-one purge errors reintroducing leakage, index mishandling causing lookahead), (b) an acknowledgment that \"Purged K-Fold and CPCV still require extensive validation across diverse market conditions.\" Both are deployment cautions, not contradictions. (5) Not outdated: 2024, and validation methodology is slow-moving; de Prado's CPCV remains the standard reference method. MY OWN VERIFICATION LIMIT (stated honestly): I could not retrieve full text either -- SSRN PDF 403, ACM 403, ScienceDirect abstract-gated, ouci mirror 502. So this is abstract-level evidence for an abstract-level claim (strength matched), but NOT confirmation of anything beyond the abstract -- effect sizes, PBO/DSR magnitudes, and synthetic-generator design remain unverified. MATERIAL QUALIFIERS THE CLAIM OMITS AND MUST CARRY: (i) the headline result is established primarily in a SYNTHETIC CONTROLLED ENVIRONMENT -- this is in the paper's own title and the claim's phrasing drops it; generalization to live crypto perps is an inference, not a finding; (ii) CPCV is a VALIDATION SCHEME, not an entry-edge estimator -- it can legitimately replace the in-sample-Sharpe gate over 142 strategies (the claim's stated relevance is sound, and PBO directly quantifies exactly the failure mode observed: -0.031 correlation with best in-sample quartile performing worst is textbook selection-on-noise), but it does not itself produce the expected-edge model; (iii) mild advocacy angle -- authors are associated with RiskLab AI, which promotes CPCV, though peer review at KBS mitigates this.",
+      "confidence": "medium",
+      "counterSource": "No refuting source found. Nearest qualifications: insightbig.com/post/traditional-backtesting-is-outdated-use-cpcv-instead (CPCV implementation complexity -> silent bugs, off-by-one purge errors reintroducing leakage/lookahead, producing false confidence); en.wikipedia.org/wiki/Purged_cross-validation and related surveys (Purged K-Fold and CPCV \"still require extensive validation across diverse market conditions\"); scikit-learn issue #22229 (CPCV feasibility concerns, rejected from sklearn core). Corroborating: papers.ssrn.com/sol3/papers.cfm?abstract_id=4686376, ssrn.com/abstract=4778909, dl.acm.org/doi/abs/10.1016/j.knosys.2024.112477, dblp.org/pid/326/3977.html. All primary full-text access blocked (403/502)."
+    }
+  },
+  {
+    "type": "result",
+    "key": "v2:0be9df063a9c95ee6a53f70f019a79ffde296e3f800efcdd417060c588c3b067",
+    "agentId": "a383136ec0597928c",
+    "result": {
+      "refuted": false,
+      "evidence": "TRIED HARD TO REFUTE; COULD NOT. The claim survives on all five checklist axes, though with one scope limit the parent must carry forward.\n\nPROVENANCE NOW RESOLVED (the \"TREAT AS UNVERIFIED\" caveat can be partially lifted):\n- Crossref (api.crossref.org/works/10.1016/j.knosys.2024.112477) independently confirms the DOI resolves to a REAL peer-reviewed paper: \"Backtest overfitting in the machine learning era: A comparison of out-of-sample testing methods in a synthetic controlled environment\", Knowledge-Based Systems (Elsevier), Vol 305, published print 2024-12; authors Arian, Norouzi Mobarekeh, Seco.\n- OpenAlex confirms publication_date 2024-10-18. SSRN preprint (abstract_id=4686376, 2024-01-06) is the same paper. Luis A. Seco = U. Toronto / RiskLab director \u2014 a credible quant-finance primary source, not a blog or vendor.\n- The pii S0950705124011110 in the claim's source URL matches this DOI exactly. The URL is NOT fabricated.\n\nQUOTE VERIFICATION: Direct fetch of ScienceDirect, SSRN, and ACM DL all returned HTTP 403 (paywall), and OpenAlex/Semantic Scholar carry no abstract text, so I could not read the paper itself. HOWEVER, two independently-phrased web searches each reproduced the disputed sentence with identical wording (\"Walk-Forward exhibits notable shortcomings in false discovery prevention, characterized by increased temporal variability and weaker stationarity\"), and multiple secondary sources (Wikipedia \"Purged cross-validation\", Towards AI, quantbeckman) independently restate the same finding and the same paper's headline result (CPCV superior on PBO and Deflated Sharpe vs K-Fold, Purged K-Fold, and Walk-Forward). Convergent corroboration from distinct retrieval paths.\n\nCHECKLIST:\n1. Overreach? NO \u2014 the claim is if anything WEAKER than the quote. It says WF \"is reported to perform poorly at preventing false discoveries\" and correctly attributes rather than asserts. No misread.\n2. Contradicting evidence? NONE FOUND. The nearest thing is the widely-repeated qualifier that \"walk-forward remains the industry standard for realistic trading simulation\" and arXiv 2512.12924 (a WF-based microstructure framework) \u2014 but preferring WF for path-realism is orthogonal to, not a rebuttal of, the claim that WF is worse at FALSE-DISCOVERY CONTROL. No source disputes the specific finding.\n3. Source quality vs claim strength? SUFFICIENT. This is a modest, hedged, attributed methodological claim backed by a peer-reviewed Elsevier journal article \u2014 not an extraordinary claim needing extraordinary evidence.\n4. Outdated? NO. 2024 publication; PBO/DSR/CPCV methodology is stable and the paper is the current reference comparison. Two years old in a slow-moving methodological subfield.\n5. Marketing/press release/forum? NO. Peer-reviewed journal article.\n\nSCOPE LIMIT THE PARENT MUST CARRY (qualification, NOT refutation): the finding is established entirely in a SYNTHETIC CONTROLLED ENVIRONMENT (Heston stochastic volatility, Merton jump diffusion, drift-burst hypothesis, regime-switching models) \u2014 stated in the paper's own title \u2014 NOT on real market data and NOT on crypto perpetual futures. The authors also propose their own CPCV variants (Adaptive CPCV, Bagged CPCV), i.e. a mild pro-CPCV stake. So this supports \"prefer CPCV over Walk-Forward as the false-discovery gate for the entry-edge model\" as a well-motivated default, but it is simulation evidence, not a crypto-perp empirical result. Given the project's gate has measured correlation -0.031 to realized profit, CPCV+PBO+DSR is a defensible replacement gate, but its superiority on 500ms L2 crypto data remains unvalidated by this paper.\n\nCONFIDENCE: medium rather than high solely because the primary text is paywalled and the verbatim quote rests on convergent search-engine reproduction rather than a direct read.",
+      "confidence": "medium",
+      "counterSource": "No contradicting source found. Nearest qualifiers, both non-refuting: (a) the widely-repeated view that walk-forward remains the industry standard for realistic path-dependent trading simulation (Wikipedia \"Purged cross-validation\"; https://en.wikipedia.org/wiki/Purged_cross-validation) \u2014 orthogonal, since path-realism is a different criterion than false-discovery control; (b) arXiv 2512.12924 \"Interpretable Hypothesis-Driven Trading: A Rigorous Walk-Forward Validation Framework for Market Microstructure Signals\" \u2014 uses WF for microstructure signals but does not dispute the CPCV false-discovery finding; (c) CPCV's own documented limitation: split count grows factorially, limiting scalability on large datasets (relevant to 200 coins x 500ms L2)."
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:791d1bf655489243c7da5e95a8d68d11803a13aa223f171c2b6847b189b58805",
+    "agentId": "ae646a0703827bbca"
+  },
+  {
+    "type": "started",
+    "key": "v2:61c761258f43a0199aee443ddb23a6c27c07ac498a5af93d3b41409619d1058b",
+    "agentId": "a375ae40b83130849"
+  },
+  {
+    "type": "result",
+    "key": "v2:38fd44629cccdedd0574cab216781320b146ee8b18a157d12b9ff886d3db68eb",
+    "agentId": "ac4a807751663f871",
+    "result": {
+      "refuted": true,
+      "evidence": "REFUTED AS FRAMED (not as fabrication). Three attempts to reach primary text all failed: ScienceDirect 403, SSRN PDF 403, SSRN abstract page 403. The caveat \"not verified against the paper\" therefore STANDS \u2014 corroboration remains search-summary class only.\n\nWHAT SURVIVES: The paper is real and better-sourced than the caveat assumed \u2014 Arian, Norouzi M. & Seco, \"Backtest overfitting in the machine learning era\", Knowledge-Based Systems (Elsevier, peer-reviewed), Oct 2024. The quoted sentence reproduces near-verbatim across independent search renderings, so it is neither invented nor an overreach of the quote. The broad direction (CPCV resists overfitting better than WF) is mainstream.\n\nWHY REFUTED:\n\n(1) SCOPE OMISSION \u2014 DECISIVE FOR THIS RESEARCH QUESTION. The finding derives ENTIRELY from a SYNTHETIC controlled environment (Heston stochastic vol, Merton jump-diffusion, drift-burst, regime-switching), NOT real market data. The claim states the conclusion with the scope stripped off. \"Weaker stationarity\" for WF is close to circular when the DGP is a known parametric generator: synthetic paths are exchangeable by construction, which is precisely the regime most favorable to CPCV's path reshuffling. Extrapolating to real 500ms crypto L2 / aggTrade order flow \u2014 non-stationary, regime-shifting, microstructure-driven \u2014 is untested.\n\n(2) CONTRADICTED BY NEWER PRIMARY (text extracted directly from PDF, not a snippet). arXiv 2604.15531, \"Spurious Predictability in Financial Machine Learning\" (Nikolopoulos, 2026) treats STRICT WALK-FORWARD as the leakage-robust false-discovery CONTROL, verbatim: \"leakage-robust walk-forward evaluation remains stochastically bounded under the same [null]\"; \"performance evaluated via a strict walk-forward protocol remains bounded\"; \"the walk-forward winner magnitude remains on the null scale\"; \"Stage 1 is a conservative gate that controls false discovery\". It assigns false discovery to specification search / effective multiplicity, NOT to walk-forward. This directly opposes \"WF performs poorly at preventing false discoveries.\"\n\n(3) METRIC CIRCULARITY + AUTHOR INTEREST. The contest is scored on PBO and DSR, both Bailey/Lopez de Prado constructs. PBO structurally REQUIRES a distribution of combinatorial backtest paths \u2014 which CPCV generates by design and single-path walk-forward cannot produce. Scoring WF on PBO penalizes it by construction. The same paper also proposes its OWN CPCV variants (Bagged CPCV, Adaptive CPCV); RiskLab AI (Arian/Seco) is adjacent to the ecosystem authoring CPCV/PBO/DSR. Not independent adjudication.\n\n(4) Multiple sources note walk-forward \"remains the industry standard for realistic trading simulation\" \u2014 CPCV trains on future-relative-to-test data on many paths, which does not mirror live deployment ordering.\n\nACTIONABLE FOR THE PARENT: Do NOT cite this to claim \"WF is bad at preventing false discoveries.\" Defensible narrower version: \"On SYNTHETIC parametric price processes, CPCV scored lower PBO / higher DSR than WF (Arian et al., KBS 2024); unverified against primary, synthetic-only, and scored on CPCV-favoring metrics.\" For the crypto entry-edge model the safe design is BOTH: CPCV/purged-embargoed K-fold for model selection, plus a STRICT walk-forward holdout as the final deployment-realistic false-discovery gate \u2014 which is what the 2026 paper argues bounds the null. The existing -0.031 correlation failure is an in-sample-selection/multiplicity problem (142 strategies), which is exactly the effective-multiplicity mechanism 2604.15531 targets \u2014 not evidence about WF vs CPCV.",
+      "confidence": "high",
+      "counterSource": "https://arxiv.org/abs/2604.15531 \u2014 \"Spurious Predictability in Financial Machine Learning\" (Nikolopoulos, 2026), full PDF text extracted locally: uses STRICT walk-forward as the leakage-robust, null-bounded false-discovery control gate (\"leakage-robust walk-forward evaluation remains stochastically bounded under the same [null]\"; \"Stage 1 is a conservative gate that controls false discovery\"), attributing false discovery to specification search/effective multiplicity rather than to walk-forward. Secondary: https://arxiv.org/html/2512.12924v1 (rigorous walk-forward validation framework for market microstructure signals, i.e. WF used as the rigorous protocol in the exact domain at issue). Primary source for the claim itself was unreachable at all three endpoints (ScienceDirect/SSRN PDF/SSRN abstract, all HTTP 403)."
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:2581c0a1baf80cdc0ffe1005f7b33df054edce1dc3276a13c78e10100aa847fe",
+    "agentId": "ac4e308157b057ad2"
+  },
+  {
+    "type": "result",
+    "key": "v2:3c84f885dcdaefebb05ca864b38fffe0b5af6e4f45ca3265c21d3db7ccbdc4f3",
+    "agentId": "ae7a3f6c244b2358b",
+    "result": {
+      "refuted": true,
+      "evidence": "VERIFIED AS EXISTING, BUT CLAIM STILL FAILS ON SCOPE + PROVENANCE.\n\n1) The paper is real. Crossref (`https://api.crossref.org/works/10.1016/j.knosys.2024.112477`) confirms: \"Backtest overfitting in the machine learning era: A comparison of out-of-sample testing methods in a synthetic controlled environment\", Knowledge-Based Systems vol. 305, published-print 2024-12, created 2024-10-18, authors Hamid Arian, Daniel Norouzi Mobarekeh, Luis Seco, 34 references, is-referenced-by-count = 8. OpenAlex confirms the same (cited_by_count 8) but returns `abstract_inverted_index: null` \u2014 i.e. NO abstract is available from any open metadata source.\n\n2) The abstract text remains UNVERIFIED against any primary source. ScienceDirect (S0950705124011110), SSRN abstract page 4686376, the SSRN Delivery.cfm PDF, and ACM (dl.acm.org/doi/abs/10.1016/j.knosys.2024.112477) ALL returned HTTP 403; ouci.dntb.gov.ua returned 502; Semantic Scholar has no record for the DOI; OpenAlex has no abstract. Every instance of the \"marked superiority... lower PBO... superior DSR\" wording I could reach is a search-engine paraphrase of the same snippet, not a fetched primary text. The claim's own supporting quote is tagged \"[SEARCH-SNIPPET, NOT FETCHED FROM SOURCE]\" \u2014 it is a quotation from a document nobody in this chain has read. Per the checklist (source quality must match claim strength), an unfetchable snippet cannot underwrite a methodological recommendation.\n\n3) MATERIAL SCOPE OMISSION = overreach. The paper's OWN TITLE scopes the result to \"a synthetic controlled environment\" \u2014 CPCV's lower PBO / higher DSR were demonstrated on data from a known synthetic data-generating process, NOT on real markets and certainly not on crypto perpetual futures. The claim drops this entirely and asserts \"Directly relevant to replacing an in-sample-Sharpe gate.\" That inference is not supported by the quote: a synthetic-DGP demonstration that CPCV reduces PBO says nothing about whether CPCV would repair a live gate whose measured correlation to realized profit is -0.031 (n=260). The reviewed gate's failure mode is IN-SAMPLE scoring with no OOS at all; nothing in this paper establishes CPCV specifically (vs. plain purged+embargoed walk-forward, or simply any honest OOS) as the fix.\n\n4) Independent qualification/contradiction found. (a) Non-neutral provenance: refs b1\u2013b3 of the paper are the authors' own RiskLabAI Python/Julia libraries plus \"Python implementation of the paper\" \u2014 the authors ship the CPCV tooling whose superiority they report, and RiskLab AI's own page (`https://www.risklab.ai/research/backtesting/backtesting_cross_validation`) markets CPCV as its innovation while asserting walk-forward \"only tests the one historical scenario that happened, which is easily overfit\" \u2014 with no PBO/DSR evidence and no synthetic-vs-real distinction. (b) Practitioner counter-evidence (quantbeckman.com \"[WITH CODE] Combinatorial Purged Cross Validation for Optimization\"; insightbig.com) flags CPCV's implementation complexity producing SILENT failures \u2014 code that runs without crashing but yields flawed results and false confidence \u2014 a direct hazard for the proposed replacement gate. (c) Circularity concern: PBO (Bailey/L\u00f3pez de Prado, davidhbailey.com/dhbpapers/backtest-prob.pdf) is itself defined via CSCV, a combinatorial resampling scheme, and CPCV paths share overlapping training sets and are not statistically independent \u2014 so judging CPCV superior by a combinatorially-defined metric is not a neutral test. (d) Only 8 citations after ~20 months = no independent replication.\n\nVERDICT: the narrow sentence (\"the study reports X\") is probably an accurate paraphrase, but it is unconfirmed against any primary text AND the claim strips the paper's central scope limitation (synthetic data) while adding an unsupported applicability assertion (\"directly relevant\"). Refuted as stated.",
+      "counterSource": "Crossref/OpenAlex metadata for DOI 10.1016/j.knosys.2024.112477 (title explicitly scopes to \"a synthetic controlled environment\"; no abstract available; only 8 citations; self-cited RiskLabAI libraries as refs b1-b3); https://www.risklab.ai/research/backtesting/backtesting_cross_validation (authors' own vendor page, no PBO/DSR evidence); https://www.quantbeckman.com/p/with-code-combinatorial-purged-cross (CPCV complexity \u2192 silent failures / false confidence); https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf (PBO defined via CSCV \u2014 circularity when used to rank combinatorial CV). Primary sources all 403/502: sciencedirect.com/science/article/abs/pii/S0950705124011110, papers.ssrn.com abstract_id=4686376, dl.acm.org/doi/abs/10.1016/j.knosys.2024.112477, ouci.dntb.gov.ua/en/works/98eoEE27/",
+      "confidence": "medium"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:c16fbac1601a56fae81a56e2d1b3048146e8fd4679c02c9dedebb740cc10d922",
+    "agentId": "ae346689cd5adae3c"
+  },
+  {
+    "type": "result",
+    "key": "v2:9fd5f544c621801226f1f6dfd5c55b3f1677319152e9b374c2d75415ebe83a11",
+    "agentId": "a6a991e5584165fe3",
+    "result": {
+      "refuted": true,
+      "counterSource": "Primary source self-refutation: Gr\u0105dzki, W\u00f3jcik & Lessmann, \"Algorithmic crypto trading using information-driven bars, triple barrier labeling and deep learning,\" Financial Innovation 11:136 (2025), full PDF text \u2014 Tables 2-5 (pp. 29-32), methodology (p. 24), and sensitivity analysis (p. 35) contradict the abstract quote the claim relies on.",
+      "evidence": "The quote IS verbatim from the abstract, so the claim is not a misread \u2014 but the paper's OWN DATA contradicts its own abstract, and the source lacks the validation rigor the claim's prescriptive payload requires.\n\n1) \"CONSISTENTLY POSITIVE\" IS CONTRADICTED BY THE PAPER'S OWN TABLES. Table 5 (BTCUSDT, Triple Barrier, ResNet-LSTM): CUSUM 1% = **-17.2% annual, Sharpe -0.04**. CUSUM 2% = +20.4% (Sharpe 0.51), CUSUM 3% = +7.3% (Sharpe 0.10). The paper's own text (p. 28): \"a 3% CUSUM filter resulted in **three profitable experiments out of four**.\" And its own summary (p. 32): \"**most outcomes leaning toward negative profitability**, even when leveraging state-of-the-art deep learning models.\" \"Consistently positive\" rests on 4 table cells at ONE threshold (2%). Paper's own conclusion narrows it further: \"consistently led to profitable trading **for ETHUSDT**\" \u2014 not BTC.\n\n2) ZERO MULTIPLE-TESTING CONTROL \u2014 THE EXACT DEFECT BEING REPLACED. Grep of full text for purged/embargo/CPCV/PBO/deflated Sharpe returns **NOTHING**. They trained **2,700 models per coin (5,400 total)**, used scikit-learn `RandomizedSearchCV` (p. 24) on overlapping triple-barrier labels (leakage \u2014 the canonical L\u00f3pez de Prado sin), then **post-hoc selected ResNet-LSTM** as winner after XGBoost, Autoformer, FEDformer, Transformer-Encoder and Attention-LSTM all failed. The headline \"Sharpe ratio of 2\" (conclusion, p. 37) is the **max cell of a grid-search heatmap over CUSUM \u00d7 barrier values (Figs. 15-17)** \u2014 they call this sweep \"confirmed the robustness of our findings,\" which inverts the logic: reporting a sweep's maximum IS the overfitting. With ~5,400 trials + a post-hoc parameter sweep and no deflated Sharpe, a BTC Sharpe of 0.51 is almost certainly not significant. **This paper's gate has the same defect as the user's failing 142-strategy in-sample-Sharpe gate \u2014 citing it to justify the replacement is circular.**\n\n3) SCOPE MISMATCH WITH THE RESEARCH QUESTION. (a) n=**2 assets** (BTC, ETH), claim generalizes to 200 coins; paper itself says methods \"could be more applicable to less popular cryptocurrencies\" \u2014 untested speculation. (b) **SPOT/margin, NOT perps** \u2014 no funding carry, no OI, no liquidations modeled. (c) **Slippage explicitly NOT modeled**: \"modeling slippage requires detailed order book simulations, which are **beyond the scope of this study**\" (p. 24) \u2014 only a flat 0.1% fee. So \"net of transaction costs\" is a partial cost model that omits the dominant cost at event-driven frequency. (d) Test = 456 days / 5 quarters (Q2'22-Q2'23), deliberately excluding the 2021 peak. (e) **Zero microstructure features** (no OFI, microprice, VPIN, Kyle's lambda) \u2014 does not address the question's core.\n\n4) CONFOUNDS. The labeling win is inseparable from (i) post-hoc model selection (only ResNet-LSTM worked) and (ii) a **60/40 probability abstention filter** applied to all predictions \u2014 the edge may come from the abstention gate, not the labels.\n\nWHAT SURVIVES (for the parent): the *directional* finding is genuinely supported and peer-reviewed \u2014 time bars + next-bar labeling were negative in **all** experiments (Tables 2-3: BTC/ETH 1h next-bar = -36.6%/-51.2%, Sharpe -2.29/-2.22), and triple-barrier beat next-bar in absolute and risk-adjusted terms. Notable: 58.8% next-bar accuracy still lost money on costs \u2014 a real, useful result. So \"triple-barrier + event sampling > time bars + next-bar\" is defensible as a WEAK directional prior. But the claim as written (\"consistently positive,\" \"supporting replacement of a backtest-Sharpe gate\") overstates a 2-asset, spot-only, slippage-free study with no purged CV/CPCV/PBO/DSR \u2014 it cannot license replacing an overfitting-failed gate, because it never passed that test itself.",
+      "confidence": "high"
+    }
+  },
+  {
+    "type": "started",
+    "key": "v2:87da53365ba56c69e451187cc69e26f2a780cb51315572c5682c32371da4f7d1",
+    "agentId": "a4ee5f522341d873f"
+  },
+  {
+    "type": "result",
+    "key": "v2:66eb18ba285ece0ed8a6a10754155e29f9abbc8a8842de30c5faa72f88c8da83",
+    "agentId": "a72b1e270c6cb8d14",
+    "result": {
+      "refuted": true,
+      "evidence": "OVERREACH ON A REAL PAPER. Source verified: \"Algorithmic crypto trading using information-driven bars, triple barrier labeling and deep learning,\" Financial Innovation (Springer) vol 11 art 136, published 15 Dec 2025. Peer-reviewed, current, primary \u2014 so NOT marketing/outdated. Refuted on scope, rigor, and unsupported inference:\n\n(1) CLAIM'S KEY CLAUSE NOT IN QUOTE. The quote compares labeling/sampling schemes for ML prediction. It says NOTHING about replacing a strategy-selection Sharpe gate. \"supporting replacement of a fixed-horizon/backtest-Sharpe gate\" is the claimant's inference. It is self-undermining: the paper's evidence IS a backtest validated by walk-forward only, with no PBO and no deflated Sharpe \u2014 the same defect as the gate it is invoked to replace.\n\n(2) SCOPE TRANSFER FAILS. Tested: BTC + ETH SPOT on Binance, tick data Jan 2018\u2013Jun 2023. TWO assets. Target use: 200 coins of PERPETUAL futures with L2 book, funding, OI, liquidations. Perps carry funding and liquidation-cascade dynamics absent from the tested sample. No cross-sectional/breadth evidence.\n\n(3) \"CONSISTENTLY POSITIVE\" IS 5 QUARTERS, ONE REGIME. OOS = quarterly expanding window, first test quarter Q2 2022, last Q2 2023 = five quarters, 2 assets. Authors concede \"our test period does not include the peak of the 2021 bull market,\" plus Binance sample bias and \"survivorship bias can be quite acute in the cryptocurrency space.\"\n\n(4) VALIDATION BELOW THE QUESTION'S BAR. Walk-forward expanding window ONLY. No purged/embargoed K-fold, no CPCV, no PBO, no deflated Sharpe. Hyperparameter optimization performed with no disclosure of total configurations tried and no multiple-testing correction. Transaction costs asserted as \"accounted for\" with NO bps/% figure in text; no numerical Sharpe or return reported \u2014 headline result is qualitative.\n\n(5) MECHANISM CUTS AGAINST IT. Triple-barrier induces LABEL CONCURRENCY: overlapping labels violate IID, models \"learn the same patterns multiple times,\" inflating in-sample performance while OOS deteriorates. That is exactly the pathology already killing the current gate (n=260, corr -0.031, highest-score quartile WORST). Paper reports no sample-uniqueness weighting. Adopting triple-barrier without uniqueness weights + purging imports the disease.\n\nNET: method plausibly still worth adopting on broader AFML literature WITH purged CPCV + DSR + uniqueness weights, but this citation cannot support the claim as stated.",
+      "confidence": "high",
+      "counterSource": "https://link.springer.com/article/10.1186/s40854-025-00866-w (primary, self-refuting on scope/validation: BTC+ETH spot only, walk-forward Q2'22\u2013Q2'23, no PBO/DSR/purged CV, costs unquantified, authors' own survivorship/regime caveats); label-concurrency critique: https://www.mql5.com/en/articles/19850 ; https://hudsonthames.org/does-meta-labeling-add-to-signal-efficacy-triple-barrier-method/"
+    }
+  }
+]
