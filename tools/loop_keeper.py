@@ -37,6 +37,12 @@ REQUIRED = {
     "live_loop": r"trading\.online\.run_live_loop",
     "micro_distill": r"freqtrade\.run_micro_distill",
     "candle_updater": r"freqtrade\.candle_updater",
+    # Continuous strategy-research daemon (breeds strategies into the SkillLibrary). Was never
+    # self-healed before 2026-07-13, so it died in the Jul-7 VM stop and left skill_library stale.
+    "autoresearch": r"trading\.strategy\.run_autoresearch",
+    # Per-coin best-strategy table producer (2026-07-13): feeds the Strategy column + the breadth
+    # lane's tournament synergy. If it dies the column goes stale, so it self-heals like the rest.
+    "strategy_table": r"trading\.crypto\.freqtrade\.run_strategy_table",
     "dashboard": r"dashboard/server\.py",
 }
 
@@ -49,25 +55,36 @@ def _alive(pattern: str) -> bool:
         return False           # pgrep itself failing → treat as dead, let start_all guard
 
 
-def _nse_funnel_off() -> bool:
-    """Owner kill-switch (NSE_FUNNEL_OFF=1 in .env) — when set, the NSE funnel is
-    intentionally stopped, so don't watch it or trigger start_all trying to respawn it."""
-    if os.environ.get("NSE_FUNNEL_OFF") == "1":
-        return True
+def _env_flag(name: str, default: str = "0") -> str:
+    """Read a flag from the process env, falling back to ~/.env. loop_keeper MUST agree with
+    start_all's own start/skip decisions (start_all reads .env too) — otherwise it declares a
+    deliberately-disabled process 'missing' and re-runs start_all forever chasing a ghost."""
+    if name in os.environ:
+        return os.environ[name].strip()
     try:
         with open(os.path.join(HOME, ".env")) as f:
             for line in f:
-                if line.strip().startswith("NSE_FUNNEL_OFF="):
-                    return line.split("=", 1)[1].strip() == "1"
+                s = line.strip()
+                if s.startswith(name + "="):
+                    return s.split("=", 1)[1].strip()
     except Exception:
         pass
-    return False
+    return default
 
 
 def _check() -> dict:
     required = dict(REQUIRED)
-    if _nse_funnel_off():
-        required.pop("funnel_nse", None)               # intentionally stopped — don't respawn
+    # Respect the SAME intentional-off switches start_all honors — never chase a process the
+    # boot script deliberately won't start (that was the pre-2026-07-13 candle_updater bug: it
+    # is disabled by default, yet loop_keeper re-ran start_all every 5 min forever for it).
+    if _env_flag("NSE_FUNNEL_OFF", "0") == "1":
+        required.pop("funnel_nse", None)               # owner kill-switch — intentionally stopped
+    if _env_flag("CANDLE_UPDATER", "0") != "1":        # disabled 2026-07-12 (API-load removal)
+        required.pop("candle_updater", None)
+    if _env_flag("AUTORESEARCH", "1") == "0":          # owner kill-switch for the research daemon
+        required.pop("autoresearch", None)
+    if _env_flag("STRATEGY_TABLE", "1") == "0":        # owner kill-switch for the strategy-table producer
+        required.pop("strategy_table", None)
     return {name: _alive(pat) for name, pat in required.items()}
 
 
