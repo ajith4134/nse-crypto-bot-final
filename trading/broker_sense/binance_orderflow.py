@@ -161,12 +161,29 @@ def features(symbol: str, *, cheap: bool = False) -> dict:
         _fund_fields(out, mk)
         out["funding_stale"] = m.is_stale(sym)
         out["source"] = "ram:mirror"
+    # taker flow — derived in RAM from the venue's own `@aggTrade` push (NO API, 2026-07-16):
+    # m=False → buyer lifted the ask (taker buy), m=True → seller hit the bid. Same quantity
+    # Binance's /futures/data/takerlongshortRatio reports, without the REST poll.
+    tk = m.taker(sym)
+    if tk and tk.get("buy_sell_ratio") is not None:
+        out["taker_buy_sell_ratio"] = tk["buy_sell_ratio"]
+        out["taker_source"] = tk["source"]
+    # open interest + crowd/smart long-short — the ONLY kinds Binance publishes on no WS stream
+    # (verified against the official WS market-streams doc), filled into RAM by the mirror's
+    # background poller so the decision path never pays a REST round-trip.
+    st = m.stats(sym)
+    if st:
+        for k in ("open_interest_usd", "oi_change_pct", "crowd_long_short",
+                  "crowd_long_pct", "smart_pos_long_short", "smart_long_pct",
+                  "smart_acct_long_short"):
+            if st.get(k) is not None:
+                out[k] = st[k]
 
-    # 1) BROWSER UI capture — FALLBACK, only for kinds RAM is missing. The mirror's all-market
-    # push streams do NOT carry crowd/smart long-short, taker volume, or open interest, so the
-    # app capture is the primary web source for those (REST below is the last resort).
-    # Values are set only when the capture actually CARRIES them — a partial capture must not
-    # plant a None that blocks the still-allowed backfills (VALUE-gated, not key-presence-gated).
+    # 1) BROWSER UI capture — FALLBACK, and ONLY for what RAM did not already serve. Every write
+    # here is guarded on `out.get(...) is None`: an unguarded set would let the browser's stale
+    # page data (measured 25-44 h median age) CLOBBER the live push-stream value, which is the
+    # exact inversion the 2026-07-16 motto rewrite exists to prevent. Values are also VALUE-gated
+    # (not key-presence-gated) so a partial capture never plants a None that blocks the REST backfill.
     try:
         from trading.broker_sense import ui_market
     except Exception:
@@ -178,22 +195,26 @@ def features(symbol: str, *, cheap: bool = False) -> dict:
                 _fund_fields(out, mkc)
                 out["funding_stale"] = False
                 out["source"] = "ui:capture"
-        ls = ui_market.long_short(sym)
-        if ls and ls.get("ratio") is not None:
-            out["crowd_long_short"] = ls["ratio"]
-        if ls and ls.get("long_pct") is not None:
-            out["crowd_long_pct"] = ls["long_pct"]
-        lss = ui_market.long_short(sym, smart=True)
-        if lss and lss.get("ratio") is not None:
-            out["smart_pos_long_short"] = lss["ratio"]
-        if lss and lss.get("long_pct") is not None:
-            out["smart_long_pct"] = lss["long_pct"]
-        tkc = ui_market.taker(sym)
-        if tkc and tkc.get("buy_sell_ratio") is not None:
-            out["taker_buy_sell_ratio"] = tkc["buy_sell_ratio"]
-        oic = ui_market.open_interest(sym)
-        if oic and oic.get("open_interest") is not None:
-            out["open_interest_usd"] = oic["open_interest"]
+        if out.get("crowd_long_short") is None or out.get("crowd_long_pct") is None:
+            ls = ui_market.long_short(sym)
+            if out.get("crowd_long_short") is None and ls and ls.get("ratio") is not None:
+                out["crowd_long_short"] = ls["ratio"]
+            if out.get("crowd_long_pct") is None and ls and ls.get("long_pct") is not None:
+                out["crowd_long_pct"] = ls["long_pct"]
+        if out.get("smart_pos_long_short") is None or out.get("smart_long_pct") is None:
+            lss = ui_market.long_short(sym, smart=True)
+            if out.get("smart_pos_long_short") is None and lss and lss.get("ratio") is not None:
+                out["smart_pos_long_short"] = lss["ratio"]
+            if out.get("smart_long_pct") is None and lss and lss.get("long_pct") is not None:
+                out["smart_long_pct"] = lss["long_pct"]
+        if out.get("taker_buy_sell_ratio") is None:
+            tkc = ui_market.taker(sym)
+            if tkc and tkc.get("buy_sell_ratio") is not None:
+                out["taker_buy_sell_ratio"] = tkc["buy_sell_ratio"]
+        if out.get("open_interest_usd") is None:
+            oic = ui_market.open_interest(sym)
+            if oic and oic.get("open_interest") is not None:
+                out["open_interest_usd"] = oic["open_interest"]
 
     out.setdefault("funding_stale", out.get("funding_rate") is None)
 

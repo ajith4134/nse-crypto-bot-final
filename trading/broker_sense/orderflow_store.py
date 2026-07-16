@@ -55,7 +55,10 @@ def _extract(feat: dict) -> dict:
         "of_taker_ratio": tr,
         "of_crowd_long": crowd,
         "of_smart_long": g("smart_long_pct"),
-        "of_oi": g("open_interest", "oi"),
+        # binance_orderflow.features() emits `open_interest_usd` — the old alias list ("open_interest",
+        # "oi") never matched it, so of_oi could not populate from the fusion path even when the data
+        # was there (found 2026-07-16 when the RAM poller filled OI for 100 symbols and this stayed 0%).
+        "of_oi": g("open_interest_usd", "open_interest", "oi"),
         "of_funding": g("funding_rate"),
         "of_liq_skew": g("liq_skew", "liquidation_skew"),
         "of_gofi": gofi,

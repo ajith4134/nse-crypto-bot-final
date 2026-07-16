@@ -56,9 +56,49 @@ _DEPTH_HOST = "wss://fstream.binance.com/stream?streams="
 _DEPTH_N = int(os.getenv("BINANCE_DEPTH_N", "120") or 120)      # streams per connection (cap)
 _DEPTH_REFRESH_S = float(os.getenv("BINANCE_DEPTH_REFRESH_S", "300") or 300)   # re-pick movers
 
+# TAKER flow from the trade PUSH stream (2026-07-16) — NO API. The owner asked for a non-API way to
+# get taker/OI/long-short into RAM; taker is the one that has one. `<sym>@aggTrade` carries `m` =
+# "was the buyer the maker?", so m=False → the BUYER lifted the ask (taker BUY volume) and m=True →
+# the seller hit the bid (taker SELL volume). That is exactly what Binance's own
+# /futures/data/takerlongshortRatio reports, derived from the venue's own trade push instead of a
+# REST poll. Accumulated into fixed time BUCKETS (O(1) per trade, ~6 dicts/symbol) — never a
+# per-trade deque, which would be a firehose at 120 symbols.
+#
+# ⚠ ENTRY POINT: aggTrade needs the NEW /market/ path — it is NOT deliverable on the legacy
+# /stream?streams= host that depth uses. Probed live 2026-07-16:
+#     /stream?streams=…@depth20@500ms/…@aggTrade        → depth frames only, ZERO aggTrade
+#     /market/stream?streams=…@depth20@500ms/…@aggTrade → aggTrade frames only, ZERO depth
+# The two kinds cannot share one socket: depth stays on the legacy host (where it demonstrably
+# works) and aggTrade gets its own connection. Piggy-backing aggTrade onto the depth URL looks
+# correct and silently yields NOTHING — the same 2025 routing change documented for _WS_URL above.
+_AGG_HOST = "wss://fstream.binance.com/market/stream?streams="
+_AGG_N = int(os.getenv("BINANCE_AGG_N", "120") or 120)                  # movers streamed for taker
+_AGG_REFRESH_S = float(os.getenv("BINANCE_AGG_REFRESH_S", "300") or 300)
+_TAKER_BUCKET_S = float(os.getenv("BINANCE_TAKER_BUCKET_S", "60") or 60)
+_TAKER_BUCKETS = int(os.getenv("BINANCE_TAKER_BUCKETS", "5") or 5)      # → 5 min rolling window
+
+# OI + LONG/SHORT stats poller (2026-07-16). These have NO WebSocket stream on Binance (verified
+# against the official WS market-streams doc: only bookTicker/depth/aggTrade/markPrice/forceOrder/
+# kline/ticker exist; open interest and the long-short account ratios live under market-data/rest-api/).
+# The only non-API route is the browser, whose measured ceiling is ~6 symbol pages and a 25-44 h
+# median age → 0-1.5% coverage. Owner's rule 2026-07-16: "if the other method has more cons than the
+# API, then use the API for the rest of the missing data." So: a BACKGROUND poller fills RAM, and the
+# DECISION path still reads pure RAM — no network call when the brain decides. Budget: 4 calls ×
+# _STATS_N per _STATS_REFRESH_S (=400/5min at the default 100) vs Binance's /futures/data limit
+# of 1000 per 5 min per IP.
+_STATS_N = int(os.getenv("BINANCE_STATS_N", "100") or 100)
+_STATS_REFRESH_S = float(os.getenv("BINANCE_STATS_REFRESH_S", "300") or 300)
+_STATS_FRESH_S = float(os.getenv("BINANCE_STATS_FRESH_S", "1800") or 1800)
+
 
 def depth_enabled() -> bool:
     return enabled() and os.getenv("BINANCE_STREAM_DEPTH", "1").strip().lower() not in ("0", "false", "off")
+
+
+def stats_enabled() -> bool:
+    """The OI/long-short REST poller. Kill switch: BINANCE_STATS=0 → those kinds fall back to the
+    browser capture (and to the per-symbol REST already in binance_orderflow)."""
+    return enabled() and os.getenv("BINANCE_STATS", "1").strip().lower() not in ("0", "false", "off")
 
 
 def enabled() -> bool:
@@ -81,7 +121,14 @@ class BinanceUniverseMirror:
         self._liqs: deque = deque(maxlen=_MAX_LIQS)   # recent liquidation events (all symbols)
         self._lock = threading.RLock()
         self._thread: threading.Thread | None = None
+        self._taker: dict[str, deque] = {}        # symbol -> deque[{bucket, buy, sell}] (taker flow)
+        self._stats: dict[str, dict] = {}         # symbol -> {open_interest_usd, oi_change_pct, …}
+        self._stats_thread: threading.Thread | None = None
+        self._stats_ts = 0.0
+        self._stats_calls = 0
         self._depth_thread: threading.Thread | None = None
+        self._agg_thread: threading.Thread | None = None
+        self._agg_connected = False
         self._running = False
         self._connected = False
         self._depth_connected = False
@@ -206,6 +253,138 @@ class BinanceUniverseMirror:
         except Exception:
             pass
 
+    def _apply_agg_frame(self, msg: dict) -> None:
+        """Apply one <sym>@aggTrade frame → the in-RAM taker-flow buckets. Never raises.
+
+        `m` = "was the buyer the maker?": m=False → buyer was the TAKER (bought at the ask) →
+        taker BUY volume; m=True → the seller was the taker → taker SELL volume. Bucketed by
+        wall-clock so the read is a cheap sum over ~5 buckets instead of a per-trade scan."""
+        try:
+            stream = msg.get("stream", "")
+            data = msg.get("data") or {}
+            if "@aggtrade" not in stream.lower():
+                return
+            s = (data.get("s") or stream.split("@", 1)[0]).upper()
+            qty, price = float(data.get("q") or 0.0), float(data.get("p") or 0.0)
+            if qty <= 0 or price <= 0:
+                return
+            notional = qty * price                      # value-weighted, like Binance's own ratio
+            is_taker_buy = not bool(data.get("m"))
+            bucket = int(time.time() // _TAKER_BUCKET_S)
+            with self._lock:
+                dq = self._taker.get(s)
+                if dq is None:
+                    dq = self._taker[s] = deque(maxlen=_TAKER_BUCKETS)
+                if not dq or dq[-1]["bucket"] != bucket:
+                    dq.append({"bucket": bucket, "buy": 0.0, "sell": 0.0})
+                cur = dq[-1]
+                cur["buy" if is_taker_buy else "sell"] += notional
+        except Exception:
+            pass
+
+    def taker(self, symbol: str) -> dict | None:
+        """Taker buy/sell flow over the rolling window, from the venue's own trade push — NO API.
+        Returns None (honest miss) when no trades have been seen in-window for `symbol`."""
+        s = symbol.upper()
+        cutoff = int(time.time() // _TAKER_BUCKET_S) - _TAKER_BUCKETS
+        with self._lock:
+            dq = self._taker.get(s)
+            if not dq:
+                return None
+            buy = sum(b["buy"] for b in dq if b["bucket"] > cutoff)
+            sell = sum(b["sell"] for b in dq if b["bucket"] > cutoff)
+        if buy <= 0 and sell <= 0:
+            return None
+        return {
+            "taker_buy_notional": round(buy, 2), "taker_sell_notional": round(sell, 2),
+            # Binance's takerlongshortRatio convention: buyVol / sellVol (>1 = buyers lifting).
+            # Undefined when the window saw NO taker sells (thin symbol / short window) — report
+            # None honestly rather than invent a cap, and let the caller fall back. `imbalance` is
+            # always defined, so a one-sided window still carries its signal.
+            "buy_sell_ratio": round(buy / sell, 4) if sell > 0 else None,
+            "imbalance": round((buy - sell) / (buy + sell), 4),      # [-1,1], +1 = all taker buys
+            "window_s": _TAKER_BUCKET_S * _TAKER_BUCKETS, "source": "ram:aggtrade",
+        }
+
+    def stats(self, symbol: str) -> dict | None:
+        """Open interest + crowd/smart long-short for `symbol` from RAM (filled by the background
+        poller — see _run_stats). None when unseen or older than _STATS_FRESH_S: an honest miss,
+        never a stale number served as fresh."""
+        s = symbol.upper()
+        with self._lock:
+            row = self._stats.get(s)
+        if not row or time.time() - (row.get("ts") or 0) > _STATS_FRESH_S:
+            return None
+        return dict(row)
+
+    def _run_stats(self) -> None:
+        """Background REST poller for the two kinds Binance publishes on NO WebSocket stream:
+        open interest and the long/short account ratios. Keeps the DECISION path pure-RAM.
+
+        Deliberate design (owner 2026-07-16): the brain must be fast to decide and open trades, so
+        no per-symbol REST at decision time. Scoped to the top-_STATS_N movers and rate-budgeted:
+        3 calls/symbol per cycle vs Binance's 1000-per-5-min /futures/data limit."""
+        import urllib.request
+
+        def _get(path: str, sym: str, limit: int = 1):
+            url = (f"https://fapi.binance.com/futures/data/{path}"
+                   f"?symbol={sym}&period=5m&limit={limit}")
+            with urllib.request.urlopen(url, timeout=8) as r:
+                self._stats_calls += 1
+                return json.loads(r.read().decode())
+
+        while self._running:
+            try:
+                syms = [r["symbol"] for r in self.movers(_STATS_N, by="quote_volume")]
+                for sym in syms:
+                    if not self._running:
+                        break
+                    row: dict = {"ts": time.time(), "source": "ram:stats"}
+                    try:
+                        oi = _get("openInterestHist", sym, limit=2)
+                        if isinstance(oi, list) and oi:
+                            cur = _f(oi[-1].get("sumOpenInterestValue"))
+                            row["open_interest_usd"] = cur
+                            if len(oi) >= 2:
+                                prev = _f(oi[-2].get("sumOpenInterestValue"))
+                                if cur is not None and prev:
+                                    row["oi_change_pct"] = round((cur - prev) / prev * 100.0, 3)
+                    except Exception:
+                        pass
+                    try:
+                        g = _get("globalLongShortAccountRatio", sym)
+                        if isinstance(g, list) and g:
+                            row["crowd_long_short"] = _f(g[-1].get("longShortRatio"))
+                            row["crowd_long_pct"] = _f(g[-1].get("longAccount"))
+                    except Exception:
+                        pass
+                    try:
+                        tp = _get("topLongShortPositionRatio", sym)
+                        if isinstance(tp, list) and tp:
+                            row["smart_pos_long_short"] = _f(tp[-1].get("longShortRatio"))
+                            row["smart_long_pct"] = _f(tp[-1].get("longAccount"))
+                    except Exception:
+                        pass
+                    try:
+                        # top-trader ACCOUNT ratio — the 4th field binance_orderflow would other-
+                        # wise still REST for at decision time, which would defeat the whole point
+                        ta = _get("topLongShortAccountRatio", sym)
+                        if isinstance(ta, list) and ta:
+                            row["smart_acct_long_short"] = _f(ta[-1].get("longShortRatio"))
+                    except Exception:
+                        pass
+                    if len(row) > 2:                      # more than ts+source → real data
+                        with self._lock:
+                            self._stats[sym] = row
+                    time.sleep(0.15)                      # gentle pacing inside the cycle
+                self._stats_ts = time.time()
+            except Exception:
+                pass
+            for _ in range(int(_STATS_REFRESH_S)):        # interruptible sleep
+                if not self._running:
+                    return
+                time.sleep(1.0)
+
     # ── background stream thread ─────────────────────────────────────────────
     def _run(self) -> None:
         try:
@@ -263,6 +442,8 @@ class BinanceUniverseMirror:
                 await asyncio.sleep(2.0)
                 continue
             self._depth_watch = syms
+            # depth ONLY — aggTrade is not deliverable on this legacy host (see _AGG_HOST); it
+            # runs on its own /market/ connection in _agg_stream_loop.
             url = _DEPTH_HOST + "/".join(f"{s.lower()}@depth20@500ms" for s in syms)
             deadline = time.time() + _DEPTH_REFRESH_S
             try:
@@ -283,6 +464,46 @@ class BinanceUniverseMirror:
                 backoff *= 2
         self._depth_connected = False
 
+    def _run_agg(self) -> None:
+        try:
+            asyncio.run(self._agg_stream_loop())
+        except Exception:
+            self._agg_connected = False
+
+    async def _agg_stream_loop(self) -> None:
+        """Stream `@aggTrade` for the top-N movers on the /market/ entry point → in-RAM taker flow.
+        Its own connection because the legacy depth host delivers no aggTrade frames (see _AGG_HOST).
+        Reconnects every _AGG_REFRESH_S to re-pick movers as the universe rotates."""
+        try:
+            import websockets
+        except Exception:
+            return
+        backoff = 1.0
+        while self._running:
+            syms = [r["symbol"] for r in self.movers(_AGG_N, by="quote_volume")]
+            if not syms:
+                await asyncio.sleep(2.0)
+                continue
+            url = _AGG_HOST + "/".join(f"{s.lower()}@aggTrade" for s in syms)
+            deadline = time.time() + _AGG_REFRESH_S
+            try:
+                async with websockets.connect(url, ping_interval=20, ping_timeout=20,
+                                              open_timeout=15, max_queue=4096) as ws:
+                    self._agg_connected = True
+                    backoff = 1.0
+                    while self._running and time.time() < deadline:
+                        raw = await asyncio.wait_for(ws.recv(), timeout=60)
+                        try:
+                            self._apply_agg_frame(json.loads(raw))
+                        except Exception:
+                            continue
+            except Exception:
+                self._agg_connected = False
+                self._reconnects += 1
+                await asyncio.sleep(min(backoff, 30.0))
+                backoff *= 2
+        self._agg_connected = False
+
     def start(self) -> "BinanceUniverseMirror":
         if not enabled() or self._running:
             return self
@@ -291,10 +512,18 @@ class BinanceUniverseMirror:
         self._backfill_rest()                    # immediate data so the first read isn't empty
         self._thread = threading.Thread(target=self._run, daemon=True, name="binance-mirror")
         self._thread.start()
-        if depth_enabled():                      # separate connection: 20-level depth for movers
+        if depth_enabled():                      # separate connection: 20-level depth + aggTrade
             self._depth_thread = threading.Thread(target=self._run_depth, daemon=True,
                                                   name="binance-mirror-depth")
             self._depth_thread.start()
+        if depth_enabled():                      # taker flow: own /market/ connection (aggTrade)
+            self._agg_thread = threading.Thread(target=self._run_agg, daemon=True,
+                                                name="binance-mirror-agg")
+            self._agg_thread.start()
+        if stats_enabled():                      # the only kinds with no WS stream: OI + long/short
+            self._stats_thread = threading.Thread(target=self._run_stats, daemon=True,
+                                                  name="binance-mirror-stats")
+            self._stats_thread.start()
         return self
 
     def stop(self) -> None:

@@ -102,6 +102,86 @@ class TestOrderFlow(unittest.TestCase):
         self.assertEqual(f["funding_rate"], 0.0007)
         self.assertEqual(f["open_interest_usd"], 1234567.0)     # capture beat the REST backfill
 
+    def test_taker_ratio_derived_from_aggtrade_push_no_api(self):
+        """Owner 2026-07-16: 'find a way other than the API'. Taker flow HAS one — `@aggTrade`
+        carries m ('was the buyer the maker?'), so m=False → taker BUY and m=True → taker SELL.
+        That is Binance's own takerlongshortRatio quantity, derived from the venue's trade push
+        with ZERO REST calls (open interest and long/short have no such stream)."""
+        m = get_mirror()
+        m._taker.clear()
+        for m_flag, qty in ((False, 3.0), (False, 1.0), (True, 2.0)):    # 4 taker-buy vs 2 sell
+            m._apply_agg_frame({"stream": "btcusdt@aggTrade",
+                                "data": {"s": "BTCUSDT", "q": str(qty), "p": "100.0",
+                                         "m": m_flag}})
+        self.addCleanup(m._taker.clear)
+        t = m.taker("BTCUSDT")
+        self.assertEqual(t["source"], "ram:aggtrade")
+        self.assertAlmostEqual(t["buy_sell_ratio"], 2.0)                 # 400 notional / 200
+        # and features() must PREFER it over the REST value (_fake_rest says 1.30)
+        with mock.patch.object(of, "_get_json", side_effect=_fake_rest):
+            f = of.features("BTCUSDT")
+        self.assertAlmostEqual(f["taker_buy_sell_ratio"], 2.0)
+        self.assertEqual(f["taker_source"], "ram:aggtrade")
+
+    def test_taker_one_sided_window_is_honest_not_invented(self):
+        """A window with taker buys but NO taker sells makes buy/sell undefined. Report None and
+        let the caller fall back — never invent a cap. `imbalance` still carries the signal."""
+        m = get_mirror()
+        m._taker.clear()
+        self.addCleanup(m._taker.clear)
+        m._apply_agg_frame({"stream": "btcusdt@aggTrade",
+                            "data": {"s": "BTCUSDT", "q": "2.0", "p": "100.0", "m": False}})
+        t = m.taker("BTCUSDT")
+        self.assertIsNone(t["buy_sell_ratio"])          # undefined → honest None
+        self.assertAlmostEqual(t["imbalance"], 1.0)     # but the one-sidedness IS reported
+        self.assertEqual(t["taker_sell_notional"], 0.0)
+
+    def test_stats_poller_ram_beats_rest_and_capture(self):
+        """OI + long/short are the only kinds with no WS stream, so a background poller fills RAM
+        and the DECISION path stays pure-RAM (no REST round-trip when the brain decides)."""
+        m = get_mirror()
+        # a COMPLETE row, as the poller writes it — every field features() would otherwise REST
+        # for. (An incomplete row correctly still falls back to REST for the missing kinds.)
+        m._stats["BTCUSDT"] = {"ts": time.time(), "source": "ram:stats",
+                               "open_interest_usd": 5_000_000.0, "oi_change_pct": 2.5,
+                               "crowd_long_short": 1.9, "crowd_long_pct": 0.71,
+                               "smart_pos_long_short": 0.5, "smart_long_pct": 0.33,
+                               "smart_acct_long_short": 1.1}
+        m._taker.clear()
+        for m_flag in (False, True):        # BOTH sides: a window with zero taker sells leaves
+            m._apply_agg_frame({"stream": "btcusdt@aggTrade",      # buy_sell_ratio undefined
+                                "data": {"s": "BTCUSDT", "q": "2.0", "p": "100.0", "m": m_flag}})
+        self.addCleanup(m._stats.clear)
+        self.addCleanup(m._taker.clear)
+        with mock.patch.object(of, "_get_json",
+                               side_effect=AssertionError("REST must not run when RAM has it")):
+            f = of.features("BTCUSDT")
+        self.assertEqual(f["open_interest_usd"], 5_000_000.0)   # RAM, not the REST 1.1M
+        self.assertAlmostEqual(f["oi_change_pct"], 2.5)
+        self.assertAlmostEqual(f["crowd_long_pct"], 0.71)       # RAM, not the REST 0.60
+        self.assertAlmostEqual(f["smart_long_pct"], 0.33)       # RAM, not the REST 0.44
+
+    def test_stale_stats_are_an_honest_miss(self):
+        m = get_mirror()
+        m._stats["BTCUSDT"] = {"ts": time.time() - 99_999, "open_interest_usd": 1.0}
+        self.addCleanup(m._stats.clear)
+        self.assertIsNone(m.stats("BTCUSDT"))                   # past TTL → never served as fresh
+
+    def test_browser_capture_never_clobbers_a_ram_value(self):
+        """The inversion this whole rewrite exists to prevent: a 25-44 h stale page value must
+        never overwrite a live push-stream value."""
+        from trading.broker_sense import ui_market
+        m = get_mirror()
+        m._stats["BTCUSDT"] = {"ts": time.time(), "open_interest_usd": 5_000_000.0}
+        self.addCleanup(m._stats.clear)
+        ui_market._STORE[("open_interest", "BTCUSDT")] = {
+            "ts": time.time(), "broker": "binance", "url": "",
+            "data": {"open_interest": 42.0},                    # the stale page number
+        }
+        with mock.patch.object(of, "_get_json", side_effect=_fake_rest):
+            f = of.features("BTCUSDT")
+        self.assertEqual(f["open_interest_usd"], 5_000_000.0)   # RAM held
+
     def test_signal_tilt_in_range_and_directional(self):
         with mock.patch.object(of, "_get_json", side_effect=_fake_rest):
             s = of.signal("BTCUSDT")

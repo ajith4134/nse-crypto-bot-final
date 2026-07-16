@@ -117,6 +117,16 @@ class TestStoreSnapshotFeatParam(_Iso):
         store = state.load_json("orderflow_store.json", {})
         self.assertIn("BTCUSDT", store)
 
+    def test_open_interest_key_matches_what_features_emits(self):
+        """binance_orderflow.features() emits `open_interest_usd`; the extractor's alias list used
+        to look only for `open_interest`/`oi`, so of_oi silently stayed None even with the data
+        present (found live 2026-07-16: OI filled for 100 symbols, of_oi still 0%)."""
+        from trading.broker_sense import orderflow_store
+        rec = orderflow_store.snapshot("ETHUSDT", "crypto",
+                                       feat={"open_interest_usd": 4_351_516_252.0,
+                                             "funding_rate": 0.0001})
+        self.assertEqual(rec["of_oi"], 4_351_516_252.0)
+
 
 class TestMirrorDepthFeedsBookOfi(_Iso):
     """MOTTO tenet 3 (owner 2026-07-16): book_ofi must be fed from the in-RAM depth stream, not

@@ -3541,7 +3541,7 @@ _trading/broker_sense/binance_sectors.py — Binance-native sector taxonomy + ro
 ## `trading/broker_sense/binance_stream.py`
 _trading/broker_sense/binance_stream.py — Binance all-market WEBSOCKET mirror (compute-offload)._
 - **classes:** BinanceUniverseMirror
-- **functions:** `depth_enabled() -> bool`; `enabled() -> bool`; `_f(v)`; `_i(v)`; `get_mirror() -> BinanceUniverseMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`
+- **functions:** `depth_enabled() -> bool`; `stats_enabled() -> bool`; `enabled() -> bool`; `_f(v)`; `_i(v)`; `get_mirror() -> BinanceUniverseMirror`; `ohlcv(symbol, timeframe, limit) -> list | None`
 - **imports:** __future__, asyncio, collections, json, os, threading, time, trading
 
 ## `trading/broker_sense/binance_watchlist.py`
