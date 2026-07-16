@@ -135,3 +135,50 @@ class LearnedDirectionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNoiseIsNeverInverted(unittest.TestCase):
+    """🚨 The inverter that shorted everything (killed 2026-07-16, owner: "kill that inverter").
+
+    `_weight` used to `return 0.0, (rate < 0.5)` when the Wilson CI STRADDLED 0.5 — weight zero but
+    the invert flag still escaped, so a source sitting at 0.4999 by pure noise had its direction
+    FLIPPED. Every live source was in that band and underpowered (n~260 -> ~12% power). The brain
+    flipped noise; in a long-leaning tape that shorts everything. Measured live: 31 SHORT vs 1 LONG,
+    -112 P&L, coins that ROSE +13% shorted next to coins that FELL -13%.
+
+    Rule (CONVENTIONS §16): absence of evidence that a source is right is NOT evidence that its
+    opposite is right. Unproven -> IGNORED, never inverted.
+    """
+
+    def _w(self, rel):
+        from trading.direction import learned_direction as ld
+        cfg = dict(ld._cfg())          # the REAL config the decider uses
+        return ld._signed_weight(rel, cfg)
+
+    def test_ci_straddling_half_is_never_inverted(self):
+        # the exact live shape: below 0.5 but the CI includes 0.5 -> pure noise
+        for rate in (0.4456, 0.4657, 0.4765, 0.4895, 0.4999):
+            w, inv = self._w({"n": 300, "rate": rate, "ci_low": rate - 0.06,
+                              "ci_high": rate + 0.06})
+            self.assertEqual(w, 0.0, f"noise at {rate} must earn no weight")
+            self.assertFalse(inv, f"noise at {rate} must NEVER be inverted (this shorted everything)")
+
+    def test_significant_but_tiny_effect_is_ignored_not_inverted(self):
+        w, inv = self._w({"n": 5000, "rate": 0.495, "ci_low": 0.489, "ci_high": 0.499})
+        self.assertEqual(w, 0.0)
+        self.assertFalse(inv, "a 0.495 source is not a 0.505 source wearing a mask")
+
+    def test_a_RELIABLY_wrong_source_is_still_inverted(self):
+        # the guard must not over-correct: a genuinely, significantly wrong source still flips
+        w, inv = self._w({"n": 5000, "rate": 0.40, "ci_low": 0.38, "ci_high": 0.42})
+        self.assertTrue(inv, "a source whose CI is entirely below 0.5 is reliably wrong -> invert")
+        self.assertGreater(w, 0.0)
+
+    def test_a_reliably_right_source_is_never_inverted(self):
+        w, inv = self._w({"n": 5000, "rate": 0.60, "ci_low": 0.58, "ci_high": 0.62})
+        self.assertFalse(inv)
+        self.assertGreater(w, 0.0)
+
+    def test_unproven_small_n_is_not_inverted(self):
+        w, inv = self._w({"n": 5, "rate": 0.20, "ci_low": None, "ci_high": None})
+        self.assertFalse(inv, "small-n must behave like the raw signal, never flipped")

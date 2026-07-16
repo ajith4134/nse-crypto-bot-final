@@ -2335,7 +2335,7 @@ _Continuous learning loop (trading/brain/learn_loop.py) — deterministic unit t
 
 ## `tests/test_learned_direction.py`
 _Tests for trading/direction/learned_direction.py — the learned direction driver._
-- **classes:** LearnedDirectionTest
+- **classes:** LearnedDirectionTest, TestNoiseIsNeverInverted
 - **functions:** `_rel(rate, n, half_ci)`
 - **imports:** trading.direction, unittest
 

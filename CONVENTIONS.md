@@ -173,6 +173,65 @@ A one-line banner of the active rules is shown at the top of every reply:
 
 ---
 
+## 16. EVERY DIRECTION IS EARNED — never a coin flip, never an inversion (owner rule 2026-07-16)
+
+**The owner's words:** *"I need the brain to open trades' direction based on its FACTS, DATA and
+KNOWLEDGE, and every decision calculated and backed with EXPERIENCE and LEARNING — instead of a coin
+flip or inverting."*
+
+- **A trade's side must be the OUTPUT OF EVIDENCE.** It comes from measured, learned structure — the
+  fused inputs, the model, the truth ledger's *proven* sources — and every entry must be able to
+  answer *"what did I know that made this a LONG?"* with a real reading, not a leftover default.
+- **NEVER invert a signal you have not PROVEN is reliably wrong.** *Absence of evidence that a source
+  is right is NOT evidence that its opposite is right.* A source at 0.49 is not a 0.51 source wearing
+  a mask — it is **noise**, and flipping noise produces confident nonsense. Inversion is legitimate
+  ONLY when the whole confidence interval sits below 0.5 **and** the effect clears `min_edge`.
+  Statistically indistinguishable from a coin flip → **IGNORE the source entirely**.
+- **NEVER trade a coin flip.** No side by default, by fallback, by `rate < 0.5`, or "the model was
+  quiet so we went long". **If nothing is proven, ABSTAIN** — no trade is a valid, honest decision;
+  a guessed one is not. (This is why `learned_direction.decide()` abstains rather than forcing a side.)
+- **Underpowered ≠ wrong.** ~260 observations give ~12% power at realistic effect sizes (~540 needed
+  for 80%). A sub-0.5 reading on a few hundred trades is *unresolved*, not *anti-signal*. Treating it
+  as anti-signal is what produced 31 SHORT vs 1 LONG and −112 P&L, shorting coins that rose +13%.
+- **Every decision must be auditable after the fact.** Log what was read, its weight, and why —
+  `decision_snapshot` + `entry_vector` exist for exactly this. A direction you cannot reconstruct
+  from recorded evidence is not knowledge; it is a guess with good PR.
+
+### 16b. A COIN FLIP IS A TRIGGER, NOT AN ANSWER (owner, same day)
+
+*"If anything looks 50/50 or coin-flip, I need you to SUGGEST until we find evidence or fix it and
+find the data-driven answer — so we won't just leave it at that and say 'it is what it is' until we
+solve it. Give me ALL the suggestions and ask me questions."*
+
+**Abstaining is the correct TRADE. It is never the end of the WORK.** Whenever a reading lands at
+~50/50 — a source, a gate, a model, a metric — that is a **red flag to investigate**, not a fact to
+accept:
+- **Say it out loud.** Name the thing that is 50/50 and that it is unresolved. Never bury it.
+- **Never close with "it is what it is."** "The signal is a coin flip" is a *finding*, not a
+  *conclusion*. The conclusion is *why*, and what would change it.
+- **Always produce SUGGESTIONS** — the concrete candidates that could turn noise into evidence:
+  better inputs, a conditioner we never recorded, the wrong horizon, a labeling error, a leak, a
+  power problem (n too small), a regime we pooled across.
+- **Always ask the owner questions** when the next step needs a decision only they can make
+  (what to spend, what to risk, which direction to pursue).
+- **Prefer "we cannot resolve this yet, here is what would" over silence.** An honest unknown with a
+  plan beats a confident guess AND beats a shrug.
+
+**The distinction that matters:** *underpowered* ("we can't tell yet — here's the n we'd need"),
+*unproven* ("measured, no edge found — here's what to try next"), and *proven-wrong* ("CI entirely
+below 0.5 — invert it"). Collapsing the first two into the third is exactly the bug §16 exists to
+prevent, and collapsing them into "shrug" is what this clause exists to prevent.
+
+**WHY (the scar):** an inverter inside `learned_direction._signed_weight` returned `weight 0.0` while
+STILL returning `invert=True` for sources whose CI straddled 0.5 — so the brain flipped pure noise
+into confident shorts. It hid for months behind spot mode (which refuses shorts) and only surfaced
+when the futures segment was repaired. Killed 2026-07-16; pinned by
+`tests/test_learned_direction.py::TestNoiseIsNeverInverted`. The "invertible anti-signal" premise was
+ALREADY falsified as an era artifact ([[direction-premises-falsified-20260716]]) — inversion has now
+failed twice (Mirror Gate, then this). **A third attempt needs proof, not a hunch.**
+
+---
+
 ### Definition of Done for any coding task
 1. Names follow §1; module docstring present.
 2. `INDEX.md` regenerated (§2).

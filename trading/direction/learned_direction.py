@@ -109,9 +109,25 @@ def _signed_weight(rel: dict, cfg: dict) -> tuple[float, bool]:
     elif hi < 0.5:
         edge, invert = 0.5 - rate, True           # reliably WRONG → invert its p_up
     else:
-        return 0.0, (rate < 0.5)                  # CI straddles 0.5 → no significant edge
+        # CI straddles 0.5 → the source is NOT measurably different from a coin flip.
+        # 🚨 KILLED 2026-07-16 (owner: "kill that inverter"): this used to `return 0.0, (rate < 0.5)`
+        # — weight zero but STILL inverting. That flag escapes to the caller, so a source sitting at
+        # 0.4999 by pure noise had its direction FLIPPED. Every live source measured that day was in
+        # exactly this band (river_online 0.4456, filter:momentum 0.4657, funnel_mtf_vote 0.4765,
+        # direction_model 0.4895) and all were underpowered (n~260 → ~12% power; ~540 needed).
+        # Result: the brain FLIPPED NOISE. In a tape where those sources lean long, flipping them
+        # shorts everything — measured live: 31 SHORT vs 1 LONG, -112 P&L, coins that rose +13%
+        # shorted alongside coins that fell -13%. The bias hid for months behind spot mode (which
+        # refuses shorts outright) and only surfaced when futures was fixed.
+        # An unproven source is IGNORED. It is never inverted. Absence of evidence that it is right
+        # is NOT evidence that its opposite is right — that is the coin-flip fallacy this rule bans
+        # (CONVENTIONS §16). See [[direction-premises-falsified-20260716]]: the "invertible
+        # anti-signal" premise was already falsified as an era artifact.
+        return 0.0, False
     if edge < cfg["min_edge"]:
-        return 0.0, invert                        # significant but effect too small → ignore
+        # Significant but the effect is too small to act on → ignore the source ENTIRELY. Do not
+        # invert it either: a 0.49 source is not a 0.51 source wearing a mask.
+        return 0.0, False
     return edge, invert
 
 
