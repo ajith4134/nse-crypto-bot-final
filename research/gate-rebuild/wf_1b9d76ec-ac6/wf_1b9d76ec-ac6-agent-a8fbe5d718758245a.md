@@ -1,3 +1,3 @@
 # Agent agent-a8fbe5d718758245a — wf_1b9d76ec-ac6
 
-The PDF fetch echoed my own prompt numbers back — unreliable. Let me extract the text directly.
+The quote is verbatim in the source. Now the critical question — what is the *unit* of those 34 folds, and does the arithmetic transfer.
