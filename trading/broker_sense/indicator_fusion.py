@@ -474,12 +474,16 @@ def _fuse_uncached(symbol: str, market: str = "crypto",
                     confluence = _clamp(confluence + 0.12 * t, -1.0, 1.0)
                 # accumulate the per-bar REAL order-flow HISTORY (orderflow_store) so the direction
                 # equation trains on true order-flow, not just OHLCV proxies (COVERAGE-AUDIT gap B).
-                if not _cheap:                        # only the deep (non-mirror) read has the fields
-                    try:
-                        from trading.broker_sense import orderflow_store
-                        orderflow_store.snapshot(symbol, market)
-                    except Exception:
-                        pass
+                # 2026-07-16 fix: the old `if not _cheap` gate was unreachable under the default
+                # CRYPTO_UNLIMITED_OPENS=1 — the store had never written a row. Snapshot ALWAYS,
+                # reusing the features already fetched above (cheap-mode rows carry funding/liq;
+                # UI-captured taker/long-short/OI land whenever the app streams them).
+                try:
+                    from trading.broker_sense import orderflow_store
+                    orderflow_store.snapshot(symbol, market,
+                                             feat=(order_flow or {}).get("features"))
+                except Exception:
+                    pass
         except Exception:
             order_flow = None
 

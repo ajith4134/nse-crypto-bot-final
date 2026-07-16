@@ -141,9 +141,42 @@ WIRE/FIX (do first):
 - W9. Confirm "books" learner (pypdf + librarian + self_quiz) output reaches the decision.
 - W10. gen-index (497 stale INDEX entries) + break the direction_equation↔indicator_fusion cycle.
 MODERNIZE (do after wiring, per owner: aggressive):
-- M1. CORTEX underperforms naive baseline (0.495<0.546) → retrain/rebuild (7.5d stale) or replace
+- M1. ✅ DONE 2026-07-12 (commit 27031c8). Replaced CORTEX's fixed hierarchical gate (anti-signal,
+  0.495<0.546) by upgrading the D6 meta_labeler into a STACKING meta-learner over ALL fusion lens
+  outputs (order-flow/VP/YOLO/direction-eq/on-chain/sectors/vision/confluence). Shared
+  lens_features() extractor (no train/serve skew), plumbed record→_append_train→train, funnel emits
+  training signal, executor passes at predict. Self-guarding (only gates once holdout AUC clears).
+  Verified: train AUC 0.645 on synthetic lens signal, 74 direction tests + 2 M1 regression green,
+  live funnel healthy on M1. SUBSUMES M2 (this IS the learned calibrated fusion meta-model).
+- M1(orig). CORTEX underperforms naive baseline (0.495<0.546) → retrain/rebuild (7.5d stale) or replace
       the hierarchical-gate with a stronger learned stacking meta-learner over ALL lens outputs
       (research: stacking > averaging for heterogeneous alphas) — this ALSO subsumes the direction
       accuracy problem (40.3% anti-signal).
 - M2. Replace hand-tuned bounded-tilt fusion with a learned, calibrated stacking meta-model.
 - M3. SOTA hunt for hypothesis engine / strategy generators / order-flow per owner directive.
+
+## PERF THREAD (2026-07-12, commits 0847e4e + 1ab31a7)
+- CORTEX folded into the M1 stack as a learnable feature (f_cortex_side/conf) + executor entry
+  truth-claim now records the FULL feature vector (train/serve aligned). commit 0847e4e.
+- FUNNEL CYCLE too slow (400-540s) → starves fusion/entries → M1 stacking data can't accrue:
+  · FIXED (1ab31a7): LOOK stage fast_candles.read now hard-bounded to its deadline (as_completed
+    + non-blocking shutdown); py-spy-verified time moved off read().
+  · EXECUTE stage FIXED (commit c24eb53): two root causes (cProfile) — (1) data_failsafe._ccxt_ex
+    rebuilt a fresh ccxt per call → load_markets ~1.6s every quote/ohlcv → cached (160ms, 15x);
+    (2) TradeOutcomeNet used TabPFN live (~7s/predict CPU) → TabPFN offline-only, live=gated_moe
+    (1.2s, 6x). RESULT: cycle 538s→255s (~2x), and M1 feature-carrying claims 0→31 (fusion lens
+    features NOW ACCRUE live — the deep-connect goal reached). micro_policy student still empty
+    ("<400 rows") so full tournament still runs — will populate as trades accrue.
+  · _rolling_vp FIXED (commit f3005ca, hot-path): numba @njit kernel (native/rolling_vp) = 1242×
+    (256.9ms→0.21ms), output IDENTICAL. decide() 1.2s→0.54s (~12× vs the original 6.9s TabPFN path).
+  · psychology order-book FIXED (commit d084050): the binance_stream WS mirror now streams 20-level
+    depth for the top-120 movers (BINANCE_DEPTH_N) into RAM; psychology.fetch_snapshot reads it
+    (REST fallback on miss/stale). VERIFIED LIVE: depth_connected=True, symbols_book=120,
+    depth_age_s=0.0; py-spy no longer catches order_book/_apply_psychology; 0 fetch_order_book in log.
+  · RESIDUAL (whack-a-mole continues): main thread now in the STRATEGY FOUNDRY (strategy/backtest +
+    generators — evolution/OOS scoring). Different subsystem (cadence-based breeding, not per-symbol
+    decision) — separate concern. The per-symbol EXECUTE decision path is now offloaded end-to-end
+    (quote✓ TabPFN✓ VP✓ psychology-depth✓).
+- direction_meta.pkl trains 6-hourly (maybe_train in the funnel); real-data AUC 0.487 (<0.55) so
+  the stack stays ADVISORY (honest self-guard) — will improve as feature-carrying claims accrue,
+  which is gated on the EXECUTE fix above.

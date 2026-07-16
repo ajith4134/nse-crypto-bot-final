@@ -539,6 +539,23 @@ class LiveTradeLoop:
         res = ingest_closed(self.journal(), self._crypto_engine)
         if res.get("ingested"):
             self.trades_closed += int(res["ingested"])   # reflect crypto closes in the counters
+        # D1 exit-horizon labels (2026-07-16): backfill_journal() had NO production caller,
+        # so the truth ledger's `exit` bucket froze for 5 days while 3k+ trades closed.
+        # This ingest seam is where closed trades ENTER the journal, so label them here:
+        # after any ingest (throttled), and at worst every 2h even on quiet ticks.
+        try:
+            import os
+            now = time.time()
+            last = float(getattr(self, "_exit_backfill_ts", 0.0) or 0.0)
+            min_gap = float(os.environ.get("EXIT_BACKFILL_MIN_S", "900") or 900)
+            if (res.get("ingested") and now - last >= min_gap) or now - last >= 7200:
+                self._exit_backfill_ts = now
+                from trading.direction import truth_ledger
+                bf = truth_ledger.backfill_journal(journal=self.journal())
+                if bf.get("labeled"):
+                    res["exit_labels"] = bf["labeled"]
+        except Exception:
+            pass                                         # labeling must never break the loop
         return res
 
     # ── Phase E: crypto execution is owned by Freqtrade (retire the home-grown wallet sim) ──

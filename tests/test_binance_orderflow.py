@@ -28,6 +28,16 @@ def _fake_rest(url: str):
 class TestOrderFlow(unittest.TestCase):
     def setUp(self):
         of.clear_cache()
+        # isolate from any REAL captured app data (2026-07-16): ui_market hydrates its store
+        # from the live snapshot file, which flips features() source to 'ui:capture' — this
+        # suite tests the mirror+REST path, so the capture store must be empty and stay empty.
+        from trading.broker_sense import ui_market
+        ui_market._STORE.clear()
+        ui_market._LIQS.clear()
+        self._hyd = mock.patch.object(ui_market, "_hydrate_from_snapshot", lambda: None)
+        self._hyd.start()
+        self.addCleanup(self._hyd.stop)
+        self.addCleanup(ui_market._STORE.clear)
         # seed the mirror with a funding + two liquidations for BTCUSDT
         m = get_mirror()
         m._mark["BTCUSDT"] = {"mark": 64000.0, "funding_rate": 0.0001,

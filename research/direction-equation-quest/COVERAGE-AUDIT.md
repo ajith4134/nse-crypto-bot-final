@@ -85,3 +85,17 @@ Mirror-Gate self-correcting + reevolve daemon. ~45 tests. Commits 750bb82/6058d1
   behind a flag (like nav_brain).
 - **Still open (honest, external-data infra):** GAP-B/A(b) true book-OFI/GOFI = per-bar HISTORICAL
   order-flow series (stream+store); GAP-C per-bar on-chain history for equation training.
+
+## 2026-07-16 (Fable-5 Input Hunt) — GAP-B/A(b) CAPTURE CLOSED
+- **True L2-book OFI/GOFI now computed + stored ✅** — `trading/broker_sense/book_ofi.py`: per-level
+  CKS OFI + depth-normalized exp-weighted GOFI + OBI/microprice/spread per 60s bar, from the app's
+  own depth stream (ui_market ingest hook), appended to `trading/state/orderflow/<SYM>.jsonl`;
+  spliced into `features_bus` via `orderflow_store.join_features` (of_ofi/of_ofi_n/of_gofi_book/
+  of_obi/of_microdev_bp/of_spread_bp). 6 tests. **Accumulation starts on the next funnel restart**
+  (the stream pump lives in the funnel processes).
+- **orderflow_store dead pipe fixed ✅** — its snapshot() call sat behind `not _cheap` which the
+  default CRYPTO_UNLIMITED_OPENS=1 made unreachable; the store had NEVER written a row. Now
+  snapshots always, reusing the fused features.
+- **Ceiling re-confirmed:** LightGBM on the full M1 decision-time stack, chrono OOS: AUC **0.497**
+  (5,500 rows). Details: `INPUT-HUNT-20260716.md`. Equation re-search should wait ~3-5 days of
+  book-bar accumulation, then run with purged CPCV on the (now unfrozen) truth ledger.

@@ -1,5 +1,15 @@
 # Direction-Equation Quest — research synthesis + build plan (2026-07-11)
 
+> ## ⚠️ BASELINE CORRECTED 2026-07-16 — re-measured on 100,774 live labels
+> The "47% agg / 55% 4h / 37% exit" baseline this plan cites is stale: **4h = 0.502 (n=19,591) — the
+> 55% edge did not survive more data**; the 37% exit figure came from a frozen bucket (its writer had
+> no production caller — fixed 2026-07-16; the missing 5 days score 0.516). Any horizon-conditioning
+> argument below that leans on "our 4h edge is real" must be re-read as "no horizon currently shows
+> an edge". The research ranking itself (OFI/GOFI as #1/#2 drivers, still uncollected) is UNAFFECTED
+> and remains the most concrete lead. Inversion ("invert flag") is now known not to pay: bucket
+> accuracies are non-stationary (persistence corr −0.214); see
+> `research/audits/measurement-rebuild-20260716.md`.
+
 Deep research: 109 agents, adversarially verified, cited (raw: deep-research-raw.json). Answers the
 owner's quest (requirements: REQUIREMENTS.md). Grounded in our measured baseline (47% agg / 55% 4h /
 37% exit — direction-accuracy-diagnosis-2026-07-11.md).

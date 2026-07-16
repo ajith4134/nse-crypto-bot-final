@@ -1,5 +1,27 @@
 # Direction-accuracy diagnosis (2026-07-11) — owner: "direction decider is not reliable"
 
+> ## ⚠️ CORRECTED 2026-07-16 — the key claims below were RE-MEASURED and are FALSE. Do not build on them.
+>
+> Re-measured against the live ledger (100,774 labels) on 2026-07-16 (Fable-5 measurement rebuild;
+> full evidence: `research/audits/measurement-rebuild-20260716.md`):
+>
+> 1. **The "4h = 55.2% GENUINE EDGE" is gone.** With 6.7× more data, 4h = **0.502** (n=19,591) — a
+>    coin-flip. Every recommendation below that says "bias to the 4h horizon" rests on a number that
+>    did not survive out-of-sample.
+> 2. **The "exit = 36.5% STRONG ANTI-SIGNAL" was measured on FROZEN data.** The exit labels' only
+>    writer (`backfill_journal`) had no production caller; the bucket sat at n=3,459 for 5 days while
+>    3,244 trades closed. After fixing the wedge and backfilling (2026-07-16): exit-sign accuracy on
+>    the missing 5 days = **0.516** — the "exit destroys good calls" era ended around 7/11.
+> 3. **Inversion does not work** (the Mirror Gate premise). Controlled paired analysis: on the exact
+>    samples the gate inverted, the raw source would have scored 0.638/0.672/0.656 (z=+4.1/+3.6/+3.0
+>    vs its trigger bucket) — bucket accuracies are non-stationary (chrono split-half persistence
+>    corr = **−0.214** across 39 cells), so "reliably wrong" sources revert before the flip pays.
+>    MIRROR_GATE=0 set 2026-07-16.
+> 4. Current honest state: predictors are coin-flips at every horizon (0.488/0.494/0.503); crypto
+>    realized sign-accuracy since 7/11 = **0.523** (n=3,282, Wilson-low 0.505) with net P&L ≈
+>    breakeven-to-positive (+17.8k USDT, but +30k of it in 2 outlier wins). The bottleneck is
+>    decision-time INPUTS (see the Input Hunt), not exits, not sign errors.
+
 Measured from the Truth Ledger (Pillar 27), **n = 12,886 resolved directional labels**. The owner is
 right: the direction predictor is unreliable — but the data shows it's specific, not uniform.
 

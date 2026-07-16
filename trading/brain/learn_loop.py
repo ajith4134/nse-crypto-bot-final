@@ -281,6 +281,23 @@ class LearnLoop:
                 st["last_truth_catchup"] = {"ts": time.time(), **tr}
         except Exception:
             pass
+        # Exit-label SAFETY NET (2026-07-16): the primary exit-horizon labeler runs at the
+        # live-loop ingest seam, but if that process dies the `exit` bucket silently freezes
+        # again (it sat at n=3,459 for 5 days once). Idempotent + flock-guarded, so this
+        # redundant time-gated pass costs one journal read per interval and can never
+        # double-count. Gate: TRUTH_EXIT_BACKFILL_INTERVAL_H (default 6h).
+        try:
+            last_bf = float(st.get("last_exit_backfill", {}).get("ts", 0) or 0)
+            if time.time() - last_bf > \
+                    float(os.environ.get("TRUTH_EXIT_BACKFILL_INTERVAL_H", 6)) * 3600:
+                from trading.direction import truth_ledger as _tlb
+                bf = _tlb.backfill_journal()
+                if not bf.get("locked"):
+                    st["last_exit_backfill"] = {"ts": time.time(),
+                                                "labeled": bf.get("labeled", 0),
+                                                "scanned": bf.get("scanned", 0)}
+        except Exception:
+            pass
         # Direction model tick (proposal B): retrain the direction-aware GBM on the truth
         # ledger's resolved outcomes so it sharpens as microstructure-featured examples
         # accumulate. Time-gated to BRAIN_DIRMODEL_INTERVAL_H (default 6h); CPU-only.

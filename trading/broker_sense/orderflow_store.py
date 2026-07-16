@@ -62,18 +62,22 @@ def _extract(feat: dict) -> dict:
     }
 
 
-def snapshot(symbol: str, market: str = "crypto") -> dict | None:
+def snapshot(symbol: str, market: str = "crypto", feat: dict | None = None) -> dict | None:
     """Snapshot the live order-flow for `symbol` and append it to the per-bar store (deduped per bar).
-    Returns the record, or None when order-flow is unavailable. Never raises."""
+    Returns the record, or None when order-flow is unavailable. Never raises.
+    `feat` accepts an already-fetched binance_orderflow.features() dict so the fusion hot path
+    never pays a second fetch (2026-07-16: the old call sat behind a `not _cheap` gate that the
+    default CRYPTO_UNLIMITED_OPENS=1 made unreachable — this store had NEVER written a row)."""
     if market != "crypto":
         return None
-    try:
-        from trading.broker_sense import binance_orderflow as of
-        if not of.enabled():
+    if feat is None:
+        try:
+            from trading.broker_sense import binance_orderflow as of
+            if not of.enabled():
+                return None
+            feat = of.features(symbol)
+        except Exception:
             return None
-        feat = of.features(symbol)
-    except Exception:
-        return None
     if not feat:
         return None
     rec = _extract(feat)
@@ -123,9 +127,6 @@ def join_features(feats, symbol: str, *, ts_col: str | None = None):
     `feats` must have a timestamp column (or a DatetimeIndex); returns feats unchanged on any miss."""
     try:
         import pandas as pd
-        of = series(symbol)
-        if of is None or of.empty:
-            return feats
         # find the feature frame's per-row epoch seconds
         if ts_col and ts_col in feats.columns:
             fts = feats[ts_col].astype("int64")
@@ -135,14 +136,36 @@ def join_features(feats, symbol: str, *, ts_col: str | None = None):
             left_ts = feats.index
         else:
             return feats                              # no timestamp to align on → leave as-is
-        left = feats.copy()
-        left["_ts"] = pd.to_datetime(left_ts).values
-        of = of.copy()
-        of["_ts"] = pd.to_datetime(of["ts"].astype("int64"), unit="s")
-        merged = pd.merge_asof(left.sort_values("_ts"), of[["_ts", *_FIELDS]].sort_values("_ts"),
-                               on="_ts", direction="backward")
+        merged = feats.copy()
+        merged["_ts"] = pd.to_datetime(left_ts).values
+        orig_index = feats.index
+        did = False
+        of = series(symbol)
+        if of is not None and not of.empty:
+            of = of.copy()
+            of["_ts"] = pd.to_datetime(of["ts"].astype("int64"), unit="s")
+            merged = pd.merge_asof(merged.sort_values("_ts"),
+                                   of[["_ts", *_FIELDS]].sort_values("_ts"),
+                                   on="_ts", direction="backward")
+            did = True
+        # TRUE L2-book OFI/GOFI history (book_ofi, 2026-07-16) — the research's #1/#2 ranked
+        # drivers, computed from the app's own depth stream and spliced on the same timestamps.
+        try:
+            from trading.broker_sense import book_ofi
+            bk = book_ofi.series(symbol)
+            if bk is not None and not bk.empty:
+                bk = bk.copy()
+                bk["_ts"] = pd.to_datetime(bk["ts"].astype("int64"), unit="s")
+                merged = pd.merge_asof(merged.sort_values("_ts"),
+                                       bk[["_ts", *book_ofi.BOOK_FIELDS]].sort_values("_ts"),
+                                       on="_ts", direction="backward")
+                did = True
+        except Exception:
+            pass
+        if not did:
+            return feats
         merged = merged.drop(columns=["_ts"])
-        merged.index = feats.index
+        merged.index = orig_index
         return merged
     except Exception:
         return feats

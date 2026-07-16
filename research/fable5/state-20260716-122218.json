@@ -1,0 +1,293 @@
+{
+  "generated_at": "2026-07-16T12:20:01",
+  "repo": "/home/karan18190164",
+  "scale": {
+    "project_py_modules": 914,
+    "project_py_lines": 160714,
+    "project_md_files": 8465,
+    "test_files": 223,
+    "vendored_oss": 36,
+    "neurons": 7170,
+    "commits": 290,
+    "branch": "feat/trading-t8"
+  },
+  "direction_truth_MEASURED": {
+    "status": "measured",
+    "updated": 1784204405.0005367,
+    "buckets": 536,
+    "total_labels": 111426,
+    "overall_acc": 0.4922,
+    "by_horizon": {
+      "15m": {
+        "n": 42826,
+        "acc": 0.4887
+      },
+      "1h": {
+        "n": 38200,
+        "acc": 0.4952
+      },
+      "4h": {
+        "n": 23099,
+        "acc": 0.5092
+      },
+      "exit": {
+        "n": 7301,
+        "acc": 0.4427
+      }
+    },
+    "top_sources": {
+      "dir_exit": {
+        "n": 25191,
+        "acc": 0.497
+      },
+      "funnel_mtf_vote": {
+        "n": 18926,
+        "acc": 0.4765
+      },
+      "symbol_move_net": {
+        "n": 9208,
+        "acc": 0.5094
+      },
+      "unknown": {
+        "n": 6788,
+        "acc": 0.4844
+      },
+      "learned_direction": {
+        "n": 6078,
+        "acc": 0.5235
+      },
+      "river_online": {
+        "n": 5949,
+        "acc": 0.4456
+      },
+      "indicator_fusion": {
+        "n": 5650,
+        "acc": 0.5042
+      },
+      "direction_equation": {
+        "n": 4557,
+        "acc": 0.5267
+      },
+      "explore_open_all": {
+        "n": 3905,
+        "acc": 0.5017
+      },
+      "filter:momentum": {
+        "n": 2592,
+        "acc": 0.4657
+      },
+      "strategy_library": {
+        "n": 2493,
+        "acc": 0.5142
+      },
+      "filter:funding": {
+        "n": 2376,
+        "acc": 0.4983
+      },
+      "direction_model": {
+        "n": 2102,
+        "acc": 0.4895
+      },
+      "hypothesis": {
+        "n": 1808,
+        "acc": 0.4934
+      },
+      "mtf_agree": {
+        "n": 1766,
+        "acc": 0.4904
+      }
+    },
+    "mtime_age_h": 0.0
+  },
+  "frozen_label_check": {
+    "backfill_journal": {
+      "real_callers": [
+        "tests/test_truth_ledger.py:144",
+        "tests/test_truth_ledger.py:152",
+        "tests/test_truth_ledger.py:174",
+        "tests/test_truth_ledger.py:186",
+        "trading/online/live_loop.py:554",
+        "trading/brain/learn_loop.py:294"
+      ],
+      "docstring_mentions_ignored": [
+        "trading/online/live_loop.py:542",
+        "trading/direction/truth_ledger.py:24",
+        "trading/direction/truth_ledger.py:434"
+      ],
+      "production_callers": [
+        "trading/online/live_loop.py:554",
+        "trading/brain/learn_loop.py:294"
+      ],
+      "WEDGED": false,
+      "note": ""
+    }
+  },
+  "closed_trades": {
+    "status": "measured",
+    "closed_total": 5072,
+    "closed_last_5d": 3235
+  },
+  "index_health": {
+    "status": "measured",
+    "entries": 1018,
+    "index_age_days": 0.03,
+    "noise_entries": 94,
+    "noise_pct": 9.2,
+    "noise_examples": [
+      ".cache/huggingface/hub/models--Maple728--TimeMoE-50M/.no_exist/446753ee48ff3726d0606a81d0092d54acee995e/custom_generate/generate.py",
+      ".cache/huggingface/hub/models--Maple728--TimeMoE-50M/snapshots/446753ee48ff3726d0606a81d0092d54acee995e/configuration_time_moe.py",
+      ".cache/huggingface/hub/models--Maple728--TimeMoE-50M/snapshots/446753ee48ff3726d0606a81d0092d54acee995e/modeling_time_moe.py"
+    ],
+    "missing_from_disk": 0,
+    "undocumented_modules": 2,
+    "undocumented_examples": [
+      ".pytensor/compiledir_Linux-6.12-cloud-amd64-x86_64-with-glibc2.41--3.13.5-64/__init__.py",
+      ".pytensor/compiledir_Linux-6.12-cloud-amd64-x86_64-with-glibc2.41--3.13.5-64/lazylinker_ext/__init__.py"
+    ],
+    "content_staleness": "not measured here \u2014 see research/audits/independent-audit-*.md",
+    "verdict": "POLLUTED \u2014 indexes non-project files; do not trust blindly"
+  },
+  "stalest_docs": [
+    {
+      "doc": "research/t8-strategy-evolution-oss.md",
+      "age_days": 17.8
+    },
+    {
+      "doc": "research/t8-experience-intelligence-oss.md",
+      "age_days": 17.8
+    },
+    {
+      "doc": "research/t8-brain-ultra-features-oss.md",
+      "age_days": 17.8
+    },
+    {
+      "doc": "research/README.md",
+      "age_days": 17.6
+    },
+    {
+      "doc": "research/online-editable-paper-money-engine.md",
+      "age_days": 17.6
+    },
+    {
+      "doc": "research/online-market-toggles-paper-real-switch.md",
+      "age_days": 17.6
+    },
+    {
+      "doc": "research/online-alwayson-loop-and-features.md",
+      "age_days": 17.6
+    },
+    {
+      "doc": "research/online-nse-offhours-paper-trading.md",
+      "age_days": 17.6
+    },
+    {
+      "doc": "research/trailing-exit-systems.md",
+      "age_days": 17.2
+    },
+    {
+      "doc": "research/position-sizing-ai.md",
+      "age_days": 17.2
+    },
+    {
+      "doc": "research/crypto-filters-screeners.md",
+      "age_days": 17.2
+    },
+    {
+      "doc": "research/nse-filters-screeners.md",
+      "age_days": 17.2
+    }
+  ],
+  "shadow_flags": {
+    "flags_referenced": {
+      "DIR_EXIT": [
+        "tests/test_dir_exit.py",
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/online/live_loop.py",
+        "trading/direction/dir_exit.py"
+      ],
+      "INSTRUCTION_APPLY_TILT": [
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/broker_sense/indicator_fusion.py",
+        "trading/brain/self_evaluation.py"
+      ],
+      "CORTEX_SIGNAL": [
+        "tests/test_cortex_b8.py",
+        "core/system_map.py",
+        "trading/cortex_signal.py",
+        ".claude/skills/fable5-prompts/fable5_snapshot.py"
+      ],
+      "UI_ONLY_DATA": [
+        "tests/test_ui_only_data.py",
+        "tests/test_ui_market_motto.py",
+        "tests/test_nse_ram_first_reads.py",
+        "tests/test_nse_ui_only.py"
+      ],
+      "SYMBOL_MOVE_NET": [
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/brain/symbol_move_net.py"
+      ],
+      "DIRECTION_MODEL": [
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/direction/direction_model.py"
+      ],
+      "STRATEGY_EVOLUTION_ENABLED": [
+        "tests/test_self_evolve.py",
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/strategy/evolve.py",
+        "trading/strategy/control.py"
+      ],
+      "REFLEX_LANE": [
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/broker_sense/run_funnel_loop.py",
+        "trading/direction/reflex.py"
+      ],
+      "MICRO_COLLECT": [
+        "tests/test_micro_collect.py",
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/broker_sense/micro_collect.py"
+      ],
+      "META_ENGINE": [
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/direction/meta_challenger.py",
+        "trading/direction/learned_direction.py"
+      ],
+      "STEALTH_BROWSER": [
+        "memory/neuron_web.py",
+        "tests/test_browser_launch.py",
+        ".claude/skills/fable5-prompts/fable5_snapshot.py",
+        "trading/broker_sense/sessions.py"
+      ]
+    },
+    "flags_set_in_env": {}
+  },
+  "loops": {
+    "status": "measured",
+    "live_processes": [
+      "1595 33.5     794 /home/karan18190164/.venv/bin/python /home/karan18190164/.venv/bin/freqtrade trade --config /home/karan18190164/trading/crypto/freqtrade/config.json --strategy MlBridgeStrategy --userdir /home/karan18190164/trading/crypto/freqtrade/user_data",
+      "1618 89.6     794 .venv/bin/python -m trading.broker_sense.run_funnel_loop crypto",
+      "1619 45.1     794 .venv/bin/python -m trading.online.run_live_loop",
+      "1621 23.8     794 .venv/bin/python -m trading.crypto.freqtrade.run_micro_distill",
+      "1623  9.6     794 .venv/bin/python -m trading.strategy.run_autoresearch",
+      "1626 12.9     794 .venv/bin/python -m trading.crypto.freqtrade.run_strategy_table",
+      "1629  107     794 .venv/bin/python dashboard/server.py 8000",
+      "1631 24.2     794 .venv/bin/python -m trading.broker_sense.run_funnel_loop nse"
+    ]
+  },
+  "recent_commits": [
+    "5c50ca6 Serve the public URL directly off this VM (free Let's Encrypt HTTPS) \u2014 no tunnel, no cap, no rotation",
+    "835e0bb Stream ALREADY-HELD F&O contracts on funnel start (not just newly-placed ones)",
+    "ed5af63 Publish the STABLE tunnel URL + stream held F&O contracts so positionbook stops hammering Zerodha",
+    "0b55a4c NSE options execution: direction \u2192 nearest-weekly ATM/OTM CE\u00b7PE, always BUY (defined risk)",
+    "83f17e3 NSE funnel honors active segments + trades NSE futures (was silently no-op on futures-only config)",
+    "573f556 NSE mirror: seed 1h/1d + make cycle timing name its own hog (execute/crawl were invisible)",
+    "7b27669 NSE mirror: one-shot OpenAlgo history backfill on start \u2014 the reason NSE opened zero trades",
+    "4dfdc50 NSE data: Zerodha in-RAM mirror off OpenAlgo's WS + stop crypto symbols leaking into the NSE funnel",
+    "60cd2f1 Web of Neurons: animated kind-clustered canvas (real data, no demo)",
+    "bb65847 Tournament: TOURNAMENT_MAX_STRATS cap so the per-coin strategy_table fills coverage fast",
+    "cec38b9 Trades: NN column = Symbol-Move Net move%+p_up, smart-exit intelligence, computer-use wedge fix",
+    "25ffe2a Brain: turn advisory/orphan lenses into truth-ledger-weighted trade sources + fix blocking infra",
+    "b6d24ec Filter column: read the preset from the entry-meta sidecar (enter_tag is the direction source)",
+    "cf7d91c Add separate Filter column to the trades table (owner 2026-07-13)",
+    "af1418f Fix options hollow_book: read the Binance eapi book, not Deribit"
+  ]
+}

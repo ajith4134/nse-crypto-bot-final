@@ -29,3 +29,13 @@ Grounded: 831 modules, 135 deps, 37 vendored OSS. Audit 20260713-054103.
 
 ## Recommendation
 Do **A → B → C** in sequence (direction is the owner's repeated pain + highest ROI): A makes it *transparent & measurable*, B makes it *accurate*, C feeds it *better breadth*. D/E/F follow.
+
+## STATUS 2026-07-13 — ALL SHIPPED
+- A Direction X-Ray — DONE (d82fe60)
+- B Direction-aware model — DONE (bc15d1e) + microstructure capture feed (f0097bb)
+- C All filters/screeners as sources + collect-every-trade — DONE (7bc9250, 4646f76)
+- D Mission Control cockpit — DONE (ef054c3)
+- E Debate contests direction & drives trades — DONE (34b6323)
+- F Brain in every UI trade (follow proven routes + consult k=6) — DONE (49f016d)
+Every direction driver (filters, microstructure model, debate) flows through one measured,
+truth-ledger-weighted decider, fully transparent in the Direction X-Ray.

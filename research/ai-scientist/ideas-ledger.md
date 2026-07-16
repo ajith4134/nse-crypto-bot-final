@@ -222,10 +222,17 @@ default pending soak; E5 FORK.md landed. BN-U2/U3 remain proposed (owner picked 
 
 ## 2026-07-10 — DIRECTION ACCURACY PROGRAM (owner order: "correct direction every time or close"; plan research/direction-accuracy-program/PLAN.md)
 Ground truth: 1,665 closed crypto trades = 40.3% direction-correct (conf≈1.0 bucket: 29%) → systematic ANTI-signal, exploitable by inversion.
+> **⚠️ CORRECTED 2026-07-16:** the "ANTI-signal exploitable by inversion" reading is FALSIFIED
+> (evidence: `research/audits/measurement-rebuild-20260716.md`). Predictors are coin-flips
+> (0.488 on 100k labels), not anti-signals; the 40.3% was era-bound (crypto realized since 7/11
+> = 0.523, n=3,282); paired analysis shows inversion flips reverted winners (implied raw-on-gate-samples
+> 0.64–0.67, persistence corr −0.214); conf≈1.0 bucket is now 0.498, not 29% (still miscalibrated:
+> low-conf 0.568 beats high-conf). D2 Mirror Gate RETIRED (MIRROR_GATE=0, 2026-07-16). D3–D6 remain
+> valid ideas but must not cite inversion or the 4h edge as justification.
 | id | idea | type | status |
 |----|------|------|--------|
 | DA-D1 | Direction Truth Ledger — fixed-horizon direction outcomes for every decision (taken + skipped), per source×regime×horizon hit-rates w/ Wilson CI; backfill 1,665 trades | new | done 2026-07-10 — truth_ledger.py, 11,067 labels/127 buckets, panel + API live; found SHORTs 63%@4h destroyed by exits |
-| DA-D2 | Mirror Gate — invert reliably-wrong (CI<45%) direction buckets, abstain 45-55%; turns measured 29-40% buckets into 60-71% with zero new data | new | done 2026-07-10 — mirror_gate.py wired at 3 entry sites; CI-conservative, arms as buckets tighten |
+| DA-D2 | Mirror Gate — invert reliably-wrong (CI<45%) direction buckets, abstain 45-55%; turns measured 29-40% buckets into 60-71% with zero new data | new | **RETIRED 2026-07-16** — paired experiment falsified the premise (inversion flips reverted winners; persistence corr −0.214); MIRROR_GATE=0. Was: done 2026-07-10, wired at 3 entry sites |
 | DA-D3 | Pullback entry — require k×ATR retrace after verdict before entry (<15m holds are 34.9% correct = entries at local extremes) | replace (immediate market entry) | proposed |
 | DA-D4 | Microstructure direction features — cross-venue lead-lag gap (multi-venue pool), OFI/microprice, funding snap, multi-TF agreement | new | proposed |
 | DA-D5 | Regime-conditional direction — momentum sign only in trend regime, reversion sign in chop, abstain at transitions (BOCD/HMM exist) | replace (regime-blind decide) | proposed |

@@ -158,6 +158,38 @@ class TestBackfill(_Iso):
         for k in ("enabled", "pending", "rollups", "worst_sources", "honest_note"):
             self.assertIn(k, s)
 
+    def test_backfill_accepts_preloaded_journal(self):
+        # the live-loop ingest seam passes its already-loaded TradeJournal (2026-07-16
+        # fix: backfill had no production caller and the exit horizon froze for 5 days)
+        entry_iso = __import__("datetime").datetime.fromtimestamp(
+            int(time.time()) - 3600, tz=__import__("datetime").timezone.utc).isoformat()
+        state.save_json("journal.json", [
+            {"symbol": "ETH/USDT:USDT", "direction": "LONG", "entry_price": 10.0,
+             "exit_price": 11.0, "entry_datetime": entry_iso,
+             "exit_datetime": entry_iso, "quantity": 1, "exchange": "binance",
+             "decision_snapshot": {"strategy": "s1", "segment": "futures",
+                                   "regime": "trend"}},
+        ])
+        from trading.journal.journal import TradeJournal
+        rep = self.tl.backfill_journal(journal=TradeJournal())
+        self.assertEqual(rep["scanned"], 1)
+        rows = {(r["source"], r["horizon"]): r for r in self.tl.hit_rates()}
+        self.assertEqual(rows[("s1", "exit")]["correct"], 1)   # exited higher, LONG
+
+    def test_backfill_concurrent_caller_returns_locked(self):
+        import fcntl
+        lock_p = Path(state.STATE_DIR) / "direction_truth_backfill.lock"
+        lock_p.parent.mkdir(parents=True, exist_ok=True)
+        holder = open(lock_p, "w")
+        try:
+            fcntl.flock(holder, fcntl.LOCK_EX)
+            rep = self.tl.backfill_journal()
+            self.assertTrue(rep.get("locked"))
+            self.assertEqual(rep["scanned"], 0)
+        finally:
+            fcntl.flock(holder, fcntl.LOCK_UN)
+            holder.close()
+
 
 if __name__ == "__main__":
     unittest.main()

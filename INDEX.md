@@ -1781,6 +1781,12 @@ _tests/test_binance_stream.py — Binance all-market in-RAM mirror._
 - **functions:** `_mark_frame(rows)`; `_ticker_frame(rows)`; `_liq_frame(sym, side, qty, price, ts_ms)`
 - **imports:** os, time, trading.broker_sense.binance_stream, unittest
 
+## `tests/test_book_ofi.py`
+_Tests for trading/broker_sense/book_ofi.py — TRUE L2 OFI/GOFI per-bar history (gap B)._
+- **classes:** _Iso, TestOfiMath, TestSeriesAndJoin, TestStoreSnapshotFeatParam
+- **functions:** `_snap(bid, bq, ask, aq, bids, asks)`
+- **imports:** json, pathlib, tempfile, trading.state, unittest
+
 ## `tests/test_boss_command.py`
 _Boss command engine (trading/brain/boss.py) + mind-event bus (mind_events.py) + R&D drive_
 - **classes:** _IsolatedState, TestMindEvents, TestDeterministicParser, TestDirectivesAndPolicy, TestRnd, TestChatRouting
@@ -3549,6 +3555,11 @@ _trading/broker_sense/book_monitor.py — non-invasive screen-mirror order-book 
 - **functions:** `_shot_dir()`
 - **imports:** __future__, hashlib, os, re, time, trading, trading.broker_sense, trading.broker_sense.brokers
 
+## `trading/broker_sense/book_ofi.py`
+_trading/broker_sense/book_ofi.py — TRUE L2-book OFI/GOFI per-bar history (COVERAGE-AUDIT gap B)._
+- **functions:** `enabled() -> bool`; `_bar_s() -> int`; `_levels() -> int`; `_dir() -> Path`; `_path(sym) -> Path`; `_level_ofi(pb, qb, pb0, qb0, pa, qa, pa0, qa0) -> float`; `_new_acc(bar) -> dict`; `_fold_event(a, rec, ts) -> None`; `_finalize(sym, a) -> dict | None`; `_append(sym, row) -> None`; `on_book(symbol, rec, ts) -> None`; `_candidates(symbol) -> list[str]`; `series(symbol, bar_s)`; `status() -> dict`
+- **imports:** __future__, json, math, os, pathlib, threading, time, trading
+
 ## `trading/broker_sense/broker_features.py`
 _trading/broker_sense/broker_features.py — USE the broker apps' OWN built-in pickers._
 - **classes:** FeaturePerf
@@ -3710,7 +3721,7 @@ _trading/broker_sense/ocular_perception.py — the funnel's NEW eyes (Phase-2 de
 
 ## `trading/broker_sense/orderflow_store.py`
 _trading/broker_sense/orderflow_store.py — per-bar REAL order-flow history store (COVERAGE-AUDIT_
-- **functions:** `_bar(ts) -> int`; `_extract(feat) -> dict`; `snapshot(symbol, market) -> dict | None`; `snapshot_all(symbols, market) -> int`; `series(symbol)`; `join_features(feats, symbol)`
+- **functions:** `_bar(ts) -> int`; `_extract(feat) -> dict`; `snapshot(symbol, market, feat) -> dict | None`; `snapshot_all(symbols, market) -> int`; `series(symbol)`; `join_features(feats, symbol)`
 - **imports:** __future__, time, trading
 
 ## `trading/broker_sense/run_account_watchlist.py`

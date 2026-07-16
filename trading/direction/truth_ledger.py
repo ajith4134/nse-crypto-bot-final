@@ -431,14 +431,39 @@ def _parse_dt(s: str) -> float | None:
         return None
 
 
-def backfill_journal(limit: int | None = None) -> dict:
+def backfill_journal(limit: int | None = None, journal=None) -> dict:
     """Label every closed journal trade not yet seen: the entry→exit price sign is the
     'exit' horizon (always available); fixed horizons come from local feathers where
     the data exists. Missing candle data is COUNTED (no_data), never faked. Safe to
-    re-run: seen ids persist."""
+    re-run: seen ids persist. flock-guarded: the live-loop ingest seam AND the learn-loop
+    safety net both call this continuously (the exit horizon froze for 5 days when this
+    had no production caller, found 2026-07-16) — concurrent runs must never double-fold
+    the same unseen trade, so a second caller returns immediately with locked=True.
+    `journal` accepts an already-loaded TradeJournal to skip re-reading the 50MB+ file."""
     rep = {"scanned": 0, "labeled": 0, "no_data": 0, "skipped_seen": 0}
-    from trading.journal.journal import TradeJournal
-    trades = [t.to_dict() for t in TradeJournal().trades]
+    lock_p = Path(state.STATE_DIR) / "direction_truth_backfill.lock"
+    lock_p.parent.mkdir(parents=True, exist_ok=True)
+    lock = open(lock_p, "w")
+    try:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            rep["locked"] = True                    # another process is mid-backfill
+            return rep
+        return _backfill_journal_locked(rep, limit, journal)
+    finally:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        lock.close()
+
+
+def _backfill_journal_locked(rep: dict, limit: int | None, journal) -> dict:
+    if journal is None:
+        from trading.journal.journal import TradeJournal
+        journal = TradeJournal()
+    trades = [t.to_dict() for t in journal.trades]
     if limit:
         trades = trades[-limit:]
     seen: set = set(state.load_json(_SEEN, {}).get("ids") or [])

@@ -314,6 +314,15 @@ def feed_capture(broker: str, kind: str, url: str, body) -> int:
                 _STORE[(k, sym)] = {"data": rec, "ts": time.time(),
                                     "url": (url or "")[:160], "broker": broker}
                 stored += 1
+                if k == "orderbook":
+                    # TRUE L2 OFI/GOFI history (book_ofi, 2026-07-16): every book snapshot
+                    # from the app's own stream feeds the per-bar order-flow accumulator —
+                    # the #1/#2 ranked direction drivers were never computed before this.
+                    try:
+                        from trading.broker_sense import book_ofi
+                        book_ofi.on_book(sym, rec)
+                    except Exception:
+                        pass
         elif kind in _RAW_KINDS:
             sym = _norm_symbol(_url_symbol(url) or
                                (_event_symbol(d) if isinstance(d, dict) else "") or "*")

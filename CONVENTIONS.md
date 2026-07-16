@@ -149,6 +149,30 @@ A one-line banner of the active rules is shown at the top of every reply:
 
 ---
 
+## 15. NO SHADOW ON PAPER (load-bearing, owner rule 2026-07-16)
+- **Never implement — and never even SUGGEST — a "shadow", advisory-only, observe-only,
+  dry-run-within-dry-run, or flag-gated-OFF variant of anything on the PAPER path.**
+  Do not offer it as an option, a "safe first step", a phase 1, or a compromise.
+  The owner has ruled it out; re-proposing it is itself the violation.
+- **Why:** paper (Freqtrade `dry_run`) IS the experiment and the sandbox. There is no
+  capital to protect, so shadowing it is shadow-on-shadow — zero safety bought, pure
+  redundancy. It is also **dishonest measurement**: a shadow vote is graded on prediction
+  alone, so it never faces entry timing, exit timing, fees, or slippage — exactly where this
+  brain loses (measured 2026-07-16: exit horizon **0.4427** vs 0.4887–0.5092 on clock
+  horizons). Shadow grades the half that already looks fine and skips the broken half.
+- **Instead:** on paper, wire it to ACTUALLY TRADE and judge it on realized P&L.
+  **Full access for experimenting** — any size, any risk, any lens; a blown-up paper
+  account is training data, not a failure. Never ask permission to take paper risk.
+- **The one hard requirement in the lab:** every outcome (win or wipeout) MUST be logged and
+  fed back — journal, truth ledger, hypothesis ledger. An unlogged blowup teaches nothing.
+- **Real limits still apply:** no real money, no real keys, no `.env`/`config.json` secrets
+  (§7), keep the crypto↔NSE market-isolation boundary, and never restart production loops
+  (owner action).
+- **Shadow/flag-gating stays CORRECT for real-money paths only.** The mistake this rule
+  bans is importing LIVE-mode caution into the lab (see `/money-lens` PAPER vs LIVE).
+
+---
+
 ### Definition of Done for any coding task
 1. Names follow §1; module docstring present.
 2. `INDEX.md` regenerated (§2).
@@ -159,3 +183,5 @@ A one-line banner of the active rules is shown at the top of every reply:
 7. No secrets touched tracked files (§7).
 8. Every "it works / passes / fixed" claim was VERIFIED first-hand (§11), not taken on trust.
 9. Nothing skipped except GPU-only (§13); extra data downloaded when a node needs it.
+10. Nothing on the paper path is shadow/advisory/flag-gated-off (§15) — it trades for real on
+    paper and every outcome is logged back to the learning stores.
