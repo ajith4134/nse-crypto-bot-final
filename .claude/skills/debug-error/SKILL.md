@@ -41,6 +41,25 @@ evidence — `skipped=0` — was on screen the whole time and went unread.)*
 6. **Pre-existing or mine?** `git stash` your change and re-run. ⚠ `.env`/state files are NOT
    stashed — for env- or state-driven behavior, prove it with an explicit override instead.
 
+## Closing step — ONLY when you got it wrong first (owner rule, 2026-07-16)
+
+*"When it performs correctly no lesson is needed — it is working fine. ONLY when it FAILS to find the
+root cause, and finally fixes it, then the lesson needs to be learned."*
+
+**Clean first-shot root-cause fix → record NOTHING.** That is the skill working; a lesson there is
+noise, and noise is how a rule gets ignored.
+
+**But if this bug cost you a wrong turn — a mis-diagnosis, a patch to an already-existing guard, an
+edit to the wrong file, more than one session, or another session found it — then before you finish,
+append to `LEARNINGS.md`:**
+1. The **symptom** as first seen, *including the counters/telemetry that were on screen*.
+2. The **wrong cause** you believed, and **the evidence that should have killed it** (name it).
+3. The **true root cause**, and the level it was fixed at.
+4. The **cheapest check that would have found it first** — so the next session starts there.
+5. Whether it spanned sessions / another session found it, and **why this one missed it**.
+
+Write it so a future session *starts* where you *ended*. A vague entry is worth nothing.
+
 ## The rules
 - **Reproduce/verify first.** If you can't reproduce, say so — don't fix what you can't observe.
   Trading code: reproduce with `trading.state.STATE_DIR` monkeypatched to a temp dir — never

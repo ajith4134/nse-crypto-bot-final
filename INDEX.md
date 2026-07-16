@@ -185,6 +185,11 @@ _(no summary)_
 ## `.cache/huggingface/modules/transformers_modules/vikhyatk/moondream2/__init__.py`
 _(no summary)_
 
+## `.claude/hooks/hook_debug_learnings.py`
+_hook_debug_learnings.py — Stop hook: a debugging session MUST leave a lesson behind._
+- **functions:** `_out(obj) -> None`; `main() -> None`
+- **imports:** __future__, json, os, pathlib, sys, time
+
 ## `.claude/hooks/hook_skill_learnings.py`
 _PostToolUse hook on the Skill tool — the "read learnings first" half of the self-improving loop._
 - **functions:** `main() -> int`
