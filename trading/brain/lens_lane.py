@@ -131,6 +131,7 @@ def _lens_river(ctx) -> float | None:
     feats = ctx.get("features") or {}
     if not feats:
         return None
+    rs.ensure_trained()                # fresh process/reset pickle: bootstrap before predict
     return rs.predict(feats)
 
 

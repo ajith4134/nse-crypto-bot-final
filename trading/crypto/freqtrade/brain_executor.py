@@ -744,18 +744,24 @@ class BrainExecutor:
                 regime_fn=lambda s: (_rgc2(s) or {}).get("regime"))
             rep["nominated"] = len(noms)
             if not noms:
+                # an all-abstained cycle must never look identical to a dead lane
+                print(f"[lens-lane:{self.segment}] nominated=0 (all lenses abstained)",
+                      flush=True)
                 return rep
             cli = self.client()
             try:
                 open_pairs = set(cli.open_pairs(segment=self.segment))
             except Exception:
                 open_pairs = set()
+            rep["skip_reasons"] = []
             for n in noms:
                 sym, act, tag = n["symbol"], n["direction"], f"lens:{n['lens']}"
                 try:
                     tsym = cli.tradeable_form(sym, self.segment)
                     if tsym is None or tsym in open_pairs or sym in open_pairs:
                         rep["skipped"] += 1
+                        rep["skip_reasons"].append(
+                            f"{tag}:{sym}:" + ("untradeable" if tsym is None else "already-open"))
                         continue
                     res = cli.place_order(symbol=tsym, action="BUY",
                                           side=("long" if act == "LONG" else "short"),
@@ -763,6 +769,8 @@ class BrainExecutor:
                                           segment=self.segment)
                     if not isinstance(res, dict) or res.get("ok") is False:
                         rep["skipped"] += 1
+                        rep["skip_reasons"].append(
+                            f"{tag}:{sym}:refused:{str((res or {}).get('error'))[:60]}")
                         continue
                     try:                          # identity claim: the lens owns this call
                         from trading.direction import truth_ledger as _tl5
@@ -783,7 +791,8 @@ class BrainExecutor:
                     rep["skipped"] += 1
             if rep["nominated"]:                  # an all-skipped cycle must never look dead
                 print(f"[lens-lane:{self.segment}] nominated={rep['nominated']} "
-                      f"entered={rep['entered']} skipped={rep['skipped']}", flush=True)
+                      f"entered={rep['entered']} skipped={rep['skipped']} "
+                      f"reasons={rep.get('skip_reasons')}", flush=True)
         except Exception as e:
             rep["error"] = str(e)[:150]
         return rep

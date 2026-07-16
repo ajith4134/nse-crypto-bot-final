@@ -1742,6 +1742,11 @@ _Tests for trading/strategy/autoresearch.py — the live autoresearch driver (#5
 - **functions:** `_rows(n, base)`
 - **imports:** __future__, os, pathlib, tempfile, time, trading.state, unittest
 
+## `tests/test_backtest.py`
+_B4 regression tests for per-trade return extraction in strategy backtests._
+- **classes:** TestSegmentTradeReturns
+- **imports:** unittest
+
 ## `tests/test_binance_ai_select.py`
 _tests/test_binance_ai_select.py — Binance built-in AI Select recommendations._
 - **classes:** TestAISelect
@@ -4974,7 +4979,7 @@ _trading/strategy/autoresearch.py — the LIVE autoresearch champion loop (inven
 ## `trading/strategy/backtest.py`
 _trading/strategy/backtest.py — backtest via vectorbt + walk-forward (T8.1, reuse-first)._
 - **classes:** BacktestResult
-- **functions:** `_profit_factor(gross_win, gross_loss) -> float`; `_safe(fn, default)`; `backtest_signal(signal, ohlcv) -> BacktestResult`; `_pandas_backtest(close, target, cost_rate, periods_per_year)`; `walk_forward_folds(n_rows) -> list[dict]`
+- **functions:** `_profit_factor(gross_win, gross_loss) -> float`; `_safe(fn, default)`; `_segment_trades(target, close, cost_rate) -> list[dict]`; `backtest_signal(signal, ohlcv) -> BacktestResult`; `_pandas_backtest(close, target, cost_rate, periods_per_year)`; `walk_forward_folds(n_rows) -> list[dict]`
 - **imports:** __future__, dataclasses, numpy, pandas
 
 ## `trading/strategy/champion_bandit.py`

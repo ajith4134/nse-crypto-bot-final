@@ -53,6 +53,28 @@ def _safe(fn, default=0.0):
         return default
 
 
+def _segment_trades(target: "np.ndarray", close: "np.ndarray", cost_rate: float) -> list[dict]:
+    """Round-trip trades from a ±1/0 target-position series: each maximal run of a constant
+    nonzero target is one trade; ret = side * (exit/entry - 1) - 2*cost_rate."""
+    out: list[dict] = []
+    n = min(len(target), len(close))
+    i = 0
+    while i < n:
+        side = target[i]
+        if side == 0:
+            i += 1
+            continue
+        j = i
+        while j + 1 < n and target[j + 1] == side:
+            j += 1
+        entry, exit_ = float(close[i]), float(close[j])
+        if entry > 0:
+            ret = float(side) * (exit_ / entry - 1.0) - 2.0 * cost_rate
+            out.append({"side": int(side), "ret": ret})
+        i = j + 1
+    return out
+
+
 def backtest_signal(signal: pd.Series, ohlcv: pd.DataFrame, *, fee_bps: float = 2.0,
                     slippage_bps: float = 1.0, periods_per_year: int = 252) -> BacktestResult:
     """Backtest a +1/-1/0 target-position signal on `ohlcv` (needs 'close')."""
@@ -75,22 +97,16 @@ def backtest_signal(signal: pd.Series, ohlcv: pd.DataFrame, *, fee_bps: float = 
         fees=cost_rate, freq="1D", init_cash=100.0,
     )
 
-    trades_rec = pf.trades.records_readable
-    trade_rets, trade_sides = [], []
-    if len(trades_rec):
-        col = "Return" if "Return" in trades_rec.columns else (
-            "Return [%]" if "Return [%]" in trades_rec.columns else None)
-        if col:
-            vals = trades_rec[col].to_numpy(dtype=float)
-            trade_rets = (vals / 100.0 if "%" in col else vals).tolist()
-        # real trade direction (vectorbt records the side) — don't hardcode long
-        dcol = next((c for c in ("Direction", "Side") if c in trades_rec.columns), None)
-        if dcol:
-            trade_sides = [(-1 if str(d).lower().startswith("short") else 1)
-                           for d in trades_rec[dcol].tolist()]
-    if len(trade_sides) != len(trade_rets):
-        trade_sides = [1] * len(trade_rets)
-    trades = [{"side": s, "ret": r} for s, r in zip(trade_sides, trade_rets)]
+    # Per-trade returns from the SIGNAL SEGMENTS, not vectorbt's trade records.
+    # B4 root cause (2026-07-16, PROMOTED=0): with from_orders(size_type="targetpercent")
+    # the records_readable "Return" column is an order-pairing cash-flow artifact — SHORT
+    # winners came back NEGATIVE (measured: a 60%-accurate short-only oracle showed only
+    # 41.5% positive trade returns while its equity rose). Every DSR was computed on that
+    # corrupted series, so no candidate could ever clear the promotion gate. A maximal run
+    # of constant nonzero target IS the round trip: its directional return is exact for
+    # full-allocation target positions, and both sides pay entry+exit costs.
+    trades = _segment_trades(target.to_numpy(), close.to_numpy(), cost_rate)
+    trade_rets = [t["ret"] for t in trades]
 
     wins = [r for r in trade_rets if r > 0]
     losses = [r for r in trade_rets if r < 0]
