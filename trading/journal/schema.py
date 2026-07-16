@@ -51,6 +51,14 @@ class ClosedTrade:
     exit_price: float = 0.0
     entry_order_type: str = ""
     exit_order_type: str = ""
+    # WHY the trade died (2026-07-16). This was being stuffed into `setup_type`, which is documented
+    # as the ENTRY setup (Breakout/Reversal/Momentum/Scalp/Swing/Hedge) — so one field carried two
+    # meanings and whichever writer ran last won: rows show a mix of `force_exit`/`tailgate_lock`
+    # (exit reasons) AND `Momentum` (a real setup type). Freqtrade supplies exit_reason on every
+    # closed trade; it just had nowhere to land. Measured the hour this was added: 84% of exits were
+    # OUR OWN logic (36 force_exit + 18 tailgate_lock) vs only 3 stop_loss — trades are cut by the
+    # brain, not killed by price. That is not visible without this field.
+    exit_reason: str = ""
     intended_entry_price: float | None = None
     intended_exit_price: float | None = None
     entry_slippage: float | None = None

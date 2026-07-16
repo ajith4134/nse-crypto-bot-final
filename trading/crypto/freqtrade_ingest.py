@@ -271,6 +271,11 @@ def map_trade(ft: dict, *, broker_ctx: bool = True, bulk: bool = False) -> Close
         # the brain's chosen library strategy travels in enter_tag; freqtrade's own
         # `strategy` field is always the MlBridgeStrategy shell (not informative)
         strategy_name=ft.get("enter_tag") or ft.get("strategy", "") or "freqtrade",
+        # exit_reason now lands in its OWN field (2026-07-16). It was written to `setup_type`, which
+        # is the ENTRY setup (Breakout/Reversal/Momentum/…) — one field, two meanings, last writer
+        # wins. `setup_type` is kept populated for backward compatibility (live_loop:1748 and the
+        # dashboards still read it as the exit reason) until those readers move to exit_reason.
+        exit_reason=ft.get("exit_reason", "") or "",
         setup_type=ft.get("exit_reason", "") or "",
         market_session="LIVE",
         broker_used=(ft.get("exchange") or "binance"),

@@ -231,3 +231,33 @@ class TestMethodAccuracyIsAuditable(_Iso):
         k = next(iter(agg["buckets"]))
         self.assertEqual(len(k.split("|")), 4, "bucket key must stay source|market|regime|horizon")
         self.assertEqual(agg["methods"]["feather:perp"], 1)   # the old tally still works
+
+
+class TestExitReasonHasItsOwnField(unittest.TestCase):
+    """exit_reason was stuffed into `setup_type` — the ENTRY setup field
+    (Breakout/Reversal/Momentum/Scalp/Swing/Hedge). One field, two meanings, last writer wins:
+    live rows showed a MIX of force_exit/tailgate_lock (exit reasons) AND Momentum (a real setup).
+    Measured 2026-07-16: 84% of exits were OUR OWN logic (36 force_exit + 18 tailgate_lock) vs only
+    3 stop_loss — the brain cuts trades, price rarely kills them. Invisible without this field."""
+
+    def test_schema_has_exit_reason(self):
+        from trading.journal.schema import ClosedTrade
+        t = ClosedTrade()
+        self.assertTrue(hasattr(t, "exit_reason"))
+        self.assertEqual(t.exit_reason, "")
+
+    def test_exit_reason_survives_roundtrip(self):
+        from trading.journal.schema import ClosedTrade
+        t = ClosedTrade()
+        t.exit_reason = "tailgate_lock"
+        d = t.to_dict()
+        self.assertEqual(d.get("exit_reason"), "tailgate_lock")
+        self.assertEqual(ClosedTrade.from_dict(d).exit_reason, "tailgate_lock")
+
+    def test_setup_type_still_populated_for_existing_readers(self):
+        # live_loop:1748 and the dashboards still read setup_type AS the exit reason; do not
+        # break them while the new field lands
+        from trading.journal.schema import ClosedTrade
+        t = ClosedTrade()
+        t.setup_type = "force_exit"
+        self.assertEqual(ClosedTrade.from_dict(t.to_dict()).setup_type, "force_exit")

@@ -35,6 +35,9 @@ def _nse_open() -> bool:
     return 9 * 60 + 15 <= hm <= 15 * 60 + 30
 
 
+_LAST_STAGES: dict = {}   # per-iteration stage timings (see the loop-period profiler)
+
+
 def main() -> int:
     from trading.brain import boss, mind_events
     from trading.broker_sense.funnel import BrokerSenseFunnel
@@ -245,8 +248,24 @@ def main() -> int:
         except Exception as _e:
             print(f"[stream-tick] error: {_e!r}", flush=True)
 
+    _iter_t0 = [time.monotonic()]          # start of the PREVIOUS iteration (for the true period)
     while True:
         cycle += 1
+        # ITERATION PROFILER (2026-07-16). Five theories about the ~16-min cadence were wrong —
+        # crawl, tournament, lane budget, "execute means placing orders", nav_brain — because every
+        # one reasoned from the `took=` timer, which covers ONLY funnel.run_once(). It does NOT cover
+        # the filter lane, the CoinGecko browser door, login/nav, or the sleep. So the gap was always
+        # invisible to the number people were reading. This prints the TRUE iteration period and
+        # attributes it, so the next question is answered by measurement instead of a plausible story.
+        _now = time.monotonic()
+        _period = _now - _iter_t0[0]
+        _iter_t0[0] = _now
+        _stage_t = {"_start": _now}
+        if cycle > 1:
+            print(f"[loop-period] cycle={cycle - 1} TOTAL={_period:.1f}s "
+                  f"stages={ {k: round(v, 1) for k, v in _LAST_STAGES.items()} } "
+                  f"unaccounted={_period - sum(_LAST_STAGES.values()):.1f}s", flush=True)
+        _LAST_STAGES.clear()
         for market, funnel in funnels.items():
             if market == "nse" and not _nse_open():
                 continue
@@ -503,6 +522,11 @@ def main() -> int:
         # opens a Live-Browser login we hand over the shared Chromium profile promptly (one
         # process per profile) instead of colliding for a whole cycle. Release runs here, on the
         # loop's OWN thread (Playwright sync contexts are thread-bound).
+        # everything above = the WORK half of the iteration; everything below = the SLEEP half.
+        # Splitting them settles the question directly: if TOTAL-work is large, the loop is idling to
+        # the next bar close (a pacing choice, not a bottleneck); if work is large, profile the work.
+        _LAST_STAGES["work"] = time.monotonic() - _stage_t["_start"]
+        _sleep_t0 = time.monotonic()
         _deadline = max(time.time() + 2.0, _next_bar_close())
         while True:
             try:
@@ -520,6 +544,7 @@ def main() -> int:
             if _remain <= 0:
                 break
             time.sleep(min(2.0, _remain))
+        _LAST_STAGES["sleep_to_bar"] = time.monotonic() - _sleep_t0
 
 
 if __name__ == "__main__":
