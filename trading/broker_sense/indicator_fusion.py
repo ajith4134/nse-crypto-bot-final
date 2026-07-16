@@ -256,20 +256,22 @@ def _fetch(sym: str, market: str, tf: str, bars: int = _BARS) -> list | None:
     Flag off: ccxt direct (fast) with data_failsafe fallback, as before."""
     from trading.broker_sense import ui_data
     _ui = ui_data.enabled()
-    # RAM/web-first candle sources (both motto-pure — NO API): under UI_ONLY the eyes' captured
-    # kline (with real volume) is preferred; then the in-RAM WS-mirror mark-price candles for the
-    # timeframes it aggregates (1m/5m/15m). Only if BOTH miss do we consider the API paths — and
-    # under UI_ONLY the API paths stay closed (honest None).
-    if _ui:
-        rows = ui_data.ui_ohlcv(sym, timeframe=tf, limit=bars)
-        if rows:
-            return rows
+    # THE MOTTO (rewritten 2026-07-16, owner): **RAM IS PRIMARY, browser UI is the fallback for
+    # what RAM lacks.** The in-RAM WS-mirror candles cover EVERY perp off the all-market stream
+    # at RAM speed with no network on the decision path; the eyes' captured kline only covers the
+    # few symbol pages the browser has open. So the mirror is read first and the capture backfills
+    # what it misses (notably real traded VOLUME — mirror candles are mark-price, no volume).
+    # Only if BOTH miss do we consider the API paths — and under UI_ONLY those stay closed
+    # (honest None → the brain abstains rather than silently calling an API).
     if market == "crypto":
         from trading.broker_sense import binance_stream as _bs
         mrows = _bs.ohlcv(sym, tf, bars)               # in-RAM WS-mirror candles (no API)
         if mrows is not None:
             return mrows
-    if _ui:                                            # UI-only: eyes + mirror both missed → honest miss
+    rows = ui_data.ui_ohlcv(sym, timeframe=tf, limit=bars)
+    if rows:
+        return rows
+    if _ui:                                            # UI-only: mirror + eyes both missed → honest miss
         try:
             from trading import evidence
             evidence.record_data_failure(

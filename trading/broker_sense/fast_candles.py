@@ -85,11 +85,30 @@ def _tf_seconds(tf: str) -> int:
 
 
 def _ohlcv_fast(sym: str, market: str, tf: str) -> list | None:
-    """Candles the FAST way. THE MOTTO (2026-07-12): the eyes' captured candles are FIRST
-    always — they're RAM, already paid for by the app, and API-free. In UI-only mode they
-    are also LAST: this used to try ccxt-direct BEFORE the gate (gap D), silently leaking
-    API reads while the flag said web-only. API paths run only when UI-only is off."""
+    """Candles the FAST way. THE MOTTO (tenet 3 rewritten by the owner 2026-07-16): **RAM is
+    PRIMARY** — the in-RAM WS mirrors are read FIRST (crypto: the public Binance all-market
+    stream; NSE: the PAID Zerodha KiteTicker feed), because they cover the whole universe at
+    RAM speed with no network on the decision path. The eyes' captured candles are the
+    FALLBACK for what RAM lacks — notably real traded VOLUME, since the crypto mirror's
+    candles are mark-price. In UI-only mode the API paths stay closed (honest None); this used
+    to try ccxt-direct BEFORE the gate (gap D), silently leaking API reads."""
     ui_on = os.environ.get("UI_ONLY_DATA", "") in ("1", "true", "TRUE", "yes")
+    if market == "crypto":                    # RAM-first: in-RAM WS-mirror candles (no API)
+        try:
+            from trading.broker_sense import binance_stream as _bs
+            mrows = _bs.ohlcv(sym, tf, _BARS)
+            if mrows is not None:
+                return mrows
+        except Exception:
+            pass
+    if market == "nse":                       # RAM-first: Zerodha Kite (KiteTicker) WS-mirror candles
+        try:                                  # — the NSE analog of the crypto mirror (owner 2026-07-14
+            from trading.broker_sense import kite_stream as _ks   # + reconfirmed 2026-07-16: NSE data
+            mrows = _ks.ohlcv(sym, tf, _BARS)                     # off the PAID Zerodha feed, RAM at
+            if mrows is not None:                                 # decision time, no per-cycle API)
+                return mrows
+        except Exception:
+            pass
     try:
         from trading.broker_sense import ui_data
         ui_on = ui_data.enabled()             # env backstop above: an exception here
@@ -98,22 +117,6 @@ def _ohlcv_fast(sym: str, market: str, tf: str) -> list | None:
             return rows
     except Exception:
         pass
-    if market == "crypto":                    # RAM-first: in-RAM WS-mirror candles (motto-pure, no
-        try:                                  # API); allowed under UI-only (web-sourced) and before ccxt
-            from trading.broker_sense import binance_stream as _bs
-            mrows = _bs.ohlcv(sym, tf, _BARS)
-            if mrows is not None:
-                return mrows
-        except Exception:
-            pass
-    if market == "nse":                       # RAM-first: Zerodha Kite (KiteTicker) WS-mirror candles
-        try:                                  # — the NSE analog of the crypto mirror (owner 2026-07-14:
-            from trading.broker_sense import kite_stream as _ks   # NSE data off the paid Zerodha feed,
-            mrows = _ks.ohlcv(sym, tf, _BARS)                     # RAM at decision time, no per-cycle API)
-            if mrows is not None:
-                return mrows
-        except Exception:
-            pass
     if ui_on:
         try:
             # honest miss — data_failsafe.ohlcv re-checks the door then returns None,

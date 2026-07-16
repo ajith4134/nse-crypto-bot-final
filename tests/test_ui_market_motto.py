@@ -364,10 +364,19 @@ class GateTest(_Base):
         self.assertEqual(bk["source"], "ui:capture")
         self.assertAlmostEqual(bk["bid"], 50000.0)
 
-    def test_orderflow_prefers_captures_and_ui_only_skips_rest(self):
+    def test_capture_serves_what_ram_lacks_and_ui_only_skips_rest(self):
+        """MOTTO tenet 3 as rewritten by the owner 2026-07-16: RAM is primary and the app
+        capture is the FALLBACK for what RAM lacks (this test used to assert captures were
+        preferred OUTRIGHT — the owner reversed that after measuring RAM 165/165 vs browser
+        0-1/165 coverage). Here the mirror carries nothing for the symbol, so the capture must
+        serve it — and UI-only must still let no REST call escape."""
         from trading.broker_sense import binance_orderflow as of
         from trading.broker_sense import ui_market
+        from trading.broker_sense.binance_stream import get_mirror
         of.clear_cache()
+        # the mirror is a process-wide singleton another suite may have seeded; RAM outranks
+        # the capture now, so isolate it or this asserts the wrong path
+        get_mirror()._mark.pop("BTCUSDT", None)
         ui_market.feed_capture("binance", "mark_price", "wss://f",
                                {"e": "markPriceUpdate", "s": "BTCUSDT", "p": "50000",
                                 "r": "0.0005", "T": int(time.time() * 1000) + 3_600_000})

@@ -106,19 +106,20 @@ def _fund_fields(out: dict, src: dict) -> None:
 
 
 def _liq_pressure(symbol: str, *, ui_only: bool = False) -> dict:
-    """Recent liquidation notional by side — the app's captured forceOrder stream first
-    (ui_market), the public push mirror only when UI-only mode is off."""
+    """Recent liquidation notional by side — the in-RAM mirror's `!forceOrder@arr` push stream
+    FIRST (motto 2026-07-16: RAM is primary), the app's captured forceOrder stream as the
+    fallback for what RAM misses. The all-market stream sees EVERY liquidation on the venue;
+    the browser only sees the pages it has open (measured 78/165 vs 0/165 coverage)."""
     now = time.time()
-    liqs = []
-    try:
-        from trading.broker_sense import ui_market
-        liqs = [x for x in ui_market.recent_liquidations(symbol, 200)
-                if now - (x.get("ts") or 0) <= _LIQ_WINDOW_S]
-    except Exception:
-        pass
-    if not liqs and not ui_only:
-        liqs = [x for x in get_mirror().recent_liquidations(symbol, 200)
-                if now - (x.get("ts") or 0) <= _LIQ_WINDOW_S]
+    liqs = [x for x in get_mirror().recent_liquidations(symbol, 200)
+            if now - (x.get("ts") or 0) <= _LIQ_WINDOW_S]
+    if not liqs:
+        try:
+            from trading.broker_sense import ui_market
+            liqs = [x for x in ui_market.recent_liquidations(symbol, 200)
+                    if now - (x.get("ts") or 0) <= _LIQ_WINDOW_S]
+        except Exception:
+            pass
     # Binance forceOrder side is the side of the LIQUIDATION order: SELL = a long got liquidated.
     long_liq = sum((x.get("qty") or 0) * (x.get("price") or 0) for x in liqs if x.get("side") == "SELL")
     short_liq = sum((x.get("qty") or 0) * (x.get("price") or 0) for x in liqs if x.get("side") == "BUY")
@@ -146,19 +147,37 @@ def features(symbol: str, *, cheap: bool = False) -> dict:
         return out
 
     ui_only = _ui_only()                      # one read — features() runs per symbol
-    # 0) THE MOTTO: the app's OWN captured feeds serve every kind they can, first.
-    # Values are set only when the capture actually CARRIES them — a partial capture
-    # must not plant a None that blocks the (still allowed) REST/mirror backfill.
+    # 0) THE MOTTO (rewritten 2026-07-16, owner): **RAM IS PRIMARY.** The in-RAM WS mirror is
+    # read FIRST for every kind it carries; the browser UI capture is the FALLBACK for only
+    # what RAM does not have. Measured that day: on the SAME rows, mirror-sourced fields were
+    # 165/165 (funding) and 78/165 (liq) non-null while browser-sourced fields were 0–1/165 —
+    # a browser can only look at a few symbol pages at once, so its per-symbol depth/OI/taker
+    # is stale far past TTL (median 25–44 h) and reads as an honest None. RAM-first turns
+    # ~0.6% coverage into ~100% for the kinds the mirror pushes, at RAM speed (no network on
+    # the decision path — the brain must stay fast to decide and open trades).
+    m = get_mirror()
+    mk = m.funding(sym)
+    if mk and mk.get("funding_rate") is not None:
+        _fund_fields(out, mk)
+        out["funding_stale"] = m.is_stale(sym)
+        out["source"] = "ram:mirror"
+
+    # 1) BROWSER UI capture — FALLBACK, only for kinds RAM is missing. The mirror's all-market
+    # push streams do NOT carry crowd/smart long-short, taker volume, or open interest, so the
+    # app capture is the primary web source for those (REST below is the last resort).
+    # Values are set only when the capture actually CARRIES them — a partial capture must not
+    # plant a None that blocks the still-allowed backfills (VALUE-gated, not key-presence-gated).
     try:
         from trading.broker_sense import ui_market
     except Exception:
         ui_market = None
     if ui_market is not None:
-        mk = ui_market.funding(sym)
-        if mk and mk.get("funding_rate") is not None:
-            _fund_fields(out, mk)
-            out["funding_stale"] = False
-            out["source"] = "ui:capture"
+        if out.get("funding_rate") is None:            # RAM missed → the app's own capture
+            mkc = ui_market.funding(sym)
+            if mkc and mkc.get("funding_rate") is not None:
+                _fund_fields(out, mkc)
+                out["funding_stale"] = False
+                out["source"] = "ui:capture"
         ls = ui_market.long_short(sym)
         if ls and ls.get("ratio") is not None:
             out["crowd_long_short"] = ls["ratio"]
@@ -176,15 +195,9 @@ def features(symbol: str, *, cheap: bool = False) -> dict:
         if oic and oic.get("open_interest") is not None:
             out["open_interest_usd"] = oic["open_interest"]
 
-    # 1) funding + countdown (public mirror, push) — failsafe only, off in UI-only mode
-    if out.get("funding_rate") is None and not ui_only:
-        mk = get_mirror().funding(sym)
-        if mk:
-            _fund_fields(out, mk)
-        out["funding_stale"] = get_mirror().is_stale(sym)
     out.setdefault("funding_stale", out.get("funding_rate") is None)
 
-    # 2) liquidation pressure (captures first; mirror gated inside)
+    # 2) liquidation pressure (RAM mirror first; capture fallback inside)
     out.update(_liq_pressure(sym, ui_only=ui_only))
 
     if cheap or ui_only:      # mirror/UI-only: never the per-symbol /futures/data REST

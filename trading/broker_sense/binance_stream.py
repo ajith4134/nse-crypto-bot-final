@@ -186,6 +186,24 @@ class BinanceUniverseMirror:
             with self._lock:
                 self._book[s] = {"bids": bids, "asks": asks, "ts": now}
         except Exception:
+            return
+        # TRUE L2 OFI/GOFI history off the RAM depth stream (motto 2026-07-16: RAM is primary).
+        # book_ofi was wired ONLY to the browser capture, which keeps ~6 books fresh at a time
+        # (median age 25 h vs its 45 s TTL) — so the research's #1/#2 ranked direction drivers
+        # were computed for almost nothing. This connection already pushes 20-level depth for
+        # the top-N movers every 500 ms, so the same accumulator now gets ~120 symbols at a
+        # real cadence. Outside the lock (fold is O(levels) arithmetic) and never raises, so a
+        # book_ofi fault can't kill the mirror thread.
+        # The record must match book_ofi's contract exactly ({bid, ask, bid_qty, ask_qty, bids,
+        # asks}, same shape ui_market._parse_orderbook emits): without the L1 fields it silently
+        # skips the L1 OFI increment AND every time-mean stat (obi/microprice/spread/L1 depth).
+        # @depth20 sends bids best-first descending and asks best-first ascending.
+        try:
+            from trading.broker_sense import book_ofi
+            book_ofi.on_book(s, {"bid": bids[0][0], "bid_qty": bids[0][1],
+                                 "ask": asks[0][0], "ask_qty": asks[0][1],
+                                 "bids": bids, "asks": asks}, now)
+        except Exception:
             pass
 
     # ── background stream thread ─────────────────────────────────────────────

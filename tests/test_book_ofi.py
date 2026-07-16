@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import trading.state as state
 
@@ -115,6 +116,51 @@ class TestStoreSnapshotFeatParam(_Iso):
         self.assertAlmostEqual(rec["of_taker_ratio"], 1.2)
         store = state.load_json("orderflow_store.json", {})
         self.assertIn("BTCUSDT", store)
+
+
+class TestMirrorDepthFeedsBookOfi(_Iso):
+    """MOTTO tenet 3 (owner 2026-07-16): book_ofi must be fed from the in-RAM depth stream, not
+    only the browser capture. Measured that day: the browser keeps ~6 books fresh at a time
+    (median age 25 h vs a 45 s TTL), while this connection pushes 20-level depth for ~120 movers
+    every 500 ms — so the research's #1/#2 ranked drivers were computed for almost nothing."""
+
+    def test_apply_depth_frame_folds_into_book_ofi(self):
+        from trading.broker_sense import binance_stream, book_ofi
+        m = binance_stream.BinanceUniverseMirror()
+        seen = []
+        with mock.patch.object(book_ofi, "on_book", side_effect=lambda *a, **k: seen.append(a)):
+            m._apply_depth_frame({"stream": "btcusdt@depth20@500ms",
+                                  "data": {"s": "BTCUSDT",
+                                           "b": [["100.0", "5.0"], ["99.0", "7.0"]],
+                                           "a": [["101.0", "3.0"], ["102.0", "9.0"]]}})
+        self.assertEqual(len(seen), 1, "depth frame must reach book_ofi")
+        sym, rec, _ts = seen[0]
+        self.assertEqual(sym, "BTCUSDT")
+        # the L1 fields are what _fold_event needs for OFI + obi/microprice/spread — a record
+        # carrying only bids/asks would silently drop every one of those stats
+        self.assertEqual((rec["bid"], rec["bid_qty"]), (100.0, 5.0))
+        self.assertEqual((rec["ask"], rec["ask_qty"]), (101.0, 3.0))
+        self.assertEqual(len(rec["bids"]), 2)
+
+    def test_depth_frames_fold_real_ofi_into_the_accumulator(self):
+        """End-to-end through the REAL accumulator (no mock): two live depth frames must produce
+        a true OFI increment, proving the mirror path yields the same numbers the browser path
+        does. Asserts on the accumulator rather than a finished bar because _apply_depth_frame
+        stamps its own time.time() — the bar cannot be rolled deterministically from here."""
+        from trading.broker_sense import binance_stream, book_ofi
+        m = binance_stream.BinanceUniverseMirror()
+        m._apply_depth_frame({"stream": "ethusdt@depth20@500ms",
+                              "data": {"s": "ETHUSDT", "b": [["100.0", "5.0"]],
+                                       "a": [["101.0", "3.0"]]}})
+        # bid size grows at the same price → positive L1 OFI (buy pressure)
+        m._apply_depth_frame({"stream": "ethusdt@depth20@500ms",
+                              "data": {"s": "ETHUSDT", "b": [["100.0", "9.0"]],
+                                       "a": [["101.0", "3.0"]]}})
+        acc = book_ofi._acc.get("ETHUSDT")
+        self.assertIsNotNone(acc, "mirror depth frames must reach the book_ofi accumulator")
+        self.assertEqual(acc["n"], 2)
+        self.assertAlmostEqual(acc["ofi_l"][0], 4.0)     # +4 bid qty at an unchanged best bid
+        self.assertNotEqual(acc["obi_sum"], 0.0)         # L1 stats populated (needs bid/ask/qty)
 
 
 if __name__ == "__main__":

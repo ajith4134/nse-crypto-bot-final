@@ -38,10 +38,15 @@ class TestOrderFlow(unittest.TestCase):
         self._hyd.start()
         self.addCleanup(self._hyd.stop)
         self.addCleanup(ui_market._STORE.clear)
-        # seed the mirror with a funding + two liquidations for BTCUSDT
+        # seed the mirror with a funding + two liquidations for BTCUSDT.
+        # get_mirror() is a process-wide SINGLETON: since RAM became primary (2026-07-16) this
+        # seed OUTRANKS any capture, so leaving it behind silently breaks other suites' capture
+        # tests when they run in the same process. Always undo it.
         m = get_mirror()
         m._mark["BTCUSDT"] = {"mark": 64000.0, "funding_rate": 0.0001,
                               "next_funding_ts": int((time.time() + 3600) * 1000), "ts": time.time()}
+        self.addCleanup(lambda: m._mark.pop("BTCUSDT", None))
+        self.addCleanup(m._liqs.clear)
         m._liqs.clear()
         m._liqs.append({"symbol": "BTCUSDT", "side": "SELL", "qty": 2.0, "price": 64000.0, "ts": time.time()})
         m._liqs.append({"symbol": "BTCUSDT", "side": "BUY", "qty": 1.0, "price": 64000.0, "ts": time.time()})
@@ -49,7 +54,9 @@ class TestOrderFlow(unittest.TestCase):
     def test_features_are_binance_read_not_computed(self):
         with mock.patch.object(of, "_get_json", side_effect=_fake_rest):
             f = of.features("btcusdt")
-        self.assertEqual(f["source"], "binance")
+        # provenance is explicit since the 2026-07-16 motto rewrite: RAM is primary, so a
+        # mirror-served funding reads 'ram:mirror' (was the generic 'binance')
+        self.assertEqual(f["source"], "ram:mirror")
         self.assertEqual(f["funding_rate"], 0.0001)               # from mirror
         self.assertAlmostEqual(f["crowd_long_pct"], 0.60)         # retail crowd
         self.assertAlmostEqual(f["smart_long_pct"], 0.44)         # top-trader position
@@ -57,6 +64,43 @@ class TestOrderFlow(unittest.TestCase):
         self.assertAlmostEqual(f["oi_change_pct"], 10.0)          # (1.1M-1.0M)/1.0M
         # liquidation skew: long_liq=2*64000, short_liq=1*64000 → (128000-64000)/192000
         self.assertAlmostEqual(f["liq_skew"], round((128000 - 64000) / 192000, 4))
+
+    def test_ram_mirror_wins_over_browser_capture(self):
+        """MOTTO tenet 3 (owner 2026-07-16): RAM is PRIMARY. When BOTH the mirror and the app
+        capture carry funding, the mirror's value must win — the browser's per-symbol data is
+        stale far past TTL in production (measured 25-44 h median), so it must never override
+        the live push stream."""
+        from trading.broker_sense import ui_market
+        ui_market._STORE[("mark_price", "BTCUSDT")] = {
+            "ts": time.time(), "broker": "binance", "url": "",
+            "data": {"funding_rate": 0.9999, "mark": 1.0},      # deliberately absurd capture value
+        }
+        with mock.patch.object(of, "_get_json", side_effect=_fake_rest):
+            f = of.features("BTCUSDT")
+        self.assertEqual(f["source"], "ram:mirror")
+        self.assertEqual(f["funding_rate"], 0.0001)             # mirror's, NOT the capture's
+        self.assertEqual(f["mark"], 64000.0)
+
+    def test_browser_capture_fills_only_what_ram_lacks(self):
+        """The fallback half of the same tenet: the all-market streams do NOT carry open
+        interest, so the app capture must still serve it — and a mirror miss on funding must
+        fall back to the capture rather than returning None."""
+        from trading.broker_sense import ui_market
+        m = get_mirror()
+        m._mark.pop("BTCUSDT", None)                            # RAM has no funding for this symbol
+        ui_market._STORE[("mark_price", "BTCUSDT")] = {
+            "ts": time.time(), "broker": "binance", "url": "",
+            "data": {"funding_rate": 0.0007, "mark": 63000.0},
+        }
+        ui_market._STORE[("open_interest", "BTCUSDT")] = {
+            "ts": time.time(), "broker": "binance", "url": "",
+            "data": {"open_interest": 1234567.0},               # a kind RAM never carries
+        }
+        with mock.patch.object(of, "_get_json", side_effect=_fake_rest):
+            f = of.features("BTCUSDT")
+        self.assertEqual(f["source"], "ui:capture")             # RAM missed → browser served
+        self.assertEqual(f["funding_rate"], 0.0007)
+        self.assertEqual(f["open_interest_usd"], 1234567.0)     # capture beat the REST backfill
 
     def test_signal_tilt_in_range_and_directional(self):
         with mock.patch.object(of, "_get_json", side_effect=_fake_rest):
