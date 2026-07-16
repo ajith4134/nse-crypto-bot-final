@@ -3,7 +3,8 @@
 A VALID, runnable IStrategy that emits no automatic entries by default, so a fresh Freqtrade
 bot stands up cleanly in dry-run and waits for orders driven via the REST API
 (`CryptoEngineClient.place_order` → /forceenter). The real signal logic arrives in Phase C, when
-the 239-strategy library is translated into Freqtrade strategies by an adapter.
+the strategy library (241 static/institutional + 311 brain-created as of 2026-07-16) is translated
+into Freqtrade strategies by an adapter.
 
 This file is loaded by the Freqtrade process (not by this repo's package), so importing
 `freqtrade`/`pandas` here is fine — those are Freqtrade's own runtime deps.

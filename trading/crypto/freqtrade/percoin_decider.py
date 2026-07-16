@@ -57,11 +57,16 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         self._net_ts = float("-inf")   # last closed-trades fetch (TTL below)
         self._bw_cache: dict = {}   # (symbol, direction) → (mono_ts, (mult, info))
         # PER-5m-BAR MEMO (2026-07-12 perf fix): tournament() is the expensive part
-        # (~142 strategies × backtest + TabPFN, ~7.5s/symbol) and is DETERMINISTIC within a
-        # candle bar — but funnel cycles run every ~1–2 min while bars close every 5 min, so
-        # 3–4 consecutive cycles recompute the identical ranking. Cache it by (symbol, bar
-        # epoch): repeat-in-bar cycles drop from ~7.5s/sym to ~0. Measured 86% of decide() is
-        # cacheable per bar. Kill-switch: SCAN_MEMO=0.  (see research/perf/hardware-saturation-audit-20260712.md)
+        # (394 executable+signal strategies as of 2026-07-16: 241 static catalog + 311
+        # brain-created, ~4-5s/symbol — dominated by ONE compute_features_ext call, not by
+        # the strategy count: the per-strategy backtest+signal loop measured ~1.5ms/strategy
+        # flat across every category, so scoring all 394 vs. a capped subset differs by well
+        # under a second) and is DETERMINISTIC within a candle bar — but funnel cycles run
+        # every ~1-2 min while bars close every 5 min, so 3-4 consecutive cycles recompute the
+        # identical ranking. Cache it by (symbol, bar epoch): repeat-in-bar cycles drop to ~0.
+        # Measured 86% of decide() is cacheable per bar. Kill-switch: SCAN_MEMO=0.
+        # (see research/perf/hardware-saturation-audit-20260712.md,
+        #  research/perf/tournament-cap-remeasure-20260716.md)
         self._tourn_cache: dict = {}   # symbol -> (bar_epoch, result)
 
     # ── brain confidence (global skill learned from the closed journal) ──────────
@@ -206,12 +211,13 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         except Exception:
             return 300
 
-    # ── the full 153-strategy tournament for one coin (the EXPENSIVE part) ────────
+    # ── the full strategy tournament for one coin (the EXPENSIVE part) ────────
     def tournament(self, symbol: str) -> dict:
         """Per-5m-bar-memoized wrapper over the expensive tournament. Within one candle bar the
         ranking is deterministic, so repeat calls (consecutive funnel cycles) reuse the result
-        instead of recomputing ~142 strategies. SCAN_MEMO=0 disables. Errors are never cached
-        (so a transient no-bars miss retries next cycle)."""
+        instead of recomputing all ~394 scoreable strategies (grows over time as the foundry
+        admits more). SCAN_MEMO=0 disables. Errors are never cached (so a transient no-bars
+        miss retries next cycle)."""
         import os
         if os.environ.get("SCAN_MEMO", "1") not in ("1", "true", "TRUE", "yes", "on"):
             return self._tournament_uncached(symbol)
@@ -242,12 +248,18 @@ class PerCoinBrainDecider(LibraryBrainDecider):
         last_price = float(close[-1])
         ranked = []
         sig_by_name: dict = {}
-        # SPEED CAP (owner 2026-07-14): the tournament backtests EVERY library strategy per coin
-        # (~142 × backtest ≈ 700s/coin), which starves the per-coin strategy_table so the Strategy
-        # column goes TTL-stale. TOURNAMENT_MAX_STRATS caps the set to the first-N registry entries
-        # (institutional/library strategies are registered first = the higher-quality core), cutting
-        # per-coin time proportionally so coverage fills far faster. 0 = no cap (score all). The
-        # per-coin backtest×brain ranking still picks the best of whatever competes.
+        # SPEED CAP (owner 2026-07-14, RE-MEASURED 2026-07-16 — premise was wrong, cap now 0/off
+        # in .env): the original comment estimated ~700s/coin for the full library and capped at
+        # the first 60 registry entries to protect the per-coin strategy_table's TTL. Direct
+        # benchmark (research/perf/tournament-cap-remeasure-20260716.md) found the per-strategy
+        # backtest+signal cost is ~1.5ms FLAT across every category (including the 311 brain-
+        # created strategies) — the real per-coin cost (~4-5s) is almost entirely ONE
+        # compute_features_ext call, which runs once regardless of strategy count. A cap=60 saved
+        # under a second while silently excluding the entire created-strategy pool (foundry/
+        # generators/evolution/autoresearch — the whole point of the strategy-creator loop, see
+        # strategy_table.py) and 10 of 15 categories, since the registry lists static/institutional
+        # strategies first and created ones only start at index 83. TOURNAMENT_MAX_STRATS still
+        # exists as a manual kill-switch (0 = no cap = score all, the current default).
         _strats = self.strategies()
         _cap = int(os.environ.get("TOURNAMENT_MAX_STRATS", "0") or 0)
         if _cap > 0:

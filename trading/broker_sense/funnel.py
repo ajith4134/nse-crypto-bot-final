@@ -337,8 +337,9 @@ class BrokerSenseFunnel:
         candidates = [s for s, (d, _) in directions.items()
                       if d != "neutral" or s in open_syms]
         non_neutral_n = len(candidates)
-        # TOP-K VERIFY BOUND (owner 2026-07-12): the deep VERIFY lenses (fusion + the 239-strategy
-        # lens + ocular) ran on EVERY non-neutral candidate (~100/cycle) → 305s cycles that starved
+        # TOP-K VERIFY BOUND (owner 2026-07-12): the deep VERIFY lenses (fusion + the strategy-
+        # library lens [241 static + 311 brain-created as of 2026-07-16] + ocular) ran on EVERY
+        # non-neutral candidate (~100/cycle) → 305s cycles that starved
         # the tab pool → coverage never reached the governor's flip threshold. Rank by LOOK
         # direction STRENGTH (|p_up-0.5|) and deep-verify only the top-K most-promising + every OPEN
         # trade (never dropped — they need their exit signal). The rest are screened but not
@@ -716,7 +717,8 @@ class BrokerSenseFunnel:
         UI-captured candles; the net becomes a stackable directional lens. Cached decider;
         honest {available:False} when data/strategies are absent (never a fake number).
 
-        PER-5m-BAR MEMO (2026-07-12 perf): the 239-strategy ensemble is bar-stable, so running
+        PER-5m-BAR MEMO (2026-07-12 perf): the strategy-library ensemble (241 static + 311
+        brain-created as of 2026-07-16) is bar-stable, so running
         it every cycle × every shortlist symbol blew the cycle budget to 303s (starving the tab
         pool → no coverage → governor never flips). Memoized on the symbol's 5m bar so it runs
         ONCE per bar per symbol; the rest of the cycles within that bar reuse it. STRATEGY_LENS_MEMO=0

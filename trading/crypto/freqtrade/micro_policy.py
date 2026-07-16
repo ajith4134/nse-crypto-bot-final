@@ -242,8 +242,9 @@ def _distill_workers() -> int:
         v = 0
     if v > 0:
         return v
-    # gentle default: each worker loads ~142 strategies + TabPFN (~0.5GB), and the box has no
-    # swap + shares cores with the live loops/browser/dashboard. Cap at 5 (nice-10 yields anyway).
+    # gentle default: each worker loads the strategy registry (394 executable+signal strategies
+    # as of 2026-07-16, grows over time) + TabPFN (~0.5GB), and the box has no swap + shares
+    # cores with the live loops/browser/dashboard. Cap at 5 (nice-10 yields anyway).
     return max(1, min(5, (os.cpu_count() or 4) - 2))
 
 

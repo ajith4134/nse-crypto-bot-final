@@ -26,6 +26,11 @@ Per stored bar (bar_s = BOOK_OFI_BAR_S, default 60s):
     microdev_bp time-mean microprice deviation from mid, in basis points (sign = pressure side)
     spread_bp   time-mean relative spread in basis points
     depth_q     time-mean total visible depth (sum of top-level qtys both sides, base units)
+    dobi        time-mean multi-level depth imbalance (Σbid−Σask)/(Σbid+Σask) over the top N
+                levels ∈ [-1,1] — the book-STATE research's headline predictor (2026-07-16:
+                pre-event top-20 depth/imbalance beats order FLOW 3-4× at 1m/5m horizons);
+                only depth snapshots contribute (bookTicker frames carry no levels)
+    d1s         time-mean L1 share of total visible depth (book concentration/shape), same basis
 
 Honest by construction: accumulates FORWARD only (no depth history exists to backfill); a symbol
 whose stream goes quiet gets its last bar closed on the next sweep, and gaps > _RESET_S between
@@ -103,7 +108,8 @@ def _new_acc(bar: int) -> dict:
     L = _levels()
     return {"bar": bar, "n": 0, "ofi_l": [0.0] * L, "depth_l": [0.0] * L,
             "obi_sum": 0.0, "micro_sum": 0.0, "spread_sum": 0.0, "depth_q_sum": 0.0,
-            "l1_depth_sum": 0.0, "prev": None, "prev_ts": 0.0}
+            "l1_depth_sum": 0.0, "dobi_sum": 0.0, "d1s_sum": 0.0, "n_lv": 0,
+            "prev": None, "prev_ts": 0.0}
 
 
 def _fold_event(a: dict, rec: dict, ts: float) -> None:
@@ -135,8 +141,14 @@ def _fold_event(a: dict, rec: dict, ts: float) -> None:
         a["l1_depth_sum"] += (bq + aq) / 2.0
     for lv in range(min(L, len(bids or []), len(asks or []))):
         a["depth_l"][lv] += ((bids[lv][1] or 0.0) + (asks[lv][1] or 0.0)) / 2.0
-    a["depth_q_sum"] += sum((r[1] or 0.0) for r in (bids or [])[:L]) + \
-        sum((r[1] or 0.0) for r in (asks or [])[:L])
+    sb = sum((r[1] or 0.0) for r in (bids or [])[:L])
+    sa = sum((r[1] or 0.0) for r in (asks or [])[:L])
+    a["depth_q_sum"] += sb + sa
+    # book-STATE shape (only depth snapshots carry levels; bookTicker frames must not dilute)
+    if bids and asks and sb + sa > 0:
+        a["dobi_sum"] += (sb - sa) / (sb + sa)
+        a["d1s_sum"] += ((bids[0][1] or 0.0) + (asks[0][1] or 0.0)) / (sb + sa)
+        a["n_lv"] += 1
     a["n"] += 1
     a["prev"] = rec
     a["prev_ts"] = ts
@@ -165,7 +177,9 @@ def _finalize(sym: str, a: dict) -> dict | None:
             "obi": round(a["obi_sum"] / n, 6),
             "microdev_bp": round(a["micro_sum"] / n, 4),
             "spread_bp": round(a["spread_sum"] / n, 4),
-            "depth_q": round(a["depth_q_sum"] / n, 4)}
+            "depth_q": round(a["depth_q_sum"] / n, 4),
+            "dobi": round(a["dobi_sum"] / a["n_lv"], 6) if a["n_lv"] else None,
+            "d1s": round(a["d1s_sum"] / a["n_lv"], 6) if a["n_lv"] else None}
 
 
 def _append(sym: str, row: dict) -> None:
@@ -261,18 +275,25 @@ def series(symbol: str, bar_s: int = 300):
         agg = pd.DataFrame({"of_ofi": g["ofi"].sum(),
                             "of_gofi_book": g["gofi"].sum(),
                             "of_book_n": g["n"].sum()})
-        wsum = g["w"].sum()
         for src, dst in (("ofi_n", "of_ofi_n"), ("obi", "of_obi"),
-                         ("microdev_bp", "of_microdev_bp"), ("spread_bp", "of_spread_bp")):
-            df["_wx"] = df[src].fillna(0.0) * df["w"]
-            agg[dst] = df.groupby("bucket")["_wx"].sum() / wsum
+                         ("microdev_bp", "of_microdev_bp"), ("spread_bp", "of_spread_bp"),
+                         ("dobi", "of_dobi"), ("d1s", "of_d1share")):
+            if src not in df.columns:            # history predating the field → honest NaN
+                agg[dst] = float("nan")
+                continue
+            m = df[src].notna()                  # rows lacking the field never count as zero
+            df["_wx"] = df[src].where(m, 0.0) * df["w"] * m
+            df["_wm"] = df["w"] * m
+            den = df.groupby("bucket")["_wm"].sum()
+            agg[dst] = df.groupby("bucket")["_wx"].sum() / den.where(den > 0)
         return agg.reset_index().rename(columns={"bucket": "ts"})
     except Exception:
         return None
 
 
 BOOK_FIELDS = ("of_ofi", "of_ofi_n", "of_gofi_book", "of_obi",
-               "of_microdev_bp", "of_spread_bp", "of_book_n")
+               "of_microdev_bp", "of_spread_bp", "of_book_n",
+               "of_dobi", "of_d1share")
 
 
 def status() -> dict:

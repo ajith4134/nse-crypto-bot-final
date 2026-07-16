@@ -1,6 +1,7 @@
 """trading/strategy/freqtrade_adapter.py — translate LibraryStrategy → Freqtrade IStrategy (Phase C).
 
-The 239-strategy library models each executable strategy as a pure, vectorized signal:
+The strategy library (241 static/institutional + 311 brain-created as of 2026-07-16, see
+trading/strategy/library/registry.py) models each executable strategy as a pure, vectorized signal:
 ``signal(compute_features_ext(ohlcv)) -> Series[+1/-1/0]`` (target position). Freqtrade is also
 vectorized and signal-based (``populate_entry_trend`` / ``populate_exit_trend``), so the
 translation is faithful and thin:

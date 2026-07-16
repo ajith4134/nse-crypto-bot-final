@@ -27,7 +27,7 @@
 # It reverse-proxies to the SAME :8100 gateway below, so all routing stays defined in one place.
 # NOTE: the hostname embeds the IP — if GCP ever hands this VM a new external IP, update it here
 # (a DuckDNS name + updater would make it immune; needs a free token).
-34.131.91.14.sslip.io {
+34.131.60.2.sslip.io {
 	reverse_proxy 127.0.0.1:8100
 }
 

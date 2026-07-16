@@ -102,11 +102,23 @@ class LibraryRegistry:
         for s in gated:
             for r in s.gating_reqs:
                 gate_reasons[r] = gate_reasons.get(r, 0) + 1
+        # `category` collapses every brain-created strategy (foundry/generators/evolution/
+        # autoresearch) to "machine_learning" regardless of what it actually does — that hides
+        # whether the created pool is diverse or one generator dominating it. `family` already
+        # carries the real diversity signal: "created:<source>" (pysr/alpha_mining/operon/sindy/
+        # optuna/llm_mutation/evolution/rd_agent) for created strategies, or a specific sub-family
+        # (e.g. "ma_crossover") for static ones — break it down separately so a category rollup
+        # never silently hides a mono-source pool.
+        by_family: dict[str, int] = {}
+        for s in self.strategies:
+            fam = s.family or "_unspecified"
+            by_family[fam] = by_family.get(fam, 0) + 1
         return {
             "total": n,
             "n_executable": len(execs),
             "n_data_gated": len(gated),
             "by_category": {**by_cat, **({"_uncategorised": by_cat_other} if by_cat_other else {})},
+            "by_family": dict(sorted(by_family.items(), key=lambda kv: -kv[1])),
             "by_segment": by_seg,
             "gating_reasons": dict(sorted(gate_reasons.items(), key=lambda kv: -kv[1])),
         }

@@ -102,7 +102,8 @@ def cortex_features(sig: dict | None) -> dict:
 
 
 def strategy_features(sl: dict | None) -> dict:
-    """The full STRATEGY-LIBRARY ensemble (239 institutional strategies) as stacking features
+    """The full STRATEGY-LIBRARY ensemble (241 institutional + 311 brain-created strategies as of
+    2026-07-16) as stacking features
     (owner 2026-07-12: 'use ALL the strategy features when opening a trade'). Distinct s_* keys so
     they never collide with the fusion f_* lens. side from the net vote; strength = fraction of
     strategies agreeing; 0-filled (p_up 0.5) when the lens is unavailable. Pure — shared by the

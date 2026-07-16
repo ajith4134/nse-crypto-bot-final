@@ -201,7 +201,8 @@ if [ "${AUTORESEARCH:-1}" != "0" ]; then
 fi
 
 # Per-coin best-STRATEGY table (2026-07-13): the nice-10 producer that runs the expensive per-coin
-# tournament (library + created + evolved + researched, 218 strategies) OUT of the hot entry path and
+# tournament (library + created + evolved + researched, 241 static + 311 brain-created as of
+# 2026-07-16, grows over time — see trading/strategy/library/registry.py) OUT of the hot entry path and
 # writes per_coin_strategy.json. The breadth lane + the Strategy column read it O(1) so EVERY open
 # trade shows a real library/created strategy (attribution) and — with STRATEGY_DIRECTION=1 — a
 # gate-clearing strategy drives the entry. Kill-switch: STRATEGY_TABLE=0.
@@ -257,7 +258,7 @@ CF_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' logs/cloudflared.log 
 # real Let's Encrypt cert — no cap, no interstitial, no rotation, nothing to pay. See gateway/Caddyfile.
 # If GCP ever gives this VM a NEW external IP, change the IP here and in the Caddyfile (a free
 # DuckDNS name + updater would make it immune).
-PUBLIC_URL="https://34.131.91.14.sslip.io"
+PUBLIC_URL="https://34.131.60.2.sslip.io"
 echo "$PUBLIC_URL" > public_link.txt
 echo "redir * ${PUBLIC_URL}{uri} temporary" > gateway/redirect.caddy
 pkill -x caddy 2>/dev/null; sleep 1

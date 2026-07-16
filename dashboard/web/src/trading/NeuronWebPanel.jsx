@@ -6,7 +6,14 @@
 // growth series (R28), and live search (/api/brain/neurons/search) that always shows
 // the action facet — knowledge you can't act on is dead weight.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceX, forceY,
+  select, drag as d3drag,
+} from 'd3'
 import { T } from './theme.js'
+
+// concept-like kinds render as diamonds; document/record-like kinds as circles (Knowledge-Brain style)
+const DIAMOND_KINDS = new Set(['concept', 'instruction', 'skill', 'finding', 'invention', 'fact', 'exam'])
 
 async function getJSON(url) {
   const r = await fetch(url)

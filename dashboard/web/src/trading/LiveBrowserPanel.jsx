@@ -62,8 +62,25 @@ export default function LiveBrowserPanel({ broker: initialBroker = 'binance' }) 
   const start = async () => { setBusy(true); const r = await post({ op: 'start', broker }); if (alive.current) { setRunning(!!r.ok); setStatus(r); setBusy(false) } }
   const stop = async () => { setBusy(true); await post({ op: 'stop', broker }); if (alive.current) { setRunning(false); setBusy(false) } }
   const save = async () => {
-    setBusy(true); const r = await post({ op: 'save', broker })
-    if (alive.current) { setSavedMsg(r.looks_logged_in ? '✅ Session saved — looks logged in! The brain can now read your account.' : '⚠️ Saved, but still looks like a login/captcha page — finish the steps then Save again.'); setBusy(false) }
+    // ONE-CLICK HANDOFF (2026-07-11): "Save session" used to only persist cookies and leave the
+    // panel open — the operator then had to ALSO click Close for the brain to reclaim the browser
+    // profile, so it looked like nothing happened ("button not working"). Now a successful save
+    // when logged-in immediately closes the login browser too, which releases the shared Chromium
+    // profile so the funnel reads the account headless. One click does the whole handoff.
+    setBusy(true); setSavedMsg('⏳ Saving your session…')
+    const r = await post({ op: 'save', broker })
+    if (!alive.current) return
+    if (r && r.looks_logged_in) {
+      setSavedMsg('✅ Logged in — handing over to the brain…')
+      await post({ op: 'stop', broker })                 // release the profile → funnel reclaims it
+      if (alive.current) {
+        setRunning(false)
+        setSavedMsg(`✅ Done! ${broker} session saved — the brain is now reading your account headless. You can close this panel.`)
+      }
+    } else {
+      setSavedMsg('⚠️ Saved, but you are not fully logged in yet — finish the login/verification steps above, then click Save session again.')
+    }
+    if (alive.current) setBusy(false)
   }
 
   const onImgClick = async (e) => {
@@ -110,7 +127,16 @@ export default function LiveBrowserPanel({ broker: initialBroker = 'binance' }) 
             <Btn onClick={() => key('Enter')}>Enter</Btn>
             <Btn onClick={() => key('Backspace')}>⌫</Btn>
           </div>
-          {savedMsg && <div style={{ marginTop: 8, fontSize: 12, color: savedMsg.startsWith('✅') ? (T.good || '#3ecf8e') : (T.warn || '#e6b800') }}>{savedMsg}</div>}
+          {savedMsg && (() => {
+            const ok = savedMsg.startsWith('✅'); const wait = savedMsg.startsWith('⏳')
+            const c = ok ? (T.good || '#3ecf8e') : wait ? (T.muted || '#8b93a7') : (T.warn || '#e6b800')
+            return (
+              <div style={{ marginTop: 10, padding: '10px 12px', fontSize: 13, fontWeight: 700,
+                color: c, background: `${c}1a`, border: `1px solid ${c}`, borderRadius: 8 }}>
+                {savedMsg}
+              </div>
+            )
+          })()}
         </div>
       ) : (
         <div style={{ color: T.muted, fontSize: 12, padding: '10px 0' }}>

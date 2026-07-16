@@ -2,11 +2,22 @@
 
 Closes the last gap in the strategy-creator loop. The foundry + 6 generators + DEAP evolution +
 autoresearch all admit survivors into the SkillLibrary, and `library.created` merges them into the
-tournament's registry (218 executable strategies). The per-coin tournament (`PerCoinBrainDecider`)
-ranks all of them × brain-confidence per coin — but it is EXPENSIVE (~7.5s/coin: ~142 strategies ×
-backtest + TabPFN), so the live Binance-filter breadth lane (which opens most trades, up to 50/cycle)
-deliberately SKIPS it and tags every trade `learned_direction`. Result: the created / evolved /
-researched strategies never touched — or appeared on — the breadth trades.
+tournament's registry (394 executable+signal strategies as of 2026-07-16: 241 static/institutional
+catalog + 311 brain-created — both counts grow over time, check `registry.get_registry().coverage()`
+for the live figure). The per-coin tournament (`PerCoinBrainDecider`) ranks all of them ×
+brain-confidence per coin — costs ~4-5s/coin, almost entirely ONE compute_features_ext call (the
+per-strategy backtest itself is ~1.5ms flat regardless of category, so scoring 394 vs. a small
+capped subset barely moves the wall-clock — see research/perf/tournament-cap-remeasure-20260716.md)
+— so the live Binance-filter breadth lane (which opens most trades, up to 50/cycle) deliberately
+SKIPS it and tags every trade `learned_direction`. Result: the created / evolved / researched
+strategies never touched — or appeared on — the breadth trades.
+
+CAP WARNING (fixed 2026-07-16): TOURNAMENT_MAX_STRATS previously defaulted to 60 in .env, truncating
+the tournament to the first 60 registry entries. Since the registry lists static/institutional
+strategies first and created ones only start at index ~83, that cap silently excluded the ENTIRE
+311-strategy created pool (foundry/generators/evolution/autoresearch) and 10 of the 15 categories
+from ever competing — defeating the exact loop this module exists to close. Cap is now 0 (off) in
+.env; re-measure before re-enabling it, the "speed" rationale did not hold up under benchmark.
 
 This module is the PRODUCER that fixes that without paying the cost in the hot entry path: a small
 `nice-10` background pass runs the (already per-5m-bar-memoized) tournament over the covered universe
