@@ -2179,7 +2179,7 @@ _Tests for memory/file_memory.py — Claude-style durable file memory (Phase B).
 
 ## `tests/test_filter_lane_executor.py`
 _Integration test for BrainExecutor.open_filter_lane (Stage 1b) — the Binance-filter TOP-N lane_
-- **classes:** FakeCli, FilterLaneExecutorTest
+- **classes:** FakeCli, FilterLaneExecutorTest, FilterLaneSegmentValidityTest
 - **imports:** os, trading.broker_sense, trading.crypto.freqtrade, trading.direction, unittest
 
 ## `tests/test_flow_health.py`

@@ -604,9 +604,51 @@ class BrainExecutor:
                     continue
                 if deadline is not None and time.monotonic() > deadline:
                     break
-                _res = cli.place_order(
-                    symbol=_psym, action="BUY", side=("long" if _side == "LONG" else "short"),
-                    allow_live=allow_live, enter_tag=_tag, segment=self.segment)
+                # SEGMENT VALIDITY (2026-07-16). The lane ranks the whole UI/mirror-captured
+                # universe and derives a side from learned_direction — neither step knows what the
+                # TARGET SEGMENT can actually accept, so every cycle burned its budget on entries
+                # Freqtrade rejected outright. Measured live: futures logged entered=[] skipped=0
+                # with err="Symbol does not exist or market is not active", and spot with
+                # "Can't go short on Spot markets". Both are refusals the engine can only answer
+                # AFTER a REST round-trip, so the lane paid full latency to be told no.
+                #
+                # 1) SPOT CANNOT SHORT. A SHORT read on spot means "do not buy" — so SKIP it.
+                #    Never flip it to long: that would fabricate a direction the brain did not
+                #    choose, and this lane's whole purpose is to record what the brain believed.
+                if _side == "SHORT" and (self.segment or "futures") == "spot":
+                    rep["skipped"] += 1
+                    continue
+                # ONE BAD SYMBOL MUST NOT KILL THE CYCLE (root cause of "futures never opens",
+                # 2026-07-16). place_order -> engine_client._check RAISES FreqtradeError on any
+                # API-level refusal. This loop caught the RETURNED refusal ({"ok": False}, our own
+                # tradeability guard) but never the RAISED one, so the exception escaped to the
+                # outer `except` and aborted every remaining candidate. The logs prove it:
+                # `ranked=90 entered=[] skipped=0 err=forceenter failed: Symbol does not exist or
+                # market is not active` — skipped=0 means it died on candidate #1 and never reached
+                # #2. Spot survived only because its 5 static pairs happen to validate cleanly.
+                #
+                # Why the pre-check does not prevent this: _derive() DOES call tradeable_form()
+                # (line ~574), but _pair_tradeable FAILS OPEN by design on lookup failure AND
+                # validates against raw ccxt "active" markets, which are WIDER than Freqtrade's own
+                # internal pairlist. So the engine can still legitimately refuse a symbol we
+                # consider tradeable. Per-pick isolation is the honest fix: refusals are data
+                # (logged + skipped), not a cycle-ending fault.
+                #
+                # SPOT CANNOT SHORT: a SHORT read on spot means "do not buy" -> skip. Never flip it
+                # to long — that would fabricate a direction the brain did not choose. This refusal
+                # ("Can't go short on Spot markets") was already non-fatal, just wasted slots.
+                if _side == "SHORT" and (self.segment or "futures") == "spot":
+                    rep["skipped"] += 1
+                    continue
+                try:
+                    _res = cli.place_order(
+                        symbol=_psym, action="BUY", side=("long" if _side == "LONG" else "short"),
+                        allow_live=allow_live, enter_tag=_tag, segment=self.segment)
+                except Exception as _oe:               # engine refusal / transport fault
+                    print(f"[filter-lane-drop:{self.segment}] {_psym} preset={preset} "
+                          f"reason=raised:{_oe!s:.80}", flush=True)
+                    rep["skipped"] += 1
+                    continue
                 if isinstance(_res, dict) and _res.get("ok") is False:
                     print(f"[filter-lane-drop:{self.segment}] {_psym} preset={preset} "
                           f"reason=refused:{(_res.get('reason') or _res.get('error') or _res)!s:.60}",

@@ -82,3 +82,64 @@ class FilterLaneExecutorTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FilterLaneSegmentValidityTest(FilterLaneExecutorTest):
+    """SEGMENT VALIDITY (2026-07-16). Measured live: the lane burned every cycle on entries the
+    engine rejected outright — futures `entered=[] skipped=0 err="Symbol does not exist or market
+    is not active"`, spot `err="Can't go short on Spot markets"`. It ranked the whole captured
+    universe and derived a side, but never checked what the TARGET SEGMENT can accept."""
+
+    def _sides(self):
+        return [o.get("side") for o in self.cli.orders]
+
+    def test_spot_never_receives_a_short_order(self):
+        """Spot cannot short. A SHORT read on spot means "do not buy" -> SKIP. It must NEVER be
+        flipped to long: that would fabricate a direction the brain did not choose."""
+        self.ex.segment = "spot"
+        # force both picks SHORT regardless of the preset's own derivation
+        self.ex._learned_filter_side = lambda *a, **k: ("SHORT", "filter:momentum", {})
+        rep = self.ex.open_filter_lane(allow_live=False)
+        self.assertNotIn("short", self._sides())
+        self.assertEqual(self.cli.orders, [], "no order may reach a spot worker as a short")
+        self.assertGreaterEqual(rep["skipped"], 1)     # skipped, not silently flipped
+
+    def test_futures_still_takes_shorts(self):
+        self.ex.segment = "futures"
+        self.ex._learned_filter_side = lambda *a, **k: ("SHORT", "filter:momentum", {})
+        self.ex.open_filter_lane(allow_live=False)
+        self.assertIn("short", self._sides())          # the spot guard must not leak to futures
+
+    def test_pair_absent_from_the_segment_is_skipped(self):
+        """_derive() already calls tradeable_form(); None -> the pick never reaches placement."""
+        self.ex.segment = "futures"
+        self.cli.tradeable_form = lambda sym, seg: None        # engine says: not tradeable here
+        rep = self.ex.open_filter_lane(allow_live=False)
+        self.assertEqual(self.cli.orders, [], "must not place an order for an absent market")
+        self.assertGreaterEqual(rep["skipped"], 1)
+
+    def test_one_raising_symbol_must_not_kill_the_whole_cycle(self):
+        """THE root cause of "futures never opens" (2026-07-16). place_order -> _check RAISES
+        FreqtradeError on an API refusal; the loop only handled the RETURNED {"ok": False}. The
+        raise escaped to the outer except and aborted every remaining candidate — the logs showed
+        `entered=[] skipped=0 err=forceenter failed: ...`, and skipped=0 proved it died on pick #1.
+        The engine can legitimately refuse a pair our guard accepts: _pair_tradeable FAILS OPEN and
+        checks raw ccxt markets, which are WIDER than Freqtrade's internal pairlist."""
+        from trading.crypto.engine_client import FreqtradeError
+        self.ex.segment = "futures"
+        calls = {"n": 0}
+
+        def _place(**kw):
+            calls["n"] += 1
+            if calls["n"] == 1:                     # first candidate is refused by the engine
+                raise FreqtradeError("forceenter failed: Error querying /api/v1/forceenter: "
+                                     "Symbol does not exist or market is not active.")
+            self.cli.orders.append(kw)
+            return {"ok": True}
+
+        self.cli.place_order = _place
+        rep = self.ex.open_filter_lane(allow_live=False)
+        self.assertEqual(calls["n"], 2, "the cycle must CONTINUE to candidate #2 after a raise")
+        self.assertEqual(len(rep["entered"]), 1, "candidate #2 must still open")
+        self.assertGreaterEqual(rep["skipped"], 1)  # the refusal is data: logged + skipped
+        self.assertIsNone(rep.get("error"), "a per-pick refusal must not become a cycle error")
