@@ -47,12 +47,15 @@ class LearnedDirectionTest(unittest.TestCase):
         self.assertGreater(out["confidence"], 0.0)
         self.assertFalse(out["weights"]["funding_extreme"]["invert"])
 
-    def test_proven_wrong_source_is_inverted(self):
-        # a source that's right only 32% of the time, saying LONG (0.85), must push SHORT
+    def test_proven_wrong_source_earns_nothing_and_is_never_inverted(self):
+        # SECOND INVERTER KILLED 2026-07-16: even a CONFIDENTLY-wrong source is retired, not
+        # flipped — buckets are non-stationary (the evening this flipped honest SHORT votes
+        # into 27 LONGs during a dump, -164 USDT). CONVENTIONS §16.
         self._set("funnel_mtf_vote", 0.32, 400, half_ci=0.04)
         out = ld.decide([("funnel_mtf_vote", 0.85)])
-        self.assertTrue(out["weights"]["funnel_mtf_vote"]["invert"])
-        self.assertEqual(out["direction"], "short")
+        self.assertFalse(out["weights"]["funnel_mtf_vote"]["invert"])
+        self.assertEqual(out["weights"]["funnel_mtf_vote"]["w"], 0.0)
+        self.assertTrue(out["abstained"])
 
     def test_near_random_source_earns_no_weight_and_abstains(self):
         self._set("funnel_mtf_vote", 0.49, 12000, half_ci=0.01)  # measured, but ~coin flip
@@ -84,13 +87,13 @@ class LearnedDirectionTest(unittest.TestCase):
         self.assertEqual(out["direction"], "long")
 
     # ── learned_vote drop-in ──────────────────────────────────────────────────────
-    def test_learned_vote_inverts_trend_anti_vote(self):
-        self._set("funnel_mtf_vote", 0.38, 200, half_ci=0.04)   # trend anti-signal
+    def test_learned_vote_abstains_on_trend_anti_vote(self):
+        # was: inverted to SHORT. §16: measured-wrong = no weight, never a flipped trade.
+        self._set("funnel_mtf_vote", 0.38, 200, half_ci=0.04)
         chart = {"15m": {"p_up": 0.75, "source": "fast"},
                  "1h": {"p_up": 0.72, "source": "fast"}}
         direction, p = ld.learned_vote(chart, regime="trend_up")
-        self.assertEqual(direction, "short")                    # long vote → inverted to short
-        self.assertLess(p, 0.5)
+        self.assertEqual(direction, "neutral")
 
     def test_learned_vote_abstains_on_random_vote(self):
         self._set("funnel_mtf_vote", 0.49, 12000, half_ci=0.01)
@@ -104,11 +107,13 @@ class LearnedDirectionTest(unittest.TestCase):
         self.assertEqual(ld.learned_vote(chart), ("neutral", 0.5))
 
     # ── correct_direction (Reflex/pullback lane) ──────────────────────────────────
-    def test_correct_direction_inverts_reliably_wrong_source(self):
-        self._set("pullback", 0.32, 400, half_ci=0.04)          # proven wrong
+    def test_correct_direction_never_inverts_reliably_wrong_source(self):
+        # §16 (second inverter killed): measured-wrong passes through unflipped; the caller
+        # decides what to do with an unweighted side — it is never handed a fabricated one.
+        self._set("pullback", 0.32, 400, half_ci=0.04)
         newd, info = ld.correct_direction("LONG", source="pullback")
-        self.assertEqual(newd, "SHORT")
-        self.assertEqual(info["action"], "invert")
+        self.assertEqual(newd, "LONG")
+        self.assertNotEqual(info["action"], "invert")
 
     def test_correct_direction_keeps_good_source(self):
         self._set("pullback", 0.60, 300, half_ci=0.03)          # proven right
@@ -168,11 +173,11 @@ class TestNoiseIsNeverInverted(unittest.TestCase):
         self.assertEqual(w, 0.0)
         self.assertFalse(inv, "a 0.495 source is not a 0.505 source wearing a mask")
 
-    def test_a_RELIABLY_wrong_source_is_still_inverted(self):
-        # the guard must not over-correct: a genuinely, significantly wrong source still flips
+    def test_a_RELIABLY_wrong_source_is_retired_not_inverted(self):
+        # 2026-07-16 evening: this exact flip opened 27 LONGs into a dump. Wrong = retired.
         w, inv = self._w({"n": 5000, "rate": 0.40, "ci_low": 0.38, "ci_high": 0.42})
-        self.assertTrue(inv, "a source whose CI is entirely below 0.5 is reliably wrong -> invert")
-        self.assertGreater(w, 0.0)
+        self.assertFalse(inv)
+        self.assertEqual(w, 0.0)
 
     def test_a_reliably_right_source_is_never_inverted(self):
         w, inv = self._w({"n": 5000, "rate": 0.60, "ci_low": 0.58, "ci_high": 0.62})

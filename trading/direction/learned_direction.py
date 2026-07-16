@@ -107,7 +107,16 @@ def _signed_weight(rel: dict, cfg: dict) -> tuple[float, bool]:
     if lo > 0.5:
         edge, invert = rate - 0.5, False          # reliably RIGHT
     elif hi < 0.5:
-        edge, invert = 0.5 - rate, True           # reliably WRONG → invert its p_up
+        # 🚨 SECOND INVERTER KILLED 2026-07-16 (evening). The morning fix below killed inversion
+        # for CI-straddlers only; this branch kept flipping sources measured CONFIDENTLY below
+        # 0.5 — and bucket accuracy is NON-STATIONARY here (persistence corr −0.214), so a
+        # confident yesterday-anti is a coin flip today. Measured live the same evening: the
+        # market dumped, momentum/direction_model/symbol_move_net honestly voted SHORT on
+        # 40-45 of 50 candidates, this branch flipped them (river 0.4365/n=14.8k poisoned-era
+        # bucket, momentum 0.4669 trend bucket), and the decider opened 27 LONGs into the dump:
+        # −164 USDT open, 93% of the book's loss. CONVENTIONS §16: a measured-wrong source is
+        # RETRAINED or RETIRED, never inverted — direction must be EARNED, on CLEAN eras.
+        return 0.0, False
     else:
         # CI straddles 0.5 → the source is NOT measurably different from a coin flip.
         # 🚨 KILLED 2026-07-16 (owner: "kill that inverter"): this used to `return 0.0, (rate < 0.5)`
