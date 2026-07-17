@@ -366,3 +366,22 @@ names, SHORTs possible, direction from the T8 pipeline instead of price>SMA(12 t
 REVERT: remove BRAIN_LOOP from .env + restart (also revert if CPU load climbs toward
 wedge territory — VM history). Verdict: matured direction grade + lane net of post-21:14
 router entries vs the 0/2 LONG-chase baseline.
+
+## Session 8, X8 (2026-07-17 ~21:55 UTC) — vol-scaled stop, in-engine A/B
+
+X7 scorecard at ~40min: matured 3/11 (0.27), closed-net −62; 6 of 8 matured deaths were
+stop_loss at 0.7–1.4% PRICE adverse — inside one 5m candle of noise on high-vol perps.
+The research brief's structural warning materialized: a fixed 0.6%-price stop across a
+universe whose ATR% spans 10x forces noise stop-outs regardless of entry quality.
+Positive signals: LAB SHORT green (brain flipped the symbol it used to knife-LONG);
+router direction mix now ~balanced; wallet lane still ~zero-cost.
+
+X8: MlBridgeStrategy.custom_stoploss with per-trade A/B by trade-id parity —
+  EVEN ids: fixed ml_stop_fixed (=ML_STOPLOSS −3% stake) — the X3 control.
+  ODD ids: K×ATR14(5m)×lev of stake, clamp [ML_STOP_MIN 2%, ML_STOP_MAX 8%], K=1.5.
+  Static config stoploss now carries the −8% backstop (freqtrade: static stop is the
+  WIDEST bound; custom_stoploss can only tighten, so BOTH arms enforced there).
+  Arm recoverable from trade_id%2 — zero extra state. Fail path = fixed arm / backstop.
+  REVERT: ML_STOP_AB=0 (all trades → fixed −3%) + freqtrade restart.
+Verdict rule (pre-registered): compare arms on trades opened post-21:55 at n≥50/arm —
+green ratio AND net per trade; vol arm must beat fixed on net without halving green ratio.

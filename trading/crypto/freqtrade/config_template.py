@@ -209,11 +209,17 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
             "password": cfg.ft_password,           # read from .env (FREQTRADE_PASSWORD)
         },
         "ml_leverage": float(cfg.leverage),    # custom: read by strategies' leverage() (futures)
-        # hard-stop override (config beats strategy attr). Default mirrors MlBridgeStrategy's
-        # -0.10; ML_STOPLOSS in .env is the experiment knob. Measured 2026-07-17: winners'
-        # MAE p90 = 1.47% of notional while stop_loss exits averaged -12.8% — a -3% backstop
-        # keeps ~99.5% of winners and cuts the worst-loss bucket ~70%.
-        "stoploss": float(os.environ.get("ML_STOPLOSS", "-0.10") or -0.10),
+        # Hard-stop family (X3+X8, 2026-07-17). freqtrade semantics: the static "stoploss" is
+        # the WIDEST bound (custom_stoploss can only tighten), so it carries the ml_stop_max
+        # backstop; the per-trade arms live in MlBridgeStrategy.custom_stoploss —
+        # EVEN trade ids = fixed ml_stop_fixed (control, ML_STOPLOSS), ODD ids = vol-scaled
+        # K×ATR14(5m)×lev clamped [ml_stop_min, ml_stop_max]. ML_STOP_AB=0 → fixed for all.
+        "stoploss": -abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),
+        "ml_stop_fixed": abs(float(os.environ.get("ML_STOPLOSS", "-0.03") or 0.03)),
+        "ml_stop_ab": os.environ.get("ML_STOP_AB", "1") in ("1", "true", "yes"),
+        "ml_stop_atr_k": float(os.environ.get("ML_STOP_ATR_K", "1.5") or 1.5),
+        "ml_stop_min": abs(float(os.environ.get("ML_STOP_MIN", "0.02") or 0.02)),
+        "ml_stop_max": abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),
         "bot_name": "mlnetworkbrain-crypto",
         "initial_state": "running",
         # 15s, not 5s: each cycle prices EVERY open trade off the order book (mandatory

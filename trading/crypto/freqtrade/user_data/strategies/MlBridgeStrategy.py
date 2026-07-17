@@ -41,6 +41,64 @@ class MlBridgeStrategy(IStrategy):
         lev = float(self.config.get("ml_leverage", 1.0) or 1.0)
         return max(1.0, min(lev, max_leverage))
 
+    # ── mlnb X8 (2026-07-17): vol-scaled hard stop, per-trade A/B against the fixed stop ──
+    # Live evidence: with the fixed −3%-of-stake stop (0.6% price at 5x), 6 of the first 8
+    # matured brain-era closes stopped at 0.7–1.4% price adverse — inside ONE 5m candle of
+    # noise on high-vol perps (the research brief's predicted failure: stop must derive from
+    # the symbol's volatility, not a fixed number across a universe whose ATR% spans 10x).
+    # A/B by trade-id parity: EVEN ids keep the config stoploss (control), ODD ids get
+    # K×ATR14(5m) in price space, leverage-scaled into freqtrade's profit-ratio basis and
+    # clamped to [ml_stop_min, ml_stop_max] of stake. Scoreboards recover the arm from
+    # trade_id % 2 — no extra state. Any failure returns None (keep the default stop).
+    use_custom_stoploss = True
+    _atr_cache: dict = {}                 # pair -> (monotonic_ts, atr_pct)
+
+    def _atr_pct(self, pair: str) -> float | None:
+        import time as _t
+        hit = self._atr_cache.get(pair)
+        if hit and _t.monotonic() - hit[0] < 120:
+            return hit[1]
+        try:
+            df, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            if df is None or len(df) < 20:
+                return None
+            tail = df.tail(15)
+            highs, lows, closes = tail["high"].values, tail["low"].values, tail["close"].values
+            trs = []
+            for i in range(1, len(tail)):
+                trs.append(max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]),
+                               abs(lows[i] - closes[i - 1])))
+            atr_pct = 100.0 * (sum(trs) / len(trs)) / float(closes[-1]) if closes[-1] else None
+        except Exception:
+            atr_pct = None
+        self._atr_cache[pair] = (_t.monotonic(), atr_pct)
+        return atr_pct
+
+    def custom_stoploss(self, pair, trade, current_time, current_rate, current_profit,
+                        after_fill: bool = False, **kwargs):
+        try:
+            from freqtrade.strategy import stoploss_from_open
+            lev = float(getattr(trade, "leverage", 1.0) or 1.0)
+            fixed = abs(float(self.config.get("ml_stop_fixed", 0.03) or 0.03))
+            # NB: the static `stoploss` attr is freqtrade's WIDEST bound (custom_stoploss can
+            # only tighten from it) — it is set to the ml_stop_max backstop in the config, and
+            # BOTH arms are enforced here.
+            if not bool(self.config.get("ml_stop_ab", True)) or int(trade.id) % 2 == 0:
+                return stoploss_from_open(-fixed, current_profit,
+                                          is_short=trade.is_short, leverage=lev)
+            atr = self._atr_pct(pair)
+            if not atr or atr <= 0:                           # no vol read → fixed arm
+                return stoploss_from_open(-fixed, current_profit,
+                                          is_short=trade.is_short, leverage=lev)
+            k = float(self.config.get("ml_stop_atr_k", 1.5) or 1.5)
+            lo = abs(float(self.config.get("ml_stop_min", 0.02) or 0.02))
+            hi = abs(float(self.config.get("ml_stop_max", 0.08) or 0.08))
+            stake_stop = max(lo, min(hi, k * (atr / 100.0) * lev))
+            return stoploss_from_open(-stake_stop, current_profit,
+                                      is_short=trade.is_short, leverage=lev)
+        except Exception:
+            return None
+
     def custom_exit(self, pair, trade, current_time, current_rate, current_profit, **kwargs):
         """mlnb E1 (2026-07-10): IN-ENGINE profit-tailgate enforcement.
 
