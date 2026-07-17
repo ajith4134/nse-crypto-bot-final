@@ -137,3 +137,21 @@ Root cause of the 0.393 decider: reliability weights read ALL-ERA cumulative poo
 - Verdict check at 10:41: still data-starved (1 labeled variant row; bandit 57 outcomes,
   va_trail 13/19 leading; OPE cursor chewing the pre-persistence skip backlog).
 - Candle persistence verified across THIS restart (see funnel log "candle history reloaded").
+
+## Session 5 (2026-07-17, commit 7812372) — owner's deep pipeline scan (JCT/KORU)
+
+Water-flow trace RAM→brain→Freqtrade of two owner-flagged trades found THREE defects:
+1. **Stale-arm reflex entries** (JCT, MFE=0): pullbacks armed on a live trend fire minutes
+   later with no re-validation — JCT armed on the 11:20-25 pump, fired 11:32 into the fade.
+   FIX: fire-time range-position gate (REFLEX_POS_GATE, refusals scored as reflex_poscut).
+2. **The timing dimension nobody checked**: entry position in the prior-30m range. Measured
+   (35 clean longs): bottom-entries 90% win / 0% never-favorable; top-entries 40% win.
+   FIX: "pos" (top/mid/bottom) is now an E8 conditioner on every claim — all sources'
+   trust becomes position-aware as labels accrue. Watch cond_buckets |pos:*.
+3. **Half the book was invisible**: live_loop's crypto router placed with no enter_tag —
+   318/633 clean closed trades landed as "force_entry" (and it's the BEST lane, 60.4% win).
+   FIX: decision tag travels with the order. Attribution restored going forward.
+Verdict on the owner's question: NOT coincidence — a systematic, fixable timing pattern +
+one attribution hole. Pre-registered check: reflex_poscut's labeled accuracy must come in
+WORSE than taken reflex entries (else the gate is theater → remove); "pos" conditioner
+effect visible in cond_buckets within days.
