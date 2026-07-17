@@ -121,3 +121,19 @@ Root cause of the 0.393 decider: reliability weights read ALL-ERA cumulative poo
 - The decider's own recorded claims are the single most informative source row in the
   ledger: they measure the FUSION, not a lens. Watch learned_direction vs
   learned_direction_ctl as the mission's primary scoreboard row.
+
+## Session 4 (2026-07-17, commit c455053) — X-F: magnitudes are noise
+
+- **Calibration measurement (16,525 clean labels): claimed confidence is anti-informative.**
+  ~0.95 claims realize 0.490; modest 0.65 claims realize 0.560 (the best band); per-source,
+  hi-conf beats lo-conf only for indicator_fusion (+.028) and dir_exit (+.012);
+  symbol_move_net's confident calls realize 0.398. The cost gate and fusion were consuming
+  fantasy magnitudes.
+- **Fix**: LEARNED_DIR_MAG_CAP (0.10) clamps every source's magnitude contribution in both
+  fusion paths — sign × measured weight carries the decision. Control keeps raw magnitudes;
+  OPE replays magcap off/0.05.
+- **Behavior audit** (300 live vote rows replayed under today's weights): 95% abstain; all 15
+  actual calls came via specialized fusion (9× 4h, 6× 15m). The "fewer, better" shape.
+- Verdict check at 10:41: still data-starved (1 labeled variant row; bandit 57 outcomes,
+  va_trail 13/19 leading; OPE cursor chewing the pre-persistence skip backlog).
+- Candle persistence verified across THIS restart (see funnel log "candle history reloaded").
