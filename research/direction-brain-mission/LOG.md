@@ -104,8 +104,12 @@ Root cause of the 0.393 decider: reliability weights read ALL-ERA cumulative poo
 - Horizon verdict: all 20 open assignments carry horizon=None (pre-session-3 entries). Wait.
 - OPE: skips grew 1082→1146 — matured rows still predate the CURRENT process's candle
   history. **Root operational lesson: every mission restart wipes the RAM history that
-  labeling, regime and 4h resolution depend on.** From 10:31 a RESTART FREEZE is in effect:
-  no loop restarts until the verdicts have data (exceptions: crashes/owner ask).
+  labeling, regime and 4h resolution depend on.** Initially handled with a restart freeze;
+  then FIXED AT THE ROOT per owner ask (commit 8a1f424): mirror candles persist to
+  trading/state/mirror_candles.json.gz every 180s and reload at start() — a restart now
+  costs only the outage gap (which stays an honest gap in the bars). First snapshot
+  verified live 10:36 (78KB, growing). Restarts are cheap now but not free (ticks/book/
+  depth re-earn): still don't restart gratuitously.
 - Exit-policy bandit is visibly learning already: 48 outcomes — va_trail 11/16 wins,
   ratchet 8/11, forecast 6/10, scale_out 1/4, ratchet_direction 0/2. Small n; no verdict.
 - Next verdict check: ≥24h of uninterrupted uptime, then filter ts ≥ 1784282640.
