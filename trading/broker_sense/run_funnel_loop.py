@@ -126,6 +126,14 @@ def main() -> int:
                     _ocs.refresh()
                 except Exception as e:
                     print(f"[onchain] error: {e!r}", flush=True)
+                # E12 lead-lag + coint_lite graph rebuild (RAM-only numpy pass, throttled).
+                try:
+                    from trading.direction import market_state as _msx
+                    _mg = _msx.build_graph()
+                    if _mg and _mg.get("available"):
+                        print(f"[market-graph] {_mg}", flush=True)
+                except Exception as e:
+                    print(f"[market-graph] error: {e!r}", flush=True)
                     # SYMBOL-MOVE NET (owner 2026-07-13): retrain the multi-head direction+move% net
                     # here (GatedMoENode fit ~seconds) so the per-candidate consult() only ever does a
                     # cheap forward pass — training NEVER touches the hot decision path (TabPFN lesson).

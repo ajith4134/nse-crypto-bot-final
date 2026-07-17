@@ -2419,6 +2419,12 @@ _Tests for trading/market_guard + the two execution doors — multi-market isola
 - **classes:** TestClassify, TestMatch, TestExecAdapterDoor, TestInstrumentKey
 - **imports:** trading.market_guard, unittest
 
+## `tests/test_market_state_routes.py`
+_Tests for the E12 cross-symbol routes (dominance / rank momentum / funding divergence /_
+- **classes:** _Base, TestDominanceTilt, TestRankMomentum, TestFundingDivergence, TestGraphRoutes
+- **functions:** `_snap()`
+- **imports:** __future__, math, os, pathlib, tempfile, time, unittest
+
 ## `tests/test_memory_assoc.py`
 _P4.2 acceptance: human-like ASSOCIATIVE recall (Personalized-PageRank + RRF fusion)._
 - **classes:** TestAssociativeRecall
@@ -4570,7 +4576,7 @@ _trading/direction/lesson_prior.py — E4: closed-trade lessons distilled into a
 
 ## `trading/direction/market_state.py`
 _trading/direction/market_state.py — cross-symbol market state: correlation regime,_
-- **functions:** `_flag(name, default) -> bool`; `_f(name, default) -> float`; `_flat(symbol) -> str`; `_ret(closes, k) -> float | None`; `snapshot(now) -> dict`; `_build(t) -> dict`; `corr_regime(snap) -> str | None`; `conditioners() -> dict`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **functions:** `_flag(name, default) -> bool`; `_f(name, default) -> float`; `_flat(symbol) -> str`; `_ret(closes, k) -> float | None`; `snapshot(now) -> dict`; `_build(t) -> dict`; `corr_regime(snap) -> str | None`; `conditioners() -> dict`; `build_graph(force) -> dict | None`; `_graph() -> dict`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
 - **imports:** __future__, math, os, threading, time
 
 ## `trading/direction/meta_challenger.py`
