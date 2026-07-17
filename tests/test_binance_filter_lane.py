@@ -68,6 +68,33 @@ class BinanceFilterLaneTest(unittest.TestCase):
         self.assertEqual(bfl.score({"symbol": "X"}, "momentum"), 0.0)
         self.assertEqual(bfl.score({"symbol": "X"}, "squeeze"), 0.0)
 
+    def test_momentum_preset_prefers_short_tf_move(self):
+        """Owner + SELECTION-CRITIQUE 2026-07-17: the momentum preset must rank by the
+        SHORT-timeframe move when candles exist — a coin moving NOW beats yesterday's
+        finished 24h mover."""
+        from unittest import mock
+        from trading.broker_sense import binance_filter_lane as bfl
+
+        def _stf(sym):
+            return 4.0 if "NOW" in str(sym) else 0.1     # NOWUSDT is moving this hour
+        rows = [{"symbol": "OLDUSDT", "pct_change": 20.0, "volume": 1e6},   # done move
+                {"symbol": "NOWUSDT", "pct_change": 1.0, "volume": 1e6}]    # starting
+        with mock.patch.object(bfl, "_stf_change", side_effect=_stf):
+            ranked = bfl.rank([dict(r) for r in rows], "momentum")
+        self.assertEqual(ranked[0]["symbol"], "NOWUSDT")
+
+    def test_momentum_side_uses_short_tf_sign_with_24h_fallback(self):
+        from unittest import mock
+        from trading.broker_sense import binance_filter_lane as bfl
+        # short-TF says DOWN even though 24h says UP → side follows the CURRENT move
+        with mock.patch.object(bfl, "_stf_change", return_value=-2.0):
+            sigs = dict(bfl.direction_signals({"symbol": "AUSDT", "pct_change": 15.0}))
+        self.assertLess(sigs["filter:momentum"], 0.5)
+        # cold mirror → honest fallback to the 24h sign
+        with mock.patch.object(bfl, "_stf_change", return_value=None):
+            sigs = dict(bfl.direction_signals({"symbol": "AUSDT", "pct_change": 15.0}))
+        self.assertGreater(sigs["filter:momentum"], 0.5)
+
     def test_direction_signals_momentum(self):
         sigs = dict(bfl.direction_signals(_row("A", pct=10.0, vol=1_000)))
         self.assertIn("filter:momentum", sigs)

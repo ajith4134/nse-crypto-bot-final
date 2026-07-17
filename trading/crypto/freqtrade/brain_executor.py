@@ -586,7 +586,7 @@ class BrainExecutor:
                 # eyes surface FLAT tickers ('DODOXUSDT'); the engine trades slashed pairs.
                 _psym = cli.tradeable_form(_bfl.to_pair(sym, self.segment or "futures"), self.segment)
                 if _psym is None or _psym in open_pairs:
-                    return ("skip", pick, _psym, None, None, [])
+                    return ("skip", pick, _psym, None, None, [], None)
                 _reg = (_rgc(sym) or {}).get("regime")
                 _side, _tag, _ldout = self._learned_filter_side(
                     pick, pick.get("_preset", preset), _reg, fast=True)
@@ -605,12 +605,16 @@ class BrainExecutor:
                                      _dmodel.SOURCE, _pm, _reg, _fd))
                 except Exception:
                     pass
-                return ("ok", pick, _psym, _side, _tag, recs)
+                return ("ok", pick, _psym, _side, _tag, recs, _ldout)
 
             with ThreadPoolExecutor(max_workers=_workers) as _ex:   # parallel side derivation
                 derived = [d for d in _ex.map(_derive, picks) if d]
             all_recs: list = []
-            for kind, pick, _psym, _side, _tag, recs in derived:    # sequential guarded placement
+            # _ldout MUST travel in the tuple: the 2026-07-17 thread-pool refactor left the
+            # placement loop referencing the worker's local — a NameError at entry-meta time
+            # that silently killed every candidate after the FIRST entry each cycle (caught
+            # by test_filter_lane_executor when first run against the refactor).
+            for kind, pick, _psym, _side, _tag, recs, _ldout in derived:
                 all_recs.extend(recs)
                 if kind == "skip" or _psym in open_pairs:
                     rep["skipped"] += 1

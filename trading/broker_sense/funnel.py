@@ -293,6 +293,20 @@ class BrokerSenseFunnel:
         except ValueError:
             look_topk = 60
         _cap = min(shortlist_n, look_topk) if look_topk > 0 else shortlist_n
+        # INCEPTION ORDER (SELECTION-CRITIQUE 2026-07-17): `hot` was ranked by the
+        # COMPLETED 24h move (watch heat), so LOOK_TOPK examined exhausted movers while
+        # the pre-momentum universe stayed invisible. Re-order the candidates by the
+        # inception score (P(move starting) from RAM: fresh breakout, acceleration,
+        # squeeze, taker imbalance, liq onset) so the top-K examined symbols are the
+        # ones most likely to move NEXT. Ties keep the old heat order; a cold mirror
+        # degrades to exactly the old behavior. Crypto only; INCEPTION_RANK=0 disables.
+        if self.market == "crypto" and \
+                os.environ.get("INCEPTION_RANK", "1") in ("1", "true", "TRUE", "yes", "on"):
+            try:
+                from trading.broker_sense import inception as _inc
+                hot = _inc.order(list(hot))
+            except Exception:
+                pass
         new_hot = [s for s in hot if s not in open_syms][: _cap]
         picks = [by_sym.get(s, {"symbol": s, "lane": "tradingview"})
                  for s in new_hot]

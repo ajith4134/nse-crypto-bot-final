@@ -85,15 +85,49 @@ def features(symbol: str, ticker_row: dict | None = None) -> dict:
 # ranks WHICH symbols are worth trading now; the SIDE (long/short) is decided downstream by
 # learned_direction. Stage 2 replaces the static weights with truth-ledger-learned ones per regime.
 _PRESETS = {
-    # classic momentum: liquid + moving hard
-    "momentum": {"abs_pct": 1.0, "log_vol": 0.6},
+    # classic momentum — SHORT-timeframe move (owner + SELECTION-CRITIQUE 2026-07-17):
+    # abs_stf is the |move| over FILTER_MOMENTUM_TF_MIN minutes (default 60; pick 5/15/
+    # 30/60) from RAM candles, so the lane selects moves happening NOW, at their start —
+    # not yesterday's finished 24h move. abs_pct (24h) stays as a small tiebreak and the
+    # cold-mirror fallback (a symbol with no candles still ranks by the old signal).
+    "momentum": {"abs_stf": 1.0, "abs_pct": 0.15, "log_vol": 0.6},
     # funding dislocation: crowded funding + liquidity (mean-reversion candidates)
     "funding_extreme": {"abs_funding": 1.0, "log_vol": 0.5, "abs_pct": 0.3},
-    # order-flow squeeze: taker imbalance + OI + move
-    "squeeze": {"abs_taker": 1.0, "abs_pct": 0.5, "log_vol": 0.4},
+    # order-flow squeeze: taker imbalance + OI + move (short-TF too — same rationale)
+    "squeeze": {"abs_taker": 1.0, "abs_stf": 0.5, "log_vol": 0.4},
     # broad liquidity floor: just the most liquid names (safe default breadth)
     "liquidity": {"log_vol": 1.0},
 }
+
+
+def _stf_minutes() -> int:
+    """The short-timeframe window (minutes) the momentum family selects on. Owner-tunable:
+    FILTER_MOMENTUM_TF_MIN ∈ {5, 15, 30, 60}; anything else clamps into [5, 240]."""
+    try:
+        m = int(float(os.environ.get("FILTER_MOMENTUM_TF_MIN", "60") or 60))
+    except (TypeError, ValueError):
+        m = 60
+    return max(5, min(240, m))
+
+
+def _stf_change(symbol: str) -> float | None:
+    """% move over the short window from RAM 5m candles (1m candles when the window is
+    5m). None on a cold mirror — callers fall back to the 24h number honestly."""
+    try:
+        from trading.broker_sense.binance_stream import get_mirror
+        flat = str(symbol or "").replace("/", "").split(":")[0].upper()
+        mins = _stf_minutes()
+        tf, per = (60, 1) if mins <= 5 else (300, 5)
+        n = max(2, mins // per + 1)
+        rows = get_mirror().candles(flat, tf, n) or []
+        if len(rows) < 2:
+            return None
+        past, cur = float(rows[0][4]), float(rows[-1][4])
+        if past <= 0:
+            return None
+        return (cur / past - 1.0) * 100.0
+    except Exception:
+        return None
 
 
 def presets() -> list[str]:
@@ -111,15 +145,25 @@ def direction_signals(row: dict) -> list:
     weights by its MEASURED reliability — so the lane's SIDE stops being raw momentum and becomes
     'whichever of these signals has actually predicted direction'. Returns [] when nothing is read.
 
-      filter:momentum   — ride the 24h move (sign of %chg)
+      filter:momentum   — ride the CURRENT move: sign of the short-TF change
+                          (FILTER_MOMENTUM_TF_MIN, default 60m — SELECTION-CRITIQUE
+                          2026-07-17: the 24h sign selected finished moves; the 1h move
+                          is the band where continuation actually measured). Falls back
+                          to the 24h sign on a cold mirror.
       filter:funding    — fade crowded funding (high +funding = crowded longs → short lean)
       filter:taker      — follow the aggressor (buy-heavy taker flow → long)
       filter:longshort  — mild contrarian on extreme crowd positioning
     """
     import math
     out = []
+    if "_stf" not in row:
+        row["_stf"] = _stf_change(row.get("symbol") or row.get("raw") or "")
+    stf = row["_stf"]
     pct = row.get("pct_change")
-    if pct is not None:
+    if stf is not None:
+        # /2 scaling: a ±2% HOURLY move is already a strong read (24h used /5)
+        out.append(("filter:momentum", _sig(1.0 / (1.0 + math.exp(-float(stf) / 2.0)))))
+    elif pct is not None:
         out.append(("filter:momentum", _sig(1.0 / (1.0 + math.exp(-float(pct) / 5.0)))))
     fund = row.get("funding_rate")
     if fund is not None:
@@ -141,8 +185,15 @@ def _components(row: dict) -> dict:
     vol = row.get("volume")
     fund = row.get("funding_rate")
     taker = row.get("taker_imbalance")
+    # short-TF move: computed once per row and cached ON the row (rank() re-scores rows;
+    # the candle read must not repeat). Cold mirror → falls back to the 24h |pct| so the
+    # preset still ranks (old behavior), never a silent zero.
+    if "_stf" not in row:
+        row["_stf"] = _stf_change(row.get("symbol") or row.get("raw") or "")
+    stf = row["_stf"]
     return {
         "abs_pct": abs(pct) if pct is not None else 0.0,
+        "abs_stf": abs(stf) if stf is not None else (abs(pct) if pct is not None else 0.0),
         "log_vol": math.log10(vol) if (vol is not None and vol > 0) else 0.0,
         "abs_funding": abs(fund) * 100.0 if fund is not None else 0.0,   # rate→~%
         "abs_taker": abs(taker) if taker is not None else 0.0,

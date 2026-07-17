@@ -2359,6 +2359,12 @@ _tests/test_hypothesis.py — the brain's hypothesis→experiment→belief loop.
 - **functions:** `isolated_state(tmp_path, monkeypatch)`; `_trades(n, seed) -> list[dict]`; `test_confirms_true_edge_and_refutes_false(isolated_state)`; `test_reflect_promotes_and_archives(isolated_state)`; `test_persists_and_reloads(isolated_state)`; `test_node_protocol_and_registry(isolated_state)`; `test_pipeline_integration_with_ledger(isolated_state)`
 - **imports:** __future__, core.node_protocol, numpy, pytest
 
+## `tests/test_inception.py`
+_Tests for trading/broker_sense/inception.py — the inception ranker + lifecycle phase_
+- **classes:** TestFeaturesAndScore
+- **functions:** `_bars(closes, highs, lows, t0)`; `_mirror(bars, taker, liqs)`; `_patch(m)`
+- **imports:** __future__, unittest
+
 ## `tests/test_indicator_fusion.py`
 _Tests for the ultra-advanced multi-timeframe indicator-fusion engine (offline, no network)._
 - **classes:** TestIndicators, TestBarriers, TestMetaLabel, TestFuse
@@ -2408,6 +2414,12 @@ _Phase P4.4 (2nd mastery model) acceptance tests — EduKTM Deep Knowledge Traci
 - **classes:** _StubBrain, TestTracerFit, TestNoInteractions, TestAddSequence, TestBaselineRanking, TestDKTEasyVsHard, TestDeterminism, TestQuizIntegration
 - **functions:** `_muted()`; `_quiet_fit(tracer)`
 - **imports:** __future__, contextlib, io, json, memory.knowledge_tracing, memory.self_quiz, unittest, warnings
+
+## `tests/test_lane_gate.py`
+_Tests for trading/execution/lane_gate.py — kill-criteria parity + freshness gate at_
+- **classes:** _Iso, TestKillCriteria, TestFreshnessGate, TestStatus, TestPlaceOrderWiring, TestPhaseConditioner
+- **functions:** `_mkdb(path, rows)`
+- **imports:** __future__, os, pathlib, sqlite3, tempfile, trading.state, unittest
 
 ## `tests/test_learn_loop.py`
 _Continuous learning loop (trading/brain/learn_loop.py) — deterministic unit tests._
@@ -3676,7 +3688,7 @@ _trading/broker_sense/binance_catalysts.py — Binance-native event catalysts (P
 
 ## `trading/broker_sense/binance_filter_lane.py`
 _trading/broker_sense/binance_filter_lane.py — the Binance-filter TOP-N breadth lane._
-- **functions:** `to_pair(flat, segment) -> str`; `_f(v, default)`; `features(symbol, ticker_row) -> dict`; `presets() -> list[str]`; `_sig(p) -> float`; `direction_signals(row) -> list`; `_components(row) -> dict`; `score(row, preset) -> float`; `rank(rows, preset, n) -> list[dict]`; `adaptive_n() -> int`; `enabled() -> bool`; `universe(segment) -> list[dict]`; `top_picks(segment, preset, n) -> list[dict]`
+- **functions:** `to_pair(flat, segment) -> str`; `_f(v, default)`; `features(symbol, ticker_row) -> dict`; `_stf_minutes() -> int`; `_stf_change(symbol) -> float | None`; `presets() -> list[str]`; `_sig(p) -> float`; `direction_signals(row) -> list`; `_components(row) -> dict`; `score(row, preset) -> float`; `rank(rows, preset, n) -> list[dict]`; `adaptive_n() -> int`; `enabled() -> bool`; `universe(segment) -> list[dict]`; `top_picks(segment, preset, n) -> list[dict]`
 - **imports:** __future__, os, re, trading.broker_sense
 
 ## `trading/broker_sense/binance_options.py`
@@ -3823,6 +3835,11 @@ _trading/broker_sense/funnel.py — the cascade orchestrator (savers B + I: ever
 _trading/broker_sense/human_handoff.py — mid-session human-CAPTCHA handoff._
 - **functions:** `enabled() -> bool`; `_vnc_enabled() -> bool`; `_display() -> str`; `_max_wait() -> float`; `_poll_interval() -> float`; `_check_interval() -> float`; `_state_path()`; `_read() -> dict`; `_write(data) -> None`; `_now() -> float`; `_vnc(op) -> str`; `_vnc_up() -> tuple[bool, str]`; `_alert(broker, url) -> None`; `_any_other_active(brokers, exclude) -> bool`; `_activate(broker, url) -> None`; `_deactivate(broker) -> None`; `is_challenge(page) -> bool`; `guard(broker, page) -> bool`; `_resume_flag_path(broker)`; `_resume_requested(broker) -> bool`; `request_resume(broker) -> dict`; `clear_resume(broker) -> None`; `take_control(broker) -> dict`; `stop_control() -> dict`; `status() -> dict`
 - **imports:** __future__, json, os, subprocess, time, trading
+
+## `trading/broker_sense/inception.py`
+_Inception ranker — attention by P(move STARTING), not P(move happened)._
+- **functions:** `_f(name, default) -> float`; `_flat(symbol) -> str`; `_mirror()`; `features(symbol) -> dict | None`; `score(feats) -> float`; `_scored(symbol) -> float`; `rank(symbols, n) -> list[tuple[str, float]]`; `order(symbols) -> list[str]`; `phase(symbol) -> str | None`; `fresh_ok(symbol, direction) -> tuple[bool, str]`; `clear_cache() -> None`
+- **imports:** __future__, math, os, threading, time
 
 ## `trading/broker_sense/indicator_fusion.py`
 _trading/broker_sense/indicator_fusion.py — ultra-advanced multi-timeframe indicator fusion._
@@ -4738,6 +4755,11 @@ _trading/execution/exit_policy.py — E2: ONE learned exit policy per trade (Tho
 _trading/execution/kill_switch.py — real-money safety kill-switch (T3 §10)._
 - **classes:** KillSwitch
 - **imports:** __future__, dataclasses, typing
+
+## `trading/execution/lane_gate.py`
+_Lane gate — kill-criteria parity + freshness gate at the ONE entry chokepoint._
+- **functions:** `_f(name, default) -> float`; `_on(name, default) -> bool`; `_db_path() -> str`; `_exempt() -> set`; `_fresh_prefixes() -> tuple`; `tag_stats(refresh) -> dict`; `killed(tag) -> tuple[bool, str]`; `_record_refusal(kind, tag) -> None`; `check(tag, symbol, direction, segment) -> tuple[bool, str, str]`; `status() -> dict`
+- **imports:** __future__, os, sqlite3, threading, time
 
 ## `trading/execution/mae_mfe.py`
 _trading/execution/mae_mfe.py — tick-by-tick MAE/MFE tracker (T3 §2)._

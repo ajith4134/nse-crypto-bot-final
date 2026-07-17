@@ -127,6 +127,18 @@ def current_conditioners(symbol: str, market: str = "CRYPTO") -> dict:
                 out["pos"] = "top" if rp > 0.8 else ("bottom" if rp < 0.2 else "mid")
     except Exception:
         pass
+    try:                                   # SELECTION-CRITIQUE 2026-07-17: momentum lifecycle.
+        # Measured: fresh moves continue (only positive band), stale big-movers and late
+        # extended moves lose — every source's trust becomes PHASE-aware as labels accrue
+        # (quiet/fresh/mid/stale/extended), so momentum lenses can auto-discover they only
+        # work fresh. Same E8 chain as liq/clock/pos.
+        if (market or "CRYPTO").upper() == "CRYPTO":
+            from trading.broker_sense import inception
+            ph = inception.phase(symbol)
+            if ph:
+                out["phase"] = ph
+    except Exception:
+        pass
     return out
 
 

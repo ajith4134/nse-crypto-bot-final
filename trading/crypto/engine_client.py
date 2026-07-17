@@ -191,6 +191,23 @@ class CryptoEngineClient:
         """
         self._guard_live(allow_live)
         act = (action or "").upper()
+        # LANE GATE (SELECTION-CRITIQUE 2026-07-17): every entry lane converges here
+        # (MlBridgeStrategy emits no automatic entries), so this is the ONE chokepoint
+        # for (1) kill-criteria parity — an enter_tag with ≥100 closed trades and
+        # negative P&L over the window is retired, same bar the lens lane already
+        # faces — and (2) the freshness gate on momentum-family tags (refuses only the
+        # measured stale cohort; refusal recorded as a 'freshcut' counterfactual claim
+        # so it self-adjudicates). Fail-open by construction; guards BOTH the inbox and
+        # REST paths below. LANE_KILL=0 / FRESH_GATE=0 disable.
+        if act in ("BUY", "LONG", "ENTER", "SHORT"):
+            try:
+                from trading.execution import lane_gate as _lg
+                _dir = "SHORT" if act == "SHORT" else (side or "long").upper()
+                _ok, _guard, _why = _lg.check(enter_tag, symbol, _dir, segment)
+            except Exception:
+                _ok, _guard, _why = True, "", ""
+            if not _ok:
+                return {"ok": False, "error": _why, "guard": _guard}
         # mlnb E3 (2026-07-10): DECISION INBOX mode — env CRYPTO_DECISION_INBOX=1 queues the
         # decision to <state>/decisions_inbox.jsonl instead of a REST round-trip; each segment
         # bot consumes and executes it in-process (freqtrade/mlnb_inbox.py) with the same
