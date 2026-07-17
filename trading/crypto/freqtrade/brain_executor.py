@@ -432,6 +432,11 @@ class BrainExecutor:
         Never raises; each lens fails open."""
         _reads = list(base)
         features = features or {}
+        try:                                          # E6: prioritize this symbol on the depth
+            from trading.broker_sense.binance_stream import get_mirror   # stream so dobi book
+            get_mirror().request_depth([psym])        # features exist where decisions happen
+        except Exception:
+            pass
         try:                                          # proposal E: the bull/bear/risk debate
             if not fast \
                     and os.environ.get("DEBATE_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on") \
@@ -1882,6 +1887,17 @@ class BrainExecutor:
             from trading.execution import profit_tailgate as pt
             st = cli.status()
             trades = st if isinstance(st, list) else []
+            try:                                      # E6: every OPEN position keeps priority
+                from trading.broker_sense.binance_stream import get_mirror   # depth coverage
+                get_mirror().request_depth(
+                    [t.get("pair") for t in trades if isinstance(t, dict) and t.get("pair")])
+            except Exception:
+                pass
+            try:                                      # E7: grade realized fills vs the logged
+                from trading.execution import exec_choice as _xc   # decision-time mid
+                _xc.grade_fills(trades)
+            except Exception:
+                pass
             for t in trades:
                 pair = t.get("pair")
                 if not pair:

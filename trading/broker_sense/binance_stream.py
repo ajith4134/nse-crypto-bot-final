@@ -138,6 +138,7 @@ class BinanceUniverseMirror:
         self._connected = False
         self._depth_connected = False
         self._depth_watch: list[str] = []        # the top-N symbols we currently stream depth for
+        self._depth_requests: dict[str, float] = {}   # E6: sym -> expiry (priority depth watch)
         self._depth_last_msg_ts = 0.0
         self._reconnects = 0
         self._last_msg_ts = 0.0
@@ -432,6 +433,40 @@ class BinanceUniverseMirror:
         except Exception:
             self._depth_connected = False
 
+    def request_depth(self, symbols, ttl_s: float = 3600.0) -> None:
+        """E6 (2026-07-17): ask the depth stream to include `symbols` (flat or slashed) on its
+        next re-pick (≤ _DEPTH_REFRESH_S away). Fire-and-forget, thread-safe, TTL-expired —
+        the decision/exit paths call this so dobi depth features cover the symbols the brain
+        is actually trading, not just the top-volume names. Never raises."""
+        try:
+            now = time.time()
+            with self._lock:
+                for s in symbols or []:
+                    if not isinstance(s, str):
+                        continue
+                    flat = s.replace("/", "").split(":")[0].upper()
+                    if flat:
+                        self._depth_requests[flat] = now + float(ttl_s)
+                if len(self._depth_requests) > 400:            # bound the request set
+                    for k in sorted(self._depth_requests,
+                                    key=self._depth_requests.get)[:100]:
+                        self._depth_requests.pop(k, None)
+        except Exception:
+            pass
+
+    def requested_depth(self) -> list[str]:
+        """Live (unexpired) requested-depth symbols, oldest-expiry last."""
+        try:
+            now = time.time()
+            with self._lock:
+                dead = [k for k, exp in self._depth_requests.items() if exp <= now]
+                for k in dead:
+                    self._depth_requests.pop(k, None)
+                return sorted(self._depth_requests,
+                              key=self._depth_requests.get, reverse=True)
+        except Exception:
+            return []
+
     async def _depth_stream_loop(self) -> None:
         """Stream 20-level partial book for the top-N movers; reconnect every _DEPTH_REFRESH_S to
         re-pick the set as the universe rotates. One connection, N streams — bounded, no firehose."""
@@ -446,6 +481,15 @@ class BinanceUniverseMirror:
             if not syms:
                 await asyncio.sleep(2.0)
                 continue
+            # E6 (2026-07-17, P1 dobi gap): REQUESTED symbols — open positions + symbols the
+            # brain is actively deciding on — ride ahead of the volume ranking, so the depth
+            # imbalance features exist exactly where decisions happen, not only on the most
+            # liquid names. Bounded: requests + top-N, capped at _DEPTH_N + DEPTH_WATCH_EXTRA.
+            req = self.requested_depth()
+            if req:
+                cap = _DEPTH_N + int(os.getenv("DEPTH_WATCH_EXTRA", "40") or 40)
+                merged = list(dict.fromkeys(req + syms))[:cap]
+                syms = merged
             self._depth_watch = syms
             # depth ONLY — aggTrade is not deliverable on this legacy host (see _AGG_HOST); it
             # runs on its own /market/ connection in _agg_stream_loop.

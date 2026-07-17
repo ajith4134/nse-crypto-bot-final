@@ -1810,7 +1810,7 @@ _Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + determi
 
 ## `tests/test_brain_connect_upgrades.py`
 _Tests for the 2026-07-17 connect-the-brain batch._
-- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads, TestDeepLensesMirrorBacked
+- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads, TestDepthRequests, TestDeepLensesMirrorBacked
 - **functions:** `_trend_closes(n) -> list[float]`
 - **imports:** __future__, os, tempfile, time, unittest
 
@@ -2155,6 +2155,11 @@ _Multi-venue market-data pool (trading/crypto/exchange_pool.py) — ban-proofing
 - **classes:** _FakeCcxt
 - **functions:** `_pool(specs)`; `test_round_robin_spreads_calls()`; `test_failover_skips_broken_venue()`; `test_ban_error_triggers_long_cooldown_and_budget_is_hard()`; `test_transient_error_gets_short_backoff_only()`; `test_norm_appends_settle_for_swap()`; `test_all_venues_down_raises()`; `test_crypto_options_screener_drops_expiring_contracts()`
 - **imports:** pathlib, tempfile, time, trading.crypto.exchange_pool, trading.state
+
+## `tests/test_exec_choice.py`
+_Tests for trading/execution/exec_choice.py (E7 — measured limit/market execution choice)._
+- **classes:** _Base, TestChoose, TestGradeFills
+- **imports:** __future__, json, os, pathlib, tempfile, time, unittest
 
 ## `tests/test_execution_t3.py`
 _Trading Phase T3 (Trade Execution Engine) acceptance tests — fully offline._
@@ -4651,6 +4656,11 @@ _trading/execution/circuit_breaker.py — daily-loss circuit breaker (T3 §7)._
 _trading/execution/engine.py — ExecutionEngine + TradeManager (T3 composition)._
 - **classes:** TradeManager, ExecutionEngine
 - **imports:** __future__, dataclasses, trading.execution.circuit_breaker, trading.execution.kill_switch, trading.execution.mae_mfe, trading.execution.order_state, trading.execution.profit_booking, trading.execution.trailing, typing
+
+## `trading/execution/exec_choice.py`
+_trading/execution/exec_choice.py — E7: learned-measurable execution timing (limit vs market)._
+- **functions:** `enabled() -> bool`; `_f(name, default) -> float`; `_flat(symbol) -> str`; `_drift_bps(flat) -> float | None`; `choose(symbol, side) -> dict`; `log_choice(symbol, side, choice) -> None`; `grade_fills(trades) -> int`; `status() -> dict`
+- **imports:** __future__, json, os, pathlib, time, trading
 
 ## `trading/execution/exit_policy.py`
 _trading/execution/exit_policy.py — E2: ONE learned exit policy per trade (Thompson bandit)._

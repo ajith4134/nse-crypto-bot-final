@@ -229,6 +229,22 @@ class CryptoEngineClient:
             otype = _order_type()                        # owner prefers MARKET (guaranteed fill)
             # a market order ignores price and fills at the book — pass price only for a limit
             oprice = None if otype == "market" else price
+            # E7 (2026-07-17): per-order microstructure choice — limit-at-touch when the
+            # spread is worth earning and price isn't running away, else market. Every choice
+            # is logged and later graded against the decision-time mid (exec_choice_stats),
+            # so this is a MEASURED policy, not a preference. EXEC_CHOICE=0 restores the
+            # config-wide order type.
+            try:
+                from trading.execution import exec_choice as _xc
+                if _xc.enabled():
+                    _ch = _xc.choose(symbol, entry_side)
+                    _xc.log_choice(symbol, entry_side, _ch, enter_tag=str(enter_tag or ""))
+                    if _ch.get("order_type") == "limit" and _ch.get("price"):
+                        otype, oprice = "limit", float(_ch["price"])
+                    else:
+                        otype, oprice = "market", None
+            except Exception:
+                pass
             # order_type/enter_tag/stake_amount are optional on older freqtrade-client
             # builds → degrade (a missing kwarg drops the refinement, never the entry).
             try:

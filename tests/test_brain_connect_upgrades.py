@@ -208,6 +208,35 @@ class TestSharedLensReads(unittest.TestCase):
         self.assertIsNone(bf)
 
 
+class TestDepthRequests(unittest.TestCase):
+    """E6: priority depth-watch requests merge ahead of the volume ranking."""
+
+    def _mirror(self):
+        from trading.broker_sense.binance_stream import BinanceUniverseMirror
+        m = BinanceUniverseMirror.__new__(BinanceUniverseMirror)
+        import threading
+        m._lock = threading.RLock()
+        m._depth_requests = {}
+        return m
+
+    def test_request_normalizes_and_expires(self):
+        m = self._mirror()
+        m.request_depth(["AKE/USDT:USDT", "taousdt"], ttl_s=3600)
+        self.assertEqual(set(m.requested_depth()), {"AKEUSDT", "TAOUSDT"})
+        m._depth_requests["AKEUSDT"] = time.time() - 1          # expire one
+        self.assertEqual(m.requested_depth(), ["TAOUSDT"])
+
+    def test_request_set_bounded(self):
+        m = self._mirror()
+        m.request_depth([f"S{i}USDT" for i in range(500)])
+        self.assertLessEqual(len(m._depth_requests), 401)
+
+    def test_never_raises_on_garbage(self):
+        m = self._mirror()
+        m.request_depth([None, "", 42])
+        self.assertEqual(m.requested_depth(), [])
+
+
 class TestDeepLensesMirrorBacked(unittest.TestCase):
     """E3: worldmodel/concept lenses build their ohlcv from the RAM mirror and default ON."""
 
