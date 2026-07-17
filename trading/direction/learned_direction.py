@@ -9,10 +9,11 @@ observation" rule, recommended by the 2026-07-12 SOTA research pass): every dire
 carries a weight = its Wilson-honest measured *edge* over 0.5 (from truth_ledger.source_reliability).
 
   • a source measured near 50% (the mtf vote) earns ~0 weight and stops driving trades;
-  • a source measured reliably BELOW 50% is INVERTED (its p_up flips) and then contributes with
-    positive weight — a proven anti-signal becomes a real signal;
-  • a source measured reliably ABOVE 50% (venue_leadlag 0.54, funding_extreme/app_indicators 0.56)
-    dominates in proportion to its edge;
+  • a source measured reliably BELOW 50% is RETIRED to zero weight — NEVER inverted (both
+    inverters were killed 2026-07-16 after flipping noise lost −112 and −164 on live paper;
+    CONVENTIONS §16: wrong = retrain/retire, accuracy here is non-stationary);
+  • a source measured reliably ABOVE 50% dominates in proportion to its RECENT edge (X-A
+    half-life day-buckets, 2026-07-17 — trust follows what is right NOW, not in a stale era);
   • when no source has a proven edge, the decider ABSTAINS (neutral) rather than force a coin-flip
     trade — the fix for "symbols that pass all votes open and lose".
 
@@ -244,7 +245,8 @@ def _log(decision: dict, *, symbol: str, market: str, regime, seam: str,
 
 def decide(readings, *, market: str = "", segment: str = "",
            regime: str | None = None, symbol: str = "", coverage: dict | None = None,
-           log: bool = True, variant: str = "live") -> dict:
+           log: bool = True, variant: str = "live",
+           extra_conditioners: dict | None = None) -> dict:
     """Fuse directional lens readings into ONE learned decision, weighting each by measured edge.
 
     readings: iterable of (source, p_up) — p_up in [0,1], the source's probability of LONG.
@@ -260,8 +262,12 @@ def decide(readings, *, market: str = "", segment: str = "",
     weights: dict[str, dict] = {}
     cond = None
     if symbol:
-        try:            # E8: decision-time conditioners refine every source's weight
-            cond = _tl.current_conditioners(symbol, market or "CRYPTO") or None
+        try:            # E8: decision-time conditioners refine every source's weight;
+            # X-D: callers add selection context (sel:<preset>) — WHY the scanner picked
+            # this symbol is itself a measured conditioner (pct-change selection pressure,
+            # research/audits/pct-change-is-contrarian-20260716.md).
+            cond = {**(_tl.current_conditioners(symbol, market or "CRYPTO") or {}),
+                    **(extra_conditioners or {})} or None
         except Exception:
             cond = None
     for source, p_up in readings:

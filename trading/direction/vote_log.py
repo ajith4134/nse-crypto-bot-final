@@ -39,7 +39,8 @@ def _enabled() -> bool:
 
 
 def log(*, symbol: str, market: str, segment: str, lane: str,
-        reads, regime: str | None = None, decided: str | None = None) -> None:
+        reads, regime: str | None = None, decided: str | None = None,
+        preset: str | None = None) -> None:
     """Append one candidate's full vote vector. Best-effort: never raises.
 
     ``reads`` is the executor's list of ``(source, p_up)`` tuples; ``decided`` is the
@@ -59,7 +60,10 @@ def log(*, symbol: str, market: str, segment: str, lane: str,
         row = json.dumps(
             {"ts": round(time.time(), 3), "symbol": symbol, "market": market,
              "segment": segment, "regime": regime, "lane": lane,
-             "decided": decided, "votes": votes},
+             "decided": decided, "votes": votes,
+             # X-D (2026-07-17): WHY the scanner surfaced this symbol — selection context
+             # is a measured conditioner (pct-change selection pressure audit)
+             **({"preset": preset} if preset else {})},
             separators=(",", ":"))
         p = _path()
         p.parent.mkdir(parents=True, exist_ok=True)

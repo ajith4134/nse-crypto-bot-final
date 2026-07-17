@@ -187,10 +187,17 @@ _CANDIDATES: list[tuple[str, dict[str, str] | None]] = [
     ("min_n_15", {"LEARNED_DIR_MIN_N": "15"}),
     ("min_n_60", {"LEARNED_DIR_MIN_N": "60"}),
     ("unproven_02", {"LEARNED_DIR_UNPROVEN_W": "0.02"}),
+    # MISSION X-A (2026-07-17): the evidence half-life is the highest-leverage knob the
+    # clean-window drift measurements exposed — replay the plausible settings.
+    ("halflife_off", {"LEDGER_HALF_LIFE_D": "0"}),   # cumulative-only (pre-mission control)
+    ("halflife_05", {"LEDGER_HALF_LIFE_D": "0.5"}),
+    ("halflife_1", {"LEDGER_HALF_LIFE_D": "1"}),
+    ("halflife_5", {"LEDGER_HALF_LIFE_D": "5"}),
 ]
 
 _ENV_KEYS = ("LEARNED_DIR_SHRINK_K", "LEARNED_DIR_MIN_EDGE", "LEARNED_DIR_BAND",
-             "LEARNED_DIR_MIN_N", "LEARNED_DIR_UNPROVEN_W", "LEARNED_DIR_MIN_TOTAL_W")
+             "LEARNED_DIR_MIN_N", "LEARNED_DIR_UNPROVEN_W", "LEARNED_DIR_MIN_TOTAL_W",
+             "LEDGER_HALF_LIFE_D")
 
 
 def _score(rows: list[dict], side_of) -> dict:

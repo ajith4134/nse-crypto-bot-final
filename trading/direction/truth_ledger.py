@@ -154,8 +154,10 @@ def record(*, symbol: str, market: str, segment: str, direction: str, source: st
         if features:                                   # M1 stacking lens features (flat numeric)
             row["features"] = {k: features[k] for k in features if features[k] is not None}
         try:                                           # E8: stamp the decision-time conditioners
-            cond = conditioners if conditioners is not None \
-                else current_conditioners(symbol, _mkt)
+            # X-D (2026-07-17): explicit conditioners MERGE over the auto ones (liq/clock) —
+            # callers add dimensions like sel:<preset> (why the scanner picked this symbol)
+            # without losing the automatic stamps.
+            cond = {**current_conditioners(symbol, _mkt), **(conditioners or {})}
             if cond:
                 row["cond"] = {str(k): str(v) for k, v in cond.items() if v}
         except Exception:

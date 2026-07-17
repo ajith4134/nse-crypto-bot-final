@@ -187,3 +187,60 @@ class TestCostGate(_Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSession2(unittest.TestCase):
+    """Mission session 2: candle-fallback price_at, conditioner merge, sel conditioner."""
+
+    def setUp(self):
+        from trading import state
+        self._tmp = tempfile.TemporaryDirectory()
+        self._p = mock.patch.object(state, "STATE_DIR", Path(self._tmp.name))
+        self._p.start()
+
+    def tearDown(self):
+        self._p.stop()
+        self._tmp.cleanup()
+
+    def test_price_at_falls_back_to_candle_close(self):
+        import threading
+        from trading.broker_sense.binance_stream import BinanceUniverseMirror
+        m = BinanceUniverseMirror.__new__(BinanceUniverseMirror)
+        m._lock = threading.RLock()
+        m._hist = {}
+        m._mark = {}
+        epoch = 1_784_000_000.0
+        m._candles = {"AKEUSDT": {300: [[epoch - 300, 99, 99, 99, 99.5],
+                                        [epoch, 100, 101, 99, 100.5]]}}
+        self.assertEqual(m.price_at("AKEUSDT", epoch + 60), 100.5)
+        self.assertEqual(m.price_at("AKEUSDT", epoch - 200), 99.5)
+        self.assertIsNone(m.price_at("AKEUSDT", epoch - 900))
+
+    def test_record_merges_explicit_conditioners_over_auto(self):
+        from trading.direction import truth_ledger as tl
+        with mock.patch.object(tl, "current_conditioners",
+                               return_value={"clock": "off_mark", "liq": "calm"}), \
+             mock.patch.object(tl, "_mirror_price", return_value=100.0):
+            tl.record(symbol="AKEUSDT", market="CRYPTO", segment="futures",
+                      direction="LONG", source="lens_x",
+                      conditioners={"sel": "momentum"})
+        import json as _j
+        line = open(tl._pending_path()).readline()
+        cond = _j.loads(line)["cond"]
+        self.assertEqual(cond["sel"], "momentum")       # explicit added
+        self.assertEqual(cond["clock"], "off_mark")     # auto preserved
+
+    def test_decide_merges_extra_conditioners(self):
+        from trading.direction import learned_direction as ld
+        seen = {}
+
+        def spy(source, regime, market, conditioners=None, **kw):
+            seen["cond"] = conditioners
+            return {"n": 0, "correct": 0, "rate": None, "ci_low": None,
+                    "ci_high": None, "edge": None}
+        with mock.patch.object(ld, "reliability", side_effect=spy), \
+             mock.patch.object(ld._tl, "current_conditioners",
+                               return_value={"liq": "calm"}):
+            ld.decide([("lens_a", 0.7)], market="CRYPTO", symbol="AKEUSDT",
+                      log=False, extra_conditioners={"sel": "momentum"})
+        self.assertEqual(seen["cond"], {"liq": "calm", "sel": "momentum"})

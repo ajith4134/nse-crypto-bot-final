@@ -457,13 +457,15 @@ class BrainExecutor:
                 else "live")
             out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
-                             symbol=_psym, coverage=_col["coverage"], variant=_var)
+                             symbol=_psym, coverage=_col["coverage"], variant=_var,
+                             extra_conditioners={"sel": str(preset or "breadth")})
             out["_signals"] = _col.get("signals")     # reused by the lane's record batch (no 2nd collect)
             try:                                      # write-only vote log (B1 diversity study)
                 from trading.direction import vote_log as _vlog
                 _vlog.log(symbol=_psym, market="CRYPTO", segment=self.segment or "futures",
                           lane="breadth", reads=_reads, regime=regime,
-                          decided=(out.get("direction") or "abstain"))
+                          decided=(out.get("direction") or "abstain"),
+                          preset=str(preset or ""))
             except Exception:
                 pass
             if not out.get("abstained") and out.get("direction") in ("long", "short") \
@@ -1006,7 +1008,8 @@ class BrainExecutor:
                             % 5 == 0 else "live")
                         _ldo = _ld.decide(_reads, market="CRYPTO",
                                           segment=self.segment or "futures", regime=_lreg,
-                                          symbol=sym, variant=_var)
+                                          symbol=sym, variant=_var,
+                                          extra_conditioners={"sel": "selective"})
                         try:                          # write-only vote log (B1 diversity study)
                             from trading.direction import vote_log as _vlog
                             _vlog.log(symbol=sym, market="CRYPTO",
@@ -1033,7 +1036,8 @@ class BrainExecutor:
                                 _ldtl.record(symbol=sym, market="CRYPTO",
                                              segment=self.segment or "futures",
                                              direction=_lact, source=_lsrc_name,
-                                             confidence=_ldo.get("p_up"), regime=_lreg)
+                                             confidence=_ldo.get("p_up"), regime=_lreg,
+                                             conditioners={"sel": "selective"})
                             except Exception:
                                 pass
                             brain = {**brain, "learned_direction": _ldo}

@@ -614,15 +614,29 @@ class BinanceUniverseMirror:
         s = symbol.upper()
         with self._lock:
             h = self._hist.get(s)
-            if not h:
-                v = self._mark.get(s)                 # no history yet → latest, if close enough
-                return v.get("mark") if v and abs(v.get("ts", 0) - epoch) <= tol_s else None
             best, bestd = None, tol_s
-            for ts, mk in h:
-                d = abs(ts - epoch)
-                if d <= bestd:
-                    best, bestd = mk, d
-            return best
+            if h:
+                for ts, mk in h:
+                    d = abs(ts - epoch)
+                    if d <= bestd:
+                        best, bestd = mk, d
+            if best is not None:
+                return best
+            # MISSION session-2 root fix (2026-07-17): the tick history spans only ~80 min,
+            # which silently made every horizon older than that unresolvable (OPE labeled 0 of
+            # 1,082 rows). The 5m CANDLES persist for the whole process lifetime — fall back
+            # to the close of the bar containing `epoch` (≤5 min quantization, honest for
+            # 15m/1h/4h horizon labels).
+            cs = self._candles.get(s)
+            if cs and 300 in cs:
+                for bar in reversed(cs[300]):
+                    b0 = float(bar[0])
+                    if b0 <= epoch < b0 + 300:
+                        return float(bar[4])
+                    if b0 + 300 <= epoch:
+                        break                          # bars are time-ordered; epoch is newer
+            v = self._mark.get(s)                     # last resort: latest, if close enough
+            return v.get("mark") if v and abs(v.get("ts", 0) - epoch) <= tol_s else None
 
     def ticker(self, symbol: str) -> dict | None:
         with self._lock:

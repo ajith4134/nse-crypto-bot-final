@@ -2077,7 +2077,7 @@ _Tests for the Direction Decision Ledger (owner ask: what data drove each direct
 
 ## `tests/test_direction_mission.py`
 _Tests for the Direction Brain Mission X-batch: day-bucket half-life reliability,_
-- **classes:** _Base, TestDayBucketsAndDecay, TestReliabilityChainDecayed, TestHorizonEmission, TestCostGate
+- **classes:** _Base, TestDayBucketsAndDecay, TestReliabilityChainDecayed, TestHorizonEmission, TestCostGate, TestSession2
 - **functions:** `_day(offset_days) -> str`
 - **imports:** __future__, json, os, pathlib, tempfile, time, unittest
 
