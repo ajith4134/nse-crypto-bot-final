@@ -68,15 +68,32 @@ def _cfg() -> dict:
 _CACHE: dict[tuple, tuple[float, dict]] = {}
 
 
-def reliability(source: str, regime: str | None = None, market: str | None = None) -> dict:
-    """Cached truth_ledger.source_reliability(source, market, regime) with a regime→any fallback:
-    prefer the regime-specific measurement, fall back to the across-regime rollup when the
-    regime bucket is too thin. `market` (CRYPTO|NSE) keeps crypto and NSE reliability APART so
-    an NSE decision never reads a crypto-polluted edge (isolation, 2026-07-13). Returns the
-    truth_ledger dict (rate/ci_low/ci_high/edge/n)."""
+def _blend(child: dict, parent_rate: float, parent_n: int, k: float) -> dict | None:
+    """One empirical-Bayes step: the child bucket + up to k pseudo-obs at the parent rate.
+    None when there is nothing to borrow (child already ≥ parent evidence)."""
+    n_c, c_c = int(child.get("n") or 0), int(child.get("correct") or 0)
+    if k <= 0 or parent_n <= n_c:
+        return None
+    borrow = min(float(k), float(parent_n - n_c))
+    bc = c_c + borrow * parent_rate
+    bn = n_c + borrow
+    rate, lo, hi = _tl._wilson(bc, bn)
+    return {"n": int(round(bn)), "correct": int(round(bc)), "rate": round(rate, 4),
+            "ci_low": round(lo, 4), "ci_high": round(hi, 4),
+            "edge": round(rate - 0.5, 4), "n_child": n_c, "borrowed": int(round(borrow))}
+
+
+def reliability(source: str, regime: str | None = None, market: str | None = None,
+                conditioners: dict | None = None) -> dict:
+    """Cached truth_ledger.source_reliability with a hierarchical shrinkage chain:
+    global(market) → regime → conditioner (E8: liq / clock sub-buckets). Each thinner bucket
+    borrows up to shrink_k pseudo-observations from its parent, so refinement never resets
+    earned trust and rich buckets dominate their parents. `market` (CRYPTO|NSE) keeps crypto
+    and NSE reliability APART (isolation, 2026-07-13). Returns the truth_ledger dict."""
     ttl = _cfg()["cache_ttl"]
     m = (market or "").upper() or None
-    key = (source, (regime or "").lower() or None, m)
+    cond_key = tuple(sorted((conditioners or {}).items())) or None
+    key = (source, (regime or "").lower() or None, m, cond_key)
     hit = _CACHE.get(key)
     if hit and (time.monotonic() - hit[0]) < ttl:
         return hit[1]
@@ -101,6 +118,27 @@ def reliability(source: str, regime: str | None = None, market: str | None = Non
                    "n_regime": n_r, "borrowed": int(round(borrow))}
         elif k <= 0 and n_r < _cfg()["min_n"] and n_a > n_r:
             rel = allr                          # legacy step fallback (shrink disabled)
+    if conditioners:
+        # E8: refine by the decision-time conditioners (liq / clock). Sequential one-step
+        # blends — an approximation of a full hierarchy, chosen because the sub-buckets are
+        # deliberately tiny label sets and order (sorted by kind) is deterministic.
+        k = _cfg()["shrink_k"]
+        for kind in sorted(conditioners):
+            val = conditioners.get(kind)
+            if not val:
+                continue
+            try:
+                cb = _tl.source_reliability_conditioned(
+                    source, market=m, kind=str(kind), value=str(val))
+            except Exception:
+                continue
+            if int(cb.get("n") or 0) <= 0 or rel.get("rate") is None:
+                continue
+            nxt = _blend(cb, float(rel["rate"]), int(rel.get("n") or 0), k)
+            if nxt is not None:
+                rel = nxt
+            elif int(cb.get("n") or 0) >= int(rel.get("n") or 0):
+                rel = cb                        # child evidence already dominates the parent
     _CACHE[key] = (time.monotonic(), rel)
     return rel
 
@@ -189,6 +227,12 @@ def decide(readings, *, market: str = "", segment: str = "",
     num = 0.0          # Σ w·(p_cal - 0.5)
     tot_w = 0.0
     weights: dict[str, dict] = {}
+    cond = None
+    if symbol:
+        try:            # E8: decision-time conditioners refine every source's weight
+            cond = _tl.current_conditioners(symbol, market or "CRYPTO") or None
+        except Exception:
+            cond = None
     for source, p_up in readings:
         if p_up is None:
             continue
@@ -197,7 +241,7 @@ def decide(readings, *, market: str = "", segment: str = "",
         except (TypeError, ValueError):
             continue
         p = min(1.0, max(0.0, p))
-        rel = reliability(source, regime, market)
+        rel = reliability(source, regime, market, conditioners=cond)
         w, invert = _signed_weight(rel, cfg)
         if w <= 0.0:
             weights[source] = {"w": 0.0, "invert": invert, "rate": rel.get("rate"),

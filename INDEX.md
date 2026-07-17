@@ -1810,7 +1810,7 @@ _Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + determi
 
 ## `tests/test_brain_connect_upgrades.py`
 _Tests for the 2026-07-17 connect-the-brain batch._
-- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads, TestDepthRequests, TestDeepLensesMirrorBacked
+- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads, TestConditionerBuckets, TestDepthRequests, TestDeepLensesMirrorBacked
 - **functions:** `_trend_closes(n) -> list[float]`
 - **imports:** __future__, os, tempfile, time, unittest
 
@@ -4554,7 +4554,7 @@ _trading/direction/direction_model.py — the direction-aware model (proposal B,
 
 ## `trading/direction/learned_direction.py`
 _trading/direction/learned_direction.py — D10: the learned direction DRIVER (goal Pillar 27)._
-- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime, market) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `_log(decision) -> None`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
+- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `_blend(child, parent_rate, parent_n, k) -> dict | None`; `reliability(source, regime, market, conditioners) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `_log(decision) -> None`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, math, os, time, trading.direction
 
 ## `trading/direction/lesson_prior.py`
@@ -4620,7 +4620,7 @@ _trading/direction/river_source.py — River online learner as a measured direct
 
 ## `trading/direction/truth_ledger.py`
 _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._
-- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_mirror_price(symbol, epoch) -> float | None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit, journal) -> dict`; `_backfill_journal_locked(rep, limit, journal) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `status() -> dict`
+- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `current_conditioners(symbol, market) -> dict`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_mirror_price(symbol, epoch) -> float | None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit, journal) -> dict`; `_backfill_journal_locked(rep, limit, journal) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `source_reliability_conditioned(source) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, fcntl, json, math, os, pathlib, time, trading
 
 ## `trading/direction/vote_log.py`

@@ -208,6 +208,66 @@ class TestSharedLensReads(unittest.TestCase):
         self.assertIsNone(bf)
 
 
+class TestConditionerBuckets(unittest.TestCase):
+    """E8: conditioner recording, sub-bucket aggregation, and the shrinkage chain."""
+
+    def setUp(self):
+        from pathlib import Path
+        from trading import state
+        self._tmp = tempfile.TemporaryDirectory()
+        self._p = mock.patch.object(state, "STATE_DIR", Path(self._tmp.name))
+        self._p.start()
+
+    def tearDown(self):
+        self._p.stop()
+        self._tmp.cleanup()
+
+    def test_current_conditioners_shapes(self):
+        from trading.direction import truth_ledger as tl
+        fake = mock.Mock()
+        fake.book.return_value = {"bids": [[100.0, 1]], "asks": [[100.5, 1]],
+                                  "ts": time.time()}                 # 50 bps → stressed
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        return_value=fake):
+            cond = tl.current_conditioners("AKEUSDT")
+        self.assertIn(cond["clock"], ("at_mark", "off_mark"))
+        self.assertEqual(cond["liq"], "stressed")
+
+    def test_fold_writes_cond_sub_buckets(self):
+        from trading.direction import truth_ledger as tl
+        agg: dict = {}
+        row = {"source": "lens_x", "market": "CRYPTO", "segment": "futures",
+               "direction": "LONG", "regime": "chop", "taken": False,
+               "cond": {"liq": "stressed", "clock": "at_mark"}}
+        tl._fold(agg, row, "15m", True, "mirror:markprice")
+        self.assertEqual(agg["cond_buckets"]["lens_x|CRYPTO|liq:stressed|15m"],
+                         {"n": 1, "correct": 1})
+        self.assertEqual(agg["cond_buckets"]["lens_x|CRYPTO|clock:at_mark|15m"],
+                         {"n": 1, "correct": 1})
+        from trading import state
+        state.save_json(tl._AGG, agg)                    # the reader loads the state file
+        rel = tl.source_reliability_conditioned("lens_x", market="CRYPTO",
+                                                kind="liq", value="stressed")
+        self.assertEqual(rel["n"], 1)
+
+    def test_reliability_chain_refines_by_conditioner(self):
+        from trading.direction import learned_direction as ld
+        ld.clear_cache()
+        parent = {"n": 200, "correct": 116, "rate": 0.58, "ci_low": 0.51,
+                  "ci_high": 0.65, "edge": 0.08}
+        cond_bucket = {"n": 40, "correct": 12, "rate": 0.30, "ci_low": 0.17,
+                       "ci_high": 0.45, "edge": -0.20}    # source is BAD when stressed
+        with mock.patch.object(ld._tl, "source_reliability",
+                               return_value=dict(parent)), \
+             mock.patch.object(ld._tl, "source_reliability_conditioned",
+                               return_value=dict(cond_bucket)):
+            rel = ld.reliability("lens_x", None, "CRYPTO",
+                                 conditioners={"liq": "stressed"})
+        self.assertLess(rel["rate"], 0.50)                # stressed evidence pulled it down
+        self.assertGreater(rel["rate"], 0.30)             # but parent still tempers it
+        ld.clear_cache()
+
+
 class TestDepthRequests(unittest.TestCase):
     """E6: priority depth-watch requests merge ahead of the volume ranking."""
 

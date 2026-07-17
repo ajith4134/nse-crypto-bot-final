@@ -67,10 +67,41 @@ def _pending_path() -> Path:
 # ── recording (called from trading loops — never raises, no network) ─────────────
 
 
+def current_conditioners(symbol: str, market: str = "CRYPTO") -> dict:
+    """E8 (2026-07-17): the two conditioners the book-state research says direction edges
+    depend on — liquidity regime (flow only predicts STRESSED, ~10x power swing) and clock
+    phase (power concentrates AT quarter-hour marks). Deliberately tiny label sets
+    (calm|mixed|stressed × at_mark|off_mark) so conditioner buckets stay dense. Cheap
+    (one RAM book read + time modulo); missing evidence → key omitted, never guessed."""
+    out: dict = {}
+    try:
+        s = time.time() % 900.0
+        out["clock"] = "at_mark" if (s < 60.0 or s > 840.0) else "off_mark"
+    except Exception:
+        pass
+    try:
+        if (market or "CRYPTO").upper() == "CRYPTO":
+            from trading.brain.entry_vector import liquidity_regime
+            from trading.broker_sense.binance_stream import get_mirror
+            flat = str(symbol or "").replace("/", "").split(":")[0].upper()
+            book = get_mirror().book(flat)
+            if book and book.get("bids") and book.get("asks"):
+                bid, ask = float(book["bids"][0][0]), float(book["asks"][0][0])
+                mid = (bid + ask) / 2.0
+                if mid > 0 and ask > bid:
+                    liq = liquidity_regime((ask - bid) / mid * 1e4)
+                    if liq:
+                        out["liq"] = liq
+    except Exception:
+        pass
+    return out
+
+
 def record(*, symbol: str, market: str, segment: str, direction: str, source: str,
            confidence: float | None = None, regime: str | None = None,
            ts: float | None = None, taken: bool = False, trade_id: str | None = None,
-           ref_price: float | None = None, features: dict | None = None) -> bool:
+           ref_price: float | None = None, features: dict | None = None,
+           conditioners: dict | None = None) -> bool:
     """Append one directional decision for later truth-labeling.
 
     `direction` LONG/SHORT (call/put callers map CE→LONG, PE→SHORT on the underlying);
@@ -122,6 +153,13 @@ def record(*, symbol: str, market: str, segment: str, direction: str, source: st
                "ref_price": float(ref_price) if ref_price else None}
         if features:                                   # M1 stacking lens features (flat numeric)
             row["features"] = {k: features[k] for k in features if features[k] is not None}
+        try:                                           # E8: stamp the decision-time conditioners
+            cond = conditioners if conditioners is not None \
+                else current_conditioners(symbol, _mkt)
+            if cond:
+                row["cond"] = {str(k): str(v) for k, v in cond.items() if v}
+        except Exception:
+            pass
         line = json.dumps(row, separators=(",", ":")) + "\n"
         p = _pending_path()
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -294,6 +332,16 @@ def _fold(agg: dict, row: dict, horizon: str, correct: bool, method: str) -> Non
     ma = agg.setdefault("method_acc", {}).setdefault(f"{method}|{horizon}", {"n": 0, "correct": 0})
     ma["n"] += 1
     ma["correct"] += int(correct)
+    # E8 (2026-07-17): conditioner SUB-buckets — additive, in their own dict (the main bucket
+    # key stays 4-part per the warning above). source|market|<kind>:<value>|horizon, so the
+    # driver can ask "how reliable is this source when the book is STRESSED / at a clock mark"
+    # and shrink toward the broader pools when the sub-bucket is thin.
+    for kind, val in (row.get("cond") or {}).items():
+        cb = agg.setdefault("cond_buckets", {}).setdefault(
+            f"{row['source']}|{row.get('market') or 'CRYPTO'}|{kind}:{val}|{horizon}",
+            {"n": 0, "correct": 0})
+        cb["n"] += 1
+        cb["correct"] += int(correct)
 
 
 def _mirror_price(symbol: str, epoch: float) -> float | None:
@@ -670,6 +718,35 @@ def source_reliability(source: str, *, market: str | None = None, regime: str | 
         c += int(b.get("correct", 0))
     if n < min_n:
         return {"n": n, "correct": c, "rate": None, "ci_low": None,
+                "ci_high": None, "edge": None}
+    rate, lo, hi = _wilson(c, n)
+    return {"n": n, "correct": c, "rate": round(rate, 4), "ci_low": round(lo, 4),
+            "ci_high": round(hi, 4), "edge": round(rate - 0.5, 4)}
+
+
+def source_reliability_conditioned(source: str, *, market: str | None = None,
+                                   kind: str, value: str,
+                                   horizon: str | None = None) -> dict:
+    """E8: one source's measured accuracy INSIDE a conditioner bucket (e.g. liq:stressed).
+    Same contract as source_reliability; n=0 when the sub-bucket has no evidence."""
+    agg = state.load_json(_AGG, {})
+    want_m = (market or "").upper() or None
+    n = c = 0
+    for key, b in (agg.get("cond_buckets") or {}).items():
+        try:
+            s, mkt, cond, h = key.rsplit("|", 3)
+        except ValueError:
+            continue
+        if s != source or cond != f"{kind}:{value}":
+            continue
+        if want_m is not None and mkt.upper() != want_m:
+            continue
+        if horizon is not None and h != horizon:
+            continue
+        n += int(b.get("n", 0))
+        c += int(b.get("correct", 0))
+    if n <= 0:
+        return {"n": 0, "correct": 0, "rate": None, "ci_low": None,
                 "ci_high": None, "edge": None}
     rate, lo, hi = _wilson(c, n)
     return {"n": n, "correct": c, "rate": round(rate, 4), "ci_low": round(lo, 4),
