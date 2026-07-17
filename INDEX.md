@@ -1442,6 +1442,11 @@ _Video framework lanes — faithful implementations, every one a neuron._
 - **functions:** `build_windows(X_2d, lookback, target_col, horizon)`; `_build_dlinear(seq_len, pred_len, kernel_size)`; `tcn_prob_node(name) -> TCNProbNode`; `encoder_transformer_node(name) -> EncoderTransformerNode`; `lstm_lane_node(name) -> LSTMLaneNode`; `mlp_lane_sklearn_node(name) -> SkMLPLaneNode`; `mlp_lane_torch_node(name) -> TorchMLPLaneNode`; `dlinear_node(name) -> DLinearNode`
 - **imports:** __future__, core.node_protocol, numpy
 
+## `research/direction-brain-mission/verdict_check.py`
+_Direction Brain Mission — the one-day verdict check (read-only)._
+- **functions:** `_wilson(c, n, z)`; `_rows(name)`; `main() -> None`
+- **imports:** __future__, collections, json, math, pathlib, time
+
 ## `run_active.py`
 _run_active.py — P3.8: PER-INPUT ACTIVE SUBNETWORK + sigma.js dashboard state._
 - **functions:** `_experts()`; `_split(X, y, frac, seed)`; `_communities(coact) -> list[int]`; `main() -> dict`
