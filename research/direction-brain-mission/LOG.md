@@ -334,3 +334,22 @@ PRE-REGISTERED VERDICT (revert rule): at n≥200 taken trades with a mom_ts read
 must be ≥0.55 (binomial p<0.05) AND realized edge positive vs the −0.213% baseline; if <0.52 →
 mom_ts is retired (weight already 0 via §16, but drop the source). Gated subset (mom_ts agrees with
 fused side) ≥0.57 → promote to a heavier prior. Check via truth_ledger `mom_ts` bucket + verdict_check.
+
+## Session 8, Batch 3 (2026-07-17 ~21:01 UTC) — the gate was blind in the router process
+
+- X4 CONFIRMED LIVE: stop_cooldown refusals = 4 within 10 min of restart (churn stopped).
+- X5b: fresh_ok was PERMANENT fail-open inside run_live_loop — the RAM mirror only
+  streams in the funnel process; the router's gate saw "no-data" forever. inception now
+  falls back to the funnel's persisted mirror_candles.json.gz (mtime-cached, 15-min
+  staleness guard, honest [] on stale) — the write_snapshot cross-process convention.
+- COHORT MEASUREMENT (n=397 closes since 12:00, r240/r60 reconstructed at entry):
+  mild-early (|4h aligned|<3%)  win 0.635  net  −93   ← best
+  counter-accel                 win 0.553  net   +8   (n=38, underpowered)
+  chase-fresh                   win 0.495  net −146
+  counter-basing                win 0.489  net  −55   (n=45, no action — underpowered)
+  chase-stalled                 win 0.444  net −199   ← toxic; gate's target cohort ✓
+  REFUTED my own knife-catch hypothesis (counter-trend is NOT the worst cohort — chasing
+  is). Rule honored: measure before gating.
+- X6: INCEPTION_FRESH_R240 5.0 → 3.0 (.env) — the 3-5% chase-stalled band is toxic too.
+  One-predicate design means score/phase/gate all shift together. REVERT: delete env.
+- run_live_loop + crypto funnel restarted 21:01 with X5b+X6.

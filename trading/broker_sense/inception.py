@@ -54,6 +54,39 @@ def _mirror():
     return get_mirror()
 
 
+# Cross-process candle fallback (2026-07-17): the RAM mirror only streams in the FUNNEL
+# process — in run_live_loop the singleton exists but never starts, so every fresh_ok()
+# there was a permanent "no-data (fail-open)" and the freshness gate silently guarded
+# nothing on the router lane. The funnel persists its bars every few minutes precisely
+# for cross-process readers (the write_snapshot convention), so read those, mtime-cached.
+_PERS_CACHE: dict = {"mtime": 0.0, "data": None}
+
+
+def _persisted_candles(sym_flat: str, tf: int = 300, n: int = 49) -> list[list]:
+    """Bars from the funnel's persisted mirror_candles file; [] when missing or when the
+    newest bar is older than 15 min (a stale file must not masquerade as live data)."""
+    try:
+        import gzip
+        import json as _json
+        from pathlib import Path
+
+        from trading import state as _st
+        p = Path(_st.STATE_DIR) / "mirror_candles.json.gz"
+        mt = p.stat().st_mtime
+        if mt != _PERS_CACHE["mtime"]:
+            with gzip.open(p, "rt") as fh:
+                _PERS_CACHE["data"] = _json.load(fh)
+            _PERS_CACHE["mtime"] = mt
+        d = _PERS_CACHE["data"] or {}
+        bars = ((d.get("candles") or {}).get(sym_flat) or {}).get(str(int(tf))) or []
+        bars = [list(b) for b in bars[-int(n):]]
+        if not bars or time.time() - float(bars[-1][0]) > 900:
+            return []
+        return bars
+    except Exception:
+        return []
+
+
 # ── features ─────────────────────────────────────────────────────────────────────
 
 
@@ -66,6 +99,8 @@ def features(symbol: str) -> dict | None:
         m = _mirror()
         s = _flat(symbol)
         bars = m.candles(s, 300, 49) or []          # 49×5m ≈ 4h+1 bar
+        if len(bars) < 15:                          # cold in-process mirror → persisted file
+            bars = _persisted_candles(s, 300, 49)
         if len(bars) < 15:                          # need ≥75m to say anything
             return None
         closes = [float(b[4]) for b in bars]
