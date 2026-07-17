@@ -474,6 +474,15 @@ class BrainExecutor:
                                     horizon=out.get("horizon") or "1h")
                 out["cost_gate"] = _cg
                 if not _cg.get("pass"):
+                    try:                          # verdict-2 evidence: the REFUSED side gets
+                        from trading.direction import truth_ledger as _tlcg   # its own ledger
+                        _tlcg.record(symbol=_psym, market="CRYPTO",           # identity so the
+                                     segment=self.segment or "futures",       # labeler scores
+                                     direction=out["direction"].upper(),      # the counterfactual
+                                     source="learned_direction_costcut",
+                                     confidence=out.get("p_up"), regime=regime)
+                    except Exception:
+                        pass
                     out["abstained"] = True
                     out["direction"] = "neutral"
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
@@ -1025,6 +1034,15 @@ class BrainExecutor:
                                                 horizon=_ldo.get("horizon") or "1h")
                             _ldo["cost_gate"] = _cg
                             if not _cg.get("pass"):
+                                try:              # verdict-2 evidence (see breadth lane)
+                                    from trading.direction import truth_ledger as _tlcg
+                                    _tlcg.record(symbol=sym, market="CRYPTO",
+                                                 segment=self.segment or "futures",
+                                                 direction=_ldo["direction"].upper(),
+                                                 source="learned_direction_costcut",
+                                                 confidence=_ldo.get("p_up"), regime=_lreg)
+                                except Exception:
+                                    pass
                                 _ldo["abstained"] = True
                                 _ldo["direction"] = "neutral"
                         if not _ldo.get("abstained") and _ldo.get("direction") in ("long", "short"):
