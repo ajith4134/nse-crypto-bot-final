@@ -95,6 +95,21 @@ Root cause of the 0.393 decider: reliability weights read ALL-ERA cumulative poo
   post-restart rows + a learn pass. Verify on next session before any grid conclusions.
 - Remaining before verdicts: data accrual only. The three pre-registered checks stand.
 
+## Verdict check #1 (2026-07-17 10:27, commit 96bc7c9) — INSUFFICIENT DATA (all three)
+
+- Variant race: 2 pending live claims post-10:04, 0 labeled, 0 control claims. NO VERDICT.
+- Cost gate: found a MEASUREMENT GAP — refusals weren't durably recorded, so verdict 2 was
+  unmeasurable. Fixed: refused sides now recorded as `learned_direction_costcut`
+  (taken=False) in both lanes; the labeler scores the counterfactual automatically.
+- Horizon verdict: all 20 open assignments carry horizon=None (pre-session-3 entries). Wait.
+- OPE: skips grew 1082→1146 — matured rows still predate the CURRENT process's candle
+  history. **Root operational lesson: every mission restart wipes the RAM history that
+  labeling, regime and 4h resolution depend on.** From 10:31 a RESTART FREEZE is in effect:
+  no loop restarts until the verdicts have data (exceptions: crashes/owner ask).
+- Exit-policy bandit is visibly learning already: 48 outcomes — va_trail 11/16 wins,
+  ratchet 8/11, forecast 6/10, scale_out 1/4, ratchet_direction 0/2. Small n; no verdict.
+- Next verdict check: ≥24h of uninterrupted uptime, then filter ts ≥ 1784282640.
+
 ### Lessons (also in research/fable5/lessons/)
 
 - Blending a rich parent into a zero-evidence child caps n at k pseudo-obs and silently
