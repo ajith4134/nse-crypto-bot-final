@@ -3996,9 +3996,9 @@ _trading/crypto/freqtrade/ — managed Freqtrade config + launch helper (T-split
 
 ## `trading/crypto/freqtrade/brain_executor.py`
 _trading/crypto/freqtrade/brain_executor.py — brain reads strategies as instructions (Phase G)._
-- **classes:** LibraryBrainDecider, BrainExecutor
-- **functions:** `_spot(symbol) -> str`; `library_brain_decider()`; `_closed_tail(n) -> list`
-- **imports:** __future__, os, pandas, time
+- **classes:** BrainExecutor
+- **functions:** `_closed_tail(n) -> list`
+- **imports:** __future__, os, pandas, time, trading.crypto.freqtrade.library_decider
 
 ## `trading/crypto/freqtrade/brain_learning.py`
 _trading/crypto/freqtrade/brain_learning.py — the brain's CLOSED LEARNING LOOP._
@@ -4030,6 +4030,12 @@ _trading/crypto/freqtrade/launch.py — generate the config and print the launch
 - **functions:** `_write_start_script(cfg_path, user_dir) -> str`; `main() -> None`
 - **imports:** __future__, os, sys, trading.crypto.config, trading.crypto.freqtrade.config_template
 
+## `trading/crypto/freqtrade/library_decider.py`
+_trading/crypto/freqtrade/library_decider.py — the library-ensemble decider (leaf module)._
+- **classes:** LibraryBrainDecider
+- **functions:** `_spot(symbol) -> str`; `library_brain_decider()`
+- **imports:** __future__, os, pandas, time
+
 ## `trading/crypto/freqtrade/micro_policy.py`
 _trading/crypto/freqtrade/micro_policy.py — distilled entry micro-policy (invent-beyond #4)._
 - **classes:** MicroPolicy
@@ -4046,7 +4052,7 @@ _trading/crypto/freqtrade/ml_decider.py — real ML direction models → brain i
 _trading/crypto/freqtrade/percoin_decider.py — brain picks the BEST strategy PER COIN (Phase G+)._
 - **classes:** PerCoinBrainDecider
 - **functions:** `per_coin_brain_decider()`
-- **imports:** __future__, math, numpy, os, time, trading.crypto.freqtrade.brain_executor
+- **imports:** __future__, math, numpy, os, time, trading.crypto.freqtrade.library_decider
 
 ## `trading/crypto/freqtrade/run_brain_loop.py`
 _run_brain_loop.py — the missing driver: run the brain→Freqtrade entry/exit loop._

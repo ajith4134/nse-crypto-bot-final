@@ -24,7 +24,7 @@ import time
 
 import numpy as np
 
-from trading.crypto.freqtrade.brain_executor import LibraryBrainDecider
+from trading.crypto.freqtrade.library_decider import LibraryBrainDecider
 
 # 5-minute bars → periods per year for Sharpe annualization (12/h · 24 · 365).
 _PERIODS_PER_YEAR = 12 * 24 * 365
