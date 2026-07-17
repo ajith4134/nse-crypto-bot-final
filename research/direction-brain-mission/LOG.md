@@ -200,3 +200,37 @@ Proposed (awaiting owner): abort-arm in exit bandit, raise bucket promotion bar
 - 102 targeted tests green; loop restarted 16:41:45, dashboard 16:46 — both post-commit.
 - Two measurement-integrity fixes en route: tailgate tests now pin their own env (prod
   .env knobs were leaking in via conftest), and source_reliability_decayed reports n_raw.
+
+## Session 7 (2026-07-17, commits fe092dc + 03cc99e) — selection overhaul + re-verification
+
+Owner: build the inception ranker + phase conditioner + all critique improvements, switch
+momentum selection off 24h data ("professor's choice": 60m default, FILTER_MOMENTUM_TF_MIN
+5-240), then re-verify the whole project again.
+
+SHIPPED (fe092dc): inception.py (attention = P(move starting): fresh-breakout/accel/
+squeeze/taker/liq-onset scoring, rank/order/phase/fresh_ok, 45s cache); funnel LOOK order
+by inception score; filter lane momentum preset + side on the SHORT-TF move with 24h
+fallback; "phase" conditioner (quiet/fresh/mid/stale/extended) on every crypto claim;
+lane_gate.py at place_order (kill-parity n≥100 + material loss, freshness gate with
+freshcut counterfactuals); tools/refresh_ohlcv.sh + daily 05:10 UTC cron (first run
+refreshed 533 futures + 122 spot pairs — measurement gap closed). Plus a REAL pre-existing
+bug the new tests caught: filter-lane thread-pool refactor NameError (_ldout) silently
+killed every candidate after the first entry each cycle since this morning.
+
+RE-VERIFICATION (03cc99e): 3-angle review (32 candidates) + live observation found:
+core-lane kill catastrophe (gate would retire learned_direction/live_loop → exemptions +
+25-USDT hysteresis + 6h PAROLE so killed lanes can redeem), uncached inception reads on
+the claim hot path (cached_features), tailgate zero-knob falsy bugs, stf partial-window
+inflation, loop_keeper kill/restart pgrep race, silent inception fallback, gate telemetry
+into /api/trading/upgrades/status (VERIFIED live: 4 real lanes retired — explore_open_all
+−1338, force_entry −3056, meanrev_stochrsi −468, filter:momentum −446 → parole added the
+same hour). Brain suite 21/21 (computer_use timeout = load, GUI API alive). 103 tests.
+
+🚨 BIGGEST CATCH: "restarting the loop" had only ever restarted run_live_loop — the crypto
+FUNNEL (run_funnel_loop crypto, separate setsid group) ran 11:50 code ALL DAY; start_all's
+pgrep guard kept it alive through every restart. All five loop processes bounced 18:08
+onto 03cc99e; verified BY BEHAVIOR: fresh claims now carry phase {quiet/mid/fresh/
+extended/stale} + pos. Lesson recorded in verify-live LEARNINGS.
+
+Watches: first early_abort arm draws + range_top_short nominations + freshcut/parole
+counters need hours of accrual; verdict runbook unchanged (V1-V5 pre-registered).
