@@ -130,27 +130,34 @@ def main() -> None:
         con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=3)
         try:
             rows2 = con.execute(
-                "SELECT COALESCE(enter_tag,'?'), close_profit_abs, exit_reason, stake_amount "
+                "SELECT COALESCE(enter_tag,'?'), close_profit_abs, exit_reason, stake_amount, id "
                 "FROM trades WHERE is_open=0 AND close_date >= ? ORDER BY close_date",
                 (epoch.replace("T", " ")[:19],)).fetchall()
         finally:
             con.close()
         by: dict = {}
-        for tag2, pnl2, reason2, stake2 in rows2:
+        arms: dict = {}                     # X8 A/B: even ids = fixed −3%, odd = vol-scaled
+        for tag2, pnl2, reason2, stake2, tid in rows2:
             d2 = by.setdefault(tag2, {"n": 0, "green": 0, "stop": 0, "hollow": 0, "net": 0.0})
-            d2["n"] += 1
-            d2["net"] += float(pnl2 or 0)
-            if (pnl2 or 0) > 0:
-                d2["green"] += 1
-                if float(pnl2 or 0) < 0.005 * float(stake2 or 200):
-                    d2["hollow"] += 1
-            if reason2 == "stop_loss":
-                d2["stop"] += 1
+            a2 = arms.setdefault("vol" if int(tid or 0) % 2 else "fixed",
+                                 {"n": 0, "green": 0, "stop": 0, "net": 0.0})
+            for d3 in (d2, a2):
+                d3["n"] += 1
+                d3["net"] += float(pnl2 or 0)
+                if (pnl2 or 0) > 0:
+                    d3["green"] += 1
+                if reason2 == "stop_loss":
+                    d3["stop"] += 1
+            if (pnl2 or 0) > 0 and float(pnl2 or 0) < 0.005 * float(stake2 or 200):
+                d2["hollow"] += 1
         print(f"[LANES since epoch] {sum(d['n'] for d in by.values())} closes "
               f"(freqtrade DB truth)")
         for tag2, d2 in sorted(by.items(), key=lambda kv: -kv[1]["n"]):
             print(f"  {tag2[:26]:26s} n={d2['n']:3d} green={d2['green']/d2['n']:.2f} "
                   f"stop%={d2['stop']/d2['n']:.2f} hollow={d2['hollow']} net={d2['net']:+8.2f}")
+        for arm, a2 in sorted(arms.items()):
+            print(f"  [stop-arm {arm:5s}]           n={a2['n']:3d} green={a2['green']/a2['n']:.2f} "
+                  f"stop%={a2['stop']/a2['n']:.2f} net={a2['net']:+8.2f}")
     except Exception as e:                                    # noqa: BLE001
         print("[LANES] db read failed:", e)
 
