@@ -14,20 +14,43 @@ Behavior — deliberately boring:
   - state → trading/state/loop_keeper.json (read by connectivity_check / dashboard);
     actions append to logs/loop_keeper.log via cron's redirect.
 
+WEDGE detection (2026-07-17): pgrep alone cannot see the failure the owner actually hits — a
+dashboard that is ALIVE but unresponsive (GIL/CPU starvation, see brain-audit + 524-wedge). It
+stays in pgrep, so this keeper called it healthy and left it hanging until a manual reboot. So
+processes in HEALTH also get an HTTP probe. Two things make the probe safe to act on:
+  - ANY HTTP status counts as alive (the dashboard answers /api/health with 401 — a reply is a
+    reply; we are testing whether the event loop still turns, not whether we are authorized).
+  - A kill needs WEDGE_STRIKES consecutive failures (~15 min at the */5 cron). This box runs at
+    load ~15 on 12 cores, so a single slow probe is normal and must NEVER cost a restart.
+Only after that does it SIGKILL the wedged pid — start_all is pgrep-guarded, so a wedged process
+must actually die before it can be replaced.
+
 Kill-switch (owner): `touch ~/.loop_keeper_off` disables restarts (state still records).
 """
 from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 
 HOME = os.path.expanduser("~")
 START_ALL = os.path.join(HOME, "start_all.sh")
 OFF_FLAG = os.path.join(HOME, ".loop_keeper_off")
 HISTORY_CAP = 50
+
+# name → local URL proving the process still SERVES, not merely exists. Loopback only: this asks
+# "does the event loop still turn", so the public gateway/tunnel must not be in the path.
+HEALTH = {
+    "dashboard": "http://127.0.0.1:8000/api/health",
+    "freqtrade": "http://127.0.0.1:8080/api/v1/ping",
+}
+PROBE_TIMEOUT = 25      # generous: a loaded box answers slowly, and slow is not wedged
+WEDGE_STRIKES = 3       # consecutive failures (~15 min) before we kill. Never act on one spike.
 
 # name → pgrep -f pattern. These are the processes whose silent death froze the brain.
 REQUIRED = {
@@ -53,6 +76,47 @@ def _alive(pattern: str) -> bool:
                               capture_output=True, timeout=10).returncode == 0
     except Exception:
         return False           # pgrep itself failing → treat as dead, let start_all guard
+
+
+def _responsive(url: str) -> bool:
+    """True if the server produced ANY HTTP reply. An HTTPError (401/404/5xx) is still a reply —
+    it proves the process is serving, which is the only thing this probe is asking. Only a
+    timeout / refused connection / socket error means the event loop has stopped turning."""
+    try:
+        urllib.request.urlopen(url, timeout=PROBE_TIMEOUT).read(1)
+        return True
+    except urllib.error.HTTPError:
+        return True
+    except Exception:
+        return False
+
+
+def _kill_wedged(name: str, pattern: str) -> bool:
+    """SIGKILL a wedged process so the pgrep-guarded start_all will replace it.
+
+    SIGKILL, not SIGTERM: the process is wedged precisely because it is not processing anything,
+    so a handler-based signal it can't run is unlikely to land. Nothing here holds unflushed
+    state that a graceful stop would save — the ledger/journal are written by other processes.
+    """
+    try:
+        out = subprocess.run(["pgrep", "-f", pattern], capture_output=True,
+                             text=True, timeout=10)
+        pids = [int(p) for p in out.stdout.split()]
+    except Exception:
+        return False
+    killed = False
+    for pid in pids:
+        if pid == os.getpid():
+            continue
+        try:
+            os.kill(pid, signal.SIGKILL)
+            killed = True
+            print(f"[loop-keeper] WEDGED {name} (pid {pid}) unresponsive "
+                  f"{WEDGE_STRIKES}x → SIGKILL, start_all will replace it", flush=True)
+        except Exception as e:
+            print(f"[loop-keeper] kill {name} pid {pid} failed: {type(e).__name__}: {e}",
+                  flush=True)
+    return killed
 
 
 def _env_flag(name: str, default: str = "0") -> str:
@@ -88,6 +152,28 @@ def _check() -> dict:
     return {name: _alive(pat) for name, pat in required.items()}
 
 
+def _load_state() -> dict:
+    """Previous run's state. Strikes MUST persist across cron runs — each run is a fresh process,
+    so an in-memory counter would reset every 5 min and never reach WEDGE_STRIKES.
+
+    Mirrors _save_state's resolution order (trading.state first, raw path only as the cron-safe
+    fallback). Reading the raw path directly would ignore a monkeypatched STATE_DIR and let a
+    test read the LIVE keeper state — the exact cross-contamination CONVENTIONS forbids.
+    """
+    try:
+        sys.path.insert(0, HOME)
+        from trading import state as tstate
+        return tstate.load_json("loop_keeper.json", {}) or {}
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(HOME, "trading", "state", "loop_keeper.json"),
+                  encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:
+        return {}
+
+
 def _save_state(state: dict) -> None:
     """Atomic write via trading.state when importable, plain file otherwise (cron-safe)."""
     try:
@@ -95,9 +181,10 @@ def _save_state(state: dict) -> None:
         from trading import state as tstate
         prev = tstate.load_json("loop_keeper.json", {}) or {}
         hist = (prev.get("history") or [])[-HISTORY_CAP:]
-        if state["missing"] or state["restarted"]:
+        if state["missing"] or state["restarted"] or state.get("wedged"):
             hist = hist[-(HISTORY_CAP - 1):] + [{"ts": state["ts"],
                                                  "missing": state["missing"],
+                                                 "wedged": state.get("wedged") or [],
                                                  "restarted": state["restarted"]}]
         state["history"] = hist
         tstate.save_json("loop_keeper.json", state)
@@ -117,8 +204,38 @@ def run_once() -> int:
     alive = _check()
     missing = sorted(n for n, ok in alive.items() if not ok)
     disabled = os.path.exists(OFF_FLAG)
-    state = {"ts": now, "alive": alive, "missing": missing,
+
+    # --- WEDGE pass: only for processes pgrep says are alive. A dead one is already in `missing`
+    # and start_all will handle it; probing it would just log a redundant failure.
+    strikes = dict((_load_state().get("strikes") or {}))
+    health = {}
+    for name, url in HEALTH.items():
+        if name not in alive or not alive[name]:
+            strikes.pop(name, None)          # dead, not wedged — let the normal path restart it
+            continue
+        ok = _responsive(url)
+        health[name] = ok
+        strikes[name] = 0 if ok else strikes.get(name, 0) + 1
+        if not ok:
+            print(f"[loop-keeper] {time.strftime('%F %T')} {name} alive but UNRESPONSIVE "
+                  f"({strikes[name]}/{WEDGE_STRIKES})", flush=True)
+
+    wedged = sorted(n for n, s in strikes.items() if s >= WEDGE_STRIKES)
+    state = {"ts": now, "alive": alive, "missing": missing, "health": health,
+             "strikes": strikes, "wedged": wedged,
              "restarted": False, "disabled": disabled}
+    if wedged and not disabled:
+        for name in wedged:
+            if _kill_wedged(name, REQUIRED[name]):
+                strikes[name] = 0            # killed → next run re-probes the fresh process
+                if name not in missing:
+                    missing.append(name)     # now genuinely gone → start_all replaces it below
+        missing.sort()
+        state["missing"] = missing
+    elif wedged:
+        print(f"[loop-keeper] wedged: {wedged} but ~/.loop_keeper_off set — NOT restarting",
+              flush=True)
+
     if missing and not disabled:
         print(f"[loop-keeper] {time.strftime('%F %T')} dead: {missing} → start_all.sh",
               flush=True)

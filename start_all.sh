@@ -255,10 +255,18 @@ CF_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' logs/cloudflared.log 
 # bookmarks + a de-registered Zerodha redirect); the ngrok reserved domain was stable but died on
 # the free 1GB bandwidth cap (ERR_NGROK_725), taking the dashboards AND the broker login with it.
 # Caddy now serves :443 directly off the VM's GCP external IP via free sslip.io wildcard DNS with a
-# real Let's Encrypt cert — no cap, no interstitial, no rotation, nothing to pay. See gateway/Caddyfile.
-# If GCP ever gives this VM a NEW external IP, change the IP here and in the Caddyfile (a free
-# DuckDNS name + updater would make it immune).
-PUBLIC_URL="https://34.131.60.2.sslip.io"
+# real Let's Encrypt cert — no cap, no interstitial, nothing to pay. See gateway/Caddyfile.
+# The IP is READ FROM GCP METADATA at boot, never hardcoded: this VM's external IP is ephemeral, so a
+# stop/start hands it a new one (2026-07-17: 34.131.60.2 -> 34.131.91.14) and every hardcoded copy
+# silently pointed the public link at an IP we no longer own. Caddy reads $PUBLIC_HOST from the env.
+EXT_IP=$(curl -s --max-time 5 -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)
+if [[ ! "$EXT_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "WARN: could not read external IP from GCP metadata (got '${EXT_IP}'); public HTTPS link will be unavailable." >&2
+  EXT_IP=""
+fi
+export PUBLIC_HOST="${EXT_IP:+${EXT_IP}.sslip.io}"
+PUBLIC_URL="${PUBLIC_HOST:+https://${PUBLIC_HOST}}"
 echo "$PUBLIC_URL" > public_link.txt
 echo "redir * ${PUBLIC_URL}{uri} temporary" > gateway/redirect.caddy
 pkill -x caddy 2>/dev/null; sleep 1

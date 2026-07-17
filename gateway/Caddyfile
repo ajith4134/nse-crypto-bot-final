@@ -25,9 +25,13 @@
 #   * caddy has cap_net_bind_service, so it binds :80/:443 as a normal user.
 #   * :80 stays open for the ACME HTTP-01 challenge + the HTTP→HTTPS redirect Caddy adds.
 # It reverse-proxies to the SAME :8100 gateway below, so all routing stays defined in one place.
-# NOTE: the hostname embeds the IP — if GCP ever hands this VM a new external IP, update it here
-# (a DuckDNS name + updater would make it immune; needs a free token).
-34.131.60.2.sslip.io {
+# The hostname embeds the IP, and this VM's external IP is EPHEMERAL — a stop/start reassigns it
+# (2026-07-17: 34.131.60.2 -> 34.131.91.14), which silently pointed the public link at an IP we no
+# longer own: DNS resolved, nothing answered. So it is NEVER hardcoded here. start_all.sh reads the
+# live IP from GCP metadata and exports PUBLIC_HOST=<ip>.sslip.io before launching caddy.
+# The fallback is a scheme'd local address: if the metadata read ever fails, this block degrades to a
+# dead loopback listener (and never attempts ACME) instead of failing the parse and killing :8100.
+{$PUBLIC_HOST:http://127.0.0.1:8102} {
 	reverse_proxy 127.0.0.1:8100
 }
 

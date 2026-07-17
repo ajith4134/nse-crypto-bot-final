@@ -39,6 +39,49 @@ def _sess_path(broker: str):
     return d / f"{broker}.json"
 
 
+# ── browser memory cap (2026-07-17: the VM wedge) ────────────────────────────────
+# One Chromium per profile lived as long as the funnel and grew unbounded: ~2 GB at 6 min
+# → 9.7 GB at 45 min across both profiles (measured, logs/resources.csv). It never OOM'd on
+# its own; it just ate the headroom, and the box died when ollama then loaded a 6.6 GB vision
+# model into what was left — with zero swap the kernel wedged before the OOM killer fired.
+# Tab count was NOT the leak (tab_pool caps at 6 and closes what it prunes); the browser
+# PROCESS was simply immortal. So cap it by its real RSS and restart it when it gets fat.
+# The login survives: launch_persistent_context keeps the profile on disk, which is exactly
+# why the operator-login handover (_release_context) can already close a context safely.
+_BROWSER_MAX_RSS_MB = float(os.environ.get("BROWSER_MAX_RSS_MB", "2500"))
+_BROWSER_RECYCLE_MIN_S = float(os.environ.get("BROWSER_RECYCLE_MIN_S", "300"))
+
+
+def _profile_rss_mb(prof: str) -> float:
+    """Total RSS (MB) of every Chromium process running out of the profile dir `prof`.
+
+    Sums the whole process tree — a Chromium is ~26-38 processes (browser + renderers +
+    zygotes + gpu + utility) and only their SUM is the number that starves the box. Reads
+    /proc directly (one pass, ~ms) rather than shelling out to ps, because this runs on the
+    funnel's hot path. Returns 0.0 on any failure, which reads as "don't recycle" — a
+    measurement bug must never restart a working browser.
+    """
+    total_pages = 0
+    needle = f"--user-data-dir={prof}"
+    try:
+        pids = os.listdir("/proc")
+    except OSError:
+        return 0.0
+    for pid in pids:
+        if not pid.isdigit():
+            continue
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as fh:
+                # /proc cmdline is NUL-separated; the flag must match as its own argument
+                if needle not in fh.read().decode("utf-8", "replace").replace("\0", " "):
+                    continue
+            with open(f"/proc/{pid}/statm") as fh:
+                total_pages += int(fh.read().split()[1])       # field 2 = resident pages
+        except (OSError, IndexError, ValueError):
+            continue                                            # proc vanished mid-scan
+    return total_pages * os.sysconf("SC_PAGE_SIZE") / (1024 * 1024)
+
+
 # ── operator-login coordination (one Chromium per profile) ──────────────────────
 # A Chromium user-data-dir can be held by EXACTLY ONE process at a time. The funnel owns
 # browser_profiles/<broker> to read the account headless; the dashboard's Live-Browser panel
@@ -355,6 +398,7 @@ class SessionManager:
         self._foreign_warned = False
         self._xvfb = None                          # Popen handle for an auto-started Xvfb
         self._contexts: dict[str, object] = {}
+        self._last_recycle: dict[str, float] = {}  # broker -> ts of last RSS recycle
         self.events: list[dict] = []               # honest session log for the dashboard
 
     # ── virtual display (headed rendering without a physical screen) ──────────────
@@ -456,7 +500,8 @@ class SessionManager:
         if not self._own_thread():                 # a foreign thread would fire the greenlet crash
             raise RuntimeError("sync-Playwright browser not available on this (non-owner) thread")
         if broker in self._contexts:
-            return self._contexts[broker]
+            if not self._recycle_if_fat(broker):
+                return self._contexts[broker]      # fell through → relaunch a fresh one below
         prof = state._path("browser_profiles") / broker
         if prof.exists() and any(prof.iterdir()):
             try:                                  # the profile can only be opened by ONE process;
@@ -510,6 +555,38 @@ class SessionManager:
                   f"released {broker} browser profile" + (f" — {reason}" if reason else ""))
         return True
 
+    def _recycle_if_fat(self, broker: str) -> bool:
+        """Close `broker`'s Chromium if its process tree has grown past BROWSER_MAX_RSS_MB, so
+        context() relaunches a lean one. Returns True if it was released.
+
+        Safe to do mid-flight: the profile is on disk, so the login survives (same property the
+        operator-login handover relies on), and tab_pool re-opens its tabs because it already
+        prunes pages where `pg.is_closed()`. Never recycles during an operator login — the panel
+        owns the profile then — and never more often than BROWSER_RECYCLE_MIN_S, so a browser
+        that is fat the moment it launches can't become a restart loop.
+        """
+        if _BROWSER_MAX_RSS_MB <= 0:                           # 0 disables the cap
+            return False
+        now = time.time()
+        if now - self._last_recycle.get(broker, 0.0) < _BROWSER_RECYCLE_MIN_S:
+            return False
+        try:
+            if login_in_progress(broker):
+                return False
+            prof = state._path("browser_profiles") / broker
+            rss = _profile_rss_mb(str(prof))
+        except Exception:
+            return False
+        if rss < _BROWSER_MAX_RSS_MB:
+            return False
+        self._last_recycle[broker] = now
+        released = self._release_context(
+            broker, reason=f"RSS {rss:.0f} MB over the {_BROWSER_MAX_RSS_MB:.0f} MB cap — recycling")
+        if released:
+            self._log("browser_recycled", broker,
+                      f"{broker} browser hit {rss:.0f} MB — restarted lean (login survives in the profile)")
+        return released
+
     def guard_all_pages(self, broker: str) -> bool:
         """Scan EVERY open tab of `broker` for a human challenge and raise the Human-Handoff
         take-control if any shows one. The per-action guard only checks the page the brain is
@@ -539,6 +616,23 @@ class SessionManager:
             except Exception:
                 continue
         return found
+
+    def recycle_fat_browsers(self) -> list[str]:
+        """Loop-tick hook: restart every open browser whose RSS is over BROWSER_MAX_RSS_MB.
+
+        context() already recycles on the way to opening a page, which covers the funnel's normal
+        traffic. This makes the cap hold even when that traffic goes quiet (a steady tab pool opens
+        no new pages, so context() would stop being called and an idle browser could sit fat
+        forever). Call ONLY from the loop's own thread — see _release_context. Never raises.
+        """
+        recycled = []
+        for broker in list(self._contexts):
+            try:
+                if self._recycle_if_fat(broker):
+                    recycled.append(broker)
+            except Exception:
+                continue
+        return recycled
 
     def release_if_login_locked(self) -> list[str]:
         """Loop-tick hook: release every open context whose broker the operator is currently
