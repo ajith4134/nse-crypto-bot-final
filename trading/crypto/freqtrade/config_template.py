@@ -209,6 +209,11 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
             "password": cfg.ft_password,           # read from .env (FREQTRADE_PASSWORD)
         },
         "ml_leverage": float(cfg.leverage),    # custom: read by strategies' leverage() (futures)
+        # hard-stop override (config beats strategy attr). Default mirrors MlBridgeStrategy's
+        # -0.10; ML_STOPLOSS in .env is the experiment knob. Measured 2026-07-17: winners'
+        # MAE p90 = 1.47% of notional while stop_loss exits averaged -12.8% — a -3% backstop
+        # keeps ~99.5% of winners and cuts the worst-loss bucket ~70%.
+        "stoploss": float(os.environ.get("ML_STOPLOSS", "-0.10") or -0.10),
         "bot_name": "mlnetworkbrain-crypto",
         "initial_state": "running",
         # 15s, not 5s: each cycle prices EVERY open trade off the order book (mandatory

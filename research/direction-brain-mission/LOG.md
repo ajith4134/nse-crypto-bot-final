@@ -234,3 +234,52 @@ extended/stale} + pos. Lesson recorded in verify-live LEARNINGS.
 
 Watches: first early_abort arm draws + range_top_short nominations + freshcut/parole
 counters need hours of accrual; verdict runbook unchanged (V1-V5 pre-registered).
+
+## Session 8 (2026-07-17 ~20:45 UTC) — "close in profit" deep check + Batch-1 experiments
+
+DEEP-CHECK MEASUREMENTS (crypto closes since clean cutoff 07-16 21:23):
+- Headline P&L −288,883 was **97% ONE lane**: live_loop wallet-lane `momentum` fallback
+  (262 trades, −286,775). Root cause: strategy_config.json min_capital_per_trade=100000
+  → line ~1399 bumps EVERY wallet trade to full-balance notional (100k), brain_unlimited
+  top-ups made it bottomless, LONG-only SMA fallback revenge-looped dumping coins
+  (HOME/USDT ×94, worst single trade −52k).
+- Core lanes (excl. that lane): n=995, win 55.7%, **but payoff 0.57** (avg win +9.32 vs
+  avg loss −16.49) → net −2,108. Exit-reason economics: stop_loss n=243 avg −25.58 (the
+  loss bucket) vs tailgate_lock avg +2.70, roi avg +25.85 (100% green).
+- MAE separation (n=899): winners median MAE 0.42% of notional, p90 1.47%, only 0.4%
+  exceed 2.5%; losers ride to the −10% hard stop. → a tight backstop barely touches winners.
+- V2 verdict data: learned_direction_costcut n=719 acc 0.426 [0.390,0.462] ≪ live 0.513
+  → the cost gate's refusals are genuinely bad trades; GATE VALIDATED (opposite of theater).
+- V1 still underpowered (ctl n=47 < 100). No direction-knob action; race continues.
+
+BATCH-1 CHANGES (all live 20:27–20:45 UTC, each with revert token):
+- X1 min_capital_per_trade 100000 → 0 (PositionSizer 4%/1% rules again). REVERT: restore
+  100000 in trading/state/strategy_config.json + loop restart.
+- X2 live_loop loss-cooldown: same-symbol+same-direction re-entry blocked
+  LOOP_LOSS_COOLDOWN_MIN (45m) after a losing close; direction flip allowed. REVERT:
+  LOOP_LOSS_COOLDOWN_MIN=0.
+- X3 ML_STOPLOSS=-0.03 (.env; config_template now emits env-driven "stoploss", default
+  −0.10). Freqtrade restarted on regenerated config. Expect one-time flush of old
+  open trades below −3%. REVERT: delete ML_STOPLOSS / set −0.10 + restart freqtrade.
+- Hygiene: purged 4 orphaned CRYPTO:* tailgate locks (stale dist=0.33 rows from dead
+  wallet trades — live code writes dist=0.2 correctly; live_loop _open is RAM-only and
+  orphans locks on every restart — cleanup candidate).
+- Universe check: mirror candle store carries 877 symbols (1m/5m/15m, fresh) — filter
+  lane ranks the whole market; ranked≈106 = rows with non-zero signal. Owner's
+  "consider all symbols" requirement is MET by mechanism + data.
+
+MEASUREMENT: live_watch.py (per-trade grades vs epoch 20:27) + persistent monitor feed
+emitting every open/close + sizing anomalies. Pre-registered keep/revert:
+- X1/X2 keep if wallet-lane notionals ≤5k and no revenge chains; revert on starvation
+  (wallet lane opens ~0 trades for 12h+).
+- X3 keep if stop_loss bucket avg loss shrinks toward ≈−7 (−3.5% of 200 stake) without
+  win-rate collapse (>5pp drop on n≥100 post-change closes → revert).
+
+Session 8 correction (stake-basis re-derivation): freqtrade stoploss is LEVERAGE-SCALED;
+at 5x, −3% of stake = 0.6% price. Re-measured in stake terms: winners MAE median 1.62%/
+p90 6.49% of stake; losers median 9.95%. Counterfactual totals (core lanes n=995):
+stop 3% → −30 | 4% → −161 | 5% → −423 | 8% → −537 | 10% (old) → −752 | actual −2108.
+DECISION: keep ML_STOPLOSS=−0.03 (best total; matches E6b 50bps price abort). Known cost:
+~30% of winners stopped early → short-term WIN-RATE dips while P&L improves. Green-ratio
+recovery path: any trade reaching +1% stake now closes green (arm 1.0/dist 0.2/locked>0),
+so green% ≈ P(+0.2% price move before −0.6% against) — entry timing = inception's job.

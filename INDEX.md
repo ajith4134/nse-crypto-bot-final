@@ -1486,6 +1486,11 @@ _Shared loaders for the 2026-07-17 discussion-session experiments (E1-E6)._
 _M — Owner's hypothesis: do we enter AFTER the momentum has completed?_
 - **imports:** exp_common, numpy, os, pandas, sys
 
+## `research/direction-brain-mission/live_watch.py`
+_Live per-trade watcher — grades every trade opened AFTER an experiment epoch._
+- **functions:** `_ft_api()`; `_ft_get(path)`; `main() -> None`
+- **imports:** __future__, argparse, datetime, json, pathlib, sys
+
 ## `research/direction-brain-mission/verdict_check.py`
 _Direction Brain Mission — the one-day verdict check (read-only)._
 - **functions:** `_wilson(c, n, z)`; `_rows(name)`; `main() -> None`

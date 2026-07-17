@@ -322,6 +322,10 @@ class LiveTradeLoop:
         self._symbol_score: dict = {}              # (MARKET, symbol) -> screener score (auto-open rank)
         self._symbol_oa_exchange: dict = {}        # (MARKET, symbol) -> OpenAlgo exch override (BFO)
         self._open: dict[str, dict] = {}           # (market:symbol) -> open trade dict
+        # per-(symbol, direction) timestamps of losing closes — blocks same-direction
+        # re-entry for LOOP_LOSS_COOLDOWN_MIN minutes (the wallet lane re-entered one
+        # dumping coin 90+ times in a night; a direction FLIP stays allowed)
+        self._loss_cooldown: dict[str, float] = {}
         self._marks: dict[str, dict] = {}          # market -> {symbol: price}
         self._last_brain: dict[str, dict] = {}     # symbol -> latest brain decision dict
         self._last_psych: dict[str, dict] = {}     # "MKT:symbol" -> latest psychology dict
@@ -1361,6 +1365,19 @@ class LiveTradeLoop:
         if uq and uq.get("abstain"):
             return {"ok": False, "abstain": True,
                     "detail": f"UQ abstain: {uq.get('abstain_reason')}"}
+        # loss cooldown: don't re-enter the SAME symbol in the SAME direction right after
+        # a losing close (revenge-loop guard); flipping direction is a new claim and allowed
+        try:
+            import os as _os
+            _cd_min = float(_os.getenv("LOOP_LOSS_COOLDOWN_MIN", "45") or 0)
+        except (TypeError, ValueError):
+            _cd_min = 45.0
+        if _cd_min > 0:
+            _t0 = self._loss_cooldown.get(f"{market.upper()}:{symbol}:{direction}")
+            if _t0 and (time.time() - _t0) < _cd_min * 60:
+                return {"ok": False, "abstain": True,
+                        "detail": f"loss-cooldown: {symbol} {direction} "
+                                  f"{int((_cd_min * 60 - (time.time() - _t0)) / 60)}m left"}
         # D1/D2/D9 (Pillar 27): every NSE/options/BSE entry is a directional claim —
         # record it for fixed-horizon truth labeling and pass it through the Mirror
         # Gate (invert reliably-wrong sources / skip proven coin-flips). CE/PE map to
@@ -1606,6 +1623,11 @@ class LiveTradeLoop:
                 symbol, close_side.upper(), ot.get("segment"), ot["quantity"],
                 ot.get("product", "MIS"), allow_live=bool(getattr(ms, "allow_live", False)))
         self.trades_closed += 1
+        try:
+            if float(fill.get("realized_pnl") or 0) < 0:
+                self._loss_cooldown[f"{ot['market']}:{symbol}:{ot['direction']}"] = time.time()
+        except (TypeError, ValueError):
+            pass
         self._journal_close(ot, price, fill.get("realized_pnl"),
                             entry_order_id=ot.get("entry_order_id", ""),
                             exit_order_id=exit_order_id)
