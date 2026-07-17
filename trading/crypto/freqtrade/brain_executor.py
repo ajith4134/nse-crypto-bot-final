@@ -539,6 +539,18 @@ class BrainExecutor:
                                         regime=regime))
         except Exception:
             pass
+        try:                                          # E4 (2026-07-17): the distilled-lesson
+            from trading.direction import lesson_prior as _lp   # prior — O(1) table read;
+            _reads.extend(_lp.readings(psym, segment=self.segment or "futures",   # the LLM
+                                       regime=regime))          # distiller runs on the
+        except Exception:                                       # learning cadence only
+            pass
+        try:                                          # E5 (2026-07-17): on-chain flow lane
+            from trading.direction import onchain_source as _oc   # (cached snapshot read;
+            _reads.extend(_oc.readings(psym, segment=self.segment or "futures",   # fetches
+                                       regime=regime))          # live on the learn cadence)
+        except Exception:
+            pass
         return _reads, _bf
 
     def _learned_filter_side(self, pick: dict, preset: str,

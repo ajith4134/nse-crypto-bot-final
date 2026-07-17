@@ -165,6 +165,26 @@ def _worldmodel_p(ohlcv) -> float | None:
     return None                                          # HOLD / flat → no directional claim
 
 
+def _mirror_ohlcv(symbol: str, *, tf_s: int = 300, n: int = 160):
+    """5m OHLC DataFrame for the deep lenses from the in-RAM mirror (mark-price bars,
+    volume=0 — the world-model's features are price-derived). None until the mirror holds
+    ≥30 bars, so a fresh process abstains instead of hallucinating on a stub series."""
+    try:
+        import pandas as pd
+        from trading.broker_sense.binance_stream import get_mirror
+        flat = (symbol or "").replace("/", "").split(":")[0].upper()
+        rows = get_mirror().candles(flat, tf_s, n) or []
+        if len(rows) < 30:
+            return None
+        df = pd.DataFrame(rows, columns=["ts", "open", "high", "low", "close"][:len(rows[0])])
+        if "close" not in df.columns:
+            return None
+        df["volume"] = 0.0
+        return df
+    except Exception:
+        return None
+
+
 def _concept_p(symbol: str, series) -> float | None:
     """Concept-discovery directional signal via the live per-symbol registry
     (trading.brain.discovery.signal) — it keeps a fitted engine warm per symbol and refits in
@@ -287,15 +307,23 @@ def collect(symbol: str, *, market: str = "CRYPTO", segment: str = "futures",
         except Exception:
             pass
 
-    # 5) world-model imagination — DEEP lane only (per-call MCTS fit is expensive)
-    if not fast and _flag("BRAIN_SRC_WORLDMODEL", "0") and ohlcv is not None:
+    # 5) world-model imagination + concept-discovery — DEEP lane only. E3 (2026-07-17):
+    # these were TRIPLE-gated dark — flags defaulted off, the sole production caller was
+    # fast=True, and no caller ever passed `ohlcv`. The lane fix made the selective lane call
+    # fast=False; the flags now default ON; and when the caller has no ohlcv we build it from
+    # the in-RAM mirror's 5m bars (every perp, zero API — the ccxt fetch these lenses were
+    # written against is anti-motto). Until the mirror has ≥30 bars (~2.5h after a restart)
+    # they skip honestly.
+    if not fast and (ohlcv is None) \
+            and (_flag("BRAIN_SRC_WORLDMODEL") or _flag("BRAIN_SRC_CONCEPT")):
+        ohlcv = _mirror_ohlcv(symbol)
+    if not fast and _flag("BRAIN_SRC_WORLDMODEL") and ohlcv is not None:
         try:
             _emit("world_model", _worldmodel_p(ohlcv))
         except Exception:
             pass
 
-    # 5) concept-discovery — DEEP lane only, needs a warm fitted engine
-    if not fast and _flag("BRAIN_SRC_CONCEPT", "0") and ohlcv is not None:
+    if not fast and _flag("BRAIN_SRC_CONCEPT") and ohlcv is not None:
         try:
             close = ohlcv["close"] if hasattr(ohlcv, "__getitem__") else ohlcv
             _emit("concept_discovery", _concept_p(symbol, close))
@@ -313,6 +341,6 @@ def status() -> dict:
         "experience": _flag("BRAIN_SRC_EXPERIENCE") and _experience_bank() is not None,
         "news": _flag("BRAIN_SRC_NEWS") and _news_node() is not None,
         "river_online": _flag("BRAIN_SRC_RIVER"),
-        "world_model": _flag("BRAIN_SRC_WORLDMODEL", "0"),
-        "concept_discovery": _flag("BRAIN_SRC_CONCEPT", "0") and _concept_engine() is not None,
+        "world_model": _flag("BRAIN_SRC_WORLDMODEL"),
+        "concept_discovery": _flag("BRAIN_SRC_CONCEPT"),
     }

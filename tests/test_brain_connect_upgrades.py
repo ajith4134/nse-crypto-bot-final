@@ -208,5 +208,40 @@ class TestSharedLensReads(unittest.TestCase):
         self.assertIsNone(bf)
 
 
+class TestDeepLensesMirrorBacked(unittest.TestCase):
+    """E3: worldmodel/concept lenses build their ohlcv from the RAM mirror and default ON."""
+
+    def _mirror_rows(self, n=60):
+        now = time.time()
+        return [[now - (n - i) * 300, 100 + i, 101 + i, 99 + i, 100 + i]
+                for i in range(n)]
+
+    def test_deep_lane_builds_ohlcv_from_mirror(self):
+        from trading.direction import brain_sources as bs
+        fake = mock.Mock()
+        fake.candles.return_value = self._mirror_rows()
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        return_value=fake), \
+             mock.patch.object(bs, "_worldmodel_p", return_value=0.62) as wm, \
+             mock.patch.object(bs, "_concept_p", return_value=None):
+            reads = bs.collect("AKEUSDT", fast=False, record=False)
+        self.assertIn(("world_model", 0.62), reads)
+        self.assertIsNotNone(wm.call_args[0][0])           # got a real DataFrame
+
+    def test_fast_lane_never_runs_deep_lenses(self):
+        from trading.direction import brain_sources as bs
+        with mock.patch.object(bs, "_worldmodel_p", return_value=0.62) as wm:
+            bs.collect("AKEUSDT", fast=True, record=False)
+        wm.assert_not_called()
+
+    def test_cold_mirror_skips_honestly(self):
+        from trading.direction import brain_sources as bs
+        fake = mock.Mock()
+        fake.candles.return_value = self._mirror_rows(5)   # < 30 bars
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        return_value=fake):
+            self.assertIsNone(bs._mirror_ohlcv("AKEUSDT"))
+
+
 if __name__ == "__main__":
     unittest.main()

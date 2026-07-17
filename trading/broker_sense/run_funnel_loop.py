@@ -109,6 +109,23 @@ def main() -> int:
                         print(f"[ope] {_or}", flush=True)
                 except Exception as e:
                     print(f"[ope] error: {e!r}", flush=True)
+                # E4 lesson-prior distiller (2026-07-17): batched LLM read of fresh
+                # closed-trade lessons → per-symbol direction prior table. One call per
+                # LESSON_PRIOR_EVERY_S; the hot-path lens only ever reads the table.
+                try:
+                    from trading.direction import lesson_prior as _lp
+                    _ld = _lp.maybe_distill()
+                    if _ld and _ld.get("distilled"):
+                        print(f"[lesson-prior] {_ld}", flush=True)
+                except Exception as e:
+                    print(f"[lesson-prior] error: {e!r}", flush=True)
+                # E5 on-chain snapshot refresh (free keyless HTTP; the hot-path lens only
+                # ever reads the cached state file).
+                try:
+                    from trading.direction import onchain_source as _ocs
+                    _ocs.refresh()
+                except Exception as e:
+                    print(f"[onchain] error: {e!r}", flush=True)
                     # SYMBOL-MOVE NET (owner 2026-07-13): retrain the multi-head direction+move% net
                     # here (GatedMoENode fit ~seconds) so the per-candidate consult() only ever does a
                     # cheap forward pass — training NEVER touches the hot decision path (TabPFN lesson).

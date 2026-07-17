@@ -1810,7 +1810,7 @@ _Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + determi
 
 ## `tests/test_brain_connect_upgrades.py`
 _Tests for the 2026-07-17 connect-the-brain batch._
-- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads
+- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads, TestDeepLensesMirrorBacked
 - **functions:** `_trend_closes(n) -> list[float]`
 - **imports:** __future__, os, tempfile, time, unittest
 
@@ -2366,6 +2366,12 @@ _B3 lens paper lane: nominations honest (abstain-by-default), rotation covers, e
 - **classes:** _Iso, TestNominations, TestExecutorLane
 - **imports:** json, os, pathlib, tempfile, unittest
 
+## `tests/test_lesson_prior.py`
+_Tests for trading/direction/lesson_prior.py (E4 — lessons → measured direction lens)._
+- **classes:** _Base, TestDistill, TestReadings
+- **functions:** `_seed_lessons(lessons_by_symbol)`
+- **imports:** __future__, json, os, pathlib, tempfile, time, unittest
+
 ## `tests/test_librarian.py`
 _Phase P4.3 (self-feeding Librarian) acceptance tests — fully offline & deterministic._
 - **classes:** StubBrain, TestDiscover, TestIngestItem, TestDedup, TestFeed, TestPersistence, TestStatusAndDeterminism
@@ -2554,6 +2560,11 @@ _AI-scientist idea #11 — on-chain + whale alt-data lane (hermetic, injected fe
 - **classes:** TestOnChainAltData
 - **functions:** `_stub_fetchers(fg, avg_tx, mempool)`
 - **imports:** trading.altdata.onchain, unittest
+
+## `tests/test_onchain_source.py`
+_Tests for trading/direction/onchain_source.py (E5 — on-chain lane as a measured lens)._
+- **classes:** _Base, TestReadings, TestRefresh
+- **imports:** __future__, os, pathlib, tempfile, time, unittest
 
 ## `tests/test_online.py`
 _Trading Phase O1–O4 (Always-Online Supervisor) acceptance tests — fully offline._
@@ -4523,7 +4534,7 @@ _trading/direction/app_signals.py — turn EVERY captured broker filter/screener
 
 ## `trading/direction/brain_sources.py`
 _trading/direction/brain_sources.py — brain lenses → MEASURED directional sources._
-- **functions:** `_flag(name, default) -> bool`; `_clamp01(x) -> float`; `_bias_to_p(bias) -> float | None`; `_cached(key, build)`; `_hypothesis_ledger()`; `_experience_bank()`; `_news_node()`; `_world_planner()`; `_concept_engine()`; `register_concept_engine(engine) -> None`; `_news_p(symbol) -> float | None`; `_worldmodel_p(ohlcv) -> float | None`; `_concept_p(symbol, series) -> float | None`; `collect(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **functions:** `_flag(name, default) -> bool`; `_clamp01(x) -> float`; `_bias_to_p(bias) -> float | None`; `_cached(key, build)`; `_hypothesis_ledger()`; `_experience_bank()`; `_news_node()`; `_world_planner()`; `_concept_engine()`; `register_concept_engine(engine) -> None`; `_news_p(symbol) -> float | None`; `_worldmodel_p(ohlcv) -> float | None`; `_mirror_ohlcv(symbol)`; `_concept_p(symbol, series) -> float | None`; `collect(symbol) -> list[tuple[str, float]]`; `status() -> dict`
 - **imports:** __future__, os, threading, time
 
 ## `trading/direction/dir_exit.py`
@@ -4540,6 +4551,11 @@ _trading/direction/direction_model.py — the direction-aware model (proposal B,
 _trading/direction/learned_direction.py — D10: the learned direction DRIVER (goal Pillar 27)._
 - **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime, market) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `_log(decision) -> None`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, math, os, time, trading.direction
+
+## `trading/direction/lesson_prior.py`
+_trading/direction/lesson_prior.py — E4: closed-trade lessons distilled into a direction lens._
+- **functions:** `_flag(name, default) -> bool`; `enabled() -> bool`; `_f(name, default) -> float`; `_hash(lessons) -> str`; `distill(max_symbols) -> dict`; `maybe_distill() -> dict | None`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **imports:** __future__, hashlib, json, os, re, time, trading
 
 ## `trading/direction/market_state.py`
 _trading/direction/market_state.py — cross-symbol market state: correlation regime,_
@@ -4564,6 +4580,11 @@ _trading/direction/micro_features.py — D4: microstructure direction features (
 ## `trading/direction/mirror_gate.py`
 _trading/direction/mirror_gate.py — D2: the Mirror Gate (goal Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_buckets() -> dict`; `_sources_for(market) -> dict`; `_horizons() -> list[str]`; `_lookup(source, regime, horizons, market) -> tuple[int, int, str]`; `decide(direction) -> dict`; `apply(direction) -> tuple[str | None, dict]`; `status() -> dict`
+- **imports:** __future__, os, time, trading
+
+## `trading/direction/onchain_source.py`
+_trading/direction/onchain_source.py — E5: the orphaned on-chain lane becomes a measured lens._
+- **functions:** `_flag(name, default) -> bool`; `enabled() -> bool`; `_f(name, default) -> float`; `refresh(force) -> dict | None`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
 - **imports:** __future__, os, time, trading
 
 ## `trading/direction/ope.py`
