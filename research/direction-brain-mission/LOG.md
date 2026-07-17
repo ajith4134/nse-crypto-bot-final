@@ -180,3 +180,23 @@ experiments-20260717/RESULTS.md (scripts alongside, all reproducible). Headlines
   −1,979 → −316 (monotone improvement across 30-200bps grid).
 Proposed (awaiting owner): abort-arm in exit bandit, raise bucket promotion bar
 (n≥100 + LB>0.52), sweep tailgate lock threshold in OPE, short-at-top paper lens.
+
+## Session 6b (2026-07-17, commit b35e5c9) — owner approved "do A and E first then the rest"
+
+- **A shipped**: `early_abort` exit-bandit arm (XP_ABORT_BPS=50, price-bps, leverage-blind;
+  survivors ratchet). Competes via Thompson like every arm — it earns its place or dies.
+- **E ran and REFUTED my own E5 proposal**: the tailgate sweep (269 replayed clean trades,
+  optimistic + pessimistic variants) ranks TIGHTER arm/giveback better in BOTH variants —
+  "loosen the locks" was wrong; the tape fades. Applied crypto-only:
+  TAILGATE_ARM_PROFIT_PCT_CRYPTO=1.0 + TAILGATE_DIST_MAX_CRYPTO=0.2 (new market-scoped
+  override code; NSE/sandbox untouched). VERIFIED LIVE: fresh locks show dist=0.2 and
+  arming at 1.5-2.7% peaks (impossible under the old 3% arm).
+- **B shipped**: trust bar n≥100 real labels (n_raw — decay shrinks power, not evidence)
+  + Wilson LB>0.52 + shrink_k 96. Small-n buckets learn but can't steer.
+- **D shipped**: lens:range_top_short (SHORT only at range_pos>0.8, p_up=0.328; long
+  mirror unproven → not traded). Verdict at n≥100 closed like every lens.
+- **C**: no code — reflex_poscut counterfactuals already recording; pre-registered verdict
+  will adjudicate the gate (E1 predicts removal).
+- 102 targeted tests green; loop restarted 16:41:45, dashboard 16:46 — both post-commit.
+- Two measurement-integrity fixes en route: tailgate tests now pin their own env (prod
+  .env knobs were leaking in via conftest), and source_reliability_decayed reports n_raw.
