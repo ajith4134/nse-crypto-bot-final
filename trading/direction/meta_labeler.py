@@ -223,8 +223,20 @@ def train(min_examples: int | None = None) -> dict:
                     except json.JSONDecodeError:
                         continue
         rows = [r for r in rows if r.get("horizon") != "exit"]   # exit labels carry
+        # E11 (2026-07-17): train ONLY on the clean window. Rows before the B1/B2 fix batch
+        # (2026-07-16 21:23 UTC) carry the measured contaminations — mirror-negation lenses,
+        # SMN leakage, the 456 poisoned USDT|NSE journal rows, prefix-era buckets. A model
+        # fit on poisoned labels is confidently miscalibrated; fewer honest examples beat
+        # more dirty ones. META_CLEAN_TS=0 disables the cutoff.
+        clean_ts = _env_f("META_CLEAN_TS", 1784236980.0)
+        dropped_dirty = 0
+        if clean_ts > 0:
+            n0 = len(rows)
+            rows = [r for r in rows if float(r.get("ts") or 0) >= clean_ts]
+            dropped_dirty = n0 - len(rows)
         if len(rows) < need:                                     # exit-policy noise
-            return {"error": f"only {len(rows)} examples (< {need})"}
+            return {"error": f"only {len(rows)} clean examples (< {need}; "
+                             f"{dropped_dirty} pre-cutoff rows excluded)"}
         rows.sort(key=lambda r: float(r.get("ts") or 0))         # time order
         df = _frame(rows)
         y = np.array([1 if r.get("correct") else 0 for r in rows])
@@ -242,6 +254,7 @@ def train(min_examples: int | None = None) -> dict:
         rep = {"n": len(df), "n_holdout": len(df) - cut, "auc": round(auc, 4),
                "brier": round(float(brier_score_loss(y[cut:], cal)), 4),
                "base_rate": round(float(y.mean()), 4), "trained": time.time(),
+               "clean_ts": clean_ts, "dropped_dirty": dropped_dirty,
                "categories": {c: df[c].cat.categories.tolist() for c in _CATS}}
         joblib.dump({"model": model, "iso": iso, "meta": rep}, _model_path())
         return rep
