@@ -1482,6 +1482,10 @@ _Shared loaders for the 2026-07-17 discussion-session experiments (E1-E6)._
 - **functions:** `flat(sym) -> str`; `base(sym) -> str`; `_load_mirror() -> dict`; `bars5(sym) -> np.ndarray | None`; `close_at(arr, ts) -> float | None`; `fwd_ret(arr, ts, horizon_s) -> float | None`; `range_pos(arr, ts, minutes) -> float | None`; `pos_bucket(rp) -> str | None`; `load_claims() -> pd.DataFrame`; `load_trades() -> pd.DataFrame`
 - **imports:** __future__, functools, gzip, json, numpy, os, pandas, sqlite3
 
+## `research/direction-brain-mission/experiments-20260717/m_entry_timing.py`
+_M — Owner's hypothesis: do we enter AFTER the momentum has completed?_
+- **imports:** exp_common, numpy, os, pandas, sys
+
 ## `research/direction-brain-mission/verdict_check.py`
 _Direction Brain Mission — the one-day verdict check (read-only)._
 - **functions:** `_wilson(c, n, z)`; `_rows(name)`; `main() -> None`
