@@ -415,6 +415,132 @@ class BrainExecutor:
             return "LONG" if float(pct) >= 0 else "SHORT"
         return "LONG"
 
+    def _lens_reads(self, psym: str, *, base: list, regime: str | None,
+                    signals: list | None = None, features: dict | None = None,
+                    fast: bool = True) -> tuple[list, dict | None]:
+        """ONE lens family for EVERY decision lane (2026-07-17). Until now the breadth lane read
+        ~15 sources while the selective lane — the lane that actually opened most trades — read
+        only 4 (funnel vote + fusion + strategy_library + direction_model); a lens could earn
+        weight in a lane that rarely fires and never influence the lane that does. This helper is
+        the single place lenses are collected so the two lanes can't drift apart again.
+
+        Appends to `base` (returned list is a new object): the bull/bear debate (LLM — deep lane
+        only, fast=False), symbol-move net, strategy-tournament table, brain sources (hypothesis/
+        experience/news/river + worldmodel/concept in the deep lane), opening-range VP events and
+        cross-symbol market state. Every source is truth-ledger-recorded by its own module or here,
+        so it EARNS weight by measured edge (CONVENTIONS §16). Returns (reads, strategy_table_row).
+        Never raises; each lens fails open."""
+        _reads = list(base)
+        features = features or {}
+        try:                                          # proposal E: the bull/bear/risk debate
+            if not fast \
+                    and os.environ.get("DEBATE_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on") \
+                    and _reads:                       # CONTESTS the preliminary lean (LLM — deep lane)
+                from trading.brain import debate_gate as _dbg
+                _prelim = "long" if (sum(p for _, p in _reads) / len(_reads)) >= 0.5 else "short"
+                _dfeats = dict(features)
+                try:                                  # B2 fix: past lessons finally get a reader
+                    from trading.brain import lesson_recall as _lr
+                    _lsn = _lr.recent(psym, k=2)
+                    if _lsn:
+                        _dfeats["past_lessons"] = " | ".join(_lsn)[:400]
+                except Exception:
+                    pass
+                _dc = _dbg.get_debate_gate().contest(psym, _prelim, features=_dfeats)
+                if _dc.get("direction") != "neutral":
+                    _reads.append(("debate", _dc["p_up"]))
+        except Exception:
+            pass
+        # NB: the post-mortem miner is a WIN-QUALITY / sizing signal, not a directional source,
+        # so it is intentionally NOT added to these directional readings — it closes the loop via
+        # fusion's size_mult + ideal-entry nudge instead (see indicator_fusion + postmortem.py).
+        try:                                          # SYMBOL-MOVE NET (owner 2026-07-13): the
+            from trading.brain import symbol_move_net as _smn   # multi-head net's p_up is a genuine
+            if _smn.enabled():                        # P(price up) → a real directional reading
+                _flt = {s: p for s, p in (signals or [])}
+                _mv = 0.0
+                try:
+                    from trading.broker_sense.binance_stream import get_mirror
+                    _mv = float((get_mirror().ticker(psym) or {}).get("quote_volume") or 0.0)
+                except Exception:
+                    _mv = 0.0
+                _ctx = {"symbol": psym, "direction": "LONG", "market": "CRYPTO",
+                        "exchange": "binance", "market_regime_entry": regime,
+                        "decision_snapshot": {"market_context": {
+                            "filters": _flt, "quote_volume_24h": _mv}}}
+                _sm = _smn.consult(_ctx)
+                if _sm.get("p_up") is not None and _sm.get("trained"):
+                    _reads.append(("symbol_move_net", _sm["p_up"]))
+                    try:                              # measure its direction hit-rate in the ledger
+                        from trading.direction import truth_ledger as _tl3
+                        _tl3.record(symbol=psym, market="CRYPTO",
+                                    segment=self.segment or "futures",
+                                    direction=("LONG" if _sm["p_up"] >= 0.5 else "SHORT"),
+                                    source="symbol_move_net", confidence=_sm["p_up"],
+                                    regime=regime)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        # STRATEGY-TABLE SYNERGY (2026-07-13, gated STRATEGY_DIRECTION=1): fold the per-coin
+        # tournament's best library/created/evolved/researched strategy into the direction fusion
+        # as a MEASURED source (weighted by its own truth-ledger edge, like every other lens), and
+        # let a gate-clearing strategy that AGREES with the fused side own the enter_tag — so the
+        # created/evolved/researched strategies both INFLUENCE and DRIVE breadth entries, and the
+        # Strategy column shows the real strategy that led. O(1) table read — NO tournament here.
+        _bf = None
+        if os.environ.get("STRATEGY_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on"):
+            try:
+                from trading.crypto.freqtrade import strategy_table as _stab
+                _bf = _stab.lookup(psym)
+                if _bf and _bf.get("signal") in ("LONG", "SHORT"):
+                    _p = ((0.82 if _bf.get("cleared_gate") else 0.66)
+                          if _bf["signal"] == "LONG"
+                          else (0.18 if _bf.get("cleared_gate") else 0.34))
+                    _reads.append(("strategy_tournament", _p))
+                    try:                          # measure its direction hit-rate in the ledger
+                        from trading.direction import truth_ledger as _tl4
+                        _tl4.record(symbol=psym, market="CRYPTO",
+                                    segment=self.segment or "futures",
+                                    direction=_bf["signal"], source="strategy_tournament",
+                                    confidence=_p if _bf["signal"] == "LONG" else 1.0 - _p,
+                                    regime=regime)
+                    except Exception:
+                        pass
+            except Exception:
+                _bf = None
+        # BRAIN LENSES AS MEASURED SOURCES (2026-07-14): fold the formerly-advisory brain
+        # outputs — confirmed hypotheses, experience recall, news sentiment (+ world-model &
+        # concept-discovery in the deep lane) — into the SAME fusion as every other lens, each
+        # recorded to the truth ledger so it EARNS weight by measured edge (unproven ⇒ ~0 weight,
+        # cannot move a trade until it proves right). Cheap lenses only in the fast breadth lane
+        # (fast=True) so a 50-coin cycle keeps its deadline.
+        try:
+            from trading.direction import brain_sources as _bsrc
+            _prelim = ("LONG" if _reads and (sum(p for _, p in _reads) / len(_reads)) >= 0.5
+                       else "SHORT")
+            _reads.extend(_bsrc.collect(
+                psym, market="CRYPTO", segment=self.segment or "futures", regime=regime,
+                direction_hint=_prelim, features=features, fast=fast))
+        except Exception:
+            pass
+        # VIDEO-DERIVED LENSES (2026-07-17): opening-range value-area events (trap /
+        # acceptance-pullback, per session anchor) + cross-symbol market state (leader
+        # spillover, seesaw, breadth tilt). RAM-only reads; never raise.
+        try:
+            from trading.direction import vp_events as _vpe
+            _reads.extend(_vpe.readings(psym, segment=self.segment or "futures",
+                                        regime=regime))
+        except Exception:
+            pass
+        try:
+            from trading.direction import market_state as _mst
+            _reads.extend(_mst.readings(psym, segment=self.segment or "futures",
+                                        regime=regime))
+        except Exception:
+            pass
+        return _reads, _bf
+
     def _learned_filter_side(self, pick: dict, preset: str,
                              regime: str | None, *, fast: bool = False) -> tuple:
         """Stage 3: the LEARNED per-pick side. Fuse the cheap UI direction mini-lenses through the
@@ -442,115 +568,10 @@ class BrainExecutor:
                     _reads.append((_dm.SOURCE, _pm))
             except Exception:
                 pass
-            try:                                          # proposal E: the bull/bear/risk debate
-                if not fast \
-                        and os.environ.get("DEBATE_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on") \
-                        and _reads:                       # CONTESTS the preliminary lean (LLM — skipped
-                    from trading.brain import debate_gate as _dbg   # in the fast breadth lane)
-                    _prelim = "long" if (sum(p for _, p in _reads) / len(_reads)) >= 0.5 else "short"
-                    _dfeats = _asig.feature_dict(_col["signals"])
-                    try:                                  # B2 fix: past lessons finally get a reader
-                        from trading.brain import lesson_recall as _lr
-                        _lsn = _lr.recent(_psym, k=2)
-                        if _lsn:
-                            _dfeats = {**_dfeats, "past_lessons": " | ".join(_lsn)[:400]}
-                    except Exception:
-                        pass
-                    _dc = _dbg.get_debate_gate().contest(_psym, _prelim, features=_dfeats)
-                    if _dc.get("direction") != "neutral":
-                        _reads.append(("debate", _dc["p_up"]))
-            except Exception:
-                pass
-            # NB: the post-mortem miner is a WIN-QUALITY / sizing signal, not a directional source,
-            # so it is intentionally NOT added to these directional readings — it closes the loop via
-            # fusion's size_mult + ideal-entry nudge instead (see indicator_fusion + postmortem.py).
-            try:                                          # SYMBOL-MOVE NET (owner 2026-07-13): the
-                from trading.brain import symbol_move_net as _smn   # multi-head net's p_up is a genuine
-                if _smn.enabled():                        # P(price up) → a real directional reading
-                    _flt = {s: p for s, p in (_col.get("signals") or [])}
-                    _mv = 0.0
-                    try:
-                        from trading.broker_sense.binance_stream import get_mirror
-                        _mv = float((get_mirror().ticker(_psym) or {}).get("quote_volume") or 0.0)
-                    except Exception:
-                        _mv = 0.0
-                    _ctx = {"symbol": _psym, "direction": "LONG", "market": "CRYPTO",
-                            "exchange": "binance", "market_regime_entry": regime,
-                            "decision_snapshot": {"market_context": {
-                                "filters": _flt, "quote_volume_24h": _mv}}}
-                    _sm = _smn.consult(_ctx)
-                    if _sm.get("p_up") is not None and _sm.get("trained"):
-                        _reads.append(("symbol_move_net", _sm["p_up"]))
-                        try:                              # measure its direction hit-rate in the ledger
-                            from trading.direction import truth_ledger as _tl3
-                            _tl3.record(symbol=_psym, market="CRYPTO",
-                                        segment=self.segment or "futures",
-                                        direction=("LONG" if _sm["p_up"] >= 0.5 else "SHORT"),
-                                        source="symbol_move_net", confidence=_sm["p_up"])
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-            # STRATEGY-TABLE SYNERGY (2026-07-13, gated STRATEGY_DIRECTION=1): fold the per-coin
-            # tournament's best library/created/evolved/researched strategy into the direction fusion
-            # as a MEASURED source (weighted by its own truth-ledger edge, like every other lens), and
-            # let a gate-clearing strategy that AGREES with the fused side own the enter_tag — so the
-            # created/evolved/researched strategies both INFLUENCE and DRIVE breadth entries, and the
-            # Strategy column shows the real strategy that led. O(1) table read — NO tournament here.
-            _bf = None
-            if os.environ.get("STRATEGY_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on"):
-                try:
-                    from trading.crypto.freqtrade import strategy_table as _stab
-                    _bf = _stab.lookup(_psym)
-                    if _bf and _bf.get("signal") in ("LONG", "SHORT"):
-                        _p = ((0.82 if _bf.get("cleared_gate") else 0.66)
-                              if _bf["signal"] == "LONG"
-                              else (0.18 if _bf.get("cleared_gate") else 0.34))
-                        _reads.append(("strategy_tournament", _p))
-                        try:                          # measure its direction hit-rate in the ledger
-                            from trading.direction import truth_ledger as _tl4
-                            _tl4.record(symbol=_psym, market="CRYPTO",
-                                        segment=self.segment or "futures",
-                                        direction=_bf["signal"], source="strategy_tournament",
-                                        confidence=_p if _bf["signal"] == "LONG" else 1.0 - _p)
-                        except Exception:
-                            pass
-                except Exception:
-                    _bf = None
-            # BRAIN LENSES AS MEASURED SOURCES (2026-07-14): fold the formerly-advisory brain
-            # outputs — confirmed hypotheses, experience recall, news sentiment (+ world-model &
-            # concept-discovery in the deep lane) — into the SAME fusion as every other lens, each
-            # recorded to the truth ledger so it EARNS weight by measured edge (unproven ⇒ ~0 weight,
-            # cannot move a trade until it proves right). This is how the brain's research/memory
-            # actually start opening trades instead of only advising. Cheap lenses only in the fast
-            # breadth lane (fast=True) so a 50-coin cycle keeps its deadline.
-            try:
-                from trading.direction import brain_sources as _bsrc
-                _prelim = ("LONG" if _reads and (sum(p for _, p in _reads) / len(_reads)) >= 0.5
-                           else "SHORT")
-                _reads.extend(_bsrc.collect(
-                    _psym, market="CRYPTO", segment=self.segment or "futures", regime=regime,
-                    direction_hint=_prelim,
-                    features=_asig.feature_dict(_col.get("signals") or []), fast=fast))
-            except Exception:
-                pass
-            # VIDEO-DERIVED LENSES (2026-07-17): opening-range value-area events (trap /
-            # acceptance-pullback, per session anchor) + cross-symbol market state (leader
-            # spillover, seesaw, breadth tilt). Same contract as every lens above: each is a
-            # named Truth-Ledger source that starts weightless and must EARN its edge before
-            # it can move a trade (CONVENTIONS §16). RAM-only reads; never raises.
-            try:
-                from trading.direction import vp_events as _vpe
-                _reads.extend(_vpe.readings(_psym, segment=self.segment or "futures",
-                                            regime=regime))
-            except Exception:
-                pass
-            try:
-                from trading.direction import market_state as _mst
-                _reads.extend(_mst.readings(_psym, segment=self.segment or "futures",
-                                            regime=regime))
-            except Exception:
-                pass
+            _reads, _bf = self._lens_reads(_psym, base=_reads, regime=regime,
+                                           signals=_col.get("signals"),
+                                           features=_asig.feature_dict(_col.get("signals") or []),
+                                           fast=fast)
             out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
                              symbol=_psym, coverage=_col["coverage"])
@@ -1059,13 +1080,23 @@ class BrainExecutor:
                             _ll = _lsig.get(_lsrc) or {}
                             if _ll.get("available") and _ll.get("p_up") is not None:
                                 _reads.append((_lsrc, _ll.get("p_up")))
+                        _ff = {}
                         try:                          # B fix: the direction model as a source
                             from trading.direction import direction_model as _dmod   # HERE its
                             from trading.direction import meta_labeler as _mlab       # f_* features
-                            _ff = _mlab.lens_features(_lsig.get("indicator_fusion"))  # exist
+                            _ff = _mlab.lens_features(_lsig.get("indicator_fusion")) or {}
                             _pmf = _dmod.predict(_ff)
                             if _pmf is not None:
                                 _reads.append((_dmod.SOURCE, _pmf))
+                        except Exception:
+                            pass
+                        try:                          # 2026-07-17 lens parity: the DOMINANT entry
+                            # lane finally reads the same lens family as breadth (SMN, strategy
+                            # tournament, brain sources, VP events, market state) PLUS the deep
+                            # lenses (debate + flag-gated worldmodel/concept) — affordable here
+                            # because this lane decides a shortlist, not 50 picks.
+                            _reads, _ = self._lens_reads(sym, base=_reads, regime=_lreg,
+                                                         features=_ff, fast=False)
                         except Exception:
                             pass
                         _ldo = _ld.decide(_reads, market="CRYPTO",

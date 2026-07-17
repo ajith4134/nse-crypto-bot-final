@@ -16,10 +16,15 @@ CHANGING state → "transition" (the abstain-worthy moment; regime-switch litera
 see research/direction-accuracy-program/sota-research.md §4 — says stale-regime
 models are the danger, not either stable regime).
 
-Data: the same local 5m feathers candle_updater keeps fresh (zero network); the
-result is cached in the state dir for ~60s so every process shares one read.
-Symbols without local candles fall back to the MARKET regime (BTC perp), and if even
-that is unreadable the honest answer is "unknown" — never a guessed label.
+Data: the in-RAM mirror's 5m bars FIRST (fresh for every USDⓈ-M perp, zero network —
+THE MOTTO), then the local 5m feathers as fallback. The feathers were the ORIGINAL
+sole source; candle_updater was disabled 2026-07-12 for API load, and from that day
+every feather aged past the 3h staleness bound → classify() answered "unknown" for
+ALL 258 cached keys (measured 2026-07-17) and the whole regime dimension of the
+truth ledger silently collapsed into one pool. The mirror read restores it without
+a single API call. Result cached in the state dir ~60s so every process shares one
+read. Symbols without either source fall back to the MARKET regime (BTC perp), and
+if even that is unreadable the honest answer is "unknown" — never a guessed label.
 
 Levers: DIRECTION_REGIME_ER (default 0.35), DIRECTION_REGIME_JUMP (default 0.25).
 """
@@ -74,9 +79,30 @@ def _classify_closes(closes) -> dict:
     return {"regime": "chop", "er": round(now_er, 4)}
 
 
+def _mirror_closes(symbol: str) -> list | None:
+    """Fresh 5m closes for `symbol` from the in-RAM all-perp mirror (no API, no disk).
+    Accepts slashed ('ETH/USDT:USDT') or flat ('ETHUSDT') names. None when the mirror
+    isn't running in this process or the last bar is stale (>15 min = 3 missed bars)."""
+    try:
+        from trading.broker_sense.binance_stream import get_mirror
+        flat = (symbol or "").replace("/", "").split(":")[0].upper()
+        rows = get_mirror().candles(flat, 300, _ER_BARS + 16) or []
+        if len(rows) < _ER_BARS // 2 + 8:
+            return None
+        last = float(rows[-1][0])
+        if last > 1_000_000_000_000:            # ms epoch → s
+            last /= 1000.0
+        if time.time() - last > 15 * 60:
+            return None
+        return [float(r[4]) for r in rows]
+    except Exception:
+        return None
+
+
 def classify(symbol: str | None = None, segment: str = "futures") -> dict:
     """Regime for one symbol (or the market when None): {"regime", "er", "basis"}.
-    Cached ~60s per key in the state dir; falls back symbol → market → unknown."""
+    Cached ~60s per key in the state dir; source order per basis: RAM mirror →
+    feather; basis order: symbol → market (BTC perp) → unknown."""
     key = f"{segment}|{symbol or 'MARKET'}"
     now = time.time()
     cached = (state.load_json(_FILE, {}) or {}).get(key)
@@ -88,14 +114,17 @@ def classify(symbol: str | None = None, segment: str = "futures") -> dict:
         for sym, basis in ((symbol, "symbol"), (_MARKET_SYMBOL, "market")):
             if not sym:
                 continue
-            path, _ = _feather_for(sym, segment if basis == "symbol" else "futures")
-            data = _closes(path) if path else None
-            if not data:
-                continue
-            ts_arr, close_arr = data
-            if now - float(ts_arr[-1]) > 3 * 3600:
-                continue                        # stale candles → not an honest read
-            res = _classify_closes(close_arr.tolist())
+            closes = _mirror_closes(sym)        # RAM first (fresh for every perp)
+            if not closes:
+                path, _ = _feather_for(sym, segment if basis == "symbol" else "futures")
+                data = _closes(path) if path else None
+                if not data:
+                    continue
+                ts_arr, close_arr = data
+                if now - float(ts_arr[-1]) > 3 * 3600:
+                    continue                    # stale candles → not an honest read
+                closes = close_arr.tolist()
+            res = _classify_closes(closes)
             if res["regime"] != "unknown":
                 out = {**res, "basis": basis, "ts": now}
                 break

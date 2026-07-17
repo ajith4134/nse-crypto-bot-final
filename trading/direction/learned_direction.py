@@ -54,6 +54,13 @@ def _cfg() -> dict:
         # weight given to an UNPROVEN source (n<min_n) so early-life behaves like the old vote
         "unproven_w": _f("LEARNED_DIR_UNPROVEN_W", 0.01),
         "cache_ttl": _f("LEARNED_DIR_CACHE_TTL", 20.0),
+        # hierarchical shrinkage (2026-07-17): a thin REGIME bucket borrows up to this many
+        # pseudo-observations from the source's across-regime pool instead of the old cliff
+        # (n<min_n ⇒ ignore regime entirely; n≥min_n ⇒ ignore the parent entirely). The regime
+        # dimension was dead 07-12→07-17 (classifier starved of candles), so per-regime buckets
+        # are young — without borrowing, fixing the classifier would have RESET every source to
+        # unproven. 0 disables (restores the step fallback).
+        "shrink_k": _f("LEARNED_DIR_SHRINK_K", 24),
     }
 
 
@@ -74,11 +81,26 @@ def reliability(source: str, regime: str | None = None, market: str | None = Non
     if hit and (time.monotonic() - hit[0]) < ttl:
         return hit[1]
     rel = _tl.source_reliability(source, market=m, regime=regime, min_n=1)
-    # thin regime bucket → back off to the source's across-regime measurement (SAME market)
-    if (rel.get("n") or 0) < _cfg()["min_n"] and regime:
+    if regime:
+        k = _cfg()["shrink_k"]
         allr = _tl.source_reliability(source, market=m, regime=None, min_n=1)
-        if (allr.get("n") or 0) > (rel.get("n") or 0):
-            rel = allr
+        n_r, c_r = int(rel.get("n") or 0), int(rel.get("correct") or 0)
+        n_a = int(allr.get("n") or 0)
+        if k > 0 and n_a > n_r and allr.get("rate") is not None:
+            # empirical-Bayes blend: the regime bucket + up to `k` pseudo-observations at the
+            # parent (across-regime, same-market) rate. A fresh regime bucket inherits the
+            # source's EARNED edge (CONVENTIONS §16: the parent pool earned it — refining by
+            # regime must not reset trust); as regime evidence accumulates it dominates.
+            borrow = min(float(k), float(n_a - n_r))
+            bc = c_r + borrow * float(allr["rate"])
+            bn = n_r + borrow
+            rate, lo, hi = _tl._wilson(bc, bn)
+            rel = {"n": int(round(bn)), "correct": int(round(bc)),
+                   "rate": round(rate, 4), "ci_low": round(lo, 4),
+                   "ci_high": round(hi, 4), "edge": round(rate - 0.5, 4),
+                   "n_regime": n_r, "borrowed": int(round(borrow))}
+        elif k <= 0 and n_r < _cfg()["min_n"] and n_a > n_r:
+            rel = allr                          # legacy step fallback (shrink disabled)
     _CACHE[key] = (time.monotonic(), rel)
     return rel
 

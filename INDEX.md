@@ -1808,6 +1808,12 @@ _Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + determi
 - **functions:** `_agent(brain, llm_chat, recall_k, force_no_llm)`
 - **imports:** __future__, core.brain_agent, json, unittest, warnings
 
+## `tests/test_brain_connect_upgrades.py`
+_Tests for the 2026-07-17 connect-the-brain batch._
+- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads
+- **functions:** `_trend_closes(n) -> list[float]`
+- **imports:** __future__, os, tempfile, time, unittest
+
 ## `tests/test_brain_engines_t8.py`
 _Trading Phase T8 (Brain engines, deferred A2/A3) acceptance tests — fully offline._
 - **classes:** TestAutonomousResearcher, TestQLearningExit
@@ -1854,6 +1860,12 @@ _Tests for the Broker-Sense Funnel (trading/broker_sense) — offline, STATE_DIR
 _Tests for browser_launch (adopt item 5) — STEALTH_BROWSER routing between standard Playwright_
 - **classes:** TestRouting
 - **imports:** os, trading.broker_sense, unittest
+
+## `tests/test_browser_recycle.py`
+_tests/test_browser_recycle.py — the browser RSS cap that ends the VM wedge (2026-07-17)._
+- **classes:** _FakeCtx
+- **functions:** `_mgr(monkeypatch, broker, rss, login)`; `test_rss_of_unknown_profile_is_zero()`; `test_rss_sums_a_real_process_tree()`; `test_measurement_failure_never_recycles(monkeypatch)`; `test_lean_browser_is_left_alone(monkeypatch)`; `test_fat_browser_is_recycled(monkeypatch)`; `test_cap_of_zero_disables(monkeypatch)`; `test_recycle_is_throttled(monkeypatch)`; `test_throttle_expires(monkeypatch)`; `test_loop_hook_recycles_every_fat_browser(monkeypatch)`; `test_loop_hook_leaves_lean_browsers(monkeypatch)`; `test_loop_hook_never_raises(monkeypatch)`; `test_never_recycles_during_operator_login(monkeypatch)`
+- **imports:** __future__, subprocess, sys, time, trading.broker_sense.sessions
 
 ## `tests/test_calibration_truth.py`
 _tests/test_calibration_truth.py — calibration honesty + error-driven learning (2026-07-10)._
@@ -3824,7 +3836,7 @@ _trading/broker_sense/screeners.py — the whole-universe screen runs on OTHER p
 ## `trading/broker_sense/sessions.py`
 _trading/broker_sense/sessions.py — persistent logged-in broker browser sessions (saver H)._
 - **classes:** SessionManager
-- **functions:** `_sess_path(broker)`; `_login_lock_path(broker)`; `login_in_progress(broker) -> bool`; `begin_operator_login(broker) -> None`; `end_operator_login(broker) -> None`; `ensure_headed_display() -> str | None`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `is_human_challenge(pg) -> bool`; `_context_fp(broker) -> dict`; `_apply_stealth(ctx) -> None`; `_challenge_present(pg) -> bool`; `_has_visible(pg, selector) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
+- **functions:** `_sess_path(broker)`; `_profile_rss_mb(prof) -> float`; `_login_lock_path(broker)`; `login_in_progress(broker) -> bool`; `begin_operator_login(broker) -> None`; `end_operator_login(broker) -> None`; `ensure_headed_display() -> str | None`; `has_session(broker) -> bool`; `_looks_like_login(pg) -> bool`; `is_human_challenge(pg) -> bool`; `_context_fp(broker) -> dict`; `_apply_stealth(ctx) -> None`; `_challenge_present(pg) -> bool`; `_has_visible(pg, selector) -> bool`; `_otp_attrs_are_code_box(attrs) -> bool`; `_otp_input(el) -> bool`; `_click_login(pg)`; `get_sessions() -> SessionManager`
 - **imports:** __future__, os, re, stat, time, trading, trading.broker_sense.brokers
 
 ## `trading/broker_sense/stealth.py`
@@ -4556,7 +4568,7 @@ _trading/direction/reflex.py — R2: the Reflex fast lane (Pillars 27 + 9)._
 
 ## `trading/direction/regime.py`
 _trading/direction/regime.py — D5: the direction regime classifier (goal Pillar 27)._
-- **functions:** `_env_f(name, default) -> float`; `_er(closes) -> tuple[float | None, bool]`; `_classify_closes(closes) -> dict`; `classify(symbol, segment) -> dict`; `market_regime() -> str`
+- **functions:** `_env_f(name, default) -> float`; `_er(closes) -> tuple[float | None, bool]`; `_classify_closes(closes) -> dict`; `_mirror_closes(symbol) -> list | None`; `classify(symbol, segment) -> dict`; `market_regime() -> str`
 - **imports:** __future__, os, time, trading
 
 ## `trading/direction/river_source.py`

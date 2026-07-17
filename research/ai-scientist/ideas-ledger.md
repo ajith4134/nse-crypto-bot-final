@@ -354,3 +354,22 @@ Motto: CPU=ML only · API=exec only · DATA=Binance/Upstox web-nav + qwen2.5-vl 
   LANE (kill-switchable), not a replacement. Stages: (1) ranker over ui_market filters + top-N open on a
   default preset; (2) learned combo-selector; (3) per-pick learned direction + regime rotation. Reuses
   ~80%; new = binance_filter_lane.py ranker + combo-selector. [[direction-driver-replaces-vote]]
+
+## 2026-07-17 — Connect-the-brain audit round (research/ai-scientist/connect-the-brain-20260717.md)
+- [DONE same day] Regime classifier mirror-first (was 258/258 "unknown" since candle_updater
+  disable 07-12); hierarchical shrinkage in reliability(); ONE _lens_reads collector for both
+  lanes; deep lenses (debate/worldmodel/concept path) reachable via selective lane fast=False.
+- [proposed] E1 OPE nightly over vote_log (counterfactual weight-config evaluation; kills the
+  B2 "needs code freeze to measure" blocker).
+- [proposed] E2 exit-policy bandit (unify dir_exit/tailgate/VA-trail/regime-exit/scale-out; keyed
+  regime×lane; subsumes the 07-12 exit proposals).
+- [proposed] E3 worldmodel+concept lenses mirror-backed + default ON (deep lane).
+- [proposed] E4 lesson→prior distillation (FTS5 recall → decide() prior, ledger source "lessons").
+- [proposed] E5 onchain.py as truth-ledger lens (orphan since 07-07).
+- [proposed] E6 orderbook_collector → mirror depth-watch (P1 dobi gap).
+- [proposed] E7 RL execution island plugged as order-timing policy (paper).
+- [proposed] E8 clock_phase+liquidity_regime conditioner sub-buckets w/ shrinkage chain.
+- [proposed] E9 import-cycle break (brain_executor cluster + screener mega-cycle).
+- [proposed] E10 dashboard 37 dead endpoints sweep.
+- [proposed] E11 meta-labeler + conformal refit on post-07-16-21:23 clean window.
+- [proposed] E12 cross-symbol catalog routes 5/6/7/10/11 as market_state sources.
