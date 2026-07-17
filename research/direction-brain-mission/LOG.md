@@ -308,3 +308,12 @@ mid-dump). X2's cooldown only covered the wallet-lane path (_open_trade), not th
   freshcut counterfactual verdicts + per-lane closes.
 - Background research agent launched: published evidence on stop distance vs MAE,
   re-entry cooldowns, high-win-rate exit engineering → research-exits-reentry.md.
+
+Batch-2 baseline (freqtrade DB, closes 20:27→20:55): live_loop n=23 green 0.35 stop% 0.65
+net −93.71 (the churn window, pre-gate); filter:squeeze n=3 net −7; ctl n=2 net +25.
+Research (research-exits-reentry.md): −3% stake stop at 5x = 0.6% price ≈ inside 1σ 4h
+noise (stop-outs partly forced by geometry — X3 revert rule covers it; vol-scaled stop =
+Batch-3 lead); hollow-win 6:1 asymmetry (arm +1% nets ~+0.5% after fees vs −3% stops →
+≥86% green needed to break even at current geometry); cooldown validated (Coval & Shumway),
+upgrade candidate = price-reclaim re-entry condition. live_watch now prints a per-lane
+epoch scoreboard (green/stop/hollow/net) straight from the DB.

@@ -121,6 +121,39 @@ def main() -> None:
               f"all-closed green={sum(1 for r in closed if float(r.get('net_pnl') or r.get('pnl') or 0) > 0)}"
               f"/{len(closed)}")
 
+    # ---- per-lane epoch scoreboard straight from the freqtrade DB (journal lags) -------
+    # hollow win = closed green but net < round-trip fee drag (~0.5% of stake at 5x taker):
+    # the research file's 6:1 asymmetry metric — a lane can look green and still bleed.
+    try:
+        import sqlite3
+        db = str(Path.home() / "tradesv3.dryrun.sqlite")
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=3)
+        try:
+            rows2 = con.execute(
+                "SELECT COALESCE(enter_tag,'?'), close_profit_abs, exit_reason, stake_amount "
+                "FROM trades WHERE is_open=0 AND close_date >= ? ORDER BY close_date",
+                (epoch.replace("T", " ")[:19],)).fetchall()
+        finally:
+            con.close()
+        by: dict = {}
+        for tag2, pnl2, reason2, stake2 in rows2:
+            d2 = by.setdefault(tag2, {"n": 0, "green": 0, "stop": 0, "hollow": 0, "net": 0.0})
+            d2["n"] += 1
+            d2["net"] += float(pnl2 or 0)
+            if (pnl2 or 0) > 0:
+                d2["green"] += 1
+                if float(pnl2 or 0) < 0.005 * float(stake2 or 200):
+                    d2["hollow"] += 1
+            if reason2 == "stop_loss":
+                d2["stop"] += 1
+        print(f"[LANES since epoch] {sum(d['n'] for d in by.values())} closes "
+              f"(freqtrade DB truth)")
+        for tag2, d2 in sorted(by.items(), key=lambda kv: -kv[1]["n"]):
+            print(f"  {tag2[:26]:26s} n={d2['n']:3d} green={d2['green']/d2['n']:.2f} "
+                  f"stop%={d2['stop']/d2['n']:.2f} hollow={d2['hollow']} net={d2['net']:+8.2f}")
+    except Exception as e:                                    # noqa: BLE001
+        print("[LANES] db read failed:", e)
+
     # ---- tailgate lock sanity ----------------------------------------------------------
     try:
         locks = json.loads((STATE / "profit_tailgate_locks.json").read_text())

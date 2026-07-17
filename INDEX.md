@@ -4638,7 +4638,7 @@ _trading/direction/app_signals.py — turn EVERY captured broker filter/screener
 
 ## `trading/direction/brain_sources.py`
 _trading/direction/brain_sources.py — brain lenses → MEASURED directional sources._
-- **functions:** `_flag(name, default) -> bool`; `_clamp01(x) -> float`; `_bias_to_p(bias) -> float | None`; `_cached(key, build)`; `_hypothesis_ledger()`; `_experience_bank()`; `_news_node()`; `_world_planner()`; `_concept_engine()`; `register_concept_engine(engine) -> None`; `_news_p(symbol) -> float | None`; `_worldmodel_p(ohlcv) -> float | None`; `_mirror_ohlcv(symbol)`; `_concept_p(symbol, series) -> float | None`; `collect(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **functions:** `_flag(name, default) -> bool`; `_clamp01(x) -> float`; `_bias_to_p(bias) -> float | None`; `_cached(key, build)`; `_hypothesis_ledger()`; `_experience_bank()`; `_news_node()`; `_world_planner()`; `_concept_engine()`; `register_concept_engine(engine) -> None`; `_news_p(symbol) -> float | None`; `_mom_ts_p(symbol) -> float | None`; `_worldmodel_p(ohlcv) -> float | None`; `_mirror_ohlcv(symbol)`; `_concept_p(symbol, series) -> float | None`; `collect(symbol) -> list[tuple[str, float]]`; `status() -> dict`
 - **imports:** __future__, os, threading, time
 
 ## `trading/direction/dir_exit.py`
