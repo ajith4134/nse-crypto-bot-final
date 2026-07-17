@@ -353,3 +353,16 @@ fused side) ≥0.57 → promote to a heavier prior. Check via truth_ledger `mom_
 - X6: INCEPTION_FRESH_R240 5.0 → 3.0 (.env) — the 3-5% chase-stalled band is toxic too.
   One-predicate design means score/phase/gate all shift together. REVERT: delete env.
 - run_live_loop + crypto funnel restarted 21:01 with X5b+X6.
+
+## Session 8, X7 (2026-07-17 ~21:15 UTC) — the router finally gets a brain
+
+Owner: "check the new trades opening in correct direction". Graded every trade opened
+since 21:01: router lane ALL LONG, matured grades 0/2 (AKE LONG after +34.8%/4h chase,
+US LONG both stopped). ROOT CAUSE: BRAIN_LOOP env was never set → _brain_decider()
+returns None BY DESIGN → the live_loop router has ALWAYS been the LONG-only SMA fallback;
+it structurally cannot emit SHORT. X7: BRAIN_LOOP=1 (.env), BrainDecider smoke-tested,
+run_live_loop restarted 21:14. Expect: router tags shift from 'live_loop' to brain source
+names, SHORTs possible, direction from the T8 pipeline instead of price>SMA(12 ticks).
+REVERT: remove BRAIN_LOOP from .env + restart (also revert if CPU load climbs toward
+wedge territory — VM history). Verdict: matured direction grade + lane net of post-21:14
+router entries vs the 0/2 LONG-chase baseline.
