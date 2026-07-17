@@ -794,6 +794,7 @@ def source_reliability_decayed(source: str, *, market: str | None = None,
     today = time.time()
     hl = max(0.1, float(half_life_days))
     n_eff = c_eff = 0.0
+    n_raw = 0                       # undecayed label count — the min_n evidence gate reads
     for key, b in (agg.get("day_buckets") or {}).items():
         try:
             s, mkt, r, h, day = key.rsplit("|", 4)
@@ -816,11 +817,15 @@ def source_reliability_decayed(source: str, *, market: str | None = None,
         w = 0.5 ** (age_d / hl)
         n_eff += w * int(b.get("n", 0))
         c_eff += w * int(b.get("correct", 0))
+        n_raw += int(b.get("n", 0))
     if n_eff <= 0:
-        return {"n": 0, "correct": 0, "rate": None, "ci_low": None,
+        return {"n": 0, "n_raw": 0, "correct": 0, "rate": None, "ci_low": None,
                 "ci_high": None, "edge": None, "decayed": True}
     rate, lo, hi = _wilson(c_eff, n_eff)
-    return {"n": int(round(n_eff)), "correct": int(round(c_eff)),
+    # n_raw: UNDECAYED label count. Decay shrinks statistical power (already priced into
+    # the Wilson CI via n_eff); the min_n EVIDENCE gate must count real labels, else a
+    # 100-label same-day bucket reads n=95 and falls off the bar (B-experiment 2026-07-17).
+    return {"n": int(round(n_eff)), "n_raw": n_raw, "correct": int(round(c_eff)),
             "rate": round(rate, 4), "ci_low": round(lo, 4), "ci_high": round(hi, 4),
             "edge": round(rate - 0.5, 4), "decayed": True}
 

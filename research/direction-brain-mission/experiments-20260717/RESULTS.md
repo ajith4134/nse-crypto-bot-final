@@ -108,14 +108,31 @@ early; current stop geometry ignores this.
 5. Two of the discussion hypotheses died honestly: BTC-residual reframing (E2),
    wait-for-bottom entries (E1+E6).
 
-## Proposed next actions (need owner approval — none implemented)
+## Follow-up: owner approved "do A and E first then the rest" — ALL IMPLEMENTED same day
 
-- A) Exit geometry experiment ON PAPER: add an early-abort arm (~50bps adverse, as a new
-  exit-policy bandit arm so it must EARN its place) + widen tailgate lock threshold.
-- B) Raise ledger promotion bar: bucket trusted only at n≥100 AND Wilson LB>0.52 (or BH
-  correction across buckets); keep small-n buckets learning but not steering.
-- C) Reflex gate: let the pre-registered reflex_poscut verdict run; if refused ≥ taken
-  accuracy at n≥100 → remove the gate (E1 predicts it will be removed or inverted).
-- D) New lens candidate: short-at-range-top (0.672@1h, n=583) — paper lens lane first.
-- E) Un-cut the winners: tailgate_lock locking +4 avg while roi makes +27 suggests the
-  lock threshold is far too tight; sweep it in OPE replay.
+- **A) early_abort exit arm — SHIPPED.** New bandit arm in exit_policy (XP_ABORT_BPS=50,
+  price-based bps so leverage never scales the trigger); survivors managed by the normal
+  ratchet; wired in brain_executor._tailgate_pass. It must earn its place via Thompson
+  sampling like every arm. 6 new tests.
+- **E) tailgate sweep — RAN (e_tailgate_sweep.py), and it REFUTED the E5 proposal text.**
+  269 replayable clean trades, (arm × giveback) grid, optimistic (exit at lock) and
+  pessimistic (exit at 5m bar close) variants: magnitudes disagree (+1,248 vs −676 at the
+  tight corner) but the ORDERING is identical in both — tighter arm and tighter giveback
+  rank better monotonically, and both variants beat the current (3.0, 0.30) point.
+  "Loosen the locks" was wrong; the fade-y tape wants profits taken fast. APPLIED
+  crypto-only (market isolation): TAILGATE_ARM_PROFIT_PCT_CRYPTO=1.0 +
+  TAILGATE_DIST_MAX_CRYPTO=0.2 in .env, backed by new market-scoped override code in
+  profit_tailgate (+2 tests). NSE and sandbox untouched.
+- **B) trust bar raised — SHIPPED.** LEARNED_DIR_MIN_N 30→100, new LEARNED_DIR_MIN_LB
+  0.52 (Wilson lower bound must clear it, not just 0.5), LEARNED_DIR_SHRINK_K 24→96 so
+  thin child buckets lean on rich parents instead of falling off the higher bar
+  (zero-evidence-blend lesson). Decayed reader now returns n_raw (undecayed labels) and
+  the evidence gate counts THAT — decay shrinks power (priced by Wilson), not evidence.
+  Small-n buckets keep learning; they just can't steer. 2 regression tests pin the E3
+  failure profile (0.94-acc n=32 bucket → unproven; 0.65 n=600 → full weight).
+- **C) reflex gate — nothing to build.** reflex_poscut counterfactuals verified recording
+  live; the pre-registered verdict adjudicates at n≥100 (E1 predicts removal).
+- **D) range_top_short lens — SHIPPED.** lens_lane lens: SHORT only when
+  range_position>0.8 (measured 0.672@1h, n=583 vs 0.542 mechanics), p_up=0.328, abstains
+  everywhere else; long mirror NOT traded (unproven, §16). Trades as lens:range_top_short
+  on paper; verdict at n≥100 closed like every lens. 1 test.

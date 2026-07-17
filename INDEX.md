@@ -1472,6 +1472,11 @@ _E6 — Fill realism / adverse selection: do our paper wins depend on fills a li
 _E6b — Counterfactual early-abort curve: what if every trade were aborted the moment_
 - **imports:** exp_common, numpy, os, sys
 
+## `research/direction-brain-mission/experiments-20260717/e_tailgate_sweep.py`
+_E — Tailgate lock-threshold sweep via candle-path replay (owner-approved follow-up to E5)._
+- **functions:** `replay(r, seg, arm, dist)`
+- **imports:** exp_common, numpy, os, pandas, sys
+
 ## `research/direction-brain-mission/experiments-20260717/exp_common.py`
 _Shared loaders for the 2026-07-17 discussion-session experiments (E1-E6)._
 - **functions:** `flat(sym) -> str`; `base(sym) -> str`; `_load_mirror() -> dict`; `bars5(sym) -> np.ndarray | None`; `close_at(arr, ts) -> float | None`; `fwd_ret(arr, ts, horizon_s) -> float | None`; `range_pos(arr, ts, minutes) -> float | None`; `pos_bucket(rp) -> str | None`; `load_claims() -> pd.DataFrame`; `load_trades() -> pd.DataFrame`
@@ -2214,7 +2219,7 @@ _Trading Phase T3 (Trade Execution Engine) acceptance tests — fully offline._
 
 ## `tests/test_exit_policy.py`
 _Tests for trading/execution/exit_policy.py (E2 — Thompson exit-policy bandit)._
-- **classes:** _Base, TestChooseAssignLearn, TestTrailArm, TestClosePartial
+- **classes:** _Base, TestChooseAssignLearn, TestTrailArm, TestEarlyAbortArm, TestClosePartial
 - **imports:** __future__, os, pathlib, tempfile, unittest
 
 ## `tests/test_experience_t8.py`
@@ -2699,8 +2704,8 @@ _tests/test_postmortem.py — Trade Post-Mortem & Excursion Engine (trading/brai
 
 ## `tests/test_profit_tailgate.py`
 _Tests for profit tailgating (trading/execution/profit_tailgate) — the ratcheting profit lock._
-- **classes:** _Iso, TestRatchet
-- **imports:** pathlib, tempfile, trading.state, unittest
+- **classes:** _Iso, TestRatchet, TestCryptoSweepOverrides
+- **imports:** os, pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_psychology.py`
 _Trader-psychology engine (order-book depth) — pure-computation tests._
@@ -3409,7 +3414,7 @@ _trading/brain/learner.py — the brain's self-directed LEARNING + SELF-EVALUATI
 
 ## `trading/brain/lens_lane.py`
 _B3 LENS PAPER LANE — every orphaned directional lens trades under its own identity._
-- **functions:** `enabled() -> bool`; `_f(name, default) -> float`; `_disabled() -> set`; `_p_clamp(p) -> float | None`; `_lens_cortex(ctx) -> float | None`; `_lens_world_model(ctx) -> float | None`; `_lens_concept(ctx) -> float | None`; `_lens_experience(ctx) -> float | None`; `_lens_news(ctx) -> float | None`; `_lens_river(ctx) -> float | None`; `_lens_hypothesis(ctx) -> float | None`; `_lens_dir_exit(ctx) -> float | None`; `_lens_debate(ctx) -> float | None`; `_rotation(symbols, segment, n) -> list[str]`; `nominations() -> list[dict]`
+- **functions:** `enabled() -> bool`; `_f(name, default) -> float`; `_disabled() -> set`; `_p_clamp(p) -> float | None`; `_lens_cortex(ctx) -> float | None`; `_lens_world_model(ctx) -> float | None`; `_lens_concept(ctx) -> float | None`; `_lens_experience(ctx) -> float | None`; `_lens_news(ctx) -> float | None`; `_lens_river(ctx) -> float | None`; `_lens_hypothesis(ctx) -> float | None`; `_lens_dir_exit(ctx) -> float | None`; `_lens_debate(ctx) -> float | None`; `_lens_range_top_short(ctx) -> float | None`; `_rotation(symbols, segment, n) -> list[str]`; `nominations() -> list[dict]`
 - **imports:** __future__, os, threading
 
 ## `trading/brain/lesson_recall.py`
@@ -4722,7 +4727,7 @@ _trading/execution/exec_choice.py — E7: learned-measurable execution timing (l
 
 ## `trading/execution/exit_policy.py`
 _trading/execution/exit_policy.py — E2: ONE learned exit policy per trade (Thompson bandit)._
-- **functions:** `enabled() -> bool`; `_f(name, default) -> float`; `_key(arm, regime) -> str`; `choose(regime) -> str`; `assign(trade_id) -> str`; `assignment(trade_id) -> dict | None`; `_prev_bar(symbol) -> tuple[float, float] | None`; `evaluate_trail(trade_id) -> dict`; `learn(trade_id) -> dict | None`; `status() -> dict`
+- **functions:** `enabled() -> bool`; `_f(name, default) -> float`; `_key(arm, regime) -> str`; `choose(regime) -> str`; `assign(trade_id) -> str`; `assignment(trade_id) -> dict | None`; `_prev_bar(symbol) -> tuple[float, float] | None`; `evaluate_trail(trade_id) -> dict`; `evaluate_abort(trade_id) -> dict`; `learn(trade_id) -> dict | None`; `status() -> dict`
 - **imports:** __future__, os, random, time, trading
 
 ## `trading/execution/kill_switch.py`
@@ -4755,7 +4760,7 @@ _trading/execution/profit_booking.py — partial profit-booking ladder (T3 §6).
 
 ## `trading/execution/profit_tailgate.py`
 _trading/execution/profit_tailgate.py — adaptive trailing take-profit ("profit tailgating")._
-- **functions:** `_key(market, segment, regime) -> str`; `_store() -> dict`; `learned_distance(market, segment, regime) -> float`; `_arm_for(atr_pct) -> float`; `_regime_dist_mult(regime) -> float`; `locked_profit(market, segment) -> dict`; `clear_lock(trade_id) -> None`; `should_exit(market, segment, profit_pct, peak_profit_pct) -> tuple`; `learn(market, segment) -> None`; `status() -> dict`
+- **functions:** `_key(market, segment, regime) -> str`; `_store() -> dict`; `learned_distance(market, segment, regime) -> float`; `_crypto_overrides(market) -> tuple[float | None, float | None]`; `_arm_for(atr_pct, market) -> float`; `_regime_dist_mult(regime) -> float`; `locked_profit(market, segment) -> dict`; `clear_lock(trade_id) -> None`; `should_exit(market, segment, profit_pct, peak_profit_pct) -> tuple`; `learn(market, segment) -> None`; `status() -> dict`
 - **imports:** __future__, os, trading
 
 ## `trading/execution/rl_exec_env.py`

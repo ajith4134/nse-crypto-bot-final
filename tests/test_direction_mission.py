@@ -59,6 +59,38 @@ class TestDayBucketsAndDecay(_Base):
         self.assertGreater(dec["rate"], 0.5)         # decayed says the RECENT truth: right
         self.assertGreater(dec["rate"], cum_rate)
 
+    def test_b_bar_small_n_spectacular_bucket_is_unproven(self):
+        """B-experiment (E3, FDR≈0.30): a 0.94-accuracy n=32 bucket — the exact profile
+        the shuffled-label null harness showed is where fakes live — must NOT earn weight
+        under the raised bar (min_n=100), while a large-n real source still does."""
+        from trading import state
+        from trading.direction import learned_direction as ld
+        state.save_json("direction_truth.json", {"day_buckets": {
+            f"flashy|CRYPTO|trend_down|1h|{_day(0)}": {"n": 32, "correct": 30},
+            f"steady|CRYPTO|trend_down|1h|{_day(0)}": {"n": 600, "correct": 390}}})
+        cfg = ld._cfg()
+        w_flashy, inv = ld._signed_weight(
+            ld.reliability("flashy", regime="trend_down", market="CRYPTO", horizon="1h"),
+            cfg)
+        self.assertEqual(w_flashy, cfg["unproven_w"])   # learning, not steering
+        self.assertFalse(inv)
+        w_steady, _ = ld._signed_weight(
+            ld.reliability("steady", regime="trend_down", market="CRYPTO", horizon="1h"),
+            cfg)
+        self.assertGreater(w_steady, 0.1)               # 0.65 at n=600 clears LB 0.52
+
+    def test_b_bar_decayed_same_day_bucket_still_counts_raw_labels(self):
+        """Decay must shrink POWER (Wilson), not the evidence count: a same-day 100-label
+        bucket reads decayed n≈95 but n_raw=100 and must clear min_n=100."""
+        from trading import state
+        from trading.direction import learned_direction as ld
+        state.save_json("direction_truth.json", {"day_buckets": {
+            f"fresh|CRYPTO|chop|1h|{_day(0)}": {"n": 100, "correct": 68}}})
+        rel = ld.reliability("fresh", regime="chop", market="CRYPTO", horizon="1h")
+        self.assertEqual(rel.get("n_raw"), 100)
+        w, _ = ld._signed_weight(rel, ld._cfg())
+        self.assertGreater(w, 0.1)
+
     def test_no_day_evidence_returns_zero_n(self):
         from trading.direction import truth_ledger as tl
         self._seed({})

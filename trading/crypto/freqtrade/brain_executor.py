@@ -1920,7 +1920,28 @@ class BrainExecutor:
                             continue
                     except Exception:
                         pass
-                if _arm is not None and _arm not in ("ratchet", "ratchet_direction"):
+                if _arm == "early_abort":
+                    # E6b arm: cut the trade the moment price runs XP_ABORT_BPS against
+                    # entry (losers run 202bps median, winners bounce at 35bps —
+                    # experiments-20260717). Survivors fall through to the normal ratchet.
+                    try:
+                        _ab = _xp.evaluate_abort(
+                            tid, direction=("SHORT" if t.get("is_short") else "LONG"),
+                            open_rate=_num(t.get("open_rate")) or None,
+                            price=_num(t.get("current_rate")) or None)
+                        if _ab.get("exit"):
+                            cli.close_pair(pair, segment=self.segment)
+                            exited.append(pair)
+                            pt.clear_lock(tid)
+                            from trading.brain import mind_events
+                            mind_events.emit("trade_debit",
+                                             f"Exit-policy early_abort cut {pair}: "
+                                             f"{_ab.get('reason')}", salience=0.6)
+                            continue
+                    except Exception:
+                        pass
+                if _arm is not None and _arm not in ("ratchet", "ratchet_direction",
+                                                     "early_abort"):
                     dec = {"exit": False}          # this trade's arm doesn't ratchet
                 else:
                     dec = pt.locked_profit("crypto", self.segment or "futures", trade_id=tid,

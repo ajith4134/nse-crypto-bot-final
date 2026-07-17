@@ -1,15 +1,23 @@
 """Tests for profit tailgating (trading/execution/profit_tailgate) — the ratcheting profit lock."""
-import tempfile, unittest
+import os, tempfile, unittest
 from pathlib import Path
 import trading.state as state
+
+# the prod ~/.env (loaded by conftest/import chain) may carry the crypto sweep overrides;
+# these tests pin the DEFAULT behavior, so the overrides must not leak in
+_ENV_KNOBS = ("TAILGATE_ARM_PROFIT_PCT_CRYPTO", "TAILGATE_DIST_MAX_CRYPTO")
 
 
 class _Iso(unittest.TestCase):
     def setUp(self):
         self._t = tempfile.TemporaryDirectory(); self._o = state.STATE_DIR
         state.STATE_DIR = Path(self._t.name)
+        self._env = {k: os.environ.pop(k, None) for k in _ENV_KNOBS}
     def tearDown(self):
         state.STATE_DIR = self._o; self._t.cleanup()
+        for k, v in self._env.items():
+            if v is not None:
+                os.environ[k] = v
 
 
 class TestRatchet(_Iso):
@@ -84,6 +92,35 @@ class TestRatchet(_Iso):
         for _ in range(6):
             pt.learn("crypto", "futures", peak_profit_pct=10.0, captured_pct=2.0)  # gave lots back
         self.assertLessEqual(pt.learned_distance("crypto", "futures"), base + 0.01)
+
+
+class TestCryptoSweepOverrides(_Iso):
+    """2026-07-17 sweep knobs: crypto-only arm override + dist cap; NSE untouched."""
+
+    def test_crypto_arm_override_and_dist_cap(self):
+        from trading.execution import profit_tailgate as pt
+        os.environ["TAILGATE_ARM_PROFIT_PCT_CRYPTO"] = "1.0"
+        os.environ["TAILGATE_DIST_MAX_CRYPTO"] = "0.2"
+        # peak 1.5 ≥ overridden arm 1.0 → armed; lock = 1.5*(1-0.2) = 1.2 (capped dist)
+        a = pt.locked_profit("crypto", "futures", trade_id="C1",
+                             profit_pct=1.3, peak_profit_pct=1.5)
+        self.assertAlmostEqual(a["locked_profit_pct"], 1.2)
+        self.assertAlmostEqual(a["distance_pct"], 0.2)
+        # falls to the lock → exit
+        b = pt.locked_profit("crypto", "futures", trade_id="C1",
+                             profit_pct=1.1, peak_profit_pct=1.5)
+        self.assertTrue(b["exit"])
+
+    def test_nse_ignores_crypto_overrides(self):
+        from trading.execution import profit_tailgate as pt
+        os.environ["TAILGATE_ARM_PROFIT_PCT_CRYPTO"] = "1.0"
+        os.environ["TAILGATE_DIST_MAX_CRYPTO"] = "0.2"
+        # NSE: default arm 3.0 still applies (peak 1.5 NOT armed), default dist 0.25
+        a = pt.locked_profit("nse", "mtf", trade_id="N1",
+                             profit_pct=1.3, peak_profit_pct=1.5)
+        self.assertEqual(a["locked_profit_pct"], 0.0)
+        self.assertFalse(a["exit"])
+        self.assertGreater(a["distance_pct"], 0.2)
 
 
 if __name__ == "__main__":

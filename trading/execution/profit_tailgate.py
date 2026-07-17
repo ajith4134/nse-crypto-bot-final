@@ -48,12 +48,35 @@ def learned_distance(market: str, segment: str, regime: str = "") -> float:
     return _DEFAULT_DIST.get((segment or "").lower(), 0.30)
 
 
-def _arm_for(atr_pct: float | None) -> float:
+def _crypto_overrides(market: str) -> tuple[float | None, float | None]:
+    """(arm_override, dist_cap) for CRYPTO only — the 2026-07-17 tailgate sweep
+    (research/direction-brain-mission/experiments-20260717/e_tailgate_sweep.py) showed
+    tighter-arm/tighter-giveback ranks better under BOTH the optimistic and pessimistic
+    replay variants for crypto futures paths. Evidence is crypto-only, so the override is
+    scoped to market='crypto' (NSE and sandbox keep the global behavior — market
+    isolation). Env: TAILGATE_ARM_PROFIT_PCT_CRYPTO, TAILGATE_DIST_MAX_CRYPTO."""
+    if (market or "").lower() != "crypto":
+        return None, None
+    arm = dist_cap = None
+    try:
+        v = os.environ.get("TAILGATE_ARM_PROFIT_PCT_CRYPTO")
+        arm = float(v) if v else None
+    except (TypeError, ValueError):
+        arm = None
+    try:
+        v = os.environ.get("TAILGATE_DIST_MAX_CRYPTO")
+        dist_cap = float(v) if v else None
+    except (TypeError, ValueError):
+        dist_cap = None
+    return arm, dist_cap
+
+
+def _arm_for(atr_pct: float | None, market: str = "") -> float:
     """ATR/VOL-SCALED arm (idea ①, owner 2026-07-12): a fixed 3% arm is wrong for both a
     0.5%/day coin and a 20%/day one. Scale the arm by the symbol's ATR% vs a reference so a
     high-vol coin only arms after a bigger move and a calm coin arms sooner. Bounded 0.3×–3×.
     Levers: TAILGATE_REF_ATR_PCT (1.5), TAILGATE_ARM_ATR_MIN/MAX."""
-    base = _MIN_ARM_PROFIT
+    base = _crypto_overrides(market)[0] or _MIN_ARM_PROFIT
     if atr_pct is None or atr_pct <= 0:
         return base
     ref = float(os.environ.get("TAILGATE_REF_ATR_PCT", "1.5") or 1.5)
@@ -79,9 +102,12 @@ def locked_profit(market: str, segment: str, *, trade_id: str, profit_pct: float
     NEVER down — locking in an ever-higher guaranteed gain. Returns the current locked value + the
     exit decision. `tailgate_locked_profit_pct` = what the trades table shows. Persists per trade so
     the lock only increases across polls. `atr_pct`/`regime` scale the arm + trail (ideas ①/②)."""
-    arm = _arm_for(atr_pct)
+    arm = _arm_for(atr_pct, market)
     dist = min(0.9, max(0.05, learned_distance(market, segment, regime)
                         * _regime_dist_mult(regime)))
+    cap = _crypto_overrides(market)[1]
+    if cap is not None:
+        dist = min(dist, cap)
     locks = state.load_json(_LOCK_FILE, {})
     rec = locks.get(trade_id) or {}
     prev = float(rec.get("locked", 0.0))
@@ -120,7 +146,10 @@ def should_exit(market: str, segment: str, profit_pct: float, peak_profit_pct: f
     and has a positive peak; then exits when the profit has retraced `distance` of the peak gain.
     Returns (exit: bool, distance_used: float, reason: str)."""
     dist = learned_distance(market, segment, regime)
-    if peak_profit_pct is None or peak_profit_pct < _MIN_ARM_PROFIT:
+    arm_ov, cap = _crypto_overrides(market)
+    if cap is not None:
+        dist = min(dist, cap)
+    if peak_profit_pct is None or peak_profit_pct < (arm_ov or _MIN_ARM_PROFIT):
         return False, dist, "not armed (peak below arm threshold)"
     # exit line = peak × (1 - distance). profit dropping below it locks the gain —
     # even if it gapped straight through into the red between polls.

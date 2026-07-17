@@ -61,6 +61,29 @@ class TestNominations(_Iso):
         noms = self._run(lambda ctx: 0.9, LENS_LANE_DISABLE="fake")
         self.assertEqual(noms, [])
 
+    def test_range_top_short_lens_shorts_top_abstains_elsewhere(self):
+        """D-experiment lens: SHORT only when range_position > 0.8; abstain below,
+        abstain when the mirror can't say (None)."""
+        from unittest import mock as _m
+        for rp, want in ((0.9, 0.328), (0.81, 0.328), (0.8, None), (0.15, None),
+                         (None, None)):
+            with _m.patch("trading.direction.truth_ledger.range_position",
+                          return_value=rp):
+                got = self.ll._lens_range_top_short({"symbol": "AKE/USDT"})
+            self.assertEqual(got, want, f"rp={rp}")
+        # end-to-end: at the top it nominates a SHORT past the min-edge bar
+        with _m.patch("trading.direction.truth_ledger.range_position",
+                      return_value=0.95), \
+             _m.patch.object(self.ll, "LENSES",
+                             {"range_top_short": (self.ll._lens_range_top_short,
+                                                  "cheap")}):
+            noms = self.ll.nominations(symbols=["A"], segment="futures",
+                                       ohlcv_fn=lambda s: None,
+                                       features_fn=lambda s: {})
+        self.assertEqual(len(noms), 1)
+        self.assertEqual(noms[0]["direction"], "SHORT")
+        self.assertEqual(noms[0]["lens"], "range_top_short")
+
     def test_rotation_advances_coverage(self):
         seen = []
         self._run(lambda ctx: seen.append(ctx["symbol"]) or None,

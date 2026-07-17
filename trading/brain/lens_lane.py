@@ -174,10 +174,25 @@ def _lens_debate(ctx) -> float | None:
     return None
 
 
+def _lens_range_top_short(ctx) -> float | None:
+    """D-experiment (experiments-20260717 E1b): SHORT claims fired at the TOP of the
+    prior-30m range scored 0.672@1h (n=583) against a 0.542 mechanical-drift baseline —
+    the one bucket in the deep scan with skill ABOVE market mechanics. Shorts only: the
+    long-at-bottom mirror measured weak (0.525@1h) and a lens must not trade an unproven
+    side (CONVENTIONS §16). p_up = 1 − measured accuracy; magnitude stays modest by
+    design (X-F: magnitudes are noise — the sign and the setup are the signal)."""
+    from trading.direction import truth_ledger as tl
+    rp = tl.range_position(ctx["symbol"])
+    if rp is None or rp <= 0.8:
+        return None                      # not at the range top → no opinion, abstain
+    return 0.328
+
+
 # cheap lenses look at the whole rotation slice; deep ones (LLM / MCTS / concept fit) at the
 # first LENS_LANE_DEEP_N symbols of it.
 LENSES: dict[str, tuple] = {
     "cortex": (_lens_cortex, "cheap"),
+    "range_top_short": (_lens_range_top_short, "cheap"),
     "river_online": (_lens_river, "cheap"),
     "dir_exit_read": (_lens_dir_exit, "cheap"),
     "hypothesis": (_lens_hypothesis, "cheap"),

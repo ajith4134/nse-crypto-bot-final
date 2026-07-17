@@ -129,6 +129,60 @@ class TestTrailArm(_Base):
         self.assertTrue(r2["exit"])
 
 
+class TestEarlyAbortArm(_Base):
+    def _assign(self, tid: str, regime: str = "chop"):
+        from trading.execution import exit_policy as xp
+        with mock.patch.object(xp, "choose", return_value="early_abort"):
+            xp.assign(tid, regime=regime, symbol="AKEUSDT")
+        return xp
+
+    def test_long_aborts_at_threshold(self):
+        xp = self._assign("20")
+        # 50bps below open on a long → abort
+        r = xp.evaluate_abort("20", direction="LONG", open_rate=100.0, price=99.5)
+        self.assertTrue(r["exit"])
+        self.assertIn("early_abort", r["reason"])
+
+    def test_long_holds_below_threshold(self):
+        xp = self._assign("21")
+        r = xp.evaluate_abort("21", direction="LONG", open_rate=100.0, price=99.51)
+        self.assertFalse(r["exit"])
+
+    def test_short_mirrored(self):
+        xp = self._assign("22")
+        self.assertTrue(xp.evaluate_abort("22", direction="SHORT",
+                                          open_rate=100.0, price=100.5)["exit"])
+        self.assertFalse(xp.evaluate_abort("22", direction="SHORT",
+                                           open_rate=100.0, price=99.0)["exit"])
+
+    def test_leverage_independent_env_override(self):
+        xp = self._assign("23")
+        os.environ["XP_ABORT_BPS"] = "100"
+        try:
+            self.assertFalse(xp.evaluate_abort("23", direction="LONG",
+                                               open_rate=100.0, price=99.5)["exit"])
+            self.assertTrue(xp.evaluate_abort("23", direction="LONG",
+                                              open_rate=100.0, price=99.0)["exit"])
+        finally:
+            os.environ.pop("XP_ABORT_BPS", None)
+
+    def test_missing_inputs_or_wrong_arm_never_exit(self):
+        from trading.execution import exit_policy as xp
+        xp2 = self._assign("24")
+        self.assertFalse(xp2.evaluate_abort("24", direction="LONG",
+                                            open_rate=None, price=99.0)["exit"])
+        self.assertFalse(xp2.evaluate_abort("24", direction="LONG",
+                                            open_rate=100.0, price=None)["exit"])
+        with mock.patch.object(xp, "choose", return_value="ratchet"):
+            xp.assign("25", regime="chop", symbol="AKEUSDT")
+        self.assertFalse(xp.evaluate_abort("25", direction="LONG",
+                                           open_rate=100.0, price=1.0)["exit"])
+
+    def test_arm_is_a_bandit_competitor(self):
+        from trading.execution import exit_policy as xp
+        self.assertIn("early_abort", xp.ARMS)
+
+
 class TestClosePartial(unittest.TestCase):
     def test_close_partial_derives_amount(self):
         from trading.crypto.engine_client import CryptoEngineClient

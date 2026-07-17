@@ -19,11 +19,17 @@ Arms:
                      on breach. RAM candles only.
   scale_out          close XP_SCALE_FRACTION at +1R (R = entry ATR%, fallback
                      XP_SCALE_TARGET_PCT), then va_trail the remainder.
+  early_abort        E6b (experiments-20260717): winners bounce (35bps median adverse
+                     excursion) while losers run (202bps median) — abort the moment the
+                     PRICE moves XP_ABORT_BPS against entry (leverage-independent), and
+                     manage survivors with the normal profit-tailgate ratchet. The offline
+                     counterfactual at 50bps turned the clean window's −1,979 into −316;
+                     this arm makes that claim EARN its place in the live bandit.
 
 State (all in trading/state/): exit_policy_bandit.json  {"arm|regime": {a, b, n, capture_sum}}
                                exit_policy_assign.json  {trade_id: {arm, regime, lane, ts, …}}
 Env: EXIT_POLICY (1 = on), XP_TRAIL_ARM_PCT (0.4), XP_SCALE_FRACTION (0.34),
-     XP_SCALE_TARGET_PCT (1.2), XP_PRIOR_A/B (1/1).
+     XP_SCALE_TARGET_PCT (1.2), XP_PRIOR_A/B (1/1), XP_ABORT_BPS (50).
 
 The bandit updates on CLOSE via freqtrade_ingest._learn_from_close (once per trade).
 `random` is seeded from os.urandom per process — Thompson needs real randomness.
@@ -38,7 +44,8 @@ from trading import state
 
 _BANDIT = "exit_policy_bandit.json"
 _ASSIGN = "exit_policy_assign.json"
-ARMS = ("ratchet", "direction", "ratchet_direction", "forecast", "va_trail", "scale_out")
+ARMS = ("ratchet", "direction", "ratchet_direction", "forecast", "va_trail", "scale_out",
+        "early_abort")
 _CONTROL = "ratchet_direction"
 _MAX_ASSIGN = 4000                      # prune closed/stale assignments beyond this
 
@@ -176,6 +183,35 @@ def evaluate_trail(trade_id: str, *, symbol: str, direction: str,
             state.mutate_json(_ASSIGN, _m, default={})
         except Exception:
             pass
+    return out
+
+
+def evaluate_abort(trade_id: str, *, direction: str, open_rate: float | None,
+                   price: float | None) -> dict:
+    """early_abort per-poll logic → {exit, reason}.
+
+    Fires when the PRICE has moved ≥ XP_ABORT_BPS against the entry — price-based bps,
+    NOT profit_ratio, so leverage never scales the trigger (the E6b measurement was on
+    price excursions). No minimum hold: the measured loser signature is an early adverse
+    run, and waiting is exactly the leak this arm exists to cut. Missing/zero inputs →
+    no exit (a measurement gap must never close a trade)."""
+    out = {"exit": False, "reason": ""}
+    rec = assignment(trade_id)
+    if not rec or rec.get("arm") != "early_abort":
+        return out
+    try:
+        op, px = float(open_rate or 0.0), float(price or 0.0)
+    except (TypeError, ValueError):
+        return out
+    if op <= 0 or px <= 0:
+        return out
+    long_side = (direction or "LONG").upper() != "SHORT"
+    adverse_bps = ((op - px) if long_side else (px - op)) / op * 1e4
+    limit = _f("XP_ABORT_BPS", 50.0)
+    if adverse_bps >= limit:
+        out["exit"] = True
+        out["reason"] = (f"early_abort: adverse {adverse_bps:.0f}bps ≥ {limit:.0f}bps "
+                         f"(open {op}, now {px})")
     return out
 
 

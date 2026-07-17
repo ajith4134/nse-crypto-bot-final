@@ -43,11 +43,19 @@ def _f(name: str, default: float) -> float:
 
 def _cfg() -> dict:
     return {
-        # a source needs at least this many scored outcomes before we trust its edge
-        "min_n": int(_f("LEARNED_DIR_MIN_N", 30)),
+        # a source needs at least this many scored outcomes before we trust its edge.
+        # B-experiment (experiments-20260717 E3): at the old bar (n≥30, LB>0.5) the
+        # shuffled-label null harness measured FDR≈0.30 — ~1 in 3 "proven" buckets was
+        # noise, concentrated in spectacular small-n rows (0.9 acc at n≈30). 100 + the
+        # LB bar below cuts the null pass-rate to ~0 while every large-n real source
+        # (indicator_fusion .647/n=623, river .569/n=1447) still clears.
+        "min_n": int(_f("LEARNED_DIR_MIN_N", 100)),
         # ignore edges smaller than this effect size — |rate-0.5| must clear it to earn weight
         # (0.03 ⇒ the ~47.3% near-random mtf vote is ignored; 54-56% lenses still count)
         "min_edge": _f("LEARNED_DIR_MIN_EDGE", 0.03),
+        # B-experiment: the Wilson LOWER BOUND must clear this (not just 0.5) — the CI
+        # excluding a coin flip is necessary but too weak at the bucket counts we run.
+        "min_lb": _f("LEARNED_DIR_MIN_LB", 0.52),
         # total edge-weight below this ⇒ abstain (no proven signal at all)
         "min_total_w": _f("LEARNED_DIR_MIN_TOTAL_W", 0.015),
         # |p-0.5| must clear this band to call a side (else neutral)
@@ -61,7 +69,11 @@ def _cfg() -> dict:
         # dimension was dead 07-12→07-17 (classifier starved of candles), so per-regime buckets
         # are young — without borrowing, fixing the classifier would have RESET every source to
         # unproven. 0 disables (restores the step fallback).
-        "shrink_k": _f("LEARNED_DIR_SHRINK_K", 24),
+        # Raised 24→96 with the B-experiment bar (E3): min_n=100 with k=24 would re-create
+        # the zero-evidence-blend trap for SPARSE children (n_child 30 + 24 borrowed = 54
+        # < 100 → proven parent demoted to unproven). k≈min_n lets a thin child be judged
+        # mostly on its rich parent until its own labels accrue.
+        "shrink_k": _f("LEARNED_DIR_SHRINK_K", 96),
         # MISSION X-A (2026-07-17): evidence half-life in days. Measured drift inside ONE clean
         # day (river 0.680→0.525, momentum 0.672→0.576 between ~6h halves) means cumulative
         # pools mis-weight everything; the decayed reader makes trust follow RECENT truth.
@@ -90,8 +102,11 @@ def _blend(child: dict, parent_rate: float, parent_n: int, k: float) -> dict | N
     bc = c_c + borrow * parent_rate
     bn = n_c + borrow
     rate, lo, hi = _tl._wilson(bc, bn)
-    return {"n": int(round(bn)), "correct": int(round(bc)), "rate": round(rate, 4),
-            "ci_low": round(lo, 4), "ci_high": round(hi, 4),
+    # n_raw: real labels standing behind the estimate — the child's undecayed count plus
+    # the borrowed parent observations (they are real labels too, just summarized).
+    raw = int(child.get("n_raw") or n_c) + int(round(borrow))
+    return {"n": int(round(bn)), "n_raw": raw, "correct": int(round(bc)),
+            "rate": round(rate, 4), "ci_low": round(lo, 4), "ci_high": round(hi, 4),
             "edge": round(rate - 0.5, 4), "n_child": n_c, "borrowed": int(round(borrow))}
 
 
@@ -191,7 +206,10 @@ def _signed_weight(rel: dict, cfg: dict) -> tuple[float, bool]:
     weight is the Wilson-HONEST edge magnitude (so small-n or wide-CI sources earn little);
     invert=True when the source is measured reliably below 0.5 (flip its p_up before use).
     Unproven (n<min_n) → tiny weight, no inversion (behave like the raw signal early)."""
-    n = rel.get("n") or 0
+    # evidence gate counts REAL labels (n_raw when the decayed chain provides it): decay
+    # shrinks power, which the Wilson bound below already prices; it must not also shrink
+    # the evidence count (a same-day 100-label bucket would read n=95 → unproven cliff)
+    n = rel.get("n_raw") or rel.get("n") or 0
     rate = rel.get("rate")
     if rate is None or n < cfg["min_n"]:
         return cfg["unproven_w"], False
@@ -202,7 +220,11 @@ def _signed_weight(rel: dict, cfg: dict) -> tuple[float, bool]:
     # different from a coin flip and earns no weight. Real trading edges are small, so the
     # weight MAGNITUDE is the point estimate |rate-0.5| (not the barely-clearing CI bound) —
     # gated by min_edge so a statistically-significant-but-tiny bias (the 47.3% vote) is dropped.
-    if lo > 0.5:
+    # B-experiment (E3, experiments-20260717): barely excluding 0.5 passed ~30% noise
+    # buckets — the lower bound must clear min_lb (0.52), a bar the shuffled-label null
+    # harness shows noise essentially never reaches at our ns while every real large-n
+    # source still clears.
+    if lo > max(0.5, cfg.get("min_lb") or 0.0):
         edge, invert = rate - 0.5, False          # reliably RIGHT
     elif hi < 0.5:
         # 🚨 SECOND INVERTER KILLED 2026-07-16 (evening). The morning fix below killed inversion
