@@ -24,14 +24,24 @@ class LearnedDirectionTest(unittest.TestCase):
         ld.clear_cache()
         self._table = {}
 
-        def fake_reliability(source, *, market=None, regime=None, min_n=1):
+        def fake_reliability(source, *, market=None, regime=None, horizon=None,
+                             min_n=1):
             return self._table.get(source, _rel(None, 0))
 
+        def fake_decayed(source, *, market=None, regime=None, horizon=None,
+                         half_life_days=3.0):
+            # mission X-A: tests pin the CUMULATIVE math; no day-bucket evidence here
+            return {"n": 0, "correct": 0, "rate": None, "ci_low": None,
+                    "ci_high": None, "edge": None, "decayed": True}
+
         self._orig = ld._tl.source_reliability
+        self._orig_dec = ld._tl.source_reliability_decayed
         ld._tl.source_reliability = fake_reliability
+        ld._tl.source_reliability_decayed = fake_decayed
 
     def tearDown(self):
         ld._tl.source_reliability = self._orig
+        ld._tl.source_reliability_decayed = self._orig_dec
         ld.clear_cache()
 
     def _set(self, source, rate, n, half_ci=0.05):

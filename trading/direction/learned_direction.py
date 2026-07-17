@@ -61,6 +61,11 @@ def _cfg() -> dict:
         # are young — without borrowing, fixing the classifier would have RESET every source to
         # unproven. 0 disables (restores the step fallback).
         "shrink_k": _f("LEARNED_DIR_SHRINK_K", 24),
+        # MISSION X-A (2026-07-17): evidence half-life in days. Measured drift inside ONE clean
+        # day (river 0.680→0.525, momentum 0.672→0.576 between ~6h halves) means cumulative
+        # pools mis-weight everything; the decayed reader makes trust follow RECENT truth.
+        # 0 disables (control variant / legacy behavior).
+        "half_life_d": _f("LEDGER_HALF_LIFE_D", 2.0),
     }
 
 
@@ -84,40 +89,66 @@ def _blend(child: dict, parent_rate: float, parent_n: int, k: float) -> dict | N
 
 
 def reliability(source: str, regime: str | None = None, market: str | None = None,
-                conditioners: dict | None = None) -> dict:
-    """Cached truth_ledger.source_reliability with a hierarchical shrinkage chain:
-    global(market) → regime → conditioner (E8: liq / clock sub-buckets). Each thinner bucket
-    borrows up to shrink_k pseudo-observations from its parent, so refinement never resets
-    earned trust and rich buckets dominate their parents. `market` (CRYPTO|NSE) keeps crypto
-    and NSE reliability APART (isolation, 2026-07-13). Returns the truth_ledger dict."""
-    ttl = _cfg()["cache_ttl"]
+                conditioners: dict | None = None, *, horizon: str | None = None,
+                decayed: bool = True) -> dict:
+    """Cached reliability with a hierarchical shrinkage chain:
+    recent(decayed, regime) → recent(decayed, all-regime) → cumulative all-era → conditioner.
+    Each thinner/fresher pool borrows up to shrink_k pseudo-observations from its parent, so
+    refinement never resets earned trust, RECENT truth outranks stale truth (X-A half-life),
+    and rich pools dominate. `decayed=False` (the CONTROL variant) restores the pre-mission
+    cumulative-only chain. `market` keeps crypto and NSE apart (isolation, 2026-07-13)."""
+    cfg = _cfg()
+    ttl = cfg["cache_ttl"]
+    hl = cfg["half_life_d"] if decayed else 0.0
     m = (market or "").upper() or None
     cond_key = tuple(sorted((conditioners or {}).items())) or None
-    key = (source, (regime or "").lower() or None, m, cond_key)
+    key = (source, (regime or "").lower() or None, m, cond_key, horizon, hl > 0)
     hit = _CACHE.get(key)
     if hit and (time.monotonic() - hit[0]) < ttl:
         return hit[1]
-    rel = _tl.source_reliability(source, market=m, regime=regime, min_n=1)
-    if regime:
-        k = _cfg()["shrink_k"]
-        allr = _tl.source_reliability(source, market=m, regime=None, min_n=1)
-        n_r, c_r = int(rel.get("n") or 0), int(rel.get("correct") or 0)
-        n_a = int(allr.get("n") or 0)
-        if k > 0 and n_a > n_r and allr.get("rate") is not None:
-            # empirical-Bayes blend: the regime bucket + up to `k` pseudo-observations at the
-            # parent (across-regime, same-market) rate. A fresh regime bucket inherits the
-            # source's EARNED edge (CONVENTIONS §16: the parent pool earned it — refining by
-            # regime must not reset trust); as regime evidence accumulates it dominates.
-            borrow = min(float(k), float(n_a - n_r))
-            bc = c_r + borrow * float(allr["rate"])
-            bn = n_r + borrow
-            rate, lo, hi = _tl._wilson(bc, bn)
-            rel = {"n": int(round(bn)), "correct": int(round(bc)),
-                   "rate": round(rate, 4), "ci_low": round(lo, 4),
-                   "ci_high": round(hi, 4), "edge": round(rate - 0.5, 4),
-                   "n_regime": n_r, "borrowed": int(round(borrow))}
-        elif k <= 0 and n_r < _cfg()["min_n"] and n_a > n_r:
-            rel = allr                          # legacy step fallback (shrink disabled)
+    k = cfg["shrink_k"]
+    era = _tl.source_reliability(source, market=m, regime=None, horizon=horizon, min_n=1)
+    if hl > 0:
+        rel = _tl.source_reliability_decayed(source, market=m, regime=regime,
+                                             horizon=horizon, half_life_days=hl)
+        # chain: decayed regime ← decayed all-regime ← cumulative all-era.
+        # Rule: a level with ZERO evidence hands over to its parent VERBATIM (no pseudo-obs
+        # blend — capping a rich parent at k pseudo-obs would demote every proven source to
+        # "unproven" the moment day-buckets are cold); a level with SOME evidence blends.
+        if regime and (rel.get("n") or 0) == 0:
+            rel = _tl.source_reliability_decayed(source, market=m, regime=None,
+                                                 horizon=horizon, half_life_days=hl)
+        elif regime:
+            all_dec = _tl.source_reliability_decayed(source, market=m, regime=None,
+                                                     horizon=horizon, half_life_days=hl)
+            if all_dec.get("rate") is not None:
+                nxt = _blend(rel, float(all_dec["rate"]), int(all_dec.get("n") or 0), k)
+                if nxt is not None:
+                    rel = nxt
+        if (rel.get("n") or 0) == 0:
+            rel = era                           # no recent evidence at all → cumulative
+        elif era.get("rate") is not None:
+            nxt = _blend(rel, float(era["rate"]), int(era.get("n") or 0), k)
+            if nxt is not None:
+                rel = nxt
+    else:
+        rel = _tl.source_reliability(source, market=m, regime=regime,
+                                     horizon=horizon, min_n=1)
+        if regime:
+            allr = era
+            n_r, c_r = int(rel.get("n") or 0), int(rel.get("correct") or 0)
+            n_a = int(allr.get("n") or 0)
+            if k > 0 and n_a > n_r and allr.get("rate") is not None:
+                borrow = min(float(k), float(n_a - n_r))
+                bc = c_r + borrow * float(allr["rate"])
+                bn = n_r + borrow
+                rate, lo, hi = _tl._wilson(bc, bn)
+                rel = {"n": int(round(bn)), "correct": int(round(bc)),
+                       "rate": round(rate, 4), "ci_low": round(lo, 4),
+                       "ci_high": round(hi, 4), "edge": round(rate - 0.5, 4),
+                       "n_regime": n_r, "borrowed": int(round(borrow))}
+            elif k <= 0 and n_r < cfg["min_n"] and n_a > n_r:
+                rel = allr                      # legacy step fallback (shrink disabled)
     if conditioners:
         # E8: refine by the decision-time conditioners (liq / clock). Sequential one-step
         # blends — an approximation of a full hierarchy, chosen because the sub-buckets are
@@ -213,7 +244,7 @@ def _log(decision: dict, *, symbol: str, market: str, regime, seam: str,
 
 def decide(readings, *, market: str = "", segment: str = "",
            regime: str | None = None, symbol: str = "", coverage: dict | None = None,
-           log: bool = True) -> dict:
+           log: bool = True, variant: str = "live") -> dict:
     """Fuse directional lens readings into ONE learned decision, weighting each by measured edge.
 
     readings: iterable of (source, p_up) — p_up in [0,1], the source's probability of LONG.
@@ -241,7 +272,8 @@ def decide(readings, *, market: str = "", segment: str = "",
         except (TypeError, ValueError):
             continue
         p = min(1.0, max(0.0, p))
-        rel = reliability(source, regime, market, conditioners=cond)
+        rel = reliability(source, regime, market, conditioners=cond,
+                          decayed=(variant != "control"))
         w, invert = _signed_weight(rel, cfg)
         if w <= 0.0:
             weights[source] = {"w": 0.0, "invert": invert, "rate": rel.get("rate"),
@@ -255,7 +287,8 @@ def decide(readings, *, market: str = "", segment: str = "",
                            "p_used": round(p_cal, 4)}
     if tot_w < cfg["min_total_w"]:
         out = {"direction": "neutral", "p_up": 0.5, "confidence": round(tot_w, 4),
-               "weights": weights, "abstained": True, "n_sources": len(weights)}
+               "weights": weights, "abstained": True, "n_sources": len(weights),
+               "variant": variant}
         if log:
             _log(out, symbol=symbol, market=market, regime=regime, seam="decide",
                  coverage=coverage)
@@ -271,11 +304,99 @@ def decide(readings, *, market: str = "", segment: str = "",
         direction = "neutral"
     out = {"direction": direction, "p_up": round(p_final, 4),
            "confidence": round(tot_w, 4), "weights": weights,
-           "abstained": direction == "neutral", "n_sources": len(weights)}
+           "abstained": direction == "neutral", "n_sources": len(weights),
+           "variant": variant}
+    if direction != "neutral":
+        # MISSION X-B: a side without a horizon is half a decision (measured: 15m 0.518 /
+        # 1h 0.534 / 4h 0.594 on the clean window). Emit the horizon at which the AGREEING
+        # sources have their strongest recent edge; exits and validation consume it.
+        try:
+            want_long = direction == "long"
+            scores: dict[str, float] = {}
+            for h in ("15m", "1h", "4h"):
+                tot = 0.0
+                for src, meta in weights.items():
+                    if (meta.get("w") or 0) <= 0 or meta.get("p_used") is None:
+                        continue
+                    if (meta["p_used"] >= 0.5) != want_long:
+                        continue
+                    rh = reliability(src, regime, market, horizon=h,
+                                     decayed=(variant != "control"))
+                    if rh.get("rate") is not None and rh.get("rate") > 0.5 \
+                            and (rh.get("n") or 0) >= 20:
+                        tot += rh["rate"] - 0.5
+                scores[h] = round(tot, 4)
+            if any(v > 0 for v in scores.values()):
+                out["horizon"] = max(scores, key=scores.get)
+                out["horizon_scores"] = scores
+        except Exception:
+            pass
     if log:
         _log(out, symbol=symbol, market=market, regime=regime, seam="decide",
              coverage=coverage)
     return out
+
+
+# ── MISSION X-C: cost-aware NO-TRADE ─────────────────────────────────────────────────
+_ATR_CACHE: dict[str, tuple[float, float]] = {}
+_HBARS = {"15m": 3, "1h": 12, "4h": 48}
+
+
+def _atr_pct(symbol: str, bars: int = 14) -> float | None:
+    """5m ATR as a FRACTION of price, from the RAM mirror; 60s cache; None when cold."""
+    flat = (symbol or "").replace("/", "").split(":")[0].upper()
+    hit = _ATR_CACHE.get(flat)
+    now = time.monotonic()
+    if hit and now - hit[0] < 60:
+        return hit[1]
+    try:
+        from trading.broker_sense.binance_stream import get_mirror
+        rows = get_mirror().candles(flat, 300, bars + 1) or []
+        if len(rows) < bars:
+            return None
+        trs = []
+        prev_close = float(rows[0][4])
+        for r in rows[1:]:
+            h, l, c = float(r[2]), float(r[3]), float(r[4])
+            trs.append(max(h - l, abs(h - prev_close), abs(l - prev_close)))
+            prev_close = c
+        price = float(rows[-1][4])
+        if price <= 0 or not trs:
+            return None
+        atr = (sum(trs) / len(trs)) / price
+        _ATR_CACHE[flat] = (now, atr)
+        if len(_ATR_CACHE) > 400:
+            for k in sorted(_ATR_CACHE, key=lambda k: _ATR_CACHE[k][0])[:100]:
+                _ATR_CACHE.pop(k, None)
+        return atr
+    except Exception:
+        return None
+
+
+def cost_gate(p_up: float, *, symbol: str, horizon: str = "1h",
+              cost_bps: float | None = None) -> dict:
+    """MISSION X-C: an edge must clear costs or the honest call is NO-TRADE.
+
+    EV_bps ≈ (2p−1) · E|move at horizon|_bps − round-trip cost. E|move| from the 5m ATR
+    scaled √bars (diffusion approximation — crude but honest and stated). Cost defaults to
+    2×FEE_BPS + SLIP_BPS (env; slippage is MEASURED in exec_choice_stats as it accrues).
+    Fail-OPEN with reason when ATR is unavailable (a cold mirror must not silence the paper
+    experiment — the miss is recorded so its cost is measurable)."""
+    if os.environ.get("COST_GATE", "1") not in ("1", "true", "TRUE", "yes", "on"):
+        return {"pass": True, "reason": "disabled"}
+    try:
+        cost = float(cost_bps) if cost_bps is not None else \
+            2.0 * _f("FEE_BPS", 5.0) + _f("SLIP_BPS", 2.0)
+        atr = _atr_pct(symbol)
+        if atr is None:
+            return {"pass": True, "reason": "no_atr", "cost_bps": cost}
+        emove_bps = atr * 1e4 * (_HBARS.get(horizon, 12) ** 0.5)
+        ev_bps = abs(2.0 * float(p_up) - 1.0) * emove_bps - cost
+        return {"pass": ev_bps > 0.0, "reason": "ev",
+                "ev_bps": round(ev_bps, 2), "emove_bps": round(emove_bps, 2),
+                "cost_bps": round(cost, 2)}
+    except Exception:
+        return {"pass": True, "reason": "error_fail_open"}
 
 
 def correct_direction(direction: str, *, source: str, market: str = "",

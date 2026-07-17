@@ -342,6 +342,27 @@ def _fold(agg: dict, row: dict, horizon: str, correct: bool, method: str) -> Non
             {"n": 0, "correct": 0})
         cb["n"] += 1
         cb["correct"] += int(correct)
+    # MISSION X-A (2026-07-17): DAY buckets — the drift evidence is unambiguous (river_online
+    # 0.680→0.525, filter:momentum 0.672→0.576 across two ~6h halves of ONE clean day), so a
+    # cumulative bucket that weighs a week-old outcome equal to an hour-old one systematically
+    # mis-weights every source. Additive dict keyed source|market|regime|horizon|YYYYMMDD;
+    # source_reliability_decayed() reads it with an exponential half-life. Bounded by pruning
+    # the oldest day keys.
+    try:
+        day = time.strftime("%Y%m%d", time.gmtime(float(row.get("ts") or time.time())))
+        db = agg.setdefault("day_buckets", {})
+        dk = (f"{row['source']}|{row.get('market') or 'CRYPTO'}|"
+              f"{(row.get('regime') or 'unknown').lower()}|{horizon}|{day}")
+        d = db.setdefault(dk, {"n": 0, "correct": 0})
+        d["n"] += 1
+        d["correct"] += int(correct)
+        if len(db) > 30_000:                        # prune the oldest days wholesale
+            days = sorted({k.rsplit("|", 1)[-1] for k in db})
+            for old in days[:max(1, len(days) - 14)]:
+                for k in [k for k in db if k.endswith(f"|{old}")]:
+                    db.pop(k, None)
+    except Exception:
+        pass
 
 
 def _mirror_price(symbol: str, epoch: float) -> float | None:
@@ -722,6 +743,94 @@ def source_reliability(source: str, *, market: str | None = None, regime: str | 
     rate, lo, hi = _wilson(c, n)
     return {"n": n, "correct": c, "rate": round(rate, 4), "ci_low": round(lo, 4),
             "ci_high": round(hi, 4), "edge": round(rate - 0.5, 4)}
+
+
+def source_reliability_decayed(source: str, *, market: str | None = None,
+                               regime: str | None = None, horizon: str | None = None,
+                               half_life_days: float = 3.0) -> dict:
+    """MISSION X-A: reliability with an exponential evidence half-life over the day buckets.
+    Each day's (n, correct) is weighted 0.5^(age_days / half_life) — yesterday's regime shift
+    stops poisoning today's weights, and a source must KEEP being right to stay trusted.
+    Effective counts feed the same Wilson interval (conservative: decayed n shrinks power).
+    n=0 when no day-bucket evidence exists (caller falls back to the cumulative pools)."""
+    agg = state.load_json(_AGG, {})
+    want_m = (market or "").upper() or None
+    reg = (regime or "").lower() or None
+    today = time.time()
+    hl = max(0.1, float(half_life_days))
+    n_eff = c_eff = 0.0
+    for key, b in (agg.get("day_buckets") or {}).items():
+        try:
+            s, mkt, r, h, day = key.rsplit("|", 4)
+        except ValueError:
+            continue
+        if s != source:
+            continue
+        if want_m is not None and mkt.upper() != want_m:
+            continue
+        if reg is not None and r != reg:
+            continue
+        if horizon is not None and h != horizon:
+            continue
+        try:
+            import calendar
+            day_ts = calendar.timegm(time.strptime(day, "%Y%m%d"))
+        except Exception:
+            continue
+        age_d = max(0.0, (today - day_ts) / 86400.0 - 0.5)   # mid-day anchor
+        w = 0.5 ** (age_d / hl)
+        n_eff += w * int(b.get("n", 0))
+        c_eff += w * int(b.get("correct", 0))
+    if n_eff <= 0:
+        return {"n": 0, "correct": 0, "rate": None, "ci_low": None,
+                "ci_high": None, "edge": None, "decayed": True}
+    rate, lo, hi = _wilson(c_eff, n_eff)
+    return {"n": int(round(n_eff)), "correct": int(round(c_eff)),
+            "rate": round(rate, 4), "ci_low": round(lo, 4), "ci_high": round(hi, 4),
+            "edge": round(rate - 0.5, 4), "decayed": True}
+
+
+def backfill_day_buckets(train_path: Path | None = None, *,
+                         min_ts: float = 1784236980.0) -> dict:
+    """One-shot cold-start for the day buckets from the per-row labeled train log
+    (backfill-before-wire): folds every CLEAN-window row (ts ≥ min_ts — earlier rows carry
+    the measured contaminations) so the decayed reader is dense from day one. Idempotent via
+    a marker in the aggregate."""
+    p = train_path if train_path is not None else Path(state.STATE_DIR) / _TRAIN
+    if not p.exists():
+        return {"folded": 0, "reason": "no train log"}
+    marker = state.load_json(_AGG, {}).get("day_backfill_ts")
+    if marker:
+        return {"folded": 0, "reason": "already backfilled"}
+    rows = []
+    try:
+        with open(p, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    r = json.loads(line)
+                except (ValueError, TypeError):
+                    continue
+                if float(r.get("ts") or 0) >= min_ts and r.get("horizon") != "exit" \
+                        and r.get("source") and r.get("correct") is not None:
+                    rows.append(r)
+    except OSError:
+        return {"folded": 0, "reason": "unreadable train log"}
+    if not rows:
+        return {"folded": 0, "reason": "no clean rows"}
+
+    def _m(agg: dict) -> dict:
+        db = agg.setdefault("day_buckets", {})
+        for r in rows:
+            day = time.strftime("%Y%m%d", time.gmtime(float(r["ts"])))
+            dk = (f"{r['source']}|{(r.get('market') or 'CRYPTO').upper()}|"
+                  f"{(r.get('regime') or 'unknown').lower()}|{r['horizon']}|{day}")
+            d = db.setdefault(dk, {"n": 0, "correct": 0})
+            d["n"] += 1
+            d["correct"] += int(bool(r["correct"]))
+        agg["day_backfill_ts"] = time.time()
+        return agg
+    state.mutate_json(_AGG, _m, default={})
+    return {"folded": len(rows)}
 
 
 def source_reliability_conditioned(source: str, *, market: str | None = None,

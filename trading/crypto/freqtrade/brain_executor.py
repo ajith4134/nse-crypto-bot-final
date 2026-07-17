@@ -446,9 +446,18 @@ class BrainExecutor:
                                            signals=_col.get("signals"),
                                            features=_asig.feature_dict(_col.get("signals") or []),
                                            fast=fast)
+            # MISSION control lane (2026-07-17): deterministic ~20% of (symbol, UTC-day)
+            # keeps the pre-mission decider under tag learned_direction_ctl — the permanent
+            # benchmark. Live variant additionally passes the X-C cost gate at its emitted
+            # horizon; a refused trade falls through to the explore prior (labels keep
+            # flowing; only the LEARNED override is withheld).
+            import zlib as _zl
+            _var = ("control" if _zl.crc32(
+                f"{_psym}{time.strftime('%Y%m%d', time.gmtime())}".encode()) % 5 == 0
+                else "live")
             out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
-                             symbol=_psym, coverage=_col["coverage"])
+                             symbol=_psym, coverage=_col["coverage"], variant=_var)
             out["_signals"] = _col.get("signals")     # reused by the lane's record batch (no 2nd collect)
             try:                                      # write-only vote log (B1 diversity study)
                 from trading.direction import vote_log as _vlog
@@ -457,6 +466,14 @@ class BrainExecutor:
                           decided=(out.get("direction") or "abstain"))
             except Exception:
                 pass
+            if not out.get("abstained") and out.get("direction") in ("long", "short") \
+                    and _var == "live":
+                _cg = _ld.cost_gate(out.get("p_up") or 0.5, symbol=_psym,
+                                    horizon=out.get("horizon") or "1h")
+                out["cost_gate"] = _cg
+                if not _cg.get("pass"):
+                    out["abstained"] = True
+                    out["direction"] = "neutral"
             if not out.get("abstained") and out.get("direction") in ("long", "short"):
                 _side = out["direction"].upper()
                 # a gate-clearing strategy that AGREES with the fused side DRIVES → tag = its name
@@ -464,7 +481,8 @@ class BrainExecutor:
                         and _bf.get("signal") == _side):
                     out["strategy_drove"] = _bf["best_strategy"]
                     return _side, _bf["best_strategy"], out
-                return _side, "learned_direction", out
+                return _side, ("learned_direction" if _var == "live"
+                               else "learned_direction_ctl"), out
         except Exception:
             pass
         return self._filter_side(pick, preset), f"filter:{preset}", None
@@ -612,7 +630,12 @@ class BrainExecutor:
                     _psym, _side, _tag,
                     {"filter": {k: pick.get(k) for k in
                                 ("filter_preset", "filter_score", "pct_change",
-                                 "funding_rate")}}, None, explore=True)
+                                 "funding_rate")},
+                     # MISSION X-B: the decide() output (incl. horizon + cost gate + variant)
+                     # travels with the trade so exits and post-mortem can consume it
+                     "learned_direction": {k: v for k, v in (_ldout or {}).items()
+                                           if k != "_signals"} or None},
+                    None, explore=True)
             if all_recs:                                    # BATCH the learning records off the hot path
                 try:
                     from trading.direction import truth_ledger as _tl
@@ -973,9 +996,17 @@ class BrainExecutor:
                                                          features=_ff, fast=False)
                         except Exception:
                             pass
+                        # MISSION control lane (2026-07-17): a deterministic ~20% of
+                        # (symbol, UTC-day) keeps the pre-mission decider (cumulative
+                        # weights, no cost gate) under its own tag — the permanent
+                        # benchmark every improvement must beat. Never delete it.
+                        import zlib as _zl
+                        _var = ("control" if _zl.crc32(
+                            f"{sym}{time.strftime('%Y%m%d', time.gmtime())}".encode())
+                            % 5 == 0 else "live")
                         _ldo = _ld.decide(_reads, market="CRYPTO",
                                           segment=self.segment or "futures", regime=_lreg,
-                                          symbol=sym)
+                                          symbol=sym, variant=_var)
                         try:                          # write-only vote log (B1 diversity study)
                             from trading.direction import vote_log as _vlog
                             _vlog.log(symbol=sym, market="CRYPTO",
@@ -984,19 +1015,30 @@ class BrainExecutor:
                                       decided=(_ldo.get("direction") or "abstain"))
                         except Exception:
                             pass
+                        if not _ldo.get("abstained") and _ldo.get("direction") in ("long", "short") \
+                                and _var == "live":
+                            # X-C: the live variant's edge must clear costs at its horizon
+                            _cg = _ld.cost_gate(_ldo.get("p_up") or 0.5, symbol=sym,
+                                                horizon=_ldo.get("horizon") or "1h")
+                            _ldo["cost_gate"] = _cg
+                            if not _cg.get("pass"):
+                                _ldo["abstained"] = True
+                                _ldo["direction"] = "neutral"
                         if not _ldo.get("abstained") and _ldo.get("direction") in ("long", "short"):
                             _lact = _ldo["direction"].upper()
+                            _lsrc_name = ("learned_direction" if _var == "live"
+                                          else "learned_direction_ctl")
                             try:
                                 from trading.direction import truth_ledger as _ldtl
                                 _ldtl.record(symbol=sym, market="CRYPTO",
                                              segment=self.segment or "futures",
-                                             direction=_lact, source="learned_direction",
+                                             direction=_lact, source=_lsrc_name,
                                              confidence=_ldo.get("p_up"), regime=_lreg)
                             except Exception:
                                 pass
                             brain = {**brain, "learned_direction": _ldo}
                             act = _lact
-                            tag = tag or "learned_direction"
+                            tag = tag or _lsrc_name
                     except Exception:
                         pass
                 # D2 Mirror Gate (Pillar 27): every selective entry direction passes the
@@ -1788,9 +1830,18 @@ class BrainExecutor:
                     if _xp.enabled():
                         _rec = _xp.assignment(tid)
                         if _rec is None:
+                            _hz = None            # X-B: the direction brain's emitted horizon
+                            try:                  # travels from the entry sidecar to the exit
+                                from trading.crypto.freqtrade import entry_meta as _em
+                                _m0 = _em.lookup(pair, self.segment or "futures",
+                                                 t.get("open_date"))
+                                _hz = ((((_m0 or {}).get("meta") or {}).get("brain") or {})
+                                       .get("learned_direction") or {}).get("horizon")
+                            except Exception:
+                                _hz = None
                             _arm = _xp.assign(tid, regime=_regime,
                                               lane=str(t.get("enter_tag") or ""),
-                                              symbol=pair, atr_pct=_atr_pct)
+                                              symbol=pair, atr_pct=_atr_pct, horizon=_hz)
                         else:
                             _arm = _rec.get("arm")
                 except Exception:

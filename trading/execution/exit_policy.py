@@ -79,8 +79,12 @@ def choose(regime: str | None = None) -> str:
 
 
 def assign(trade_id: str, *, regime: str | None = None, lane: str = "",
-           symbol: str = "", atr_pct: float | None = None) -> str:
-    """Pick + persist the exit arm for a just-opened trade. Returns the arm."""
+           symbol: str = "", atr_pct: float | None = None,
+           horizon: str | None = None) -> str:
+    """Pick + persist the exit arm for a just-opened trade. Returns the arm.
+    `horizon` (MISSION X-B) is the direction brain's emitted holding period — recorded so
+    the arms and the post-mortem can honor/mine it (a correct 4h call must not be managed
+    like a 15m scalp)."""
     arm = choose(regime)
     if not trade_id:
         return arm
@@ -88,7 +92,8 @@ def assign(trade_id: str, *, regime: str | None = None, lane: str = "",
     def _m(d: dict) -> dict:
         d[str(trade_id)] = {"arm": arm, "regime": (regime or "unknown").lower(),
                             "lane": lane, "symbol": symbol, "ts": time.time(),
-                            "atr_pct": atr_pct, "trail": None, "partial_done": False}
+                            "atr_pct": atr_pct, "horizon": horizon,
+                            "trail": None, "partial_done": False}
         if len(d) > _MAX_ASSIGN:                     # oldest out
             for k in sorted(d, key=lambda k: d[k].get("ts") or 0)[:len(d) - _MAX_ASSIGN]:
                 d.pop(k, None)

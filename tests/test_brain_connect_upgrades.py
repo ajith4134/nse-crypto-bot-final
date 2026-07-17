@@ -112,7 +112,7 @@ class TestReliabilityShrinkage(unittest.TestCase):
                   "ci_high": 0.65, "edge": 0.08}
         with mock.patch.object(ld._tl, "source_reliability",
                                side_effect=self._fake_reliability(thin, parent)):
-            rel = ld.reliability("some_lens", "trend_up", "CRYPTO")
+            rel = ld.reliability("some_lens", "trend_up", "CRYPTO", decayed=False)
         self.assertEqual(rel["n_regime"], 4)
         self.assertEqual(rel["borrowed"], 24)
         self.assertEqual(rel["n"], 28)
@@ -128,7 +128,7 @@ class TestReliabilityShrinkage(unittest.TestCase):
                   "ci_high": 0.56, "edge": 0.02}
         with mock.patch.object(ld._tl, "source_reliability",
                                side_effect=self._fake_reliability(rich, parent)):
-            rel = ld.reliability("some_lens", "chop", "CRYPTO")
+            rel = ld.reliability("some_lens", "chop", "CRYPTO", decayed=False)
         # only 20 borrowable rows exist beyond the bucket → blend barely moves it
         self.assertGreater(rel["rate"], 0.59)
 
@@ -141,7 +141,7 @@ class TestReliabilityShrinkage(unittest.TestCase):
                   "ci_high": 0.65, "edge": 0.05}
         with mock.patch.object(ld._tl, "source_reliability",
                                side_effect=self._fake_reliability(thin, parent)):
-            rel = ld.reliability("some_lens", "trend_down", "CRYPTO")
+            rel = ld.reliability("some_lens", "trend_down", "CRYPTO", decayed=False)
         self.assertEqual(rel["n"], 100)                       # parent verbatim, no blend
 
     def test_no_regime_passes_through(self):
@@ -150,7 +150,7 @@ class TestReliabilityShrinkage(unittest.TestCase):
                   "ci_high": 0.72, "edge": 0.1}
         with mock.patch.object(ld._tl, "source_reliability",
                                return_value=dict(parent)):
-            rel = ld.reliability("some_lens", None, "CRYPTO")
+            rel = ld.reliability("some_lens", None, "CRYPTO", decayed=False)
         self.assertEqual(rel["n"], 50)
         self.assertNotIn("borrowed", rel)
 
@@ -179,6 +179,10 @@ class TestSharedLensReads(unittest.TestCase):
                         return_value=fake_row), \
              mock.patch("trading.brain.symbol_move_net.enabled",
                         return_value=False), \
+             mock.patch("trading.direction.lesson_prior.readings",
+                        return_value=[]), \
+             mock.patch("trading.direction.onchain_source.readings",
+                        return_value=[]), \
              mock.patch("trading.direction.truth_ledger.record",
                         return_value=True):
             reads, bf = ex._lens_reads("AKEUSDT", base=base, regime="trend_up",
@@ -199,6 +203,10 @@ class TestSharedLensReads(unittest.TestCase):
              mock.patch("trading.direction.brain_sources.collect",
                         side_effect=RuntimeError), \
              mock.patch("trading.crypto.freqtrade.strategy_table.lookup",
+                        side_effect=RuntimeError), \
+             mock.patch("trading.direction.lesson_prior.readings",
+                        side_effect=RuntimeError), \
+             mock.patch("trading.direction.onchain_source.readings",
                         side_effect=RuntimeError), \
              mock.patch("trading.brain.symbol_move_net.enabled",
                         side_effect=RuntimeError):
@@ -262,7 +270,7 @@ class TestConditionerBuckets(unittest.TestCase):
              mock.patch.object(ld._tl, "source_reliability_conditioned",
                                return_value=dict(cond_bucket)):
             rel = ld.reliability("lens_x", None, "CRYPTO",
-                                 conditioners={"liq": "stressed"})
+                                 conditioners={"liq": "stressed"}, decayed=False)
         self.assertLess(rel["rate"], 0.50)                # stressed evidence pulled it down
         self.assertGreater(rel["rate"], 0.30)             # but parent still tempers it
         ld.clear_cache()
