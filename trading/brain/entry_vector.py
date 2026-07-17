@@ -377,6 +377,18 @@ def _cross_asset(sym: str) -> dict:
     return out
 
 
+def _market_state() -> dict:
+    """Tier-1 conditioners from the cross-symbol market state (2026-07-17): the correlation
+    regime (high = one-factor market where per-coin signals are noise around the BTC factor),
+    breadth, and the BTC-vs-alts lead. Like liquidity_regime/clock_phase these are recorded so
+    a fit can condition on WHERE each source works — they are measurement, not alpha."""
+    try:
+        from trading.direction import market_state as _ms
+        return _ms.conditioners()
+    except Exception:
+        return {}
+
+
 def barriers(price: float | None, sigma: float | None, *, pt_mult: float = 1.0,
              sl_mult: float = 1.0, vertical_s: int = 14_400) -> dict:
     """Tier-5: the triple-barrier spec, recorded so the LABELS ARE REPRODUCIBLE.
@@ -454,6 +466,7 @@ def entry_vector(symbol: str, *, market: str = "crypto", price: float | None = N
         out.update(clock_phase())             # Tier-1 conditioner [66][67][68]
         out.update(_liquidity_measures(sym))  # [103] Roll + VPIN + a NON-tautological Kyle's lambda
         out.update(_cross_asset(sym))         # [128] cross-asset OFI helps FORECASTING (not impact)
+        out.update(_market_state())           # Tier-1 conditioners: corr regime / breadth / BTC lead
         out.update(_impact_inputs(sym))       # Tier-5 [52] square-root law inputs
         out.update(costs(sym, size_usd=size_usd, entry_type=entry_type))   # Tier-5 [72][43][89]
         out.update(barriers(price if price is not None else out.get("ev_mid"),

@@ -42,14 +42,16 @@ def session_key(ts, market: str = "crypto") -> int:
     return sec // 86400
 
 
-def volume_profile(rows: list, bins: int = 0) -> dict:
+def volume_profile(rows: list, bins: int = 0, *, min_bars: int = _MIN_BARS) -> dict:
     """Volume-at-price histogram + POC + 70% Value Area over `rows` (OHLCV [ts,o,h,l,c,v]).
 
     Each candle's volume is spread across the price bins its high–low range spans (TPO-style),
     so wide bars fund the whole range they traded, not just the close. Returns {available,
-    poc, vah, val, va_pct, price_lo, price_hi, bin_size, hist:[(mid_price, volume)]}."""
+    poc, vah, val, va_pct, price_lo, price_hi, bin_size, hist:[(mid_price, volume)]}.
+    `min_bars` relaxes the bar floor for short anchored windows (opening range = 15 one-minute
+    bars); the default keeps every existing caller's behavior."""
     import numpy as np
-    if not rows or len(rows) < _MIN_BARS:
+    if not rows or len(rows) < min_bars:
         return {"available": False}
     a = np.asarray([[float(r[2]), float(r[3]), float(r[4]),
                      float(r[5]) if len(r) > 5 else 0.0] for r in rows], dtype="float64")
@@ -211,6 +213,138 @@ def failed_auction(rows: list, market: str = "crypto") -> dict:
         detail = f"closed above VAH {vah:.6g}, back inside"
     return {"signal": sig, "strength": round(min(1.0, strength), 3), "vah": vah, "val": val,
             "poc": poc, "vol_pickup": vol_pickup, "absorption": absorb, "detail": detail}
+
+
+def opening_range_profile(rows: list, anchor_epoch: float, minutes: int = 15,
+                          *, min_bars: int = 8, bins: int = 24) -> dict:
+    """Value area of the OPENING RANGE — the first `minutes` after `anchor_epoch` (a session
+    open), per the owner's 2026-07-17 "first candle value" video (research/video/
+    vp-first-candle-value/): profile ONLY that window, and the resulting VAH/VAL — not the raw
+    range high/low — are the levels the trap/acceptance grammar plays against.
+
+    `rows` are OHLCV(+v) bars of any timeframe covering the window (1m intended). Bars without
+    volume (the in-RAM mark-price mirror) degrade to a TPO profile — every bar weighted equally,
+    which is the ORIGINAL Steidlmayer market profile — and `basis` records which one was used,
+    so the ledger can split edges by evidence quality. Honest {available: False} when the window
+    isn't covered (anchor before data starts, or too few bars)."""
+    if not rows:
+        return {"available": False, "reason": "no rows"}
+    a_ms = _ms(anchor_epoch if anchor_epoch > 1_000_000_000_000 else int(anchor_epoch))
+    end_ms = a_ms + minutes * 60_000
+    win = [r for r in rows if a_ms <= _ms(r[0]) < end_ms]
+    if len(win) < min_bars:
+        return {"available": False, "reason": f"window has {len(win)} bars (<{min_bars})"}
+    # the window must actually START at the anchor — a fetch whose history begins mid-window
+    # would profile a truncated range and hand back false levels
+    if _ms(win[0][0]) - a_ms > 2 * max(60_000, (end_ms - a_ms) // max(1, len(win))):
+        return {"available": False, "reason": "window not covered from anchor"}
+    has_vol = any(len(r) > 5 and float(r[5]) > 0 for r in win)
+    if not has_vol:                                    # TPO degrade: equal weight per bar
+        win = [[r[0], r[1], r[2], r[3], r[4], 1.0] for r in win]
+    vp = volume_profile(win, bins=bins, min_bars=min_bars)
+    if not vp.get("available"):
+        return {"available": False, "reason": "profile unavailable"}
+    return {**vp, "anchor_ts": a_ms // 1000, "end_ts": end_ms // 1000,
+            "n_bars": len(win), "basis": "volume" if has_vol else "tpo",
+            "or_high": max(float(r[2]) for r in win),
+            "or_low": min(float(r[3]) for r in win)}
+
+
+def value_area_events(rows: list, va: dict, *, max_trap_bars: int = 3,
+                      accept_bars: int = 2, touch_tol: float = 0.0015) -> dict:
+    """The video's two-sided event grammar at the value-area edges, as a state machine over the
+    bars AFTER the opening-range window (`rows`, oldest→newest, [ts,o,h,l,c(,v)]).
+
+    TRAP (reversal): a bar CLOSES beyond VAH/VAL, then within `max_trap_bars` a bar closes back
+    inside → the breakout crowd is trapped; side = against the excursion; stop = the excursion
+    extreme; target = the OPPOSITE value-area edge; trail once price leaves the VA.
+    ACCEPTANCE (continuation): `accept_bars` consecutive closes beyond the edge = the market
+    accepts the new prices; the entry is the PULLBACK — a bar that touches the edge (within
+    `touch_tol`) while still closing beyond it; stop = that bar's extreme; no fixed target
+    (trail each candle per the video).
+
+    Only an event that COMPLETES ON THE LAST BAR is reported (the caller runs once per cycle —
+    a stale trigger must never open a late trade). Returns {event, side, level, stop, target,
+    trail, strength, bars_out, detail}; event='' when nothing fired NOW."""
+    none = {"event": "", "side": "", "detail": "no event on last bar"}
+    if not rows or not va or not va.get("available"):
+        return none
+    vah, val = float(va["vah"]), float(va["val"])
+    if vah <= val:
+        return none
+    # state over the walk: 0=inside, +1=closed above (excursion), +2=accepted above,
+    #                                -1=closed below,             -2=accepted below
+    state, bars_out = 0, 0
+    exc_hi, exc_lo = vah, val                        # excursion extremes while outside
+    fired: dict | None = None
+    for i, r in enumerate(rows):
+        c, h, l = float(r[4]), float(r[2]), float(r[3])
+        last = i == len(rows) - 1
+        fired = None
+        if state >= 1:
+            exc_hi = max(exc_hi, h)
+        if state <= -1:
+            exc_lo = min(exc_lo, l)
+        if state == 0:
+            if c > vah:
+                state, bars_out, exc_hi = 1, 1, h
+            elif c < val:
+                state, bars_out, exc_lo = -1, 1, l
+        elif state == 1:                              # excursion above VAH
+            if val <= c <= vah:                       # closed back inside → buyers trapped
+                if bars_out <= max_trap_bars:
+                    fired = {"event": "trap", "side": "short", "level": vah,
+                             "stop": exc_hi, "target": val, "trail": "beyond_va",
+                             "bars_out": bars_out,
+                             "detail": f"trapped above VAH {vah:.6g} after {bars_out} bar(s)"}
+                state, bars_out = 0, 0
+            elif c < val:                             # blew straight through → flip excursion
+                state, bars_out, exc_lo = -1, 1, l
+            else:
+                bars_out += 1
+                if bars_out >= accept_bars:
+                    state = 2
+        elif state == -1:                             # excursion below VAL (mirror)
+            if val <= c <= vah:
+                if bars_out <= max_trap_bars:
+                    fired = {"event": "trap", "side": "long", "level": val,
+                             "stop": exc_lo, "target": vah, "trail": "beyond_va",
+                             "bars_out": bars_out,
+                             "detail": f"trapped below VAL {val:.6g} after {bars_out} bar(s)"}
+                state, bars_out = 0, 0
+            elif c > vah:
+                state, bars_out, exc_hi = 1, 1, h
+            else:
+                bars_out += 1
+                if bars_out >= accept_bars:
+                    state = -2
+        elif state == 2:                              # accepted above → wait for the pullback
+            if c < val:
+                state, bars_out, exc_lo = -1, 1, l
+            elif c < vah:                             # acceptance failed (late trap = no play)
+                state, bars_out = 0, 0
+            elif l <= vah * (1.0 + touch_tol):        # pullback touched VAH, closed above → go
+                fired = {"event": "accept_pullback", "side": "long", "level": vah,
+                         "stop": l, "target": None, "trail": "candle_low",
+                         "bars_out": bars_out,
+                         "detail": f"acceptance above VAH {vah:.6g}, pullback touched"}
+                state, bars_out = 0, 0                # one entry per acceptance
+        elif state == -2:                             # accepted below (mirror)
+            if c > vah:
+                state, bars_out, exc_hi = 1, 1, h
+            elif c > val:
+                state, bars_out = 0, 0
+            elif h >= val * (1.0 - touch_tol):
+                fired = {"event": "accept_pullback", "side": "short", "level": val,
+                         "stop": h, "target": None, "trail": "candle_high",
+                         "bars_out": bars_out,
+                         "detail": f"acceptance below VAL {val:.6g}, pullback touched"}
+                state, bars_out = 0, 0
+        if fired and last:
+            depth = abs(fired["stop"] - fired["level"]) / ((vah - val) or 1.0)
+            fired["strength"] = round(min(1.0, 0.55 + 0.25 * min(1.0, depth)), 3)
+            return fired
+    return none
 
 
 def order_plan(rows: list, direction: str, market: str = "crypto",

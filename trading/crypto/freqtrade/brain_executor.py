@@ -534,6 +534,23 @@ class BrainExecutor:
                     features=_asig.feature_dict(_col.get("signals") or []), fast=fast))
             except Exception:
                 pass
+            # VIDEO-DERIVED LENSES (2026-07-17): opening-range value-area events (trap /
+            # acceptance-pullback, per session anchor) + cross-symbol market state (leader
+            # spillover, seesaw, breadth tilt). Same contract as every lens above: each is a
+            # named Truth-Ledger source that starts weightless and must EARN its edge before
+            # it can move a trade (CONVENTIONS §16). RAM-only reads; never raises.
+            try:
+                from trading.direction import vp_events as _vpe
+                _reads.extend(_vpe.readings(_psym, segment=self.segment or "futures",
+                                            regime=regime))
+            except Exception:
+                pass
+            try:
+                from trading.direction import market_state as _mst
+                _reads.extend(_mst.readings(_psym, segment=self.segment or "futures",
+                                            regime=regime))
+            except Exception:
+                pass
             out = _ld.decide(_reads, market="CRYPTO",
                              segment=self.segment or "futures", regime=regime,
                              symbol=_psym, coverage=_col["coverage"])

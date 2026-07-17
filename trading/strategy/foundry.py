@@ -389,6 +389,33 @@ class StrategyFoundry:
         except Exception:
             return True     # verifier unavailable → degraded mode, do not block
 
+    def _cycle_ok(self, sid: str, report: dict) -> bool:
+        """Cycle-citing specs must pass trading.strategy.cycle_gate (returns-space spectral
+        peak vs a permutation null on the segment's reference series). One test per segment
+        per process (cached — the series doesn't change between specs); the verdict lands in
+        the gate report so /foundry surfaces WHY a cycle spec was held back."""
+        sp = self.specs.get(sid)
+        if sp is None:
+            return False
+        try:
+            from trading.strategy import cycle_gate as _cg
+            if not _cg.is_cycle_citing(sp.name, sp.idea, sp.family, sp.reference):
+                return True
+            cache = getattr(self, "_cycle_cache", None)
+            if cache is None:
+                cache = self._cycle_cache = {}
+            if sp.segment not in cache:
+                cache[sp.segment] = _cg.gate(sp.segment, sp.name, sp.idea,
+                                             sp.family, sp.reference)
+            rep = cache[sp.segment]
+            report.setdefault(sid, {}).update({
+                "cycle_gate": {k: rep.get(k) for k in
+                               ("required", "passed", "degraded", "p_value",
+                                "peak_share", "reason")}})
+            return bool(rep.get("passed"))
+        except Exception:
+            return True     # gate unavailable → degraded mode, do not block (recorded pattern)
+
     def promote(self, segment: str | None = None, keep: int = 5, *, gate: bool = True,
                 dsr_min: float = 0.5, min_trades: int = 10,
                 verify_reasoning: bool = False) -> list[str]:
@@ -416,6 +443,11 @@ class StrategyFoundry:
                 report = self.deflation_gate(seg, min_trades=min_trades, dsr_min=dsr_min)
                 self._last_gate.update(report)
                 eligible = [r for r in ranked if report.get(r["sid"], {}).get("passed")]
+                # random-walk-null gate (owner's Fourier-debunk video, 2026-07-17): a strategy
+                # whose IDEA cites cycles/periodicity can only promote if its segment's
+                # reference series actually contains a significant cycle — 98.7% of pure
+                # random walks "show" one to a naive DFT, so the claim must beat that null.
+                eligible = [r for r in eligible if self._cycle_ok(r["sid"], report)]
                 if verify_reasoning:
                     # Pillar 18: promotion criterion = "profit AND verified reasoning". Verify
                     # each candidate's idea rationale with the process-reward step verifier;

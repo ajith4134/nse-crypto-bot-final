@@ -2383,7 +2383,7 @@ _AI-scientist idea #6 — LiT order-book transformer node._
 
 ## `tests/test_loop_keeper.py`
 _tests/test_loop_keeper.py — runtime self-heal keeper (2026-07-10)._
-- **functions:** `_fresh_keeper(monkeypatch, tmp_path)`; `test_all_alive_no_restart(monkeypatch, tmp_path)`; `test_dead_loop_triggers_start_all(monkeypatch, tmp_path)`; `test_off_flag_blocks_restart(monkeypatch, tmp_path)`
+- **functions:** `_fresh_keeper(monkeypatch, tmp_path)`; `test_all_alive_no_restart(monkeypatch, tmp_path)`; `test_dead_loop_triggers_start_all(monkeypatch, tmp_path)`; `test_off_flag_blocks_restart(monkeypatch, tmp_path)`; `_wedge_keeper(monkeypatch, tmp_path, responsive)`; `test_responsive_process_is_never_killed(monkeypatch, tmp_path)`; `test_wedged_process_survives_early_strikes_then_dies(monkeypatch, tmp_path)`; `test_strikes_persist_across_runs_and_reset_on_recovery(monkeypatch, tmp_path)`; `test_off_flag_blocks_wedge_kill(monkeypatch, tmp_path)`; `test_http_error_counts_as_responsive(monkeypatch, tmp_path)`; `test_unreachable_port_counts_as_wedged(monkeypatch, tmp_path)`
 - **imports:** __future__, importlib, sys
 
 ## `tests/test_market_guard.py`
@@ -2875,6 +2875,12 @@ _AI-scientist idea #9 — VAE factor node + synthetic scenario generator._
 - **functions:** `_dataset(n, d, seed)`
 - **imports:** core.node_protocol, nodes.vae_factor, numpy, unittest
 
+## `tests/test_video_direction_upgrades.py`
+_Tests for the 2026-07-17 video-derived direction upgrades._
+- **classes:** TestOpeningRangeProfile, TestValueAreaEvents, _FakeMirror, TestMarketState, TestVpEvents, TestCycleGate, TestDecideIntegration
+- **functions:** `_bar(ts_s, o, h, l, c, v)`; `_or_window(anchor, minutes, price, vol)`; `_va()`; `_ev_bar(i, o, h, l, c)`
+- **imports:** __future__, math, pathlib, tempfile, time, trading.broker_sense, unittest
+
 ## `tests/test_visible_controls.py`
 _Regression tests for the 2026-07-10 phantom-click fixes._
 - **classes:** _IsolatedState, TestCoveredControls, TestDismissModalsProgress
@@ -2930,8 +2936,8 @@ _tools/gen_upstox_census.py — compile the Upstox discovered-features inventory
 
 ## `tools/loop_keeper.py`
 _tools/loop_keeper.py — RUNTIME self-heal for the trading stack (2026-07-10)._
-- **functions:** `_alive(pattern) -> bool`; `_env_flag(name, default) -> str`; `_check() -> dict`; `_save_state(state) -> None`; `run_once() -> int`; `install_cron() -> None`
-- **imports:** __future__, json, os, subprocess, sys, time
+- **functions:** `_alive(pattern) -> bool`; `_responsive(url) -> bool`; `_kill_wedged(name, pattern) -> bool`; `_env_flag(name, default) -> str`; `_check() -> dict`; `_load_state() -> dict`; `_save_state(state) -> None`; `run_once() -> int`; `install_cron() -> None`
+- **imports:** __future__, json, os, signal, subprocess, sys, time, urllib.error, urllib.request
 
 ## `tools/orderbook_collector.py`
 _Live Binance L2 order-book snapshot collector (no key)._
@@ -2942,6 +2948,11 @@ _Live Binance L2 order-book snapshot collector (no key)._
 _tools/remote_login_browser.py — a HEADFUL chromium the operator drives over VNC to complete_
 - **functions:** `_on_term(_sig, _frame)`; `main() -> int`
 - **imports:** __future__, os, pathlib, signal, sys, time, trading, trading.broker_sense.brokers
+
+## `tools/resource_recorder.py`
+_tools/resource_recorder.py — the black-box flight recorder for the VM wedge (2026-07-17)._
+- **functions:** `_group_of(cmdline) -> str`; `_rotate() -> None`; `sample() -> int`; `report(hours) -> int`; `install_cron() -> None`
+- **imports:** __future__, os, subprocess, sys, time
 
 ## `tools/save_workflow_research.py`
 _tools/save_workflow_research.py — rescue completed workflow-agent results to durable files._
@@ -3201,7 +3212,7 @@ _trading/brain/dreamer.py — Counterfactual Dream-Trainer (invented 2026-07-10)
 
 ## `trading/brain/entry_vector.py`
 _trading/brain/entry_vector.py — the microstructure feature vector recorded AT ENTRY._
-- **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `clock_phase(now) -> dict`; `liquidity_regime(spread_bps, depth_q) -> str | None`; `_book_state(sym) -> dict`; `_flow(sym) -> dict`; `_carry(sym) -> dict`; `_volatility(sym) -> dict`; `_liquidity_measures(sym) -> dict`; `_impact_inputs(sym) -> dict`; `_cross_asset(sym) -> dict`; `barriers(price, sigma) -> dict`; `costs(sym) -> dict`; `entry_vector(symbol) -> dict`
+- **functions:** `enabled() -> bool`; `_norm(symbol) -> str`; `clock_phase(now) -> dict`; `liquidity_regime(spread_bps, depth_q) -> str | None`; `_book_state(sym) -> dict`; `_flow(sym) -> dict`; `_carry(sym) -> dict`; `_volatility(sym) -> dict`; `_liquidity_measures(sym) -> dict`; `_impact_inputs(sym) -> dict`; `_cross_asset(sym) -> dict`; `_market_state() -> dict`; `barriers(price, sigma) -> dict`; `costs(sym) -> dict`; `entry_vector(symbol) -> dict`
 - **imports:** __future__, os, time
 
 ## `trading/brain/entryexit.py`
@@ -3874,7 +3885,7 @@ _trading/broker_sense/vision_worker.py — async deep chart-vision worker (the b
 
 ## `trading/broker_sense/volume_profile.py`
 _trading/broker_sense/volume_profile.py — Volume Profile / Value Area engine._
-- **functions:** `_ms(ts) -> int`; `session_key(ts, market) -> int`; `volume_profile(rows, bins) -> dict`; `session_profiles(rows, market, max_sessions) -> list[dict]`; `value_migration(rows, market) -> dict`; `_vol_trend(vols) -> float`; `absorption(rows, lookback) -> dict`; `failed_auction(rows, market) -> dict`; `order_plan(rows, direction, market, swing) -> dict | None`; `features(rows, market) -> dict`
+- **functions:** `_ms(ts) -> int`; `session_key(ts, market) -> int`; `volume_profile(rows, bins) -> dict`; `session_profiles(rows, market, max_sessions) -> list[dict]`; `value_migration(rows, market) -> dict`; `_vol_trend(vols) -> float`; `absorption(rows, lookback) -> dict`; `failed_auction(rows, market) -> dict`; `opening_range_profile(rows, anchor_epoch, minutes) -> dict`; `value_area_events(rows, va) -> dict`; `order_plan(rows, direction, market, swing) -> dict | None`; `features(rows, market) -> dict`
 - **imports:** __future__
 
 ## `trading/broker_sense/watchlist.py`
@@ -4507,6 +4518,11 @@ _trading/direction/learned_direction.py — D10: the learned direction DRIVER (g
 - **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `reliability(source, regime, market) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `_log(decision) -> None`; `decide(readings) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, math, os, time, trading.direction
 
+## `trading/direction/market_state.py`
+_trading/direction/market_state.py — cross-symbol market state: correlation regime,_
+- **functions:** `_flag(name, default) -> bool`; `_f(name, default) -> float`; `_flat(symbol) -> str`; `_ret(closes, k) -> float | None`; `snapshot(now) -> dict`; `_build(t) -> dict`; `corr_regime(snap) -> str | None`; `conditioners() -> dict`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **imports:** __future__, math, os, threading, time
+
 ## `trading/direction/meta_challenger.py`
 _trading/direction/meta_challenger.py — TabPFN challenger for the D6 meta-labeler._
 - **functions:** `_env_f(name, default) -> float`; `_load_rows(max_rows) -> list[dict]`; `_encoded(rows)`; `_holdout_scores(fit_predict, X, y, cut) -> dict`; `_lgbm_fit_predict(cat_idx)`; `_tabpfn_fit_predict(cat_idx)`; `challenge(max_rows) -> dict`; `maybe_challenge() -> dict | None`; `status() -> dict`
@@ -4557,6 +4573,11 @@ _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pill
 _Write-only per-candidate VOTE LOG — every lens's simultaneous opinion, one JSONL row._
 - **functions:** `_path() -> Path`; `_enabled() -> bool`; `log() -> None`
 - **imports:** __future__, json, os, pathlib, time, trading
+
+## `trading/direction/vp_events.py`
+_trading/direction/vp_events.py — opening-range value-area events as MEASURED direction sources._
+- **functions:** `_flag(name, default) -> bool`; `enabled() -> bool`; `_minutes() -> int`; `_flat(symbol) -> str`; `anchors(now) -> list[tuple[str, int]]`; `_volume_candles_1m(symbol, since_epoch, minutes) -> list | None`; `_mirror_candles(symbol, tf_s, n) -> list`; `_levels(symbol, kind, anchor_epoch) -> dict | None`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **imports:** __future__, os, time
 
 ## `trading/evidence.py`
 _trading/evidence.py — W3 evidence lane: baselines, counterfactuals, autonomy gates,_
@@ -4997,6 +5018,11 @@ _trading/strategy/control.py — feature gate for the evolution/mutation engine.
 _trading/strategy/cpcv.py — Combinatorial Purged Cross-Validation (Pillar 20)._
 - **functions:** `_group_bounds(n_rows, n_groups) -> list[tuple[int, int]]`; `_purge_train(train, test_blocks, embargo) -> list[tuple[int, int]]`; `combinatorial_purged_folds(n_rows) -> list[dict]`; `n_paths(n_groups, k_test) -> int`
 - **imports:** __future__, itertools, numpy
+
+## `trading/strategy/cycle_gate.py`
+_trading/strategy/cycle_gate.py — the random-walk-null gate for cycle-citing strategies._
+- **functions:** `is_cycle_citing() -> bool`; `martingale_baseline(closes) -> dict`; `_peak_share(r, np) -> float`; `spectral_null_test(closes) -> dict`; `_reference_closes(segment) -> list[float] | None`; `gate(segment) -> dict`
+- **imports:** __future__, os, pathlib, re
 
 ## `trading/strategy/direction_equation.py`
 _trading/strategy/direction_equation.py — P2 of the direction-equation quest: discover ONE_
