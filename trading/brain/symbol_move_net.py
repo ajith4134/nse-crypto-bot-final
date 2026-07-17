@@ -189,6 +189,11 @@ class SymbolMoveNet:
 
     # ── training ──────────────────────────────────────────────────────────────────
     def fit_from_journal(self, closed_rows: list[dict]) -> "SymbolMoveNet":
+        # brain-health 2026-07-17: train on the CLEAN window only (E11 pattern) — this net's
+        # confident calls measured 0.398 on clean labels, and poisoned-era training data is
+        # the plausible cause. See trade_features.clean_window_rows.
+        from trading.brain.trade_features import clean_window_rows
+        closed_rows = clean_window_rows(closed_rows)
         X, y_dir, y_move = [], [], []
         for t in (closed_rows or []):
             mv = _move_pct(t)

@@ -343,3 +343,26 @@ class TestMagnitudeCap(_Base):
                             market="CRYPTO", symbol="AKEUSDT", log=False,
                             variant="control")
         self.assertEqual(out["direction"], "short")   # pre-mission behavior preserved
+
+
+class TestCleanWindowRows(unittest.TestCase):
+    """Brain-health 2026-07-17: nets train on the clean window only."""
+
+    def test_filters_pre_cutoff_and_unparseable(self):
+        from trading.brain.trade_features import clean_window_rows
+        rows = [{"exit_datetime": "2026-07-17T09:00:00+00:00", "id": "clean"},
+                {"exit_datetime": "2026-07-10T09:00:00+00:00", "id": "dirty"},
+                {"exit_datetime": "garbage", "id": "bad"},
+                {"id": "missing"}]
+        out = clean_window_rows(rows)
+        self.assertEqual([r["id"] for r in out], ["clean"])
+
+    def test_zero_env_disables(self):
+        import os
+        from trading.brain.trade_features import clean_window_rows
+        os.environ["TRADE_NET_CLEAN_TS"] = "0"
+        try:
+            rows = [{"exit_datetime": "2026-07-10T09:00:00+00:00"}]
+            self.assertEqual(len(clean_window_rows(rows)), 1)
+        finally:
+            os.environ.pop("TRADE_NET_CLEAN_TS", None)

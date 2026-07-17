@@ -2082,7 +2082,7 @@ _Tests for the Direction Decision Ledger (owner ask: what data drove each direct
 
 ## `tests/test_direction_mission.py`
 _Tests for the Direction Brain Mission X-batch: day-bucket half-life reliability,_
-- **classes:** _Base, TestDayBucketsAndDecay, TestReliabilityChainDecayed, TestHorizonEmission, TestCostGate, TestSession2, TestHorizonSpecialized, TestCorrectDirectionNeverInverts, TestMagnitudeCap
+- **classes:** _Base, TestDayBucketsAndDecay, TestReliabilityChainDecayed, TestHorizonEmission, TestCostGate, TestSession2, TestHorizonSpecialized, TestCorrectDirectionNeverInverts, TestMagnitudeCap, TestCleanWindowRows
 - **functions:** `_day(offset_days) -> str`
 - **imports:** __future__, json, os, pathlib, tempfile, time, unittest
 
@@ -3538,7 +3538,7 @@ _trading/brain/track_record.py — W7 track records + rule-of-three + meta-artic
 ## `trading/brain/trade_features.py`
 _trading/brain/trade_features.py — trade rows → ML network inputs → outcome output._
 - **classes:** _NumpyLogReg, _TabPFNWrap, TradeOutcomeNet
-- **functions:** `_f(v, default)`; `_is_crypto(trade) -> bool`; `_brain_telemetry(trade) -> dict`; `_entry_hour(trade) -> int | None`; `_regime(trade) -> str`; `trade_feature_row(trade) -> list[float]`; `_won(trade) -> int`; `get_outcome_net(closed_rows) -> TradeOutcomeNet`
+- **functions:** `_f(v, default)`; `_is_crypto(trade) -> bool`; `_brain_telemetry(trade) -> dict`; `_entry_hour(trade) -> int | None`; `_regime(trade) -> str`; `trade_feature_row(trade) -> list[float]`; `_won(trade) -> int`; `clean_window_rows(closed_rows) -> list`; `get_outcome_net(closed_rows) -> TradeOutcomeNet`
 - **imports:** __future__, datetime, math
 
 ## `trading/brain/trade_learn.py`

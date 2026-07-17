@@ -227,6 +227,36 @@ class _TabPFNWrap:
         return [float(p[self._win_col]) for p in proba]
 
 
+def clean_window_rows(closed_rows: list | None) -> list:
+    """E11-pattern clean-window filter (brain-health 2026-07-17): trades closed before the
+    B1/B2 fix batch (2026-07-16 21:23 UTC) carry the measured contaminations — mirror-negation
+    lenses, inverted-short-era exits, 456 poisoned USDT|NSE rows. The meta-labeler refit proved
+    65% of its file was dirty; these nets trained on the same journal. Fewer honest examples
+    beat more dirty ones (728 clean closed rows ≫ MIN_SAMPLES). Rows without a parseable
+    exit_datetime are DROPPED (unverifiable era ≠ clean). TRADE_NET_CLEAN_TS=0 disables."""
+    import datetime as _dt
+    import os as _os
+    try:
+        cut = float(_os.getenv("TRADE_NET_CLEAN_TS", "1784236980") or 0)
+    except (TypeError, ValueError):
+        cut = 0.0
+    rows = list(closed_rows or [])
+    if cut <= 0:
+        return rows
+    out = []
+    for t in rows:
+        v = t.get("exit_datetime") if isinstance(t, dict) else None
+        if not v:
+            continue
+        try:
+            ts = _dt.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp()
+        except (TypeError, ValueError):
+            continue
+        if ts >= cut:
+            out.append(t)
+    return out
+
+
 class TradeOutcomeNet:
     """Trains the project node network on CLOSED trades, predicts OPEN-trade outcome.
 
@@ -259,7 +289,8 @@ class TradeOutcomeNet:
         return X, y
 
     def fit_from_journal(self, closed_rows: list[dict]) -> "TradeOutcomeNet":
-        rows = [t for t in (closed_rows or []) if t.get("entry_price")]
+        rows = clean_window_rows(closed_rows)
+        rows = [t for t in rows if t.get("entry_price")]
         X, y = self._xy(rows)
         self.n_train = len(X)
         if self.n_train < self.MIN_SAMPLES or len(set(y)) < 2:

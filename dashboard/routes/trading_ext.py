@@ -1613,9 +1613,19 @@ def handle_closedtrades(h):
     return h._send(200, body, "application/json")
 
 
+_CONF_CACHE: dict = {"ts": 0.0, "body": None}
+
+
 def handle_confidence(h):
     """GET /api/trading/confidence — T6 per-symbol Brain confidence book: real Bayesian win-rate +
-    Brier calibration off the LIVE journal.json, flattened to a list. Demo book while journal empty."""
+    Brier calibration off the LIVE journal.json, flattened to a list. Demo book while journal empty.
+
+    TTL-cached 60s (brain-health 2026-07-17): the handler constructed TradeJournal() PER REQUEST
+    — the measured 22s/request scar class (7k+ dataclass builds; see the _closed_tail lesson,
+    commit 6f75790 family). 60s staleness is far fresher than the 5m bar the numbers describe."""
+    import time as _t
+    if _CONF_CACHE["body"] is not None and _t.time() - _CONF_CACHE["ts"] < 60.0:
+        return h._send(200, _CONF_CACHE["body"], "application/json")
     def _flatten_book(book):
         return [
             {"symbol": s,
@@ -1658,6 +1668,8 @@ def handle_confidence(h):
             "hint": "Trading T6 confidence not importable "
                     "(see trading/journal/confidence.py and blueprint §T5).",
         }).encode()
+        return h._send(200, body, "application/json")   # errors are NOT cached
+    _CONF_CACHE.update(ts=_t.time(), body=body)
     return h._send(200, body, "application/json")
 
 
