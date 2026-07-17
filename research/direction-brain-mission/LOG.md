@@ -79,6 +79,22 @@ Root cause of the 0.393 decider: reliability weights read ALL-ERA cumulative poo
 - Queue remaining: horizon-specialized decide (per-horizon weights end-to-end); OPE report
   read-out once rows accrue; verdict checks when n≥100-200 per variant.
 
+## Session 3 (2026-07-17, commit 3921c27) — horizon-specialized fusion
+
+- **The big architecture item shipped**: decide() re-fuses the same readings under each
+  horizon's own recent reliability; the strongest fused read (weight × conviction) OWNS the
+  decision and its horizon tag. Pooled fallback when nothing clears; control stays pooled;
+  HORIZON_SPECIALIZED=0 kill-switch.
+- **Third-inverter trap excised**: correct_direction() carried a dead invert branch (dead
+  since the 07-16 kills, but loaded for a refactor to re-arm). Now pass-through only,
+  test-pinned: a reliably-wrong source is NEVER flipped.
+- **Scoreboard hygiene**: 233 'learned_direction' ledger rows predate the control split —
+  ALL variant verdicts must filter ts ≥ 1784282640 (session-1 restart 10:04). Control claims
+  = 0 so far — expected (~20% allocation × abstentions × minutes of uptime); wait for n.
+- OPE cursor still pre-restart at last check; the candle-fallback fix needs matured
+  post-restart rows + a learn pass. Verify on next session before any grid conclusions.
+- Remaining before verdicts: data accrual only. The three pre-registered checks stand.
+
 ### Lessons (also in research/fable5/lessons/)
 
 - Blending a rich parent into a zero-evidence child caps n at k pseudo-obs and silently
