@@ -57,6 +57,28 @@ Root cause of the 0.393 decider: reliability weights read ALL-ERA cumulative poo
   regime="unknown" for most backfilled rows — regime-conditioned decay gets dense as the
   revived classifier labels new rows.
 
+## Session 2 (2026-07-17, commit ee17455) — measurement round + unblocks
+
+- **X-E lens redundancy → NEGATIVE RESULT.** Over 1,217 simultaneous vote vectors the max
+  pairwise correlation is 0.533 (direction_model~hypothesis, both currently weight-0);
+  funding~river 0.466 is the strongest weighted pair — moderate, not duplicate (>0.9).
+  Nothing to prune. Re-run when funnel_mtf_vote (n=19 in the log) and the new lenses have
+  presence.
+- **OPE was structurally blocked**: 0 of 1,082 rows labeled — the mirror's tick history is
+  ~80min deep, so every older row was unresolvable. ROOT FIX: `price_at()` now falls back
+  to the 5m candle close covering the epoch (candles persist for the process lifetime).
+  This also unblocks 4h truth-ledger resolution generally after 4h of uptime.
+- **OPE grid** now replays the half-life dial (off/0.5/1/5d) — first report with real rows
+  expected within hours of the restart.
+- **X-D shipped**: sel:<preset> is a ledger conditioner + decide() weight dimension + a
+  vote-log field in both lanes. Verdict later, from the sub-buckets.
+- **Meta NO-TRADE stage → already built, correctly self-disarmed** (gate() enforces only at
+  AUC ≥ 0.55; clean refit is 0.528). No code. It arms itself when a refit clears the bar.
+- Killed the stale "anti-signal becomes a real signal" docstring in learned_direction —
+  the header now matches the no-inversion law.
+- Queue remaining: horizon-specialized decide (per-horizon weights end-to-end); OPE report
+  read-out once rows accrue; verdict checks when n≥100-200 per variant.
+
 ### Lessons (also in research/fable5/lessons/)
 
 - Blending a rich parent into a zero-evidence child caps n at k pseudo-obs and silently
