@@ -115,5 +115,46 @@ class TestGraveyard(unittest.TestCase):
             self.assertEqual(gy.status()["by_stage"], {"lane_kill": 2})
 
 
+class TestMomTsSource(unittest.TestCase):
+    """R1 time-series momentum — the direction-ceiling research's #1 experiment."""
+    def _feed(self, closes):
+        class _DF:
+            def __init__(s, c): s._c = c
+            def __getitem__(s, k):
+                class _Col:
+                    def __init__(x, c): x.c = c
+                    def tolist(x): return x.c
+                return _Col(s._c)
+        from trading.direction import brain_sources as bs
+        bs._mirror_ohlcv = lambda sym, **k: _DF(closes)
+        return bs
+
+    def _series(self, trend, vol=0.002, n=60, seed=1):
+        import random, math
+        random.seed(seed); c = [100.0]
+        for _ in range(n):
+            c.append(c[-1] * (1 + trend + random.gauss(0, vol)))
+        return c
+
+    def test_strong_trend_calls_the_side(self):
+        bs = self._feed(self._series(+0.005))
+        self.assertGreater(bs._mom_ts_p("X"), 0.5)              # uptrend → LONG
+        bs = self._feed(self._series(-0.005))
+        self.assertLess(bs._mom_ts_p("X"), 0.5)                 # downtrend → SHORT
+
+    def test_abstains_on_pure_noise(self):
+        # a random walk must NOT be called a trend most of the time (spurious-side guard)
+        abst = 0
+        for s in range(60):
+            bs = self._feed(self._series(0.0, vol=0.003, seed=s))
+            if bs._mom_ts_p("X") is None:
+                abst += 1
+        self.assertGreater(abst / 60, 0.75)                     # ≥75% abstention on noise
+
+    def test_none_when_mirror_cold(self):
+        bs = self._feed([100.0] * 10)                           # <L+5 bars
+        self.assertIsNone(bs._mom_ts_p("X"))
+
+
 if __name__ == "__main__":
     unittest.main()

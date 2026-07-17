@@ -317,3 +317,20 @@ Batch-3 lead); hollow-win 6:1 asymmetry (arm +1% nets ~+0.5% after fees vs −3%
 ≥86% green needed to break even at current geometry); cooldown validated (Coval & Shumway),
 upgrade candidate = price-reclaim re-entry condition. live_watch now prints a per-lane
 epoch scoreboard (green/stop/hollow/net) straight from the DB.
+
+## Session 8 (2026-07-17) — R1 time-series momentum (the direction-ceiling reframe)
+
+Owner: "loop until trades open in correct direction + close in profit; research online, invent."
+Online research (research/ai-scientist/direction-ceiling-research-20260717.md) reframed the ceiling:
+at a 15m–4h hold, microstructure/OFI/book is NOISE (power lives at 0.5–5s) — our ~0.523 is EXACTLY
+what microstructure direction should score at multi-hour holds. The only replicated multi-hour edge
+is TIME-SERIES MOMENTUM (trend factor Sharpe ~1.2) + carry; it's what real desks run.
+
+SHIPPED: `mom_ts` truth-ledger source in brain_sources (vol-scaled trend t-stat → p_up; abstains
+below 1.5σ so a random walk isn't called a trend — validated 84% noise-abstention; §16 earn-weight).
+BRAIN_SRC_MOM_TS=1, MOM_TS_LOOKBACK_BARS=48 (4h of 5m), MOM_TS_MIN_T=1.5. Never inverts.
+
+PRE-REGISTERED VERDICT (revert rule): at n≥200 taken trades with a mom_ts reading, sign accuracy
+must be ≥0.55 (binomial p<0.05) AND realized edge positive vs the −0.213% baseline; if <0.52 →
+mom_ts is retired (weight already 0 via §16, but drop the source). Gated subset (mom_ts agrees with
+fused side) ≥0.57 → promote to a heavier prior. Check via truth_ledger `mom_ts` bucket + verdict_check.

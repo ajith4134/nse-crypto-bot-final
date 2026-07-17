@@ -1881,7 +1881,7 @@ _Forcing tests for brain paths the audit (2026-07-03) found under-exercised._
 
 ## `tests/test_brain_loop_closures.py`
 _Tests for the 2026-07-17 brain closed-loop corrections:_
-- **classes:** TestPoisonGuard, TestLessonKeyRoundtrip, TestOpeSelfTune, TestGraveyard
+- **classes:** TestPoisonGuard, TestLessonKeyRoundtrip, TestOpeSelfTune, TestGraveyard, TestMomTsSource
 - **imports:** os, tempfile, trading, trading.direction, trading.journal.journal, unittest
 
 ## `tests/test_brain_os.py`
@@ -3853,7 +3853,7 @@ _trading/broker_sense/human_handoff.py — mid-session human-CAPTCHA handoff._
 
 ## `trading/broker_sense/inception.py`
 _Inception ranker — attention by P(move STARTING), not P(move happened)._
-- **functions:** `_f(name, default) -> float`; `_flat(symbol) -> str`; `_mirror()`; `features(symbol) -> dict | None`; `score(feats) -> float`; `cached_features(symbol) -> dict | None`; `_scored(symbol) -> float`; `_is_stale(r60, r240) -> bool`; `rank(symbols, n) -> list[tuple[str, float]]`; `order(symbols) -> list[str]`; `phase(symbol) -> str | None`; `fresh_ok(symbol, direction) -> tuple[bool, str]`; `clear_cache() -> None`
+- **functions:** `_f(name, default) -> float`; `_flat(symbol) -> str`; `_mirror()`; `_persisted_candles(sym_flat, tf, n) -> list[list]`; `features(symbol) -> dict | None`; `score(feats) -> float`; `cached_features(symbol) -> dict | None`; `_scored(symbol) -> float`; `_is_stale(r60, r240) -> bool`; `rank(symbols, n) -> list[tuple[str, float]]`; `order(symbols) -> list[str]`; `phase(symbol) -> str | None`; `fresh_ok(symbol, direction) -> tuple[bool, str]`; `clear_cache() -> None`
 - **imports:** __future__, math, os, threading, time
 
 ## `trading/broker_sense/indicator_fusion.py`

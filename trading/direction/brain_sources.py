@@ -186,6 +186,44 @@ def _news_p(symbol: str) -> float | None:
         return None
 
 
+def _mom_ts_p(symbol: str) -> float | None:
+    """R1 (2026-07-17 direction-ceiling research): per-coin TIME-SERIES MOMENTUM — the one
+    directional edge that actually replicates at a 15m–4h hold (trend factor Sharpe ~1.2 in the
+    literature; what real systematic desks run at multi-hour holds, while OFI/book/CVD is
+    execution-only and pure noise at this horizon — which is exactly why our microstructure fusion
+    tops out at ~0.52). Vol-scaled trend t-stat → P(up); abstains when the trend is weak
+    (underpowered ⇒ no side, per DIRECTION-MUST-BE-EARNED). Zero network — reads the in-RAM 5m
+    mirror. §16-safe: emits a reading that earns weight only once the truth ledger proves it."""
+    try:
+        import math
+        df = _mirror_ohlcv(symbol, tf_s=300, n=200)
+        if df is None:
+            return None
+        close = [float(x) for x in (df["close"].tolist() if hasattr(df, "__getitem__") else df)]
+        L = int(float(os.environ.get("MOM_TS_LOOKBACK_BARS", "48") or 48))   # 48×5m = 4h
+        if len(close) < L + 5:
+            return None
+        seg = close[-(L + 1):]
+        rets = [math.log(seg[i + 1] / seg[i]) for i in range(len(seg) - 1)
+                if seg[i] > 0 and seg[i + 1] > 0]
+        if len(rets) < L // 2 or seg[0] <= 0:
+            return None
+        mom = math.log(seg[-1] / seg[0])
+        mu = sum(rets) / len(rets)
+        vol = math.sqrt(sum((r - mu) ** 2 for r in rets) / max(1, len(rets) - 1))
+        if vol <= 0:
+            return None
+        t = mom / (vol * math.sqrt(len(rets)))                # trend t-stat
+        # A random walk's t is ~N(0,1), so a low floor emits a spurious side on pure noise
+        # (~62% of the time at floor 0.5). Require ≥1.5σ so we only call a side on a genuinely
+        # clear trend and abstain on noise — the truth ledger then measures if it predicts.
+        if abs(t) < float(os.environ.get("MOM_TS_MIN_T", "1.5") or 1.5):
+            return None                                       # weak/ambiguous trend → abstain
+        return _clamp01(0.5 + 0.4 * math.tanh(t))
+    except Exception:
+        return None
+
+
 def _worldmodel_p(ohlcv) -> float | None:
     planner = _world_planner()
     if planner is None or ohlcv is None or len(ohlcv) < 30:
@@ -329,6 +367,17 @@ def collect(symbol: str, *, market: str = "CRYPTO", segment: str = "futures",
             p = _news_p(symbol)
             if p is not None and abs(p - 0.5) > 1e-6:
                 _emit("news_sentiment", p)
+        except Exception:
+            pass
+
+    # 3b) time-series MOMENTUM (R1, 2026-07-17) — the replicated multi-hour direction edge.
+    #     The only source here that is NOT microstructure (which is noise at our hold); it is the
+    #     research's #1 ceiling-breaker. Earns weight via the truth ledger like every other lens.
+    if _flag("BRAIN_SRC_MOM_TS"):
+        try:
+            p = _mom_ts_p(symbol)
+            if p is not None and abs(p - 0.5) > 1e-6:
+                _emit("mom_ts", p)
         except Exception:
             pass
 
