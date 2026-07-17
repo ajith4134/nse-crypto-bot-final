@@ -1810,7 +1810,7 @@ _Phase P4.1 (LangGraph Brain Agent) acceptance tests — fully OFFLINE + determi
 
 ## `tests/test_brain_connect_upgrades.py`
 _Tests for the 2026-07-17 connect-the-brain batch._
-- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads, TestConditionerBuckets, TestDepthRequests, TestDeepLensesMirrorBacked
+- **classes:** _FakeMirror, TestRegimeMirrorFirst, TestReliabilityShrinkage, TestSharedLensReads, TestConditionerBuckets, TestDepthRequests, TestDeepLensesMirrorBacked, TestMirrorCandlePersistence
 - **functions:** `_trend_closes(n) -> list[float]`
 - **imports:** __future__, os, tempfile, time, unittest
 

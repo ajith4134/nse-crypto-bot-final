@@ -553,14 +553,96 @@ class BinanceUniverseMirror:
                 backoff *= 2
         self._agg_connected = False
 
+    # ── candle persistence (owner "fix this" 2026-07-17): restarts used to WIPE the RAM
+    # history that OPE labeling, regime classification, 4h ledger resolution and the ATR
+    # cost gate all warm up from (three restarts in one morning kept OPE at 0 labeled /
+    # 1,146 skipped). The candles now survive: a saver thread snapshots them to a gzipped
+    # state file every MIRROR_PERSIST_S, and start() reloads them — a restart costs the
+    # outage gap only, not the whole warm-up. Ticks/book/flow stay RAM-only (cheap to
+    # re-earn); candles are the measurement substrate.
+    def _persist_path(self):
+        from pathlib import Path
+        from trading import state as _st
+        return Path(_st.STATE_DIR) / "mirror_candles.json.gz"
+
+    def _persist_candles(self) -> bool:
+        try:
+            import gzip
+            with self._lock:                     # cheap structure copy under the lock…
+                snap = {s: {str(tf): [list(b) for b in dq] for tf, dq in cs.items()}
+                        for s, cs in self._candles.items()}
+            payload = json.dumps({"ts": time.time(), "candles": snap},
+                                 separators=(",", ":")).encode()
+            p = self._persist_path()             # …gzip + write OFF the lock
+            p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(".tmp")
+            with gzip.open(tmp, "wb", compresslevel=1) as fh:
+                fh.write(payload)
+            tmp.replace(p)
+            return True
+        except Exception:
+            return False
+
+    def _load_persisted_candles(self) -> int:
+        """Seed the candle store from the last snapshot. Bars older than
+        MIRROR_PERSIST_MAX_AGE_S (48h) are dropped; a stale/corrupt file is ignored.
+        Returns the number of symbols seeded. The outage window stays an honest GAP —
+        readers that need bar-coverage of an epoch simply miss those bars."""
+        try:
+            import gzip
+            p = self._persist_path()
+            if not p.exists():
+                return 0
+            max_age = float(os.getenv("MIRROR_PERSIST_MAX_AGE_S", "172800") or 172800)
+            with gzip.open(p, "rb") as fh:
+                d = json.loads(fh.read().decode())
+            if time.time() - float(d.get("ts") or 0) > max_age:
+                return 0
+            cutoff = time.time() - max_age
+            n = 0
+            with self._lock:
+                for s, cs in (d.get("candles") or {}).items():
+                    if s in self._candles:
+                        continue                 # live data always wins
+                    out = {}
+                    for tf_s, bars in cs.items():
+                        try:
+                            tf = int(tf_s)
+                        except ValueError:
+                            continue
+                        keep = [list(b) for b in bars
+                                if isinstance(b, list) and len(b) >= 5
+                                and float(b[0]) >= cutoff]
+                        if keep:
+                            out[tf] = deque(keep, maxlen=_CANDLE_MAXLEN)
+                    if out:
+                        for tf in _CANDLE_TFS:   # every live tf must exist for _roll_candles
+                            out.setdefault(tf, deque(maxlen=_CANDLE_MAXLEN))
+                        self._candles[s] = out
+                        n += 1
+            return n
+        except Exception:
+            return 0
+
+    def _run_persist(self) -> None:
+        every = float(os.getenv("MIRROR_PERSIST_S", "180") or 180)
+        while self._running:
+            time.sleep(max(30.0, every))
+            self._persist_candles()
+
     def start(self) -> "BinanceUniverseMirror":
         if not enabled() or self._running:
             return self
         self._running = True
         self._started_ts = time.time()
+        seeded = self._load_persisted_candles()  # survive-restart candles (see above)
+        if seeded:
+            print(f"[mirror] candle history reloaded for {seeded} symbols", flush=True)
         self._backfill_rest()                    # immediate data so the first read isn't empty
         self._thread = threading.Thread(target=self._run, daemon=True, name="binance-mirror")
         self._thread.start()
+        threading.Thread(target=self._run_persist, daemon=True,
+                         name="binance-mirror-persist").start()
         if depth_enabled():                      # separate connection: 20-level depth + aggTrade
             self._depth_thread = threading.Thread(target=self._run_depth, daemon=True,
                                                   name="binance-mirror-depth")

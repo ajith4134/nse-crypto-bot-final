@@ -342,3 +342,61 @@ class TestDeepLensesMirrorBacked(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMirrorCandlePersistence(unittest.TestCase):
+    """Owner 'fix this' 2026-07-17: candles must survive restarts."""
+
+    def setUp(self):
+        from pathlib import Path
+        from trading import state
+        self._tmp = tempfile.TemporaryDirectory()
+        self._p = mock.patch.object(state, "STATE_DIR", Path(self._tmp.name))
+        self._p.start()
+
+    def tearDown(self):
+        self._p.stop()
+        self._tmp.cleanup()
+
+    def _mirror(self):
+        import threading
+        from collections import deque
+        from trading.broker_sense.binance_stream import (BinanceUniverseMirror,
+                                                         _CANDLE_MAXLEN)
+        m = BinanceUniverseMirror.__new__(BinanceUniverseMirror)
+        m._lock = threading.RLock()
+        m._candles = {}
+        return m
+
+    def test_persist_and_reload_round_trip(self):
+        from collections import deque
+        m = self._mirror()
+        now = time.time()
+        m._candles = {"AKEUSDT": {300: deque([[now - 300, 1, 2, 0.5, 1.5],
+                                              [now, 1.5, 2.5, 1, 2]], maxlen=240)}}
+        self.assertTrue(m._persist_candles())
+        m2 = self._mirror()
+        self.assertEqual(m2._load_persisted_candles(), 1)
+        bars = list(m2._candles["AKEUSDT"][300])
+        self.assertEqual(bars[-1][4], 2)               # close survived the "restart"
+
+    def test_ancient_bars_dropped_live_data_wins(self):
+        from collections import deque
+        m = self._mirror()
+        now = time.time()
+        m._candles = {"OLDUSDT": {300: deque([[now - 10 * 86400, 1, 1, 1, 1]], maxlen=240)},
+                      "LIVEUSDT": {300: deque([[now, 5, 5, 5, 5]], maxlen=240)}}
+        m._persist_candles()
+        m2 = self._mirror()
+        m2._candles = {"LIVEUSDT": {300: deque([[now, 9, 9, 9, 9]], maxlen=240)}}
+        m2._load_persisted_candles()
+        self.assertNotIn("OLDUSDT", m2._candles)       # ancient bars dropped whole
+        self.assertEqual(m2._candles["LIVEUSDT"][300][-1][1], 9)   # live wins
+
+    def test_corrupt_file_ignored(self):
+        from pathlib import Path
+        m = self._mirror()
+        p = m._persist_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"not gzip at all")
+        self.assertEqual(m._load_persisted_candles(), 0)
