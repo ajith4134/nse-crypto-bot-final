@@ -2730,7 +2730,7 @@ _tests/test_postmortem.py — Trade Post-Mortem & Excursion Engine (trading/brai
 
 ## `tests/test_profit_tailgate.py`
 _Tests for profit tailgating (trading/execution/profit_tailgate) — the ratcheting profit lock._
-- **classes:** _Iso, TestRatchet, TestCryptoSweepOverrides
+- **classes:** _Iso, TestRatchet, TestCryptoSweepOverrides, TestMinLockFloor
 - **imports:** os, pathlib, tempfile, trading.state, unittest
 
 ## `tests/test_psychology.py`

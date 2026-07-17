@@ -125,9 +125,20 @@ def locked_profit(market: str, segment: str, *, trade_id: str, profit_pct: float
     if peak >= arm:
         floor = peak * (1.0 - dist)                # the tailgate floor for the current peak
         locked = max(prev, floor)                  # RATCHET UP only — never give back a locked gain
+        # X9 (2026-07-17): a lock BELOW round-trip fee drag is a guaranteed red close —
+        # the ATR-scaled arm lets low-vol symbols arm near 0.3% of stake, and those locks
+        # fired at fee-losing levels (BONK +0.10% move → −0.02; DODOX +0.00% → −0.96,
+        # both "correct direction, red close"). Below TAILGATE_MIN_LOCK_PCT the ratchet
+        # keeps recording but must NOT fire; the hard-stop arms still protect the trade.
+        _min_lock = 0.0
+        try:
+            _min_lock = float(os.environ.get("TAILGATE_MIN_LOCK_PCT", "0") or 0.0)
+        except (TypeError, ValueError):
+            _min_lock = 0.0
         # exit at/below the lock REGARDLESS of sign: if profit gapped through the lock into
         # the red between polls, holding on hoping is exactly what the ratchet must prevent
-        if profit_pct is not None and locked > 0 and profit_pct <= locked:
+        if (profit_pct is not None and locked > 0 and locked >= _min_lock
+                and profit_pct <= locked):
             exit_now = True
             reason = (f"tailgate lock hit: profit {profit_pct:.2f}% fell to locked "
                       f"{locked:.2f}% (peak {peak:.2f}%, {dist*100:.0f}% trail)")

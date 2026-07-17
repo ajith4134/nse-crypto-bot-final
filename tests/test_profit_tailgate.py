@@ -137,3 +137,52 @@ class TestCryptoSweepOverrides(_Iso):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMinLockFloor(unittest.TestCase):
+    """X9: locks below TAILGATE_MIN_LOCK_PCT are recorded but never fire (sub-fee locks
+    close red — correct direction, losing exit)."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        import trading.state as state
+        self._t = tempfile.TemporaryDirectory()
+        self._o = state.STATE_DIR
+        state.STATE_DIR = Path(self._t.name)
+        self._env = {k: os.environ.pop(k, None) for k in
+                     ("TAILGATE_MIN_LOCK_PCT", "TAILGATE_ARM_PROFIT_PCT",
+                      "TAILGATE_ARM_PROFIT_PCT_CRYPTO", "TAILGATE_DIST_MAX_CRYPTO")}
+        os.environ["TAILGATE_MIN_LOCK_PCT"] = "0.7"
+        # _MIN_ARM_PROFIT is frozen at module import — patch the object, not the env
+        from unittest import mock
+        from trading.execution import profit_tailgate as pt
+        self._arm_patch = mock.patch.object(pt, "_MIN_ARM_PROFIT", 0.3)
+        self._arm_patch.start()                            # arm low so tiny locks form
+
+    def tearDown(self):
+        import trading.state as state
+        state.STATE_DIR = self._o
+        self._t.cleanup()
+        self._arm_patch.stop()
+        for k, v in self._env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_sub_floor_lock_records_but_does_not_fire(self):
+        from trading.execution import profit_tailgate as pt
+        d = pt.locked_profit("crypto", "futures", trade_id="t1",
+                             profit_pct=0.20, peak_profit_pct=0.40)
+        self.assertGreater(d["locked_profit_pct"], 0)      # ratchet recorded
+        self.assertFalse(d["exit"])                        # but sub-fee lock never fires
+
+    def test_lock_at_or_above_floor_fires(self):
+        from trading.execution import profit_tailgate as pt
+        pt.locked_profit("crypto", "futures", trade_id="t2",
+                         profit_pct=2.0, peak_profit_pct=2.0)
+        d = pt.locked_profit("crypto", "futures", trade_id="t2",
+                             profit_pct=1.0, peak_profit_pct=2.0)
+        self.assertGreaterEqual(d["locked_profit_pct"], 0.7)
+        self.assertTrue(d["exit"])

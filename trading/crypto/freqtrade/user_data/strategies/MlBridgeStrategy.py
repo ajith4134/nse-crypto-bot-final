@@ -120,6 +120,9 @@ class MlBridgeStrategy(IStrategy):
             locked = lk.get("locked") if isinstance(lk, dict) else None
             if locked is None or float(locked) <= 0:
                 return None                         # no armed lock → other exits rule
+            # X9: a lock below round-trip fee drag closes red — don't enforce sub-floor locks
+            if float(locked) < float(self.config.get("ml_tailgate_min_lock", 0.0) or 0.0):
+                return None
             if current_profit * 100.0 <= float(locked):
                 return "tailgate_lock"              # engine force-exits at the lock
         except Exception:

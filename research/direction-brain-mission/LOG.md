@@ -385,3 +385,21 @@ X8: MlBridgeStrategy.custom_stoploss with per-trade A/B by trade-id parity —
   REVERT: ML_STOP_AB=0 (all trades → fixed −3%) + freqtrade restart.
 Verdict rule (pre-registered): compare arms on trades opened post-21:55 at n≥50/arm —
 green ratio AND net per trade; vol arm must beat fixed on net without halving green ratio.
+
+## Session 8, X9 (2026-07-17 ~22:35 UTC) — minimum lock floor: tailgates must clear fees
+
+X7 verdict forming: matured router (live_loop) direction grade 10/13 = 0.77 (was 0/3
+fallback); overall X7-era 15/29 = 0.52, sides balanced. X8 first 6 closes: ZERO stop_loss
+exits (was 57% of closes). NEW leak isolated: the ATR-scaled tailgate ARM lets low-vol
+symbols arm near 0.3% of stake → locks fire BELOW round-trip fee drag → "correct
+direction, red close" (1000BONK move +0.10% → −0.02; DODOX +0.00% → −0.96).
+
+X9 (task 6): TAILGATE_MIN_LOCK_PCT=0.7 (% of stake, covers ~0.5% fees + slip):
+- ratchet side (profit_tailgate.locked_profit): sub-floor locks are RECORDED (ratchet
+  keeps climbing) but never fire the exit;
+- engine side (MlBridgeStrategy.custom_exit): sub-floor locks not enforced
+  (ml_tailgate_min_lock config key, env-driven via template).
+Hard-stop arms still protect sub-floor trades. 2 new tests (12 green; module-frozen
+_MIN_ARM_PROFIT patched via mock, not env). REVERT: TAILGATE_MIN_LOCK_PCT=0 + restarts.
+Verdict rule: post-22:35 tailgate_lock closes must be ≥90% green with avg ≥ +1.0 per
+close (fee-clearing), without total tailgate-exit count collapsing (<25% of prior rate).

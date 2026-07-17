@@ -220,6 +220,9 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         "ml_stop_atr_k": float(os.environ.get("ML_STOP_ATR_K", "1.5") or 1.5),
         "ml_stop_min": abs(float(os.environ.get("ML_STOP_MIN", "0.02") or 0.02)),
         "ml_stop_max": abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),
+        # X9: engine-side floor for tailgate-lock enforcement (percent of stake) — locks
+        # below round-trip fee drag close red; sub-floor locks are recorded but not fired.
+        "ml_tailgate_min_lock": float(os.environ.get("TAILGATE_MIN_LOCK_PCT", "0") or 0.0),
         "bot_name": "mlnetworkbrain-crypto",
         "initial_state": "running",
         # 15s, not 5s: each cycle prices EVERY open trade off the order book (mandatory
