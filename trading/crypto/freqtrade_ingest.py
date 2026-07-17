@@ -80,6 +80,18 @@ def _learn_from_close(ft: dict, t) -> None:
     except Exception:
         pass
     try:
+        # E2 exit-policy bandit (2026-07-17): the closed trade's assigned exit ARM gets its
+        # Beta(win) posterior updated exactly once, here behind the same idempotence guard.
+        # profit_ratio is leverage-scaled %, matching what the arms managed against.
+        from trading.execution import exit_policy as _xp
+        _pr = ft.get("profit_ratio")
+        _xl = _xp.learn(str(tid), profit_pct=(float(_pr) * 100.0) if _pr is not None else None)
+        if _xl:
+            print(f"[exit-policy] learned {_xl['arm']}|{_xl['regime']}: "
+                  f"win={_xl['win']} ({_xl['profit_pct']:.2f}%)", flush=True)
+    except Exception:
+        pass
+    try:
         # river online learner: ONE realized price-direction sample per close (B2 fix —
         # learn() previously had no production caller, so the "online" model was frozen
         # at bootstrap). Same features + label rules as its journal bootstrap.

@@ -1892,9 +1892,54 @@ class BrainExecutor:
                 # OWN entry decision snapshot (fusion.barriers.atr + fusion.regime), so no
                 # per-poll recompute. Best-effort; None → the tailgate uses its fixed defaults.
                 _atr_pct, _regime = self._exit_context(pair)
-                dec = pt.locked_profit("crypto", self.segment or "futures", trade_id=tid,
-                                       profit_pct=profit_pct, peak_profit_pct=peak_pct,
-                                       regime=_regime, atr_pct=_atr_pct)
+                # E2 EXIT-POLICY BANDIT (2026-07-17): each trade is managed by ONE Thompson-
+                # sampled exit arm (ratchet / direction / ratchet_direction / forecast /
+                # va_trail / scale_out) so the exit style is LEARNED per regime instead of a
+                # fixed stack. Assignment is lazy (first poll after open) — covers every entry
+                # lane without touching the entry paths. EXIT_POLICY=0 restores the old stack.
+                _arm = None
+                try:
+                    from trading.execution import exit_policy as _xp
+                    if _xp.enabled():
+                        _rec = _xp.assignment(tid)
+                        if _rec is None:
+                            _arm = _xp.assign(tid, regime=_regime,
+                                              lane=str(t.get("enter_tag") or ""),
+                                              symbol=pair, atr_pct=_atr_pct)
+                        else:
+                            _arm = _rec.get("arm")
+                except Exception:
+                    _arm = None
+                if _arm in ("va_trail", "scale_out"):
+                    try:
+                        _tp = _xp.evaluate_trail(
+                            tid, symbol=pair,
+                            direction=("SHORT" if t.get("is_short") else "LONG"),
+                            profit_pct=profit_pct,
+                            price=_num(t.get("current_rate")) or None)
+                        if _tp.get("partial"):
+                            cli.close_partial(pair, _tp["partial"], segment=self.segment)
+                            from trading.brain import mind_events
+                            mind_events.emit("trade_credit",
+                                             f"Scale-out took {_tp['partial']:.0%} off {pair}: "
+                                             f"{_tp.get('reason')}", salience=0.55)
+                        if _tp.get("exit"):
+                            cli.close_pair(pair, segment=self.segment)
+                            exited.append(pair)
+                            pt.clear_lock(tid)
+                            from trading.brain import mind_events
+                            mind_events.emit("trade_credit",
+                                             f"Exit-policy {_arm} closed {pair}: "
+                                             f"{_tp.get('reason')}", salience=0.6)
+                            continue
+                    except Exception:
+                        pass
+                if _arm is not None and _arm not in ("ratchet", "ratchet_direction"):
+                    dec = {"exit": False}          # this trade's arm doesn't ratchet
+                else:
+                    dec = pt.locked_profit("crypto", self.segment or "futures", trade_id=tid,
+                                           profit_pct=profit_pct, peak_profit_pct=peak_pct,
+                                           regime=_regime, atr_pct=_atr_pct)
                 if dec.get("exit"):
                     try:
                         cli.close_pair(pair, segment=self.segment)
@@ -1917,6 +1962,8 @@ class BrainExecutor:
                 # records a "dir_exit" claim + advisory, acts only under DIR_EXIT=trade.
                 try:
                     from trading.direction import dir_exit
+                    if _arm is not None and _arm not in ("direction", "ratchet_direction"):
+                        raise StopIteration        # this trade's arm doesn't direction-cut
                     de = dir_exit.evaluate(
                         symbol=pair, direction=("SHORT" if t.get("is_short") else "LONG"),
                         market="CRYPTO", segment=self.segment or "futures",
@@ -1940,14 +1987,17 @@ class BrainExecutor:
                 # Shadow by default (records a mind advisory); SMART_EXIT=trade acts. Respects
                 # min-hold so it never cuts a just-opened trade.
                 try:
-                    if not self._too_young_to_exit(cli, pair):
+                    if not self._too_young_to_exit(cli, pair) and _arm in (None, "forecast"):
                         from trading.crypto.freqtrade import smart_exit as _sx
                         _se = _sx.should_exit(
                             pair, ("SHORT" if t.get("is_short") else "LONG"),
                             market="CRYPTO", segment=self.segment or "futures", regime=_regime)
                         if _se.get("exit"):
                             from trading.brain import mind_events as _me
-                            if os.environ.get("SMART_EXIT") == "trade":
+                            # the 'forecast' ARM acts (its assignment IS the authorization —
+                            # paper is the experiment); unassigned trades keep the old
+                            # SMART_EXIT env gate.
+                            if _arm == "forecast" or os.environ.get("SMART_EXIT") == "trade":
                                 cli.close_pair(pair, segment=self.segment)
                                 exited.append(pair)
                                 pt.clear_lock(tid)

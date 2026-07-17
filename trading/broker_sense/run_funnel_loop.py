@@ -97,6 +97,18 @@ def main() -> int:
                             print(f"[postmortem] re-mined {_pmod.backfill()}", flush=True)
                     except Exception as e:
                         print(f"[postmortem] mine error: {e!r}", flush=True)
+                # E1 OPE (2026-07-17): label matured vote-log rows HERE (this process owns
+                # the mirror price history) and, on the OPE_EVERY_S cadence, spawn the
+                # ISOLATED evaluation subprocess (candidate configs mutate LEARNED_DIR_*
+                # env — doing that in-process would rewire the live decider mid-cycle).
+                try:
+                    from trading.direction import ope as _ope
+                    _or = _ope.maybe_run()
+                    if _or and (_or.get("label", {}).get("labeled")
+                                or _or.get("evaluate")):
+                        print(f"[ope] {_or}", flush=True)
+                except Exception as e:
+                    print(f"[ope] error: {e!r}", flush=True)
                     # SYMBOL-MOVE NET (owner 2026-07-13): retrain the multi-head direction+move% net
                     # here (GatedMoENode fit ~seconds) so the per-candidate consult() only ever does a
                     # cheap forward pass — training NEVER touches the hot decision path (TabPFN lesson).
@@ -266,6 +278,17 @@ def main() -> int:
                   f"stages={ {k: round(v, 1) for k, v in _LAST_STAGES.items()} } "
                   f"unaccounted={_period - sum(_LAST_STAGES.values()):.1f}s", flush=True)
         _LAST_STAGES.clear()
+        # BROWSER MEMORY CAP (2026-07-17, the VM wedge): restart any Chromium that has grown past
+        # BROWSER_MAX_RSS_MB. Done HERE, at the top of the work half, on purpose — the cycle is
+        # about to re-open its tabs anyway, so a restart costs nothing, whereas recycling during
+        # the sleep half would kill the parked tabs _stream_tick() is pumping. The login survives
+        # in the on-disk profile; tab_pool re-opens its tabs (it prunes closed pages already).
+        try:
+            _fat = sessions.recycle_fat_browsers()
+            if _fat:
+                print(f"[funnel-loop] recycled fat browser(s) {_fat} — RSS over the cap", flush=True)
+        except Exception as _e:
+            print(f"[funnel-loop] browser recycle error: {_e!r}", flush=True)
         for market, funnel in funnels.items():
             if market == "nse" and not _nse_open():
                 continue

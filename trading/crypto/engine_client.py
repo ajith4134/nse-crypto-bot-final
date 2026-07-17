@@ -377,6 +377,33 @@ class CryptoEngineClient:
             raise FreqtradeError(f"close_pair({pair}) failed: {e}") from e
         return {"skipped": f"no open trade for {pair}"}
 
+    def close_partial(self, pair: str, fraction: float, segment: str | None = None) -> dict:
+        """Force-exit `fraction` (0<f<1) of the open trade's amount on `pair` — the scale-out
+        primitive (E2 exit-policy, 2026-07-17). Freqtrade's /forceexit takes an absolute
+        `amount`, so it is derived from the live trade row. Honest no-op when no trade or the
+        computed amount rounds to nothing; a fraction ≥1 falls back to a FULL close (never
+        silently over-exit)."""
+        try:
+            f = float(fraction)
+        except (TypeError, ValueError):
+            return {"skipped": "bad fraction"}
+        if f >= 1.0:
+            return self.close_pair(pair, segment=segment)
+        if f <= 0.0:
+            return {"skipped": "bad fraction"}
+        try:
+            cli = self._client(segment)
+            for t in (cli.status() or []):
+                if isinstance(t, dict) and t.get("pair") == pair:
+                    amt = float(t.get("amount") or 0.0) * f
+                    if amt <= 0.0:
+                        return {"skipped": "zero amount"}
+                    return self._check(
+                        cli.forceexit(t.get("trade_id"), amount=amt), "forceexit")
+        except Exception as e:
+            raise FreqtradeError(f"close_partial({pair}) failed: {e}") from e
+        return {"skipped": f"no open trade for {pair}"}
+
     def closed_trades(self) -> list:
         """ALL closed trades from Freqtrade (list of dicts), honest empty list on failure.
 

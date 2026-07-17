@@ -2161,6 +2161,11 @@ _Trading Phase T3 (Trade Execution Engine) acceptance tests — fully offline._
 - **classes:** TestOrderState, TestMAEMFE, TestTrailing, TestProfitBooking, TestCircuitBreaker, TestMargin, TestBracketCover, TestKillSwitch, TestExecutionEngine
 - **imports:** __future__, trading.execution.bracket, trading.execution.circuit_breaker, trading.execution.engine, trading.execution.kill_switch, trading.execution.mae_mfe, trading.execution.margin, trading.execution.order_state, trading.execution.profit_booking, trading.execution.trailing, unittest
 
+## `tests/test_exit_policy.py`
+_Tests for trading/execution/exit_policy.py (E2 — Thompson exit-policy bandit)._
+- **classes:** _Base, TestChooseAssignLearn, TestTrailArm, TestClosePartial
+- **imports:** __future__, os, pathlib, tempfile, unittest
+
 ## `tests/test_experience_t8.py`
 _Trading Phase T8.4 (episodic experience bank + semantic memory) acceptance tests._
 - **classes:** TestTradeVector, TestExperienceBankMemory, TestCBRDiscrimination, TestRecallSerialisation, TestFromJournal, TestLanceDBPath, TestSemanticMemory
@@ -2555,6 +2560,12 @@ _Trading Phase O1–O4 (Always-Online Supervisor) acceptance tests — fully off
 - **classes:** TestMarketSession, TestPriceQuoteExchange, TestTradingState, TestPaperWallet, TestReplay, TestOnlineSupervisor
 - **functions:** `_ohlcv(seed, n) -> pd.DataFrame`
 - **imports:** __future__, datetime, json, numpy, pandas, trading, trading.online.replay, trading.online.session, trading.online.state, trading.online.supervisor, trading.online.wallet, unittest, warnings
+
+## `tests/test_ope.py`
+_Tests for trading/direction/ope.py (E1 — counterfactual replay over the vote log)._
+- **classes:** _Base, TestLabelVotes, TestEvaluate, TestMaybeRun
+- **functions:** `_vote_row(ts, symbol, decided, votes)`
+- **imports:** __future__, json, os, pathlib, tempfile, time, unittest
 
 ## `tests/test_options_screener.py`
 _Phase 2: pure CE/PE generation logic (no live broker/market needed)._
@@ -4555,6 +4566,11 @@ _trading/direction/mirror_gate.py — D2: the Mirror Gate (goal Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `_enabled() -> bool`; `_buckets() -> dict`; `_sources_for(market) -> dict`; `_horizons() -> list[str]`; `_lookup(source, regime, horizons, market) -> tuple[int, int, str]`; `decide(direction) -> dict`; `apply(direction) -> tuple[str | None, dict]`; `status() -> dict`
 - **imports:** __future__, os, time, trading
 
+## `trading/direction/ope.py`
+_trading/direction/ope.py — E1: counterfactual policy evaluation over the vote log._
+- **functions:** `_enabled() -> bool`; `_horizons() -> dict[str, int]`; `_labeled_path() -> Path`; `_price(symbol, market, segment, epoch) -> float | None`; `label_votes(max_rows) -> dict`; `_rotate(p) -> None`; `_score(rows, side_of) -> dict`; `evaluate(max_rows) -> dict`; `maybe_run() -> dict | None`; `status() -> dict`
+- **imports:** __future__, json, os, pathlib, subprocess, sys, time, trading
+
 ## `trading/direction/pullback.py`
 _trading/direction/pullback.py — D3: pullback entries (goal Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `enabled() -> bool`; `_key(symbol, segment) -> str`; `live_price(symbol, segment) -> float | None`; `atr_from_df(df) -> float | None`; `atr_from_feather(symbol, segment, tf) -> float | None`; `arm() -> bool`; `_dist(row) -> float`; `sweep(price_fn) -> list[dict]`; `status() -> dict`
@@ -4614,6 +4630,11 @@ _trading/execution/circuit_breaker.py — daily-loss circuit breaker (T3 §7)._
 _trading/execution/engine.py — ExecutionEngine + TradeManager (T3 composition)._
 - **classes:** TradeManager, ExecutionEngine
 - **imports:** __future__, dataclasses, trading.execution.circuit_breaker, trading.execution.kill_switch, trading.execution.mae_mfe, trading.execution.order_state, trading.execution.profit_booking, trading.execution.trailing, typing
+
+## `trading/execution/exit_policy.py`
+_trading/execution/exit_policy.py — E2: ONE learned exit policy per trade (Thompson bandit)._
+- **functions:** `enabled() -> bool`; `_f(name, default) -> float`; `_key(arm, regime) -> str`; `choose(regime) -> str`; `assign(trade_id) -> str`; `assignment(trade_id) -> dict | None`; `_prev_bar(symbol) -> tuple[float, float] | None`; `evaluate_trail(trade_id) -> dict`; `learn(trade_id) -> dict | None`; `status() -> dict`
+- **imports:** __future__, os, random, time, trading
 
 ## `trading/execution/kill_switch.py`
 _trading/execution/kill_switch.py — real-money safety kill-switch (T3 §10)._
