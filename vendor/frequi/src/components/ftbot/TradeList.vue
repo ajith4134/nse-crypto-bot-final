@@ -384,12 +384,26 @@ const rowSelection = computed({
         </span>
       </template>
       <template #peak-cell="{ row }">
+        <!-- owner 2026-07-17: max profit / max loss in QUOTE (USDT), not % — the MFE/MAE
+             ratio × stake_amount is the same money basis as the Profit column's abs value -->
         <span class="text-green-500">{{
-          peakProfit(row.original).mfe !== null ? formatPercent(peakProfit(row.original).mfe, 1) : '–'
+          peakProfit(row.original).mfe !== null && row.original.stake_amount != null
+            ? formatPriceCurrency(
+                (peakProfit(row.original).mfe as number) * row.original.stake_amount,
+                row.original.quote_currency || 'USDT',
+                2,
+              )
+            : '–'
         }}</span>
         <span class="opacity-40"> / </span>
         <span class="text-red-500">{{
-          peakProfit(row.original).mae !== null ? formatPercent(peakProfit(row.original).mae, 1) : '–'
+          peakProfit(row.original).mae !== null && row.original.stake_amount != null
+            ? formatPriceCurrency(
+                (peakProfit(row.original).mae as number) * row.original.stake_amount,
+                row.original.quote_currency || 'USDT',
+                2,
+              )
+            : '–'
         }}</span>
       </template>
       <template #tailgate-cell="{ row }">
