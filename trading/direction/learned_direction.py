@@ -33,10 +33,47 @@ import time
 from trading.direction import truth_ledger as _tl
 
 
+# ── OPE self-tune overlay (2026-07-17) ───────────────────────────────────────────────
+# The metacognitive close: ope.self_tune() writes ope_tuned_cfg.json with the LEARNED_DIR_*
+# config it PROVED (off-policy, counterfactually) beats the live config; the decider overlays
+# it here so the brain runs its own evidence-picked knobs instead of discarding the finding.
+# Auto-reverts when live_cfg regains parity. Kill-switch: OPE_SELF_TUNE=0. MUST be inert during
+# OPE's own replay (OPE_REPLAY=1) or it would contaminate the very comparison that feeds it.
+_OVERLAY = {"mtime": None, "vals": {}}
+_TUNED_FILE = "ope_tuned_cfg.json"
+
+
+def _overlay() -> dict:
+    if os.environ.get("OPE_REPLAY"):                       # inside ope.evaluate() replay → inert
+        return {}
+    if os.environ.get("OPE_SELF_TUNE", "1") not in ("1", "true", "TRUE", "yes", "on"):
+        return {}
+    try:
+        from trading import state
+        p = os.path.join(str(state.STATE_DIR), _TUNED_FILE)
+        m = os.path.getmtime(p)
+    except OSError:
+        if _OVERLAY["mtime"] is not None:
+            _OVERLAY["mtime"], _OVERLAY["vals"] = None, {}
+        return {}
+    if _OVERLAY["mtime"] != m:
+        try:
+            from trading import state
+            d = state.load_json(_TUNED_FILE, {}) or {}
+            _OVERLAY["vals"] = {k: str(v) for k, v in (d.get("env") or {}).items()}
+            _OVERLAY["mtime"] = m
+        except Exception:
+            _OVERLAY["vals"] = {}
+    return _OVERLAY["vals"]
+
+
 # ── tunables (env-overridable; sane measured defaults) ───────────────────────────────
 def _f(name: str, default: float) -> float:
     try:
-        return float(os.environ.get(name, "") or default)
+        raw = _overlay().get(name)
+        if raw is None:
+            raw = os.environ.get(name, "")
+        return float(raw or default)
     except (TypeError, ValueError):
         return default
 

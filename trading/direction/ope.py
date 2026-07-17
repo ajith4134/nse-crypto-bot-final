@@ -257,6 +257,7 @@ def evaluate(max_rows: int | None = None) -> dict:
         return {"error": "no labeled rows yet"}
     saved = {k: os.environ.get(k) for k in _ENV_KEYS}
     results = []
+    os.environ["OPE_REPLAY"] = "1"       # make the self-tune overlay inert during replay
     try:
         for name, env in _CANDIDATES:
             if env is None:                          # 'logged': production's own decision
@@ -287,6 +288,7 @@ def evaluate(max_rows: int | None = None) -> dict:
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = v
+        os.environ.pop("OPE_REPLAY", None)
         ld.clear_cache()
     primary = (os.environ.get("OPE_PRIMARY", "1h") or "1h")
     def _rank(r):
@@ -300,8 +302,63 @@ def evaluate(max_rows: int | None = None) -> dict:
               "caveat": ("replay weighs sources by TODAY'S truth-ledger reliability, not "
                          "decision-time reliability; 'logged' is the only row free of that skew"),
               "candidates": results}
+    report["self_tune"] = _self_tune(report)      # metacognitive close: apply the proven winner
     state.save_json(_REPORT, report)
     return report
+
+
+_TUNED = "ope_tuned_cfg.json"
+
+
+def _self_tune(report: dict) -> dict:
+    """Persist the LEARNED_DIR_* config OPE proved beats live_cfg so the live decider adopts it
+    (learned_direction._overlay reads _TUNED). Evidence-gated + auto-reverting, not a vibe:
+
+      • compare PER-TRADE capture (capture_pct_mean, not sum — candidates have unequal `acted`);
+      • both live and winner must have acted ≥ OPE_TUNE_MIN_ACTED (default 30) — no tuning on noise;
+      • winner must beat live by ≥ OPE_TUNE_MARGIN (default 0.10) AND be net-positive;
+      • otherwise, if a tuned file exists and live has caught up, REVERT to defaults (self-heal).
+
+    Kill-switch OPE_SELF_TUNE=0. Pre-registered verdict lives in the review doc; this only
+    ACTS once the counterfactual evidence clears the bar, so it stays dark until then."""
+    if os.environ.get("OPE_SELF_TUNE", "1") not in ("1", "true", "TRUE", "yes", "on"):
+        return {"status": "disabled"}
+    primary = report.get("primary_horizon") or "1h"
+    cands = report.get("candidates") or []
+
+    def _m(c, key):
+        return (c.get("metrics", {}).get(primary) or {}).get(key)
+
+    live = next((c for c in cands if c.get("name") == "live_cfg"), None)
+    tunable = [c for c in cands if c.get("name") not in ("live_cfg", "logged") and c.get("env")]
+    if live is None or not tunable:
+        return {"status": "no comparison"}
+    winner = tunable[0]                                   # results already sorted desc by cap_sum
+    lm, wm = _m(live, "capture_pct_mean"), _m(winner, "capture_pct_mean")
+    la, wa = _m(live, "acted") or 0, _m(winner, "acted") or 0
+    margin = float(os.environ.get("OPE_TUNE_MARGIN", "0.10") or 0.10)
+    min_acted = int(float(os.environ.get("OPE_TUNE_MIN_ACTED", "30") or 30))
+    tuned_path = Path(state.STATE_DIR) / _TUNED
+    if lm is None or wm is None:
+        return {"status": "no metric"}
+    if wa >= min_acted and la >= min_acted and (wm - lm) >= margin and wm > 0:
+        state.save_json(_TUNED, {"env": winner["env"], "source": winner["name"],
+                                 "winner_mean": wm, "live_mean": lm,
+                                 "winner_acted": wa, "live_acted": la,
+                                 "margin": round(wm - lm, 4), "generated": time.time()})
+        return {"status": "APPLIED", "source": winner["name"], "env": winner["env"],
+                "winner_mean": wm, "live_mean": lm, "acted": wa}
+    # not applying — self-heal back to defaults if live has regained parity
+    if tuned_path.exists() and lm >= (wm - margin):
+        try:
+            tuned_path.unlink()
+        except OSError:
+            pass
+        return {"status": "reverted (live competitive)", "live_mean": lm, "winner_mean": wm}
+    if tuned_path.exists():
+        return {"status": "held", "live_mean": lm, "winner_mean": wm, "acted_winner": wa}
+    return {"status": "no change (insufficient evidence)",
+            "winner_mean": wm, "live_mean": lm, "acted_winner": wa, "min_acted": min_acted}
 
 
 def maybe_run() -> dict | None:

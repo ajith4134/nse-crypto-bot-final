@@ -139,14 +139,51 @@ def register_concept_engine(engine) -> None:
 
 # ── individual lens → p_up ──────────────────────────────────────────────────────────
 def _news_p(symbol: str) -> float | None:
-    node = _news_node()
-    if not node:
+    """P(up) from news sentiment. Reads the news-ingest daemon's already-fetched,
+    already-scored ``news_memory.json`` (zero network — THE MOTTO: RAM/disk-first).
+
+    Fix 2026-07-17: the old path built a NewsResearcher with **no fetcher**, so
+    ``research()`` always returned n_articles=0 and the ``news_sentiment`` source was
+    permanently dark. The ingest daemon writes scored items every cycle; we just needed a
+    reader. Symbol-scoped (matches the coin root against each item's ``symbols``/title),
+    recency-gated, and floored at LEARNED_DIR_NEWS_MIN_ARTICLES so one stray headline can't
+    move a trade. §16-safe: emits a reading that earns weight only once outcomes prove it."""
+    try:
+        from trading import state
+        mem = state.load_json("news_memory.json", {}) or {}
+        items = mem.get("items") or []
+        if not items:
+            return None
+        base = str(symbol or "").replace("/", "").split(":")[0].upper()   # BTCUSDT
+        root = base
+        for q in ("USDT", "USDC", "USD", "BUSD"):
+            if base.endswith(q) and len(base) > len(q):
+                root = base[: -len(q)]                                     # BTC
+                break
+        ttl = float(os.environ.get("LEARNED_DIR_NEWS_TTL_S", "21600"))     # 6h
+        floor = int(os.environ.get("LEARNED_DIR_NEWS_MIN_ARTICLES", "2"))
+        now = time.time()
+        rel = []
+        for it in items:
+            try:
+                if now - float(it.get("ts") or 0) > ttl:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            syms = {str(s).replace("/", "").split(":")[0].upper() for s in (it.get("symbols") or [])}
+            title = str(it.get("title") or "").upper()
+            if base in syms or root in syms or (len(root) >= 3 and root in title):
+                try:
+                    rel.append(float(it.get("compound") or 0.0))
+                except (TypeError, ValueError):
+                    continue
+        if len(rel) < floor:
+            return None
+        avg = max(-1.0, min(1.0, sum(rel) / len(rel)))
+        # compound[-1,1] → modest band around 0.5 (news is a prior, not a forecast)
+        return _clamp01(0.5 + 0.35 * avg)
+    except Exception:
         return None
-    researcher, sentiment = node
-    res = researcher.research(symbol)
-    if not res or not res.get("n_articles"):
-        return None
-    return _clamp01(sentiment.predict_proba([[res.get("avg_compound", 0.0)]])[0])
 
 
 def _worldmodel_p(ohlcv) -> float | None:

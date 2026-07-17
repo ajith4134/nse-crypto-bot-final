@@ -174,6 +174,13 @@ def check(tag: str | None, symbol: str, direction: str,
     try:
         dead, why = killed(t)
         if dead:
+            try:                                # cause-of-death ledger (idempotent per tag)
+                from trading.brain import graveyard as _gy
+                _st = tag_stats().get(t) or {}
+                _gy.record_death(t, kind="lane", stage="lane_kill",
+                                 metric=_st.get("pnl"), detail=why, market="crypto")
+            except Exception:
+                pass
             # PAROLE (live-verification fix 2026-07-17): a killed lane cannot trade, so
             # its record can never improve — permanent death by construction (seen live
             # the same hour: filter:momentum was retired on its OLD 24h-selection record

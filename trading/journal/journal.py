@@ -43,6 +43,41 @@ def _segment(trade: ClosedTrade) -> str:
     return "eq_delivery" if (trade.product_type or "").upper() == "CNC" else "eq_intraday"
 
 
+# ── measurement-integrity guard (2026-07-17) ─────────────────────────────────
+# A degenerate row (symbol == a bare quote currency, or an impossible capital-at-risk)
+# is corrupt data — it fakes billions in P&L and poisons every win-rate / source-accuracy
+# read the brain grades itself on. The 07-13 NSE-replay burst wrote 380 such rows and they
+# sat in the journal for days. Reject at the door so the scoreboard can never be re-poisoned.
+# Note: this is symbol/sizing based, NOT price-ratio based — a legit option expiring near
+# zero has a huge entry/exit ratio but a real symbol, so it is never rejected.
+import os as _os
+_QUOTE_CCYS = ("USDT", "USDC", "USD", "BUSD", "USDD", "FDUSD", "TUSD", "DAI")
+_POISON_CAP_CEILING = float(_os.environ.get("JOURNAL_POISON_CAP_CEILING", "5000000"))
+
+
+def _degenerate_symbol(sym) -> bool:
+    s = str(sym or "").upper()
+    for ch in ("/", ":", "-", "_", " "):
+        s = s.replace(ch, "")
+    if not s:
+        return True
+    for q in _QUOTE_CCYS:
+        s = s.replace(q, "")
+    return s == ""  # nothing left but quote tokens → not a real instrument
+
+
+def is_poison_row(d: dict) -> bool:
+    """True if a trade dict is corrupt: degenerate symbol or impossible capital-at-risk."""
+    if _degenerate_symbol(d.get("symbol")):
+        return True
+    try:
+        if float(d.get("capital_at_risk") or 0) > _POISON_CAP_CEILING:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return False
+
+
 class TradeJournal:
     """Accumulates closed trades + every T5 analytic on top of them."""
 
@@ -104,6 +139,13 @@ class TradeJournal:
     # ── record ──────────────────────────────────────────────────────────────────
     def record(self, trade: ClosedTrade) -> ClosedTrade:
         """Finalise a closed trade: charges → net P&L, quality, behaviour, confidence."""
+        # Measurement-integrity door: never persist a corrupt row (see is_poison_row).
+        if is_poison_row({"symbol": trade.symbol, "capital_at_risk": trade.capital_at_risk}):
+            import logging
+            logging.getLogger("trading.journal").warning(
+                "journal.record: REJECTED poison row symbol=%r cap=%r exchange=%r src=%r",
+                trade.symbol, trade.capital_at_risk, trade.exchange, trade.signal_source)
+            return trade
         trade.gross_pnl = self._compute_gross(trade)
         self._apply_charges(trade)
         trade.net_pnl = net_pnl(trade.gross_pnl, trade.total_charges)

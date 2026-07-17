@@ -63,6 +63,13 @@ Lessons:
 """
 
 
+def _flat(sym) -> str:
+    """Canonical lookup key — matches readings(): 'AKE/USDT:USDT' → 'AKEUSDT'.
+    distill() MUST key the table by this or readings() (which flattens) never finds a row —
+    the 2026-07-17 dead-`lessons`-lens bug (0 buckets across 40k rows)."""
+    return str(sym or "").replace("/", "").split(":")[0].upper()
+
+
 def distill(max_symbols: int | None = None) -> dict:
     """Batched LLM distillation of fresh lesson texts → the prior table. Skips symbols whose
     lesson set is unchanged (hash match). Returns {distilled, skipped, errors}."""
@@ -78,10 +85,16 @@ def distill(max_symbols: int | None = None) -> dict:
     if not all_lessons:
         return {"distilled": 0, "reason": "no lessons"}
     table = state.load_json(_TABLE, {}) or {}
+    # One-time migration: rekey any legacy slashed entries to the flat lookup form so the
+    # 22 already-distilled leans light up immediately instead of waiting to be re-distilled.
+    for k in list(table):
+        fk = _flat(k)
+        if fk != k:
+            table[fk] = table.pop(k)
     todo = []
     for sym, lessons in all_lessons.items():
         h = _hash(lessons)
-        if (table.get(sym) or {}).get("lesson_hash") == h:
+        if (table.get(_flat(sym)) or {}).get("lesson_hash") == h:
             continue
         todo.append((sym, lessons, h))
     cap = int(max_symbols if max_symbols is not None
@@ -122,9 +135,9 @@ def distill(max_symbols: int | None = None) -> dict:
             p = 0.5 + 0.2 * conf
         elif side == "short":
             p = 0.5 - 0.2 * conf
-        table[sym] = {"p_up": round(p, 4), "side": side, "confidence": conf,
-                      "why": str(row.get("why") or "")[:80],
-                      "lesson_hash": h, "ts": now}
+        table[_flat(sym)] = {"p_up": round(p, 4), "side": side, "confidence": conf,
+                             "why": str(row.get("why") or "")[:80],
+                             "lesson_hash": h, "ts": now}
         n += 1
     if len(table) > 800:                              # bound the table
         for k in sorted(table, key=lambda k: table[k].get("ts") or 0)[:len(table) - 800]:
@@ -154,7 +167,7 @@ def readings(symbol: str, *, segment: str = "futures",
     if not enabled():
         return []
     try:
-        flat = (symbol or "").replace("/", "").split(":")[0].upper()
+        flat = _flat(symbol)
         row = (state.load_json(_TABLE, {}) or {}).get(flat)
         if not row:
             return []

@@ -1874,6 +1874,11 @@ _Forcing tests for brain paths the audit (2026-07-03) found under-exercised._
 - **functions:** `test_file_memory_recall_keyword_fallback(tmp_path)`; `_planted_trades(n, seed) -> list[dict]`; `test_gui_agent_experiment_runs_hypothesis_cycle()`; `test_knowledge_brain_recall_without_embeddings()`; `test_online_node_drift_then_replay_retrain_adapts()`; `test_c_inference_kernel_available()`; `test_knowledge_brain_persists_across_instances(monkeypatch, tmp_path)`
 - **imports:** numpy, pathlib, pytest, tempfile, trading.state
 
+## `tests/test_brain_loop_closures.py`
+_Tests for the 2026-07-17 brain closed-loop corrections:_
+- **classes:** TestPoisonGuard, TestLessonKeyRoundtrip, TestOpeSelfTune, TestGraveyard
+- **imports:** os, tempfile, trading, trading.direction, trading.journal.journal, unittest
+
 ## `tests/test_brain_os.py`
 _Tests for trading/brain/brain_os.py — Brain-OS kernel + RAM working memory (OS-1)._
 - **classes:** WorkingMemoryTest, BrainKernelTest
@@ -3354,6 +3359,11 @@ _trading/brain/gate_tuner.py — off-policy gate threshold tuning (2026-07-10)._
 - **functions:** `_current_levers() -> dict`; `_dig(r)`; `_score_of(row, signal)`; `sweep(rows, signal) -> dict | None`; `tune_once(lookback) -> dict`; `status() -> dict`
 - **imports:** __future__, time
 
+## `trading/brain/graveyard.py`
+_trading/brain/graveyard.py — the strategy/lane cause-of-death ledger._
+- **functions:** `_key(entity, kind) -> str`; `record_death(entity) -> None`; `deaths() -> list[dict]`; `status() -> dict`
+- **imports:** __future__, time, trading
+
 ## `trading/brain/gui/__init__.py`
 _trading/brain/gui — the brain's computer-use / GUI-agent capability._
 - **imports:** __future__, trading.brain.gui.actions, trading.brain.gui.agent, trading.brain.gui.perception, trading.brain.gui.reflection, trading.brain.gui.skills, trading.brain.gui.targets
@@ -4638,12 +4648,12 @@ _trading/direction/direction_model.py — the direction-aware model (proposal B,
 
 ## `trading/direction/learned_direction.py`
 _trading/direction/learned_direction.py — D10: the learned direction DRIVER (goal Pillar 27)._
-- **functions:** `_f(name, default) -> float`; `_cfg() -> dict`; `_blend(child, parent_rate, parent_n, k) -> dict | None`; `reliability(source, regime, market, conditioners) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `_log(decision) -> None`; `decide(readings) -> dict`; `_atr_pct(symbol, bars) -> float | None`; `cost_gate(p_up) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
+- **functions:** `_overlay() -> dict`; `_f(name, default) -> float`; `_cfg() -> dict`; `_blend(child, parent_rate, parent_n, k) -> dict | None`; `reliability(source, regime, market, conditioners) -> dict`; `clear_cache() -> None`; `_signed_weight(rel, cfg) -> tuple[float, bool]`; `_log(decision) -> None`; `decide(readings) -> dict`; `_atr_pct(symbol, bars) -> float | None`; `cost_gate(p_up) -> dict`; `correct_direction(direction) -> tuple[str, dict]`; `learned_vote(chart) -> tuple[str, float]`
 - **imports:** __future__, math, os, time, trading.direction
 
 ## `trading/direction/lesson_prior.py`
 _trading/direction/lesson_prior.py — E4: closed-trade lessons distilled into a direction lens._
-- **functions:** `_flag(name, default) -> bool`; `enabled() -> bool`; `_f(name, default) -> float`; `_hash(lessons) -> str`; `distill(max_symbols) -> dict`; `maybe_distill() -> dict | None`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
+- **functions:** `_flag(name, default) -> bool`; `enabled() -> bool`; `_f(name, default) -> float`; `_hash(lessons) -> str`; `_flat(sym) -> str`; `distill(max_symbols) -> dict`; `maybe_distill() -> dict | None`; `readings(symbol) -> list[tuple[str, float]]`; `status() -> dict`
 - **imports:** __future__, hashlib, json, os, re, time, trading
 
 ## `trading/direction/market_state.py`
@@ -4678,7 +4688,7 @@ _trading/direction/onchain_source.py — E5: the orphaned on-chain lane becomes 
 
 ## `trading/direction/ope.py`
 _trading/direction/ope.py — E1: counterfactual policy evaluation over the vote log._
-- **functions:** `_enabled() -> bool`; `_horizons() -> dict[str, int]`; `_labeled_path() -> Path`; `_price(symbol, market, segment, epoch) -> float | None`; `label_votes(max_rows) -> dict`; `_rotate(p) -> None`; `_score(rows, side_of) -> dict`; `evaluate(max_rows) -> dict`; `maybe_run() -> dict | None`; `status() -> dict`
+- **functions:** `_enabled() -> bool`; `_horizons() -> dict[str, int]`; `_labeled_path() -> Path`; `_price(symbol, market, segment, epoch) -> float | None`; `label_votes(max_rows) -> dict`; `_rotate(p) -> None`; `_score(rows, side_of) -> dict`; `evaluate(max_rows) -> dict`; `_self_tune(report) -> dict`; `maybe_run() -> dict | None`; `status() -> dict`
 - **imports:** __future__, json, os, pathlib, subprocess, sys, time, trading
 
 ## `trading/direction/pullback.py`
@@ -4874,8 +4884,8 @@ _trading/journal/confidence.py — per-symbol Bayesian confidence (T5 §T5.1/§T
 ## `trading/journal/journal.py`
 _trading/journal/journal.py — TradeJournal orchestrator (T5)._
 - **classes:** TradeJournal
-- **functions:** `_is_crypto(trade) -> bool`; `_segment(trade) -> str`
-- **imports:** __future__, trading, trading.journal.analytics, trading.journal.behavior, trading.journal.charges, trading.journal.confidence, trading.journal.quality, trading.journal.schema, trading.journal.tearsheet
+- **functions:** `_is_crypto(trade) -> bool`; `_segment(trade) -> str`; `_degenerate_symbol(sym) -> bool`; `is_poison_row(d) -> bool`
+- **imports:** __future__, os, trading, trading.journal.analytics, trading.journal.behavior, trading.journal.charges, trading.journal.confidence, trading.journal.quality, trading.journal.schema, trading.journal.tearsheet
 
 ## `trading/journal/quality.py`
 _trading/journal/quality.py — per-trade quality metrics (T5 §5, blueprint Trade Quality Metrics)._
