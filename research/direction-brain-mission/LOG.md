@@ -155,3 +155,28 @@ Verdict on the owner's question: NOT coincidence — a systematic, fixable timin
 one attribution hole. Pre-registered check: reflex_poscut's labeled accuracy must come in
 WORSE than taken reflex entries (else the gate is theater → remove); "pos" conditioner
 effect visible in cond_buckets within days.
+
+## Session 6 (2026-07-17) — discussion-session experiments E1-E6 (offline, no code changes)
+
+Owner requested a two-scientists discussion, then "do all experiments". Full write-up:
+experiments-20260717/RESULTS.md (scripts alongside, all reproducible). Headlines:
+- **E1: session-5's pos finding DOES NOT REPLICATE — it inverts.** All-time longs:
+  bottom win 0.405 vs top 0.519; clean-window: bottom 0.512 vs top 0.596 (n=223).
+  The n=35 "90%/40%" was noise + claim-vs-trade conflation (null grid: top drifts DOWN
+  at fixed horizons, so top-long CLAIMS score badly while top-long TRADES win via exits).
+  REFLEX_POS_GATE premise shaky → let its reflex_poscut counterfactual adjudicate.
+  Real edge found: SHORT claims at range-top 0.672@1h (n=583) vs 0.542 mechanics.
+- **E2: BTC-residual hypothesis falsified** — median BTC R²=0.107; residualizing changes
+  nothing pooled. breadth_tilt's errors are common-factor; spillover_seesaw survives.
+- **E3: null harness** — 22 proven buckets real vs 6.6 shuffled (signal real, p<0.002)
+  but **FDR≈0.30**; fakes live in the 0.9-acc/n≈30 rows. Trust the large-n core only.
+- **E4: clean-window split-half source ranking rho=−0.286** — recent-reliability over
+  hours ranks NOISE. Only indicator_fusion is stable-top everywhere.
+- **E5: bottleneck is loss size, not direction.** Clean: win 0.565 but payoff 0.54
+  (breakeven 0.77). stop_loss −5,900/234; tailgate_lock +4.1 avg × 350. We lock pennies,
+  donate quarters.
+- **E6/E6b: winners bounce (35bps median adverse) / losers run (202bps).** Limit entries
+  would be WORSE (adverse selection, −941). Early-abort at 50bps adverse: est clean P&L
+  −1,979 → −316 (monotone improvement across 30-200bps grid).
+Proposed (awaiting owner): abort-arm in exit bandit, raise bucket promotion bar
+(n≥100 + LB>0.52), sweep tailgate lock threshold in OPE, short-at-top paper lens.

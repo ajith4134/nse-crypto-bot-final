@@ -1442,6 +1442,41 @@ _Video framework lanes — faithful implementations, every one a neuron._
 - **functions:** `build_windows(X_2d, lookback, target_col, horizon)`; `_build_dlinear(seq_len, pred_len, kernel_size)`; `tcn_prob_node(name) -> TCNProbNode`; `encoder_transformer_node(name) -> EncoderTransformerNode`; `lstm_lane_node(name) -> LSTMLaneNode`; `mlp_lane_sklearn_node(name) -> SkMLPLaneNode`; `mlp_lane_torch_node(name) -> TorchMLPLaneNode`; `dlinear_node(name) -> DLinearNode`
 - **imports:** __future__, core.node_protocol, numpy
 
+## `research/direction-brain-mission/experiments-20260717/e1_pos_artifact.py`
+_E1 — Is the bottom-of-range entry edge mechanical mean-reversion or signal timing?_
+- **imports:** exp_common, numpy, os, pandas, sys
+
+## `research/direction-brain-mission/experiments-20260717/e2_btc_residual.py`
+_E2 — Do our lenses predict RELATIVE (vs-BTC) moves better than absolute moves?_
+- **functions:** `beta_r2(arr)`
+- **imports:** exp_common, numpy, os, pandas, sys
+
+## `research/direction-brain-mission/experiments-20260717/e3_null_harness.py`
+_E3 — Shuffled-label null harness: how many "proven" buckets does our reliability_
+- **functions:** `proven_buckets(df, col)`
+- **imports:** exp_common, numpy, os, pandas, sys
+
+## `research/direction-brain-mission/experiments-20260717/e4_rank_persistence.py`
+_E4 — Drift diagnosis: does the RANKING of sources persist across days?_
+- **imports:** exp_common, numpy, os, pandas, scipy.stats, sys
+
+## `research/direction-brain-mission/experiments-20260717/e5_profit_decomposition.py`
+_E5 — Where does the money actually come from: direction (win%) or exits (capture)?_
+- **imports:** exp_common, numpy, os, pandas, scipy.stats, sys
+
+## `research/direction-brain-mission/experiments-20260717/e6_fill_realism.py`
+_E6 — Fill realism / adverse selection: do our paper wins depend on fills a live_
+- **imports:** exp_common, numpy, os, pandas, sys
+
+## `research/direction-brain-mission/experiments-20260717/e6b_abort_curve.py`
+_E6b — Counterfactual early-abort curve: what if every trade were aborted the moment_
+- **imports:** exp_common, numpy, os, sys
+
+## `research/direction-brain-mission/experiments-20260717/exp_common.py`
+_Shared loaders for the 2026-07-17 discussion-session experiments (E1-E6)._
+- **functions:** `flat(sym) -> str`; `base(sym) -> str`; `_load_mirror() -> dict`; `bars5(sym) -> np.ndarray | None`; `close_at(arr, ts) -> float | None`; `fwd_ret(arr, ts, horizon_s) -> float | None`; `range_pos(arr, ts, minutes) -> float | None`; `pos_bucket(rp) -> str | None`; `load_claims() -> pd.DataFrame`; `load_trades() -> pd.DataFrame`
+- **imports:** __future__, functools, gzip, json, numpy, os, pandas, sqlite3
+
 ## `research/direction-brain-mission/verdict_check.py`
 _Direction Brain Mission — the one-day verdict check (read-only)._
 - **functions:** `_wilson(c, n, z)`; `_rows(name)`; `main() -> None`
