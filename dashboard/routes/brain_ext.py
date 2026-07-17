@@ -51,8 +51,37 @@ def handle_ops(h):
         {"key": "memory", "label": "Human memory", "path": "/api/brain/memory/status", "real": False},
         {"key": "hybrid", "label": "Hybrid memory", "path": "/api/brain/hybrid/status", "real": False},
         {"key": "librarian", "label": "Librarian", "path": "/api/brain/librarian/status", "real": False},
+        {"key": "graveyard", "label": "Strategy graveyard (cause-of-death)",
+         "path": "/api/brain/graveyard", "real": True},
+        {"key": "research_context", "label": "Web-research briefs (context, not a vote)",
+         "path": "/api/brain/research-context", "real": True},
         {"key": "stream", "label": "Stream of mind", "path": "/api/brain/stream/status", "real": False},
     ]
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_graveyard(h):
+    """GET /api/brain/graveyard — the cause-of-death ledger (2026-07-17): lanes/strategies/skills
+    that died, WHERE they died (lane_kill / foundry_demote / reeval_retire) and their last metric.
+    Turns silent kills into learnable, operator-visible data. Real state-file read, no heavy import.
+    """
+    try:
+        from trading.brain import graveyard as _gy
+        out = _gy.status()
+    except Exception as e:
+        out = {"error": f"{type(e).__name__}: {e}"[:160], "total": 0}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
+def handle_research_context(h):
+    """GET /api/brain/research-context — per-symbol web-research briefs surfaced as CONTEXT
+    (never a direction vote — see trading/direction/research_context.py). Real, no network.
+    """
+    try:
+        from trading.direction import research_context as _rc
+        out = _rc.status()
+    except Exception as e:
+        out = {"error": f"{type(e).__name__}: {e}"[:160], "n_briefs": 0}
     return h._send(200, json.dumps(out, default=str).encode(), "application/json")
 
 

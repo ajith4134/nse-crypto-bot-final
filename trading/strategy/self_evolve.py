@@ -121,6 +121,13 @@ class SelfEvolvingLoop:
                 if f.score <= retire_below:
                     self.library._skills.pop(skill.name, None)
                     retired.append({"name": skill.name, "fresh_score": round(f.score, 4)})
+                    try:                          # cause-of-death ledger (real retirement)
+                        from trading.brain import graveyard as _gy
+                        _gy.record_death(skill.name, kind="skill", stage="reeval_retire",
+                                         metric=round(f.score, 4), market=market or "",
+                                         detail=f"fresh score {f.score:.4f} <= {retire_below}")
+                    except Exception:
+                        pass
                 else:
                     kept.append({"name": skill.name, "fresh_score": round(f.score, 4)})
             except Exception as e:

@@ -1247,6 +1247,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/brain/ops":                          # body extracted → dashboard/routes/brain_ext.py (Wave0-⑤ seam)
             from dashboard.routes import brain_ext
             return brain_ext.handle_ops(self)
+        if path == "/api/brain/graveyard":                    # cause-of-death ledger → brain_ext.py
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_graveyard(self)
+        if path == "/api/brain/research-context":             # web-research briefs as context → brain_ext.py
+            from dashboard.routes import brain_ext
+            return brain_ext.handle_research_context(self)
         if path == "/api/brain/neurons":                      # Brain Ultra Upgrade — web-of-neurons overview
             from dashboard.routes import brain_ext
             return brain_ext.handle_neurons(self)

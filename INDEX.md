@@ -933,7 +933,7 @@ _(no summary)_
 
 ## `dashboard/routes/brain_ext.py`
 _Extracted brain HTTP routes (dashboard/server.py split — Wave0-⑤, first verified seam)._
-- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `_state_json(name, default)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`; `handle_neurons(h)`; `handle_neurons_graph(h)`; `handle_neurons_search(h)`; `handle_brain_flow(h)`; `handle_selfeval_report(h)`; `handle_evolution(h)`; `handle_brain_os(h)`
+- **functions:** `_srv(h)`; `handle_ops(h)`; `handle_graveyard(h)`; `handle_research_context(h)`; `handle_mind_events(h)`; `handle_agent_status(h)`; `_state_json(name, default)`; `handle_memory_status(h)`; `handle_hybrid_status(h)`; `handle_librarian_status(h)`; `handle_quiz_status(h)`; `handle_thinking_status(h)`; `handle_stream_status(h)`; `handle_boss(h)`; `handle_autonomy_status(h)`; `handle_embodiment_status(h)`; `handle_activity(h)`; `handle_learning(h)`; `handle_worldmodel(h)`; `handle_hypotheses(h)`; `handle_evolve(h)`; `handle_generators(h)`; `handle_researcher(h)`; `handle_goal_score(h)`; `handle_surface(h)`; `handle_evidence(h)`; `handle_ui_data(h)`; `handle_scouts(h)`; `handle_track_record(h)`; `handle_briefing(h)`; `handle_connectivity(h)`; `handle_curiosity(h)`; `handle_ui_health(h)`; `handle_neurons(h)`; `handle_neurons_graph(h)`; `handle_neurons_search(h)`; `handle_brain_flow(h)`; `handle_selfeval_report(h)`; `handle_evolution(h)`; `handle_brain_os(h)`
 - **imports:** json, os, sys
 
 ## `dashboard/routes/network_ext.py`
@@ -4706,6 +4706,11 @@ _trading/direction/reflex.py — R2: the Reflex fast lane (Pillars 27 + 9)._
 _trading/direction/regime.py — D5: the direction regime classifier (goal Pillar 27)._
 - **functions:** `_env_f(name, default) -> float`; `_er(closes) -> tuple[float | None, bool]`; `_classify_closes(closes) -> dict`; `_mirror_closes(symbol) -> list | None`; `classify(symbol, segment) -> dict`; `market_regime() -> str`
 - **imports:** __future__, os, time, trading
+
+## `trading/direction/research_context.py`
+_trading/direction/research_context.py — per-symbol web-research briefs as CONTEXT._
+- **functions:** `_flat(sym) -> str`; `_load() -> dict`; `brief(symbol) -> dict | None`; `recent(limit) -> list[dict]`; `status() -> dict`
+- **imports:** __future__, time, trading
 
 ## `trading/direction/river_source.py`
 _trading/direction/river_source.py — River online learner as a measured direction source._

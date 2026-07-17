@@ -464,6 +464,15 @@ class StrategyFoundry:
             for sp in self.specs.values():
                 if sp.segment == seg and sp.status == "promoted" and sp.sid not in top:
                     sp.status = "executable"
+                    try:                          # cause-of-death ledger (real demotion event)
+                        from trading.brain import graveyard as _gy
+                        _rp = self._last_gate.get(sp.sid) or {}
+                        _gy.record_death(sp.sid, kind="strategy", stage="foundry_demote",
+                                         metric=_rp.get("dsr"), market=seg,
+                                         detail="; ".join(_rp.get("reasons") or [])
+                                         or "no longer a top gate-passer")
+                    except Exception:
+                        pass
         self._save()
         return promoted
 
