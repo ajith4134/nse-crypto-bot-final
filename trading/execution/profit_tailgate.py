@@ -76,7 +76,10 @@ def _arm_for(atr_pct: float | None, market: str = "") -> float:
     0.5%/day coin and a 20%/day one. Scale the arm by the symbol's ATR% vs a reference so a
     high-vol coin only arms after a bigger move and a calm coin arms sooner. Bounded 0.3×–3×.
     Levers: TAILGATE_REF_ATR_PCT (1.5), TAILGATE_ARM_ATR_MIN/MAX."""
-    base = _crypto_overrides(market)[0] or _MIN_ARM_PROFIT
+    # `is not None`, not `or` (review fix): an explicit override of 0 means "arm
+    # immediately" and must not silently revert to the 3% default
+    _ov = _crypto_overrides(market)[0]
+    base = _ov if _ov is not None else _MIN_ARM_PROFIT
     if atr_pct is None or atr_pct <= 0:
         return base
     ref = float(os.environ.get("TAILGATE_REF_ATR_PCT", "1.5") or 1.5)
@@ -107,7 +110,9 @@ def locked_profit(market: str, segment: str, *, trade_id: str, profit_pct: float
                         * _regime_dist_mult(regime)))
     cap = _crypto_overrides(market)[1]
     if cap is not None:
-        dist = min(dist, cap)
+        # the 0.05 giveback floor survives the cap (review fix: a cap of 0 would have
+        # made the ratchet exit on the first adverse tick after arming)
+        dist = max(0.05, min(dist, cap))
     locks = state.load_json(_LOCK_FILE, {})
     rec = locks.get(trade_id) or {}
     prev = float(rec.get("locked", 0.0))
@@ -148,8 +153,9 @@ def should_exit(market: str, segment: str, profit_pct: float, peak_profit_pct: f
     dist = learned_distance(market, segment, regime)
     arm_ov, cap = _crypto_overrides(market)
     if cap is not None:
-        dist = min(dist, cap)
-    if peak_profit_pct is None or peak_profit_pct < (arm_ov or _MIN_ARM_PROFIT):
+        dist = max(0.05, min(dist, cap))
+    _arm = arm_ov if arm_ov is not None else _MIN_ARM_PROFIT
+    if peak_profit_pct is None or peak_profit_pct < _arm:
         return False, dist, "not armed (peak below arm threshold)"
     # exit line = peak × (1 - distance). profit dropping below it locks the gain —
     # even if it gapped straight through into the red between polls.

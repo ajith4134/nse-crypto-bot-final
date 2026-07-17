@@ -54,8 +54,21 @@ def _db_path() -> str:
 
 
 def _exempt() -> set:
-    raw = os.environ.get("LANE_GATE_EXEMPT", "learned_direction_ctl")
+    """Never-kill tags. REVIEW FIX 2026-07-17: the first cut exempted only the control
+    lane — but the PRIMARY decision lanes (learned_direction, the live_loop router) are
+    net-negative while the brain LEARNS (paper is the experiment, CONVENTIONS §15);
+    killing them silently stops most trading and starves the ledger of training data.
+    The kill gate exists for the PROLIFERATED strategy/filter tail, not the core.
+    lens:* is exempt as a PREFIX: the lens lane has its own pre-registered verdict
+    system (B3, n≥100/lens) — two independent executioners would double-judge it."""
+    raw = os.environ.get(
+        "LANE_GATE_EXEMPT", "learned_direction_ctl,learned_direction,live_loop")
     return {s.strip() for s in raw.split(",") if s.strip()}
+
+
+def _exempt_prefixes() -> tuple:
+    raw = os.environ.get("LANE_GATE_EXEMPT_PREFIX", "lens:")
+    return tuple(p.strip() for p in raw.split(",") if p.strip())
 
 
 def _fresh_prefixes() -> tuple:
@@ -98,16 +111,45 @@ def killed(tag: str) -> tuple[bool, str]:
     in the window AND total P&L < 0. Exempt tags never die."""
     if not tag or not _on("LANE_KILL"):
         return False, ""
-    if tag in _exempt():
+    if tag in _exempt() or tag.startswith(_exempt_prefixes()):
         return False, ""
     st = tag_stats().get(tag)
     if not st:
         return False, ""
     min_n = int(_f("LANE_KILL_MIN_N", 100))
-    if st["n"] >= min_n and st["pnl"] < 0:
+    # HYSTERESIS (review fix): "any negative total" retired a lane sitting at −$0.01.
+    # The loss must be MATERIAL (≥ LANE_KILL_MIN_LOSS USDT over the window) so
+    # break-even lanes keep trading and keep generating evidence.
+    min_loss = _f("LANE_KILL_MIN_LOSS", 25.0)
+    if st["n"] >= min_n and st["pnl"] <= -min_loss:
         return True, (f"lane '{tag}' retired: {st['n']} closed trades, "
                       f"{st['pnl']:+.0f} USDT, win {st['win']:.2f} over the window")
     return False, ""
+
+
+def _parole(tag: str) -> bool:
+    """True when the killed `tag` is due its probation entry (at most one per
+    LANE_KILL_PROBATION_H hours, persisted so restarts don't reset the clock).
+    0 disables parole entirely."""
+    hours = _f("LANE_KILL_PROBATION_H", 6.0)
+    if hours <= 0:
+        return False
+    now = time.time()
+    granted = {"ok": False}
+    try:
+        from trading import state
+
+        def _m(d: dict) -> dict:
+            pl = d.setdefault("parole_ts", {})
+            last = float(pl.get(tag) or 0.0)
+            if now - last >= hours * 3600.0:
+                pl[tag] = now
+                granted["ok"] = True
+            return d
+        state.mutate_json(_STATE_FILE, _m, default={})
+    except Exception:
+        return False
+    return granted["ok"]
 
 
 def _record_refusal(kind: str, tag: str) -> None:
@@ -132,6 +174,15 @@ def check(tag: str | None, symbol: str, direction: str,
     try:
         dead, why = killed(t)
         if dead:
+            # PAROLE (live-verification fix 2026-07-17): a killed lane cannot trade, so
+            # its record can never improve — permanent death by construction (seen live
+            # the same hour: filter:momentum was retired on its OLD 24h-selection record
+            # minutes after its selection logic was fixed). One probation entry per
+            # LANE_KILL_PROBATION_H keeps evidence flowing at ~2% of the old trade rate,
+            # so a genuinely-fixed lane climbs out and a truly-dead one stays down.
+            if _parole(t):
+                _record_refusal("parole", t)
+                return True, "", f"parole entry for retired lane ({why})"
             _record_refusal("killed", t)
             return False, "lane_kill", why
         if t.startswith(_fresh_prefixes()) and _on("FRESH_GATE"):

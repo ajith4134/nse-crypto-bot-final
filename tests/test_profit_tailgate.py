@@ -111,6 +111,18 @@ class TestCryptoSweepOverrides(_Iso):
                              profit_pct=1.1, peak_profit_pct=1.5)
         self.assertTrue(b["exit"])
 
+    def test_zero_arm_override_arms_immediately_and_zero_cap_keeps_floor(self):
+        """Review fix: an explicit 0 override must not fall back via `or`; a cap of 0
+        must not defeat the 0.05 giveback floor."""
+        from trading.execution import profit_tailgate as pt
+        os.environ["TAILGATE_ARM_PROFIT_PCT_CRYPTO"] = "0"
+        os.environ["TAILGATE_DIST_MAX_CRYPTO"] = "0"
+        a = pt.locked_profit("crypto", "futures", trade_id="Z1",
+                             profit_pct=0.3, peak_profit_pct=0.4)
+        # armed at peak 0.4 ≥ 0 (zero-arm honored), dist floored at 0.05 → lock 0.38
+        self.assertAlmostEqual(a["distance_pct"], 0.05)
+        self.assertAlmostEqual(a["locked_profit_pct"], 0.38)
+
     def test_nse_ignores_crypto_overrides(self):
         from trading.execution import profit_tailgate as pt
         os.environ["TAILGATE_ARM_PROFIT_PCT_CRYPTO"] = "1.0"

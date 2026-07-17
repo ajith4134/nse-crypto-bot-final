@@ -83,6 +83,23 @@ class BinanceFilterLaneTest(unittest.TestCase):
             ranked = bfl.rank([dict(r) for r in rows], "momentum")
         self.assertEqual(ranked[0]["symbol"], "NOWUSDT")
 
+    def test_stf_change_requires_full_window(self):
+        """Review fix: 3 of 13 bars after a mirror warmup must NOT be reported as the
+        60m move — partial history returns None (honest 24h fallback)."""
+        from unittest import mock
+        from trading.broker_sense import binance_filter_lane as bfl
+        m = mock.Mock()
+        m.candles.return_value = [[0, 1, 1, 1, 100.0], [300, 1, 1, 1, 101.0],
+                                  [600, 1, 1, 1, 110.0]]      # only 3 bars
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        return_value=m):
+            self.assertIsNone(bfl._stf_change("AKEUSDT"))
+        # full window works
+        m.candles.return_value = [[i * 300, 1, 1, 1, 100.0 + i] for i in range(13)]
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        return_value=m):
+            self.assertAlmostEqual(bfl._stf_change("AKEUSDT"), 12.0)
+
     def test_momentum_side_uses_short_tf_sign_with_24h_fallback(self):
         from unittest import mock
         from trading.broker_sense import binance_filter_lane as bfl

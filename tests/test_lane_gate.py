@@ -62,6 +62,42 @@ class TestKillCriteria(_Iso):
         _mkdb(self.db, [("learned_direction_ctl", -1.0, 1)] * 200)
         self.assertEqual(self.lg.killed("learned_direction_ctl"), (False, ""))
 
+    def test_core_lanes_and_lens_prefix_never_die(self):
+        """Review fix: killing the PRIMARY lanes (learned_direction / live_loop) would
+        silently stop most trading and starve the ledger; lens:* has its own verdicts."""
+        _mkdb(self.db, [("learned_direction", -2.0, 1)] * 150
+              + [("live_loop", -2.0, 1)] * 150 + [("lens:debate", -2.0, 1)] * 150)
+        for tag in ("learned_direction", "live_loop", "lens:debate"):
+            self.assertEqual(self.lg.killed(tag), (False, ""), tag)
+
+    def test_tiny_loss_lane_survives_hysteresis(self):
+        """Review fix: −$12 over 120 trades is break-even noise, not a kill."""
+        _mkdb(self.db, [("meh_lane", -0.1, 1)] * 120)
+        self.assertEqual(self.lg.killed("meh_lane"), (False, ""))
+
+    def test_killed_lane_gets_parole_once_per_window(self):
+        """Live-verification fix: a retired lane earns ONE probation entry per
+        LANE_KILL_PROBATION_H so it can redeem itself — then is refused again."""
+        _mkdb(self.db, [("bad_lane", -1.0, 1)] * 120)
+        ok1, g1, why1 = self.lg.check("bad_lane", "A/USDT:USDT", "LONG", "futures")
+        self.assertTrue(ok1)
+        self.assertIn("parole", why1)
+        ok2, g2, _ = self.lg.check("bad_lane", "A/USDT:USDT", "LONG", "futures")
+        self.assertFalse(ok2)
+        self.assertEqual(g2, "lane_kill")
+        st = state.load_json("lane_gate.json", {})
+        self.assertEqual(st["parole"]["bad_lane"], 1)
+        self.assertEqual(st["killed"]["bad_lane"], 1)
+        os.environ["LANE_KILL_PROBATION_H"] = "0"     # 0 disables parole
+        try:
+            with self.lg._lock:
+                pass
+            state.save_json("lane_gate.json", {})
+            ok3, g3, _ = self.lg.check("bad_lane", "A/USDT:USDT", "LONG", "futures")
+            self.assertFalse(ok3)
+        finally:
+            os.environ.pop("LANE_KILL_PROBATION_H", None)
+
     def test_old_trades_outside_window_do_not_count(self):
         _mkdb(self.db, [("was_bad", -1.0, 30)] * 200)   # all older than the 14d window
         self.assertEqual(self.lg.killed("was_bad"), (False, ""))
@@ -72,7 +108,11 @@ class TestKillCriteria(_Iso):
 
     def test_check_records_refusal_counter(self):
         _mkdb(self.db, [("bad_lane", -1.0, 1)] * 120)
-        ok, guard, why = self.lg.check("bad_lane", "AKE/USDT:USDT", "LONG", "futures")
+        os.environ["LANE_KILL_PROBATION_H"] = "0"     # isolate the kill path from parole
+        try:
+            ok, guard, why = self.lg.check("bad_lane", "AKE/USDT:USDT", "LONG", "futures")
+        finally:
+            os.environ.pop("LANE_KILL_PROBATION_H", None)
         self.assertFalse(ok)
         self.assertEqual(guard, "lane_kill")
         st = state.load_json("lane_gate.json", {})
@@ -115,6 +155,8 @@ class TestFreshnessGate(_Iso):
 class TestStatus(_Iso):
     def test_status_reports_retired_and_counters(self):
         _mkdb(self.db, [("bad_lane", -1.0, 1)] * 120)
+        os.environ["LANE_KILL_PROBATION_H"] = "0"
+        self.addCleanup(os.environ.pop, "LANE_KILL_PROBATION_H", None)
         self.lg.check("bad_lane", "A/USDT:USDT", "LONG", "futures")
         st = self.lg.status()
         self.assertIn("bad_lane", st["retired"])
@@ -133,12 +175,16 @@ class TestPlaceOrderWiring(_Iso):
 
     def test_killed_tag_refused_before_any_transport(self):
         _mkdb(self.db, [("bad_lane", -1.0, 1)] * 120)
+        os.environ["LANE_KILL_PROBATION_H"] = "0"
         ec = self._ec()
         cli = mock.Mock()
-        with mock.patch.object(ec, "_client", return_value=cli), \
-             mock.patch.object(ec, "_pair_tradeable", return_value=True):
-            res = ec.place_order(symbol="AKE/USDT:USDT", action="BUY",
-                                 enter_tag="bad_lane", segment="futures")
+        try:
+            with mock.patch.object(ec, "_client", return_value=cli), \
+                 mock.patch.object(ec, "_pair_tradeable", return_value=True):
+                res = ec.place_order(symbol="AKE/USDT:USDT", action="BUY",
+                                     enter_tag="bad_lane", segment="futures")
+        finally:
+            os.environ.pop("LANE_KILL_PROBATION_H", None)
         self.assertFalse(res["ok"])
         self.assertEqual(res["guard"], "lane_kill")
         cli.forceenter.assert_not_called()

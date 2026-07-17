@@ -305,8 +305,12 @@ class BrokerSenseFunnel:
             try:
                 from trading.broker_sense import inception as _inc
                 hot = _inc.order(list(hot))
-            except Exception:
-                pass
+            except Exception as _ie:
+                # LOUD fallback (review fix): a silently no-op re-ranker is
+                # indistinguishable from a working one — and the fallback IS the
+                # examine-exhausted-movers behavior this exists to fix.
+                print(f"[funnel:{self.market}] inception order failed, "
+                      f"using heat order: {type(_ie).__name__}: {_ie!s:.80}", flush=True)
         new_hot = [s for s in hot if s not in open_syms][: _cap]
         picks = [by_sym.get(s, {"symbol": s, "lane": "tradingview"})
                  for s in new_hot]

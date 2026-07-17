@@ -162,28 +162,47 @@ def score(feats: dict | None) -> float:
         sc += 1.0 * min(1.0, abs(float(ti)))
     sc += 0.5 * min(int(feats.get("liq_10m") or 0), 4) / 4.0
     r60, r240 = feats.get("r60"), feats.get("r240")
-    if r240 is not None and abs(r240) >= _f("INCEPTION_FRESH_R240", 5.0) \
-            and abs(r60 or 0.0) < _f("INCEPTION_FRESH_R60", 1.0):
+    if _is_stale(abs(r60 or 0.0), abs(r240) if r240 is not None else None):
         sc -= 1.0
     if int(feats.get("move_age_bars") or 0) > 12:
         sc -= 0.5
     return round(sc, 4)
 
 
-def _scored(symbol: str) -> float:
+def cached_features(symbol: str) -> dict | None:
+    """features() behind the 45s TTL cache. EVERY consumer goes through here (review
+    fix 2026-07-17: phase()/fresh_ok() originally called features() directly, so each
+    truth-ledger claim record re-read 49 bars + taker + liquidations from the mirror —
+    3× per symbol per cycle on the funnel hot path, exactly what the cache exists to
+    bound)."""
     now = time.monotonic()
     s = _flat(symbol)
     with _cache_lock:
         hit = _score_cache.get(s)
         if hit and now - hit[0] < _CACHE_TTL:
-            return score(hit[1])
+            return hit[1]
     feats = features(s)
     with _cache_lock:
         _score_cache[s] = (now, feats)
         if len(_score_cache) > 2000:                # bound the cache
             for k in list(_score_cache)[:500]:
                 _score_cache.pop(k, None)
-    return score(feats)
+    return feats
+
+
+def _scored(symbol: str) -> float:
+    return score(cached_features(symbol))
+
+
+def _is_stale(r60: float | None, r240: float | None) -> bool:
+    """THE stale-cohort predicate (one definition — score, phase and the gate must
+    never disagree): a ≥INCEPTION_FRESH_R240 4h move whose last hour has stalled below
+    INCEPTION_FRESH_R60. Signed inputs give the direction-aware answer; absolute inputs
+    give the symbol-level one."""
+    if r240 is None:
+        return False
+    return (r240 >= _f("INCEPTION_FRESH_R240", 5.0)
+            and (r60 or 0.0) < _f("INCEPTION_FRESH_R60", 1.0))
 
 
 def rank(symbols=None, n: int | None = None) -> list[tuple[str, float]]:
@@ -220,13 +239,13 @@ def phase(symbol: str) -> str | None:
     """Direction-agnostic momentum-lifecycle bucket, thresholds from the 2026-07-17
     band measurement: quiet (nothing moving) | fresh (last hour moving) | stale (big 4h
     move, last hour flat — the toxic cohort) | extended (big and still running) | mid."""
-    f = features(symbol)
+    f = cached_features(symbol)
     if f is None:
         return None
     r60, r240 = abs(f.get("r60") or 0.0), abs(f.get("r240") or 0.0)
     if r240 >= 10.0 and r60 >= 2.0:
         return "extended"
-    if r240 >= _f("INCEPTION_FRESH_R240", 5.0) and r60 < _f("INCEPTION_FRESH_R60", 1.0):
+    if _is_stale(r60, r240):
         return "stale"
     if r60 >= 2.0:
         return "fresh"
@@ -241,13 +260,13 @@ def fresh_ok(symbol: str, direction: str) -> tuple[bool, str]:
     (win 0.488/−1.21% stale vs 0.529/−0.92% fresh; filter:* entered at +4.6% 4h with a
     +0.8% hour and ran 0.425/−1.43%.) Missing data → (True, ...): fail-open, a blind
     gate must never block trades."""
-    f = features(symbol)
+    f = cached_features(symbol)
     if f is None:
         return True, "no-data (fail-open)"
     sign = -1.0 if (direction or "LONG").upper() == "SHORT" else 1.0
     sr60 = sign * float(f.get("r60") or 0.0)
     sr240 = sign * float(f.get("r240") or 0.0)
-    if sr240 >= _f("INCEPTION_FRESH_R240", 5.0) and sr60 < _f("INCEPTION_FRESH_R60", 1.0):
+    if _is_stale(sr60, sr240):
         return False, (f"stale momentum: 4h {sr240:+.1f}% but last hour {sr60:+.1f}% "
                        f"— move already stalled")
     return True, f"fresh enough (4h {sr240:+.1f}%, 1h {sr60:+.1f}%)"

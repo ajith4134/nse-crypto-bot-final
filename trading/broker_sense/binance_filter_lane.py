@@ -120,7 +120,11 @@ def _stf_change(symbol: str) -> float | None:
         tf, per = (60, 1) if mins <= 5 else (300, 5)
         n = max(2, mins // per + 1)
         rows = get_mirror().candles(flat, tf, n) or []
-        if len(rows) < 2:
+        # FULL window required (review fix): with 3 of 13 bars after a mirror warmup,
+        # rows[0] is ~10 minutes ago, not 60 — returning that as "the 60m move" fed an
+        # inflated wrong-window number into ranking AND the side. Partial history →
+        # honest None → callers fall back to the 24h signal.
+        if len(rows) < n:
             return None
         past, cur = float(rows[0][4]), float(rows[-1][4])
         if past <= 0:

@@ -3838,7 +3838,7 @@ _trading/broker_sense/human_handoff.py — mid-session human-CAPTCHA handoff._
 
 ## `trading/broker_sense/inception.py`
 _Inception ranker — attention by P(move STARTING), not P(move happened)._
-- **functions:** `_f(name, default) -> float`; `_flat(symbol) -> str`; `_mirror()`; `features(symbol) -> dict | None`; `score(feats) -> float`; `_scored(symbol) -> float`; `rank(symbols, n) -> list[tuple[str, float]]`; `order(symbols) -> list[str]`; `phase(symbol) -> str | None`; `fresh_ok(symbol, direction) -> tuple[bool, str]`; `clear_cache() -> None`
+- **functions:** `_f(name, default) -> float`; `_flat(symbol) -> str`; `_mirror()`; `features(symbol) -> dict | None`; `score(feats) -> float`; `cached_features(symbol) -> dict | None`; `_scored(symbol) -> float`; `_is_stale(r60, r240) -> bool`; `rank(symbols, n) -> list[tuple[str, float]]`; `order(symbols) -> list[str]`; `phase(symbol) -> str | None`; `fresh_ok(symbol, direction) -> tuple[bool, str]`; `clear_cache() -> None`
 - **imports:** __future__, math, os, threading, time
 
 ## `trading/broker_sense/indicator_fusion.py`
@@ -4758,7 +4758,7 @@ _trading/execution/kill_switch.py — real-money safety kill-switch (T3 §10)._
 
 ## `trading/execution/lane_gate.py`
 _Lane gate — kill-criteria parity + freshness gate at the ONE entry chokepoint._
-- **functions:** `_f(name, default) -> float`; `_on(name, default) -> bool`; `_db_path() -> str`; `_exempt() -> set`; `_fresh_prefixes() -> tuple`; `tag_stats(refresh) -> dict`; `killed(tag) -> tuple[bool, str]`; `_record_refusal(kind, tag) -> None`; `check(tag, symbol, direction, segment) -> tuple[bool, str, str]`; `status() -> dict`
+- **functions:** `_f(name, default) -> float`; `_on(name, default) -> bool`; `_db_path() -> str`; `_exempt() -> set`; `_exempt_prefixes() -> tuple`; `_fresh_prefixes() -> tuple`; `tag_stats(refresh) -> dict`; `killed(tag) -> tuple[bool, str]`; `_parole(tag) -> bool`; `_record_refusal(kind, tag) -> None`; `check(tag, symbol, direction, segment) -> tuple[bool, str, str]`; `status() -> dict`
 - **imports:** __future__, os, sqlite3, threading, time
 
 ## `trading/execution/mae_mfe.py`

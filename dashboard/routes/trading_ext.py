@@ -383,7 +383,11 @@ def handle_upgrades_status(h):
             ("onchain", "trading.direction.onchain_source", "status"),
             ("vp_events", "trading.direction.vp_events", "status"),
             ("market_state", "trading.direction.market_state", "status"),
-            ("brain_sources", "trading.direction.brain_sources", "status")):
+            ("brain_sources", "trading.direction.brain_sources", "status"),
+            # SELECTION overhaul 2026-07-17: gate refusals/retired lanes MUST be visible
+            # — a kill/freshness gate that refuses entries with no surface would look
+            # like "trading silently stopped" (honest-wiring review fix)
+            ("lane_gate", "trading.execution.lane_gate", "status")):
         try:
             import importlib
             out[key] = getattr(importlib.import_module(mod), fn)()

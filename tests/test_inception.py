@@ -87,6 +87,23 @@ class TestFeaturesAndScore(unittest.TestCase):
             self.assertIn("fail-open", why)
             self.assertEqual(inception.score(None), 0.0)
 
+    def test_phase_and_gate_use_the_cache(self):
+        """Review fix: phase()/fresh_ok() must go through cached_features — an uncached
+        49-bar mirror read per truth-ledger claim was multiplying hot-path work."""
+        from trading.broker_sense import inception
+        calls = []
+        real = inception.features
+
+        def _counting(sym):
+            calls.append(sym)
+            return real(sym)
+        with _patch(_mirror(_bars([100.0] * 49))), \
+                mock.patch.object(inception, "features", side_effect=_counting):
+            inception.phase("AKEUSDT")
+            inception.fresh_ok("AKEUSDT", "LONG")
+            inception.phase("AKEUSDT")
+        self.assertEqual(len(calls), 1)              # one build, two cache hits
+
     def test_order_preserves_input_on_cold_mirror_and_ranks_hot_first(self):
         from trading.broker_sense import inception
         closes_hot = [100.0] * 48 + [103.0]

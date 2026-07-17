@@ -116,6 +116,21 @@ def _kill_wedged(name: str, pattern: str) -> bool:
         except Exception as e:
             print(f"[loop-keeper] kill {name} pid {pid} failed: {type(e).__name__}: {e}",
                   flush=True)
+    if killed:
+        # SIGKILL is asynchronous — if start_all's pgrep guard runs while the corpse is
+        # still visible, the restart is skipped and the process stays down until the
+        # NEXT cron tick (~5 min outage). Wait (bounded) for the pids to actually vanish.
+        for _ in range(10):
+            try:
+                out = subprocess.run(["pgrep", "-f", pattern], capture_output=True,
+                                     text=True, timeout=10)
+                left = [p for p in out.stdout.split() if p.isdigit()
+                        and int(p) != os.getpid()]
+            except Exception:
+                break
+            if not left:
+                break
+            time.sleep(0.5)
     return killed
 
 
