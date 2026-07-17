@@ -128,7 +128,10 @@ class TestHorizonEmission(_Base):
                             log=False)
         self.assertEqual(out["direction"], "long")
         self.assertEqual(out.get("horizon"), "4h")
-        self.assertIn("horizon_scores", out)
+        # session 3 superseded the post-hoc emission with specialized fusion; either
+        # mechanism must still land on the strongest horizon
+        self.assertTrue(out.get("horizon_mode") == "specialized"
+                        or "horizon_scores" in out)
 
     def test_control_variant_marked(self):
         from trading.direction import learned_direction as ld
@@ -244,3 +247,67 @@ class TestSession2(unittest.TestCase):
             ld.decide([("lens_a", 0.7)], market="CRYPTO", symbol="AKEUSDT",
                       log=False, extra_conditioners={"sel": "momentum"})
         self.assertEqual(seen["cond"], {"liq": "calm", "sel": "momentum"})
+
+
+class TestHorizonSpecialized(_Base):
+    """Session 3: the horizon whose fused read is strongest OWNS the decision."""
+
+    def _seed(self, per_horizon):
+        from trading import state
+        day = _day(0)
+        db = {}
+        for h, (n, c) in per_horizon.items():
+            db[f"lens_a|CRYPTO|unknown|{h}|{day}"] = {"n": n, "correct": c}
+        state.save_json("direction_truth.json", {"day_buckets": db})
+
+    def test_strongest_horizon_owns_the_decision(self):
+        from trading.direction import learned_direction as ld
+        # 15m barely-positive, 4h strongly positive → 4h must own it
+        self._seed({"15m": (200, 104), "1h": (200, 108), "4h": (200, 130)})
+        with mock.patch.object(ld._tl, "current_conditioners", return_value={}):
+            out = ld.decide([("lens_a", 0.8)], market="CRYPTO", symbol="AKEUSDT",
+                            log=False)
+        self.assertEqual(out["direction"], "long")
+        self.assertEqual(out["horizon"], "4h")
+        self.assertEqual(out["horizon_mode"], "specialized")
+
+    def test_control_variant_stays_pooled(self):
+        from trading.direction import learned_direction as ld
+        self._seed({"4h": (200, 130)})
+        with mock.patch.object(ld._tl, "current_conditioners", return_value={}):
+            out = ld.decide([("lens_a", 0.8)], market="CRYPTO", symbol="AKEUSDT",
+                            log=False, variant="control")
+        self.assertNotEqual(out.get("horizon_mode"), "specialized")
+
+    def test_flag_off_restores_pooled_plus_posthoc(self):
+        from trading.direction import learned_direction as ld
+        os.environ["HORIZON_SPECIALIZED"] = "0"
+        try:
+            self._seed({"4h": (200, 130), "1h": (200, 120), "15m": (200, 118)})
+            with mock.patch.object(ld._tl, "current_conditioners", return_value={}):
+                out = ld.decide([("lens_a", 0.8)], market="CRYPTO", symbol="AKEUSDT",
+                                log=False)
+            self.assertNotEqual(out.get("horizon_mode"), "specialized")
+            self.assertIn(out.get("horizon"), ("15m", "1h", "4h"))  # post-hoc emission
+        finally:
+            os.environ.pop("HORIZON_SPECIALIZED", None)
+
+    def test_no_horizon_clears_falls_back_to_pooled(self):
+        from trading.direction import learned_direction as ld
+        self._seed({})                              # no per-horizon evidence at all
+        with mock.patch.object(ld._tl, "current_conditioners", return_value={}):
+            out = ld.decide([("lens_a", 0.8)], market="CRYPTO", symbol="AKEUSDT",
+                            log=False)
+        self.assertIsNone(out.get("horizon_mode"))
+
+
+class TestCorrectDirectionNeverInverts(_Base):
+    def test_reliably_wrong_source_passes_through(self):
+        from trading.direction import learned_direction as ld
+        wrong = {"n": 800, "correct": 240, "rate": 0.30, "ci_low": 0.27,
+                 "ci_high": 0.33, "edge": -0.20}
+        with mock.patch.object(ld, "reliability", return_value=wrong):
+            chosen, info = ld.correct_direction("LONG", source="bad_lens",
+                                                market="CRYPTO")
+        self.assertEqual(chosen, "LONG")            # NEVER flipped
+        self.assertEqual(info["action"], "pass")

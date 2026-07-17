@@ -260,6 +260,7 @@ def decide(readings, *, market: str = "", segment: str = "",
     num = 0.0          # Σ w·(p_cal - 0.5)
     tot_w = 0.0
     weights: dict[str, dict] = {}
+    _valid: list[tuple[str, float]] = []
     cond = None
     if symbol:
         try:            # E8: decision-time conditioners refine every source's weight;
@@ -291,6 +292,7 @@ def decide(readings, *, market: str = "", segment: str = "",
         weights[source] = {"w": round(w, 4), "invert": invert,
                            "rate": rel.get("rate"), "n": rel.get("n"),
                            "p_used": round(p_cal, 4)}
+        _valid.append((source, p_cal))
     if tot_w < cfg["min_total_w"]:
         out = {"direction": "neutral", "p_up": 0.5, "confidence": round(tot_w, 4),
                "weights": weights, "abstained": True, "n_sources": len(weights),
@@ -308,11 +310,50 @@ def decide(readings, *, market: str = "", segment: str = "",
         direction = "short"
     else:
         direction = "neutral"
+    # MISSION session 3 — HORIZON-SPECIALIZED fusion (the clean asymmetry made actionable:
+    # 15m .518 / 1h .534 / 4h .594). Re-fuse the same readings under each horizon's OWN
+    # recent reliability; the horizon whose fused read is strongest (weight × conviction)
+    # OWNS the decision — sources good at 4h drive 4h-tagged trades instead of being
+    # averaged into a pooled mush. Falls back to the pooled read when no horizon clears
+    # the same abstention bars. Control variant stays pooled (the benchmark).
+    h_mode = None
+    if variant != "control" and _valid \
+            and os.environ.get("HORIZON_SPECIALIZED", "1") in ("1", "true", "TRUE", "yes", "on"):
+        try:
+            best = None
+            for h in ("15m", "1h", "4h"):
+                num_h = tot_h = 0.0
+                for _src, _p in _valid:
+                    rel_h = reliability(_src, regime, market, conditioners=cond,
+                                        horizon=h, decayed=True)
+                    w_h, _ = _signed_weight(rel_h, cfg)
+                    if w_h <= 0.0:
+                        continue
+                    num_h += w_h * (_p - 0.5)
+                    tot_h += w_h
+                if tot_h < cfg["min_total_w"]:
+                    continue
+                p_h = min(1.0, max(0.0, 0.5 + num_h / tot_h))
+                if abs(p_h - 0.5) <= band:
+                    continue
+                score = tot_h * abs(p_h - 0.5)
+                if best is None or score > best[0]:
+                    best = (score, h, p_h, tot_h)
+            if best is not None:
+                _, _h, _ph, _th = best
+                direction = "long" if _ph > 0.5 else "short"
+                p_final, tot_w = _ph, _th
+                h_mode = _h
+        except Exception:
+            h_mode = None
     out = {"direction": direction, "p_up": round(p_final, 4),
            "confidence": round(tot_w, 4), "weights": weights,
            "abstained": direction == "neutral", "n_sources": len(weights),
            "variant": variant}
-    if direction != "neutral":
+    if h_mode is not None:
+        out["horizon"] = h_mode
+        out["horizon_mode"] = "specialized"
+    if direction != "neutral" and h_mode is None:
         # MISSION X-B: a side without a horizon is half a decision (measured: 15m 0.518 /
         # 1h 0.534 / 4h 0.594 on the clean window). Emit the horizon at which the AGREEING
         # sources have their strongest recent edge; exits and validation consume it.
@@ -422,21 +463,20 @@ def correct_direction(direction: str, *, source: str, market: str = "",
         return direction, {"action": "pass", "reason": "non-directional"}
     try:
         rel = reliability(source, regime, market)
-        w, invert = _signed_weight(rel, _cfg())
-        chosen = d
-        if invert and w > 0.0:                       # significant, reliably-wrong source → flip
-            chosen = "SHORT" if d == "LONG" else "LONG"
-            info = {"action": "invert", "from": d, "source": source,
-                    "rate": rel.get("rate"), "n": rel.get("n"), "regime": regime}
-        else:
-            info = {"action": "pass", "source": source, "rate": rel.get("rate"),
-                    "n": rel.get("n")}
-        _log({"direction": chosen.lower(), "p_up": None, "confidence": w,
-              "weights": {source: {"w": round(w, 4), "invert": invert,
+        w, _ = _signed_weight(rel, _cfg())
+        # MISSION session 3 (2026-07-17): the invert branch that used to live here was DEAD
+        # (since the 2026-07-16 inverter kills _signed_weight can never return invert=True
+        # with weight) but sat loaded for a future refactor to re-arm. Excised: this function
+        # PASSES or (nothing else). A reliably-wrong source is retired inside decide()'s
+        # weighting; a triggered pullback still opens so exploration keeps earning labels.
+        info = {"action": "pass", "source": source, "rate": rel.get("rate"),
+                "n": rel.get("n")}
+        _log({"direction": d.lower(), "p_up": None, "confidence": w,
+              "weights": {source: {"w": round(w, 4), "invert": False,
                                    "rate": rel.get("rate"), "n": rel.get("n")}},
               "abstained": False, "n_sources": 1},
              symbol=symbol, market=market, regime=regime, seam="correct")
-        return chosen, info
+        return d, info
     except Exception as e:
         return d, {"action": "pass", "error": str(e)[:120]}
 
