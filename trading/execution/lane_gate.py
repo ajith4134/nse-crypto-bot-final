@@ -192,6 +192,39 @@ def check(tag: str | None, symbol: str, direction: str,
                 return True, "", f"parole entry for retired lane ({why})"
             _record_refusal("killed", t)
             return False, "lane_kill", why
+        # STOP-CHURN COOLDOWN (2026-07-17 live catch): with the −3% backstop, lanes were
+        # re-entering the SAME pair+direction seconds after a stop_loss close and re-stopping
+        # inside a minute (DODOX stopped 14s after entry, re-entered twice) — each churn
+        # cycle burns a full stop. Applies to EVERY tag (exempt lanes included: churn guard
+        # is orthogonal to lane-kill). A direction FLIP stays allowed — it is a new claim.
+        cd_min = _f("STOP_REENTRY_COOLDOWN_MIN", 30.0)
+        if cd_min > 0 and symbol:
+            try:
+                want_short = 1 if (direction or "").upper() == "SHORT" else 0
+                con = sqlite3.connect(f"file:{_db_path()}?mode=ro", uri=True, timeout=3.0)
+                try:
+                    row = con.execute(
+                        "SELECT COUNT(*) FROM trades WHERE is_open=0 AND pair=? "
+                        "AND is_short=? AND exit_reason='stop_loss' "
+                        "AND close_date >= datetime('now', ?)",
+                        (symbol, want_short, f"-{int(cd_min)} minutes")).fetchone()
+                finally:
+                    con.close()
+                if row and int(row[0] or 0) > 0:
+                    _record_refusal("stop_cooldown", t)
+                    try:                        # counterfactual claim — labeler adjudicates
+                        from trading.direction import truth_ledger as tl
+                        tl.record(symbol=symbol, market="CRYPTO",
+                                  segment=(segment or "futures"),
+                                  direction=(direction or "LONG").upper(),
+                                  source="stopcool", taken=False)
+                    except Exception:
+                        pass
+                    return False, "stop_cooldown", (
+                        f"{symbol} {direction}: stopped out within the last "
+                        f"{int(cd_min)}m — re-entry blocked (flip allowed)")
+            except Exception:
+                pass                            # fail-open like every other guard here
         if t.startswith(_fresh_prefixes()) and _on("FRESH_GATE"):
             from trading.broker_sense import inception
             ok, why = inception.fresh_ok(symbol, direction)

@@ -2427,7 +2427,7 @@ _Phase P4.4 (2nd mastery model) acceptance tests — EduKTM Deep Knowledge Traci
 
 ## `tests/test_lane_gate.py`
 _Tests for trading/execution/lane_gate.py — kill-criteria parity + freshness gate at_
-- **classes:** _Iso, TestKillCriteria, TestFreshnessGate, TestStatus, TestPlaceOrderWiring, TestPhaseConditioner
+- **classes:** _Iso, TestKillCriteria, TestFreshnessGate, TestStatus, TestPlaceOrderWiring, TestPhaseConditioner, TestStopChurnCooldown
 - **functions:** `_mkdb(path, rows)`
 - **imports:** __future__, os, pathlib, sqlite3, tempfile, trading.state, unittest
 

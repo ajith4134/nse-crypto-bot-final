@@ -220,3 +220,49 @@ class TestPhaseConditioner(_Iso):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStopChurnCooldown(_Iso):
+    """2026-07-17 live catch: DODOX stopped 14s after entry and re-entered twice —
+    same pair+direction re-entry within STOP_REENTRY_COOLDOWN_MIN is refused."""
+
+    def _mkdb_stops(self, rows):
+        """rows: (pair, is_short, exit_reason, minutes_ago)"""
+        con = sqlite3.connect(self.db)
+        con.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, enter_tag TEXT, "
+                    "is_open INT, close_profit_abs REAL, open_date TEXT, pair TEXT, "
+                    "is_short INT, exit_reason TEXT, close_date TEXT)")
+        for i, (pair, short, reason, mins) in enumerate(rows):
+            con.execute(
+                "INSERT INTO trades VALUES (?,?,0,?,datetime('now','-1 days'),?,?,?,"
+                "datetime('now', ?))",
+                (i, "any", -1.0, pair, short, reason, f"-{int(mins)} minutes"))
+        con.commit()
+        con.close()
+
+    def test_recent_stop_blocks_same_direction_reentry(self):
+        self._mkdb_stops([("DODOX/USDT:USDT", 0, "stop_loss", 5)])
+        ok, guard, why = self.lg.check("live_loop", "DODOX/USDT:USDT", "LONG")
+        self.assertFalse(ok)
+        self.assertEqual(guard, "stop_cooldown")
+        self.assertIn("re-entry blocked", why)
+
+    def test_direction_flip_stays_allowed(self):
+        self._mkdb_stops([("DODOX/USDT:USDT", 0, "stop_loss", 5)])
+        ok, guard, _ = self.lg.check("live_loop", "DODOX/USDT:USDT", "SHORT")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+    def test_old_stop_or_other_exit_reason_does_not_block(self):
+        self._mkdb_stops([("A/USDT:USDT", 0, "stop_loss", 90),
+                          ("B/USDT:USDT", 0, "tailgate_lock", 2)])
+        self.assertTrue(self.lg.check("live_loop", "A/USDT:USDT", "LONG")[0])
+        self.assertTrue(self.lg.check("live_loop", "B/USDT:USDT", "LONG")[0])
+
+    def test_zero_knob_disables(self):
+        self._mkdb_stops([("C/USDT:USDT", 0, "stop_loss", 1)])
+        os.environ["STOP_REENTRY_COOLDOWN_MIN"] = "0"
+        try:
+            self.assertTrue(self.lg.check("live_loop", "C/USDT:USDT", "LONG")[0])
+        finally:
+            os.environ.pop("STOP_REENTRY_COOLDOWN_MIN", None)

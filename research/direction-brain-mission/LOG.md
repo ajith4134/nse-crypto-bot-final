@@ -283,3 +283,28 @@ DECISION: keep ML_STOPLOSS=−0.03 (best total; matches E6b 50bps price abort). 
 ~30% of winners stopped early → short-term WIN-RATE dips while P&L improves. Green-ratio
 recovery path: any trade reaching +1% stake now closes green (arm 1.0/dist 0.2/locked>0),
 so green% ≈ P(+0.2% price move before −0.6% against) — entry timing = inception's job.
+
+## Session 8, Batch 2 (2026-07-17 ~20:50 UTC) — stop-churn + direction-at-entry
+
+LIVE CATCH (first 19 post-Batch-1 freqtrade closes): every tailgate close GREEN
+(+0.44…+2.24%) + roi +10.69 ✓, BUT the live_loop ROUTER lane (live_loop._route_crypto_engine
+forwarding the SMA momentum fallback into freqtrade) CHURNED: ESPORTS stop→re-enter→re-stop
+in 4 min, DODOX stopped 14s after entry, BANK ×3. Stops gapped to −3.5…−5.9% (entries into
+mid-dump). X2's cooldown only covered the wallet-lane path (_open_trade), not this router.
+
+- X4 stop-churn cooldown at the ONE chokepoint (lane_gate.check, engine_client.place_order):
+  refuse same pair+direction re-entry for STOP_REENTRY_COOLDOWN_MIN (30m) after a stop_loss
+  close (DB-read, fail-open, refusal recorded + 'stopcool' counterfactual claim so the
+  truth labeler adjudicates whether blocking was right). Direction flips allowed.
+  4 new tests (21 green). REVERT: STOP_REENTRY_COOLDOWN_MIN=0.
+- X5 direction-at-entry: added live_loop to MOMENTUM_FRESH_TAGS so the router's momentum
+  fallback passes the EXISTING inception freshness gate (fresh_ok + freshcut
+  counterfactuals) like every other momentum-family lane. Zero new code.
+  REVERT: remove live_loop from MOMENTUM_FRESH_TAGS.
+- Decision-snapshot evidence for the entry-quality problem: explore/fallback entries were
+  LONGing +16%-pumped movers; ESPORTS opened LONG while its own learned read said p_up
+  0.338. The freshness gate is the measured counter to exactly this cohort.
+- run_live_loop + crypto funnel restarted ~20:50 with X4+X5; keep/revert on stopcool +
+  freshcut counterfactual verdicts + per-lane closes.
+- Background research agent launched: published evidence on stop distance vs MAE,
+  re-entry cooldowns, high-win-rate exit engineering → research-exits-reentry.md.
