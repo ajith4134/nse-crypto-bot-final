@@ -67,6 +67,32 @@ def _pending_path() -> Path:
 # ── recording (called from trading loops — never raises, no network) ─────────────
 
 
+def range_position(symbol: str, *, minutes: int = 30) -> float | None:
+    """Where the CURRENT price sits in the prior `minutes` high-low range (RAM 5m bars):
+    1.0 = at the recent high, 0.0 = at the recent low, None when the mirror can't say.
+
+    MISSION deep-scan 2026-07-17 (the JCT/KORU case): measured on 35 clean longs, entries
+    filled at the BOTTOM of their prior-30m range won 90% with zero never-favorable cases;
+    entries at the TOP won 40% — where an entry sits in its recent range is the strongest
+    timing discriminator found in the pipeline walk."""
+    try:
+        from trading.broker_sense.binance_stream import get_mirror
+        flat = str(symbol or "").replace("/", "").split(":")[0].upper()
+        n = max(3, minutes // 5 + 1)
+        rows = get_mirror().candles(flat, 300, n) or []
+        if len(rows) < 3:
+            return None
+        cur = float(rows[-1][4])
+        prior = rows[:-1]
+        hi = max(float(b[2]) for b in prior)
+        lo = min(float(b[3]) for b in prior)
+        if hi <= lo:
+            return None
+        return max(0.0, min(1.0, (cur - lo) / (hi - lo)))
+    except Exception:
+        return None
+
+
 def current_conditioners(symbol: str, market: str = "CRYPTO") -> dict:
     """E8 (2026-07-17): the two conditioners the book-state research says direction edges
     depend on — liquidity regime (flow only predicts STRESSED, ~10x power swing) and clock
@@ -92,6 +118,13 @@ def current_conditioners(symbol: str, market: str = "CRYPTO") -> dict:
                     liq = liquidity_regime((ask - bid) / mid * 1e4)
                     if liq:
                         out["liq"] = liq
+    except Exception:
+        pass
+    try:                                   # deep-scan 2026-07-17: range position (top/mid/bottom)
+        if (market or "CRYPTO").upper() == "CRYPTO":
+            rp = range_position(symbol)
+            if rp is not None:
+                out["pos"] = "top" if rp > 0.8 else ("bottom" if rp < 0.2 else "mid")
     except Exception:
         pass
     return out

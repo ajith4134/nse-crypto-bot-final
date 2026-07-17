@@ -366,3 +366,70 @@ class TestCleanWindowRows(unittest.TestCase):
             self.assertEqual(len(clean_window_rows(rows)), 1)
         finally:
             os.environ.pop("TRADE_NET_CLEAN_TS", None)
+
+
+class TestDeepScanFixes(_Base):
+    """2026-07-17 pipeline deep-scan (the JCT/KORU case): range position primitive,
+    pos conditioner, reflex fire-time re-validation, live-loop tag attribution."""
+
+    def _mirror(self, closes_hi_lo):
+        m = mock.Mock()
+        m.candles.return_value = [[i, c, h, l, c] for i, (c, h, l) in
+                                  enumerate(closes_hi_lo)]
+        return m
+
+    def test_range_position_top_and_bottom(self):
+        from trading.direction import truth_ledger as tl
+        bars = [(100, 110, 90)] * 6 + [(110, 110, 108)]      # current close at prior high
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        return_value=self._mirror(bars)):
+            self.assertEqual(tl.range_position("AKEUSDT"), 1.0)
+        bars2 = [(100, 110, 90)] * 6 + [(90, 92, 90)]        # current at prior low
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        return_value=self._mirror(bars2)):
+            self.assertEqual(tl.range_position("AKEUSDT"), 0.0)
+
+    def test_pos_conditioner_stamped(self):
+        from trading.direction import truth_ledger as tl
+        with mock.patch.object(tl, "range_position", return_value=0.95), \
+             mock.patch("trading.broker_sense.binance_stream.get_mirror",
+                        side_effect=RuntimeError):        # no book → no liq, pos still set
+            cond = tl.current_conditioners("AKEUSDT")
+        self.assertEqual(cond.get("pos"), "top")
+
+    def test_reflex_gate_refuses_long_at_top_and_records(self):
+        import trading.crypto.freqtrade.brain_executor as bx
+        ex = bx.BrainExecutor.__new__(bx.BrainExecutor)
+        ex.segment = "futures"
+        cli = mock.Mock()
+        cli.tradeable_form.return_value = "JCT/USDT:USDT"
+        row = {"symbol": "JCT/USDT:USDT", "direction": "LONG", "source": "account_path"}
+        with mock.patch("trading.direction.pullback.enabled", return_value=True), \
+             mock.patch("trading.direction.pullback.sweep", return_value=[row]), \
+             mock.patch("trading.direction.truth_ledger.range_position",
+                        return_value=0.95), \
+             mock.patch("trading.direction.truth_ledger.record") as rec:
+            rep = ex.sweep_pullbacks(cli)
+        self.assertEqual(rep["entered"], [])
+        cli.place_order.assert_not_called()
+        self.assertEqual(rec.call_args.kwargs.get("source"), "reflex_poscut")
+
+    def test_reflex_gate_lets_bottom_long_through_to_placement(self):
+        import trading.crypto.freqtrade.brain_executor as bx
+        ex = bx.BrainExecutor.__new__(bx.BrainExecutor)
+        ex.segment = "futures"
+        cli = mock.Mock()
+        cli.tradeable_form.return_value = "KORU/USDT:USDT"
+        cli.place_order.return_value = {"ok": True}
+        row = {"symbol": "KORU/USDT:USDT", "direction": "LONG", "source": "account_path"}
+        os.environ["LEARNED_DIRECTION"] = "0"
+        try:
+            with mock.patch("trading.direction.pullback.enabled", return_value=True), \
+                 mock.patch("trading.direction.pullback.sweep", return_value=[row]), \
+                 mock.patch("trading.direction.truth_ledger.range_position",
+                            return_value=0.1), \
+                 mock.patch("trading.direction.truth_ledger.record"):
+                ex.sweep_pullbacks(cli)
+            cli.place_order.assert_called()
+        finally:
+            os.environ.pop("LEARNED_DIRECTION", None)

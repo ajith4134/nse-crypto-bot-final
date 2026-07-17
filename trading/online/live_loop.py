@@ -629,9 +629,16 @@ class LiveTradeLoop:
         try:
             if want_open and symbol not in open_pairs:
                 side = "short" if decision.get("action") == "SHORT" else "long"
-                eng.place_order(symbol=symbol, action="BUY", side=side)
+                # DEEP-SCAN FIX (2026-07-17): this router placed with NO enter_tag, so its
+                # trades landed as freqtrade's default "force_entry" — 318 of 633 clean closed
+                # trades (the BEST-performing lane, 60.4% win) were invisible to per-source
+                # attribution. The decision's own strategy/tag now travels with the order.
+                _tag = str(decision.get("tag") or decision.get("strategy")
+                           or (decision.get("_brain") or {}).get("source")
+                           or "live_loop")[:60]
+                eng.place_order(symbol=symbol, action="BUY", side=side, enter_tag=_tag)
                 open_pairs.add(symbol)
-                return {"forceenter": symbol, "side": side, "ok": True}
+                return {"forceenter": symbol, "side": side, "ok": True, "tag": _tag}
             if do_exit and symbol in open_pairs:
                 eng.close_pair(symbol)
                 open_pairs.discard(symbol)

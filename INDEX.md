@@ -2082,7 +2082,7 @@ _Tests for the Direction Decision Ledger (owner ask: what data drove each direct
 
 ## `tests/test_direction_mission.py`
 _Tests for the Direction Brain Mission X-batch: day-bucket half-life reliability,_
-- **classes:** _Base, TestDayBucketsAndDecay, TestReliabilityChainDecayed, TestHorizonEmission, TestCostGate, TestSession2, TestHorizonSpecialized, TestCorrectDirectionNeverInverts, TestMagnitudeCap, TestCleanWindowRows
+- **classes:** _Base, TestDayBucketsAndDecay, TestReliabilityChainDecayed, TestHorizonEmission, TestCostGate, TestSession2, TestHorizonSpecialized, TestCorrectDirectionNeverInverts, TestMagnitudeCap, TestCleanWindowRows, TestDeepScanFixes
 - **functions:** `_day(offset_days) -> str`
 - **imports:** __future__, json, os, pathlib, tempfile, time, unittest
 
@@ -4643,7 +4643,7 @@ _trading/direction/river_source.py — River online learner as a measured direct
 
 ## `trading/direction/truth_ledger.py`
 _trading/direction/truth_ledger.py — D1: the Direction Truth Ledger (goal Pillar 27)._
-- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `current_conditioners(symbol, market) -> dict`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_mirror_price(symbol, epoch) -> float | None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit, journal) -> dict`; `_backfill_journal_locked(rep, limit, journal) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `source_reliability_decayed(source) -> dict`; `backfill_day_buckets(train_path) -> dict`; `source_reliability_conditioned(source) -> dict`; `status() -> dict`
+- **functions:** `_enabled() -> bool`; `_pending_path() -> Path`; `range_position(symbol) -> float | None`; `current_conditioners(symbol, market) -> dict`; `record() -> bool`; `_candle_dir() -> Path`; `_feather_for(symbol, segment) -> tuple[Path | None, str]`; `_closes(path)`; `_price_at(path, epoch) -> float | None`; `_append_train(folds) -> None`; `_bucket_key(source, market, regime, horizon) -> str`; `_fold(agg, row, horizon, correct, method) -> None`; `_mirror_price(symbol, epoch) -> float | None`; `_resolve_row(row, now) -> tuple[list[tuple[str, bool, str]], bool]`; `tick(budget_s) -> dict`; `_parse_dt(s) -> float | None`; `backfill_journal(limit, journal) -> dict`; `_backfill_journal_locked(rep, limit, journal) -> dict`; `rebuild_from_train() -> dict`; `_wilson(correct, n, z) -> tuple[float, float, float]`; `hit_rates() -> list[dict]`; `source_reliability(source) -> dict`; `source_reliability_decayed(source) -> dict`; `backfill_day_buckets(train_path) -> dict`; `source_reliability_conditioned(source) -> dict`; `status() -> dict`
 - **imports:** __future__, datetime, fcntl, json, math, os, pathlib, time, trading
 
 ## `trading/direction/vote_log.py`

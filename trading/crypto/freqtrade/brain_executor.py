@@ -206,6 +206,34 @@ class BrainExecutor:
                     # it earns its own measured track record.
                     _dir = _row["direction"]
                     _ltag = str(_row.get("source") or "pullback")
+                    # DEEP-SCAN FIX (2026-07-17, the JCT case): an armed pullback's trend premise
+                    # can DIE between arm time and trigger — JCT was armed on the 11:20-25 pump
+                    # and fired 11:32 into the fade (MFE=0, entered at the top of a falling bar).
+                    # Re-validate at FIRE time from RAM: a LONG firing while price sits at the TOP
+                    # of its prior-30m range (or SHORT at the bottom) is chasing a move that
+                    # already left (measured: top-entries 40% win vs bottom-entries 90%, n=35).
+                    # The refusal is RECORDED (source reflex_poscut, taken=False) so the truth
+                    # labeler scores the counterfactual — the gate proves itself or gets removed.
+                    # REFLEX_POS_GATE=0 disables; threshold REFLEX_POS_MAX (0.85).
+                    if os.environ.get("REFLEX_POS_GATE", "1") in ("1", "true", "TRUE", "yes", "on"):
+                        try:
+                            from trading.direction import truth_ledger as _tlrp
+                            _rp = _tlrp.range_position(_row["symbol"])
+                            _pmax = float(os.environ.get("REFLEX_POS_MAX", "0.85") or 0.85)
+                            _adverse = (_rp is not None and
+                                        ((_dir == "LONG" and _rp > _pmax) or
+                                         (_dir == "SHORT" and _rp < 1.0 - _pmax)))
+                            if _adverse:
+                                _tlrp.record(symbol=_row["symbol"], market="CRYPTO",
+                                             segment=self.segment or "futures",
+                                             direction=_dir, source="reflex_poscut",
+                                             taken=False)
+                                print(f"[reflex-poscut:{self.segment}] {_row['symbol']} "
+                                      f"{_dir} refused at range-pos {_rp:.2f} "
+                                      f"(armed by {_ltag})", flush=True)
+                                continue
+                        except Exception:
+                            pass
                     if os.environ.get("LEARNED_DIRECTION", "1") in ("1", "true", "TRUE", "yes", "on"):
                         try:
                             from trading.direction import learned_direction as _ld
