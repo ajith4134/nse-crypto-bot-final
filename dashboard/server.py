@@ -1331,6 +1331,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/direction/xray":             # Direction Decision Ledger — what data drove each direction
             from dashboard.routes import trading_ext
             return trading_ext.handle_direction_xray(self)
+        if path == "/api/trading/upgrades/status":            # E1-E12 connect-batch live status (2026-07-17)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_upgrades_status(self)
         if path == "/api/trading/experience/status":          # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_experience_status(self)

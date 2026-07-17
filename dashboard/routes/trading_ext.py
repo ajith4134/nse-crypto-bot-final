@@ -369,6 +369,29 @@ def _evo_demo_build():
         _evo_building = False
 
 
+def handle_upgrades_status(h):
+    """GET /api/trading/upgrades/status — live status of the 2026-07-17 connect batch
+    (E1 OPE replay, E2 exit-policy bandit, E4 lesson prior, E5 on-chain lane, E7 execution
+    choice, E-video VP/market-state lenses, brain sources). State-file reads only — each
+    module's status() is O(1); a failing subsystem reports its error, never fabricates."""
+    out = {}
+    for key, mod, fn in (
+            ("ope", "trading.direction.ope", "status"),
+            ("exit_policy", "trading.execution.exit_policy", "status"),
+            ("exec_choice", "trading.execution.exec_choice", "status"),
+            ("lesson_prior", "trading.direction.lesson_prior", "status"),
+            ("onchain", "trading.direction.onchain_source", "status"),
+            ("vp_events", "trading.direction.vp_events", "status"),
+            ("market_state", "trading.direction.market_state", "status"),
+            ("brain_sources", "trading.direction.brain_sources", "status")):
+        try:
+            import importlib
+            out[key] = getattr(importlib.import_module(mod), fn)()
+        except Exception as e:
+            out[key] = {"error": f"{type(e).__name__}: {e}"[:160]}
+    return h._send(200, json.dumps(out, default=str).encode(), "application/json")
+
+
 def handle_direction_xray(h):
     """GET /api/trading/direction/xray — per-decision direction rationale (owner ask): WHAT
     DATA drove each trade's direction. Reads the Direction Ledger (state-file only, cheap):

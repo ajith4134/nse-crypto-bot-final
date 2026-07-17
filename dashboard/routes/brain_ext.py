@@ -44,6 +44,8 @@ def handle_ops(h):
     out["subsystems"] = [
         {"key": "boss", "label": "Boss directives + R&D", "path": "/api/brain/ops", "real": True},
         {"key": "mind", "label": "Mind event bus", "path": "/api/brain/mind/events", "real": True},
+        {"key": "upgrades", "label": "Connect-batch E1-E12 (OPE / exit bandit / lenses)",
+         "path": "/api/trading/upgrades/status", "real": True},
         {"key": "agent", "label": "Brain agent", "path": "/api/brain/agent/status", "real": False},
         {"key": "autonomy", "label": "Self-coding autonomy", "path": "/api/brain/autonomy/status", "real": False},
         {"key": "memory", "label": "Human memory", "path": "/api/brain/memory/status", "real": False},

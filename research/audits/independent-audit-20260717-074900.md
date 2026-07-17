@@ -223,3 +223,25 @@ _vulture not available (vulture error: Command '['/home/karan18190164/.venv/bin/
 
 ---
 _Next: an independent reviewer interprets each item with fresh eyes and proposes better connections + function usage. This tool reports; it does not edit._
+---
+
+## E10 follow-up (2026-07-17, verified classification of §5's 37 "unused" endpoints)
+
+- **False positives — fetched dynamically** (audit greps can't see them): the Brain-Ops
+  catalog tiles fetch `/api/brain/{agent,autonomy,memory,hybrid,librarian,stream}/status` +
+  `/api/brain/boss` on click (BrainOpsPanel per-tile fetch); these are also honestly labeled
+  `real: False` demo endpoints in brain_ext.py — present by design, not dead.
+- **False positive — template-literal caller**: `/api/trading/brain/decisions` IS called by
+  DecisionMemoryPanel.jsx:41 (`…/decisions${query…}`) — §5's "broken UI call" and "unused
+  endpoint" entries are the same heuristic miss; nothing to fix.
+- **Genuinely uncalled but REAL data** (operator/API surface, kept, candidates for future
+  panels): curiosity, learning_curve, gate_tuning, dreams, onchain, memory_search, ui_health,
+  exits/status, sizing/status, screener/status, advintel/status, alerts/status, knowledge,
+  network/autoload, network/trust, state/routing, crypto/predictions, crypto/ingest,
+  account_watchlist, live_browser/frame, mirror/frame, remote_login, brain/activity,
+  brain/web, brain/thinking/status, brain/quiz/status, brain/embodiment/status,
+  brain/hybrid/status, trading/status.
+  None are decorative (each serves real state); deletion is an owner call — not taken here.
+- **Added**: `/api/trading/upgrades/status` — one REAL aggregator for the E1-E12 batch
+  (OPE / exit bandit / exec choice / lesson prior / onchain / VP + market-state lenses),
+  registered as a `real: True` Brain-Ops catalog tile.
