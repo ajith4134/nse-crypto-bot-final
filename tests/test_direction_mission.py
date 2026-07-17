@@ -311,3 +311,35 @@ class TestCorrectDirectionNeverInverts(_Base):
                                                 market="CRYPTO")
         self.assertEqual(chosen, "LONG")            # NEVER flipped
         self.assertEqual(info["action"], "pass")
+
+
+class TestMagnitudeCap(_Base):
+    """X-F: measured on 16,525 clean labels — claimed confidence is anti-informative;
+    only the sign contributes, capped by LEARNED_DIR_MAG_CAP."""
+
+    def _seed_two_sources(self):
+        from trading import state
+        day = _day(0)
+        # trusted_a: strong measured edge; loud_b: weaker edge but screams p=0.99
+        state.save_json("direction_truth.json", {"day_buckets": {
+            f"trusted_a|CRYPTO|unknown|1h|{day}": {"n": 300, "correct": 186},   # 0.62
+            f"loud_b|CRYPTO|unknown|1h|{day}": {"n": 300, "correct": 168}}})    # 0.56
+
+    def test_loud_source_cannot_dominate_by_magnitude(self):
+        from trading.direction import learned_direction as ld
+        self._seed_two_sources()
+        with mock.patch.object(ld._tl, "current_conditioners", return_value={}):
+            out = ld.decide([("trusted_a", 0.65), ("loud_b", 0.01)],   # b screams SHORT
+                            market="CRYPTO", symbol="AKEUSDT", log=False)
+        # raw magnitudes: b's 0.49 pull × w≈0.06 would swamp a's capped 0.10 × w≈0.12;
+        # with the cap the trusted higher-weight source owns the side
+        self.assertEqual(out["direction"], "long")
+
+    def test_control_variant_keeps_raw_magnitudes(self):
+        from trading.direction import learned_direction as ld
+        self._seed_two_sources()
+        with mock.patch.object(ld._tl, "current_conditioners", return_value={}):
+            out = ld.decide([("trusted_a", 0.65), ("loud_b", 0.01)],
+                            market="CRYPTO", symbol="AKEUSDT", log=False,
+                            variant="control")
+        self.assertEqual(out["direction"], "short")   # pre-mission behavior preserved

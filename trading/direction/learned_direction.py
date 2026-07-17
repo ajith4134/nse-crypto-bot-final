@@ -67,6 +67,12 @@ def _cfg() -> dict:
         # pools mis-weight everything; the decayed reader makes trust follow RECENT truth.
         # 0 disables (control variant / legacy behavior).
         "half_life_d": _f("LEDGER_HALF_LIFE_D", 2.0),
+        # MISSION X-F (2026-07-17): cap each source's vote MAGNITUDE. Measured on 16,525
+        # clean labels: claimed confidence is uninformative-to-ANTI-informative (claims of
+        # ~0.95 realize 0.490; symbol_move_net at high confidence realizes 0.398) — only the
+        # SIGN carries information, so a source contributes sign × measured weight, with at
+        # most this much self-reported conviction. 0.5 ≈ off (control/legacy behavior).
+        "mag_cap": _f("LEARNED_DIR_MAG_CAP", 0.10),
     }
 
 
@@ -287,7 +293,8 @@ def decide(readings, *, market: str = "", segment: str = "",
                                "n": rel.get("n")}
             continue
         p_cal = (1.0 - p) if invert else p
-        num += w * (p_cal - 0.5)
+        _mc = cfg["mag_cap"] if variant != "control" else 0.5
+        num += w * max(-_mc, min(_mc, p_cal - 0.5))
         tot_w += w
         weights[source] = {"w": round(w, 4), "invert": invert,
                            "rate": rel.get("rate"), "n": rel.get("n"),
@@ -329,7 +336,8 @@ def decide(readings, *, market: str = "", segment: str = "",
                     w_h, _ = _signed_weight(rel_h, cfg)
                     if w_h <= 0.0:
                         continue
-                    num_h += w_h * (_p - 0.5)
+                    _mc = cfg["mag_cap"]          # X-F: sign carries the information
+                    num_h += w_h * max(-_mc, min(_mc, _p - 0.5))
                     tot_h += w_h
                 if tot_h < cfg["min_total_w"]:
                     continue

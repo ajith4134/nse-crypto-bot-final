@@ -193,11 +193,14 @@ _CANDIDATES: list[tuple[str, dict[str, str] | None]] = [
     ("halflife_05", {"LEDGER_HALF_LIFE_D": "0.5"}),
     ("halflife_1", {"LEDGER_HALF_LIFE_D": "1"}),
     ("halflife_5", {"LEDGER_HALF_LIFE_D": "5"}),
+    # X-F: vote-magnitude cap (measured: claimed confidence ≈ anti-informative)
+    ("magcap_off", {"LEARNED_DIR_MAG_CAP": "0.5"}),
+    ("magcap_005", {"LEARNED_DIR_MAG_CAP": "0.05"}),
 ]
 
 _ENV_KEYS = ("LEARNED_DIR_SHRINK_K", "LEARNED_DIR_MIN_EDGE", "LEARNED_DIR_BAND",
              "LEARNED_DIR_MIN_N", "LEARNED_DIR_UNPROVEN_W", "LEARNED_DIR_MIN_TOTAL_W",
-             "LEDGER_HALF_LIFE_D")
+             "LEDGER_HALF_LIFE_D", "LEARNED_DIR_MAG_CAP")
 
 
 def _score(rows: list[dict], side_of) -> dict:
