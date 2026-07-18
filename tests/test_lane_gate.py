@@ -310,3 +310,50 @@ class TestDeadMarketFloor(_Iso):
         ok, guard, _ = self.lg.check("any_lane", "MU/USDT:USDT", "LONG")
         self.assertTrue(ok)
         self.assertEqual(guard, "")
+
+
+class TestLiquidityFloor(_Iso):
+    """X16 (2026-07-18): entries in symbols below a 30d dollar-volume floor are refused.
+    Validated on live data: win rate rose monotonically across liquidity quintiles
+    (.450 -> .555). No data fails OPEN; 0 disables."""
+
+    def setUp(self):
+        super().setUp()
+        os.environ["STOP_REENTRY_COOLDOWN_MIN"] = "0"
+        os.environ["X11_MIN_RANGE_PCT"] = "0"
+        self._orig = self.lg._dollar_vol_30d
+
+    def tearDown(self):
+        self.lg._dollar_vol_30d = self._orig
+        for k in ("STOP_REENTRY_COOLDOWN_MIN", "X11_MIN_RANGE_PCT", "X16_MIN_DOLLAR_VOL_M"):
+            os.environ.pop(k, None)
+        super().tearDown()
+
+    def test_illiquid_symbol_refused(self):
+        os.environ["X16_MIN_DOLLAR_VOL_M"] = "2.5"
+        self.lg._dollar_vol_30d = lambda s: 1.0e6          # $1M/day < $2.5M floor
+        ok, guard, why = self.lg.check("any", "TINY/USDT:USDT", "LONG")
+        self.assertFalse(ok)
+        self.assertEqual(guard, "illiquid")
+        self.assertIn("floor", why)
+
+    def test_liquid_symbol_allowed(self):
+        os.environ["X16_MIN_DOLLAR_VOL_M"] = "2.5"
+        self.lg._dollar_vol_30d = lambda s: 50.0e6
+        ok, guard, _ = self.lg.check("any", "BTC/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+    def test_missing_data_fails_open(self):
+        os.environ["X16_MIN_DOLLAR_VOL_M"] = "2.5"
+        self.lg._dollar_vol_30d = lambda s: None
+        ok, guard, _ = self.lg.check("any", "NEW/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+    def test_zero_floor_disables(self):
+        os.environ["X16_MIN_DOLLAR_VOL_M"] = "0"
+        self.lg._dollar_vol_30d = lambda s: 1.0
+        ok, guard, _ = self.lg.check("any", "TINY/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")

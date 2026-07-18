@@ -170,6 +170,32 @@ def _range_pct_4h(symbol: str) -> float | None:
         return None
 
 
+_DV_CACHE: dict = {}                       # symbol -> (ts, median 30d dollar volume)
+
+
+def _dollar_vol_30d(symbol: str) -> float | None:
+    """Median daily dollar volume over the trailing ~30 daily bars, from freqtrade's own
+    downloaded candles. Cached 6h (this moves slowly). None when unavailable → fail OPEN."""
+    import time as _t
+    hit = _DV_CACHE.get(symbol)
+    if hit and _t.time() - hit[0] < 21600:
+        return hit[1]
+    val = None
+    try:
+        from pathlib import Path
+        import pandas as pd
+        f = (Path.home() / "trading/crypto/freqtrade/user_data/data/binance/futures" /
+             f"{symbol.replace('/', '_').replace(':', '_')}-1d-futures.feather")
+        if f.exists():
+            df = pd.read_feather(f).tail(31)
+            if len(df) >= 10:
+                val = float((df["close"] * df["volume"]).median())
+    except Exception:
+        val = None
+    _DV_CACHE[symbol] = (_t.time(), val)
+    return val
+
+
 def _record_refusal(kind: str, tag: str) -> None:
     try:
         from trading import state
@@ -243,6 +269,29 @@ def check(tag: str | None, symbol: str, direction: str,
                         f"{int(cd_min)}m — re-entry blocked (flip allowed)")
             except Exception:
                 pass                            # fail-open like every other guard here
+        # X16 LIQUIDITY FLOOR (2026-07-18) — the ONE research claim that VALIDATED on our
+        # own data. Measured over 1,687 closes/36h, win rate rises MONOTONICALLY with the
+        # symbol's 30-day median dollar volume: Q1 .450 / Q2 .464 / Q3 .485 / Q4 .508 /
+        # Q5 .555 (10.5pp spread, monotone across all five buckets — far harder to get by
+        # chance than one bucket standing out). Per-trade P&L is best in Q5 (−1.53) vs Q1
+        # (−2.14). Refuse entries below X16_MIN_DOLLAR_VOL_M (millions/day; our measured
+        # 20th percentile was $2.5M). Counterfactual source "illiqcut" adjudicates it;
+        # no data fails OPEN (a missing feather must not silently halve the universe).
+        floor_m = _f("X16_MIN_DOLLAR_VOL_M", 0.0)
+        if floor_m > 0 and symbol:
+            dv = _dollar_vol_30d(symbol)
+            if dv is not None and dv < floor_m * 1e6:
+                _record_refusal("illiquid", t)
+                try:
+                    from trading.direction import truth_ledger as tl
+                    tl.record(symbol=symbol, market="CRYPTO",
+                              segment=(segment or "futures"),
+                              direction=(direction or "LONG").upper(),
+                              source="illiqcut", taken=False)
+                except Exception:
+                    pass
+                return False, "illiquid", (
+                    f"{symbol}: 30d median ${dv/1e6:.2f}M/day < ${floor_m:.2f}M floor")
         # X11 DEAD-MARKET FLOOR (owner "do X11" 2026-07-18): weekend/off-hours the
         # tokenized stock-perps and frozen coins ranged ~0% while entries kept opening
         # into them (measured Sat 08:00 UTC: 10% of the 877-symbol universe moved 0.00%

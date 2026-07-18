@@ -595,3 +595,28 @@ Verdict rule (pre-registered, n>=150 closes post-12:15): net per close must beat
 OPS: start_all's pgrep guard does NOT start freqtrade — `launch` only WRITES config.json;
 the engine needs `bash trading/crypto/freqtrade/start.sh`. Engine was down ~10 min during
 this deploy; restored 12:15:55, ping 200. Order types confirmed MARKET (entry/exit/stop).
+
+### Session 9, X16 (2026-07-18 12:24) — liquidity floor: the ONE research claim that PASSED
+Owner pushed back on whether the 138-agent research was wasted. Answer: 4 of 73 claims now
+tested against OUR data — 1 validated, 3 refuted. That IS the value: it stopped us building
+three plausible-but-false rules, and found one real one.
+  TESTED-FAILED  30d momentum ALIGNMENT: aligned .456 green/−2.14 vs against .505/−2.24.
+  TESTED-FAILED  session 21-23 UTC "best window": ours ran −1.71/−2.91/−1.79 per trade.
+  TESTED-FAILED  funding extremes are CONTRARIAN: our data INVERTS it — with funding HIGH
+                 (>+0.05%) our LONGs went .557 green/−0.98 while our SHORTs went .310/−4.05
+                 (n=29, small). Flagged: our filter:funding_extreme lane trades the
+                 contrarian side the research asserted and is among our worst performers.
+  TESTED-PASSED  liquidity floor: win rate rises MONOTONICALLY with 30d median dollar
+                 volume — Q1 .450 / Q2 .464 / Q3 .485 / Q4 .508 / Q5 .555 over 1,687 closes
+                 (10.5pp spread, monotone across all 5 buckets — much stronger evidence than
+                 a single standout bucket). Per-trade best in Q5 (−1.53) vs Q1 (−2.14).
+X16: lane_gate._dollar_vol_30d (freqtrade's own daily feathers, 6h cache) + a floor in
+check(); refusals record an "illiqcut" counterfactual; missing data fails OPEN so a absent
+feather can never silently halve the universe. X16_MIN_DOLLAR_VOL_M=2.5 (our measured 20th
+percentile; BTC reads $9,533M/day, MUBARAK $1.33M, ZORA $2.15M). 29 gate tests green.
+HONEST CAVEAT: per-trade P&L between "bottom 20%" and "top 80%" was nearly identical
+(−2.14 vs −2.16) — liquidity predicts WIN RATE much more strongly than per-trade P&L,
+because illiquid names move further both ways. It should compound with X15, which now
+banks peaks instead of giving them back. Verdict rule (n>=150 closes post-12:24): green
+ratio must rise above the .467 24h baseline AND net/close must not worsen. REVERT:
+X16_MIN_DOLLAR_VOL_M=0 + bounce funnel+live_loop.
