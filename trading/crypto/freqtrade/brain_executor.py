@@ -1889,8 +1889,13 @@ class BrainExecutor:
                                 from trading.crypto.freqtrade import entry_meta as _em
                                 _m0 = _em.lookup(pair, self.segment or "futures",
                                                  t.get("open_date"))
-                                _hz = ((((_m0 or {}).get("meta") or {}).get("brain") or {})
-                                       .get("learned_direction") or {}).get("horizon")
+                                # V3 wiring fix (2026-07-18): records nest the brain block
+                                # under meta.decision_snapshot — the old top-level meta.brain
+                                # read returned None for EVERY trade (V3 unjudgeable).
+                                _meta0 = (_m0 or {}).get("meta") or {}
+                                _br0 = ((_meta0.get("decision_snapshot") or {}).get("brain")
+                                        or _meta0.get("brain") or {})
+                                _hz = (_br0.get("learned_direction") or {}).get("horizon")
                             except Exception:
                                 _hz = None
                             _arm = _xp.assign(tid, regime=_regime,
