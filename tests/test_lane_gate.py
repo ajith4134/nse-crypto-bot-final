@@ -266,3 +266,47 @@ class TestStopChurnCooldown(_Iso):
             self.assertTrue(self.lg.check("live_loop", "C/USDT:USDT", "LONG")[0])
         finally:
             os.environ.pop("STOP_REENTRY_COOLDOWN_MIN", None)
+
+
+class TestDeadMarketFloor(_Iso):
+    """X11 (2026-07-18): entries into symbols whose realized 4h range is below
+    X11_MIN_RANGE_PCT are refused (weekend stock-perps / frozen coins); no-data
+    fails OPEN; 0 disables."""
+
+    def setUp(self):
+        super().setUp()
+        os.environ["STOP_REENTRY_COOLDOWN_MIN"] = "0"     # isolate the floor
+        self._orig_range = self.lg._range_pct_4h
+
+    def tearDown(self):
+        self.lg._range_pct_4h = self._orig_range
+        os.environ.pop("STOP_REENTRY_COOLDOWN_MIN", None)
+        os.environ.pop("X11_MIN_RANGE_PCT", None)
+        super().tearDown()
+
+    def test_sub_floor_range_refused_both_directions(self):
+        self.lg._range_pct_4h = lambda s: 0.2
+        for d in ("LONG", "SHORT"):
+            ok, guard, why = self.lg.check("any_lane", "MU/USDT:USDT", d)
+            self.assertFalse(ok)
+            self.assertEqual(guard, "dead_market")
+            self.assertIn("dead market", why)
+
+    def test_moving_symbol_allowed(self):
+        self.lg._range_pct_4h = lambda s: 5.0
+        ok, guard, _ = self.lg.check("any_lane", "LAB/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+    def test_no_data_fails_open(self):
+        self.lg._range_pct_4h = lambda s: None
+        ok, guard, _ = self.lg.check("any_lane", "NEW/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+    def test_zero_floor_disables(self):
+        os.environ["X11_MIN_RANGE_PCT"] = "0"
+        self.lg._range_pct_4h = lambda s: 0.0
+        ok, guard, _ = self.lg.check("any_lane", "MU/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")

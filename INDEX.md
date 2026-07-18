@@ -2427,7 +2427,7 @@ _Phase P4.4 (2nd mastery model) acceptance tests — EduKTM Deep Knowledge Traci
 
 ## `tests/test_lane_gate.py`
 _Tests for trading/execution/lane_gate.py — kill-criteria parity + freshness gate at_
-- **classes:** _Iso, TestKillCriteria, TestFreshnessGate, TestStatus, TestPlaceOrderWiring, TestPhaseConditioner, TestStopChurnCooldown
+- **classes:** _Iso, TestKillCriteria, TestFreshnessGate, TestStatus, TestPlaceOrderWiring, TestPhaseConditioner, TestStopChurnCooldown, TestDeadMarketFloor
 - **functions:** `_mkdb(path, rows)`
 - **imports:** __future__, os, pathlib, sqlite3, tempfile, trading.state, unittest
 
@@ -4778,7 +4778,7 @@ _trading/execution/kill_switch.py — real-money safety kill-switch (T3 §10)._
 
 ## `trading/execution/lane_gate.py`
 _Lane gate — kill-criteria parity + freshness gate at the ONE entry chokepoint._
-- **functions:** `_f(name, default) -> float`; `_on(name, default) -> bool`; `_db_path() -> str`; `_exempt() -> set`; `_exempt_prefixes() -> tuple`; `_fresh_prefixes() -> tuple`; `tag_stats(refresh) -> dict`; `killed(tag) -> tuple[bool, str]`; `_parole(tag) -> bool`; `_record_refusal(kind, tag) -> None`; `check(tag, symbol, direction, segment) -> tuple[bool, str, str]`; `status() -> dict`
+- **functions:** `_f(name, default) -> float`; `_on(name, default) -> bool`; `_db_path() -> str`; `_exempt() -> set`; `_exempt_prefixes() -> tuple`; `_fresh_prefixes() -> tuple`; `tag_stats(refresh) -> dict`; `killed(tag) -> tuple[bool, str]`; `_parole(tag) -> bool`; `_range_pct_4h(symbol) -> float | None`; `_record_refusal(kind, tag) -> None`; `check(tag, symbol, direction, segment) -> tuple[bool, str, str]`; `status() -> dict`
 - **imports:** __future__, os, sqlite3, threading, time
 
 ## `trading/execution/mae_mfe.py`

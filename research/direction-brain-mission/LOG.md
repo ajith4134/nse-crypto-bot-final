@@ -486,3 +486,17 @@ re-randomize the bandit mid-trade). Assignment except now LOUD. Debug detour les
 "assignments stopped" scare was budget-squeezed execute stages (budget ok=False cycles),
 not a wedge — grade_fills mtime + numeric-lock ownership (live_loop writes those too)
 misled; the instrumented log settled it in one cycle. Funnel bounced 08:16.
+
+### Session 9, X11 (2026-07-18 08:21) — dead-market entry floor (owner "do X11")
+Trigger: owner asked why symbols show no movement; measured Sat 08:00 UTC — universe
+median 4h range 1.18%, p10 = 0.00%; open trades sat in closed-hours stock-perps (XAU
+0.13%, MU 0.43%, DELL 0.56%). Shipped: lane_gate._range_pct_4h (persisted mirror, works
+in every process) + floor in check() — refuse ANY entry whose 4h range < X11_MIN_RANGE_PCT
+(0.8, env), both directions, counterfactual source "deadcut", fail-OPEN on no data,
+refusal kind "dead_market", dashboard status carries dead_floor_pct. 4 new tests (25
+green). Verified live pre-ship: MU refused, LAB (11.9%) passes.
+KNOWN TENSION (pre-registered): compressed MAJORS also get refused (BTC 0.17% Sat am) —
+i.e. filter:squeeze entries. Verdict rule: deadcut claims must score WORSE than accepted
+contemporaneous entries at n≥100; if squeeze-tagged deadcuts score WELL, refine to a
+squeeze exemption instead of full revert. REVERT: X11_MIN_RANGE_PCT=0 + bounce
+funnel+live_loop. Both bounced 08:21.

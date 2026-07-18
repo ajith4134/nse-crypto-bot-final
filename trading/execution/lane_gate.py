@@ -152,6 +152,24 @@ def _parole(tag: str) -> bool:
     return granted["ok"]
 
 
+def _range_pct_4h(symbol: str) -> float | None:
+    """Realized 4h high-low range as % of last close, from the persisted RAM-mirror
+    candles (readable from EVERY process, unlike the in-RAM mirror). None when the
+    mirror is cold or lacks the symbol — a cold mirror must not read as a dead market."""
+    try:
+        from trading.broker_sense import inception
+        s = str(symbol).replace("/USDT:USDT", "USDT").replace("/", "")
+        bars = inception._persisted_candles(s, 300, 48)
+        if len(bars) < 12:
+            return None
+        hi = max(b[2] for b in bars)
+        lo = min(b[3] for b in bars)
+        c = bars[-1][4]
+        return 100.0 * (float(hi) - float(lo)) / float(c) if c else None
+    except Exception:
+        return None
+
+
 def _record_refusal(kind: str, tag: str) -> None:
     try:
         from trading import state
@@ -225,6 +243,29 @@ def check(tag: str | None, symbol: str, direction: str,
                         f"{int(cd_min)}m — re-entry blocked (flip allowed)")
             except Exception:
                 pass                            # fail-open like every other guard here
+        # X11 DEAD-MARKET FLOOR (owner "do X11" 2026-07-18): weekend/off-hours the
+        # tokenized stock-perps and frozen coins ranged ~0% while entries kept opening
+        # into them (measured Sat 08:00 UTC: 10% of the 877-symbol universe moved 0.00%
+        # in 4h; XAU 0.13%, MU 0.43%, DELL 0.56%). A trade needs movement to clear fees —
+        # refuse entries whose realized 4h range is under the floor. Every tag, BOTH
+        # directions (dead is dead). Counterfactual source "deadcut" adjudicates the
+        # gate; X11_MIN_RANGE_PCT=0 reverts; no-data fails OPEN (cold mirror ≠ dead).
+        floor_pct = _f("X11_MIN_RANGE_PCT", 0.8)
+        if floor_pct > 0 and symbol:
+            rng = _range_pct_4h(symbol)
+            if rng is not None and rng < floor_pct:
+                _record_refusal("dead_market", t)
+                try:                            # counterfactual claim — labeler scores it
+                    from trading.direction import truth_ledger as tl
+                    tl.record(symbol=symbol, market="CRYPTO",
+                              segment=(segment or "futures"),
+                              direction=(direction or "LONG").upper(),
+                              source="deadcut", taken=False)
+                except Exception:
+                    pass
+                return False, "dead_market", (
+                    f"{symbol}: 4h range {rng:.2f}% < {floor_pct:.2f}% floor — "
+                    "dead market (closed-hours stock-perp / frozen coin)")
         if t.startswith(_fresh_prefixes()) and _on("FRESH_GATE"):
             from trading.broker_sense import inception
             ok, why = inception.fresh_ok(symbol, direction)
@@ -258,6 +299,7 @@ def status() -> dict:
         counters = state.load_json(_STATE_FILE, {}) or {}
     except Exception:
         pass
-    return {"enabled": {"lane_kill": _on("LANE_KILL"), "fresh_gate": _on("FRESH_GATE")},
+    return {"enabled": {"lane_kill": _on("LANE_KILL"), "fresh_gate": _on("FRESH_GATE"),
+                        "dead_floor_pct": _f("X11_MIN_RANGE_PCT", 0.8)},
             "retired": dead, "tags": st, "refusals": counters,
             "exempt": sorted(_exempt())}
