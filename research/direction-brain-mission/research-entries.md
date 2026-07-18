@@ -89,3 +89,26 @@ Finding 3 warns that any intraday signal read as pure-momentum is ~coin-flip.
   liquidations (% of OI) next month. Contrarian direction, quantified.
 - Caveat logged honestly: the popular "extreme funding = top/bottom" blog claims carry NO
   thresholds, horizons, or backtests — folklore until measured.
+
+## TESTED AGAINST OUR OWN TRADES (2026-07-18) — 8 of 73 claims settled
+Owner's standard: "experiment and check, don't dismiss anything." Every claim below was run
+against our real closes (1,672-1,806 trades, 36h window), not accepted or rejected on
+authority. Score: 2 VALIDATED, 6 REFUTED.
+
+| claim | verdict | our measurement |
+|---|---|---|
+| liquidity floor (30d dollar volume) | **VALIDATED** | win rate monotone across quintiles .450/.464/.485/.508/.555 → shipped X16 |
+| 7-day trend alignment | **VALIDATED** | aligned −0.58%/trade vs against −1.48% (diff +0.91%, t=2.38); holds in 4/5 lanes → X17 candidate |
+| 30-day momentum alignment | REFUTED | aligned .456 green/−2.14 vs against .505/−2.24 — no edge, marginally worse |
+| session 21:00-23:00 UTC | REFUTED | our hours ran −1.71/−2.91/−1.79 per trade; not our best |
+| funding extremes are contrarian | REFUTED (INVERTED) | funding HIGH: our LONGs .557 green/−0.98, SHORTs .310/−4.05 (n=29) |
+| relative volume (RVOL>=1.5-3x) | REFUTED | RVOL>3.0 .468 green vs RVOL<1.0 .486 — no follow-through edge |
+| volatility regime | REFUTED | HIGH>7% .489 vs MED 3-7% .472 — no separation |
+| BTC regime conditioning | UNTESTABLE | BTC rose across the whole window — no contrast to measure |
+
+KEY METHOD LESSON: the 30d test failed and I nearly wrote the idea off; the SAME idea at a
+7-day lookback is real and significant. Horizon is the parameter, not the premise — test the
+horizon grid before rejecting a family.
+REMAINING ~65 claims are not testable on our data: pure theory (no-trade-region math — already
+implemented as X12), mechanism descriptions of how funding works, or results measured at
+daily/weekly rebalance frequencies we do not trade. Not manufacturing tests for those.
