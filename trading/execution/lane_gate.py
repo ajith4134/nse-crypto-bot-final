@@ -196,6 +196,36 @@ def _dollar_vol_30d(symbol: str) -> float | None:
     return val
 
 
+_TREND_CACHE: dict = {}                    # symbol -> (ts, pct move over N days)
+
+
+def _trend_pct_nd(symbol: str, days: int = 7) -> float | None:
+    """% price move over the trailing `days` daily bars, from freqtrade's own candles.
+    Cached 1h. None when unavailable → fail OPEN."""
+    import time as _t
+    key = (symbol, days)
+    hit = _TREND_CACHE.get(key)
+    if hit and _t.time() - hit[0] < 3600:
+        return hit[1]
+    val = None
+    try:
+        from pathlib import Path
+        import pandas as pd
+        f = (Path.home() / "trading/crypto/freqtrade/user_data/data/binance/futures" /
+             f"{symbol.replace('/', '_').replace(':', '_')}-1d-futures.feather")
+        if f.exists():
+            df = pd.read_feather(f)
+            if len(df) >= days + 1:
+                c0 = float(df["close"].iloc[-1])
+                cN = float(df["close"].iloc[-(days + 1)])
+                if cN:
+                    val = (c0 - cN) / cN * 100.0
+    except Exception:
+        val = None
+    _TREND_CACHE[key] = (_t.time(), val)
+    return val
+
+
 def _record_refusal(kind: str, tag: str) -> None:
     try:
         from trading import state
@@ -269,6 +299,35 @@ def check(tag: str | None, symbol: str, direction: str,
                         f"{int(cd_min)}m — re-entry blocked (flip allowed)")
             except Exception:
                 pass                            # fail-open like every other guard here
+        # X17 COUNTER-TREND REFUSAL (owner "do the x17" 2026-07-18) — the SECOND research
+        # claim that validated on our own trades. MEASURED over 1,672 closes/36h: entries
+        # ALIGNED with the symbol's own 7-day trend returned −0.58% of stake vs −1.48% for
+        # entries fighting it (diff +0.91%/trade, t=2.38, holds in 4 of 5 lanes). NOTE the
+        # 30-DAY version of this test showed NOTHING — horizon is the parameter, so this is
+        # pinned to X17_TREND_DAYS. Per CONVENTIONS §16 (direction must be EARNED) a
+        # counter-trend claim is REFUSED, never inverted. A |trend| under X17_NEUTRAL_PCT is
+        # "no trend" and both sides stay allowed — forcing a side on a flat chart would be
+        # fabricating direction. Counterfactual "counter7cut" adjudicates; no data fails OPEN.
+        ct_pct = _f("X17_COUNTER_TREND_PCT", 0.0)
+        if ct_pct > 0 and symbol and direction:
+            tr = _trend_pct_nd(symbol, int(_f("X17_TREND_DAYS", 7)))
+            if tr is not None and abs(tr) >= _f("X17_NEUTRAL_PCT", 1.0):
+                want_long = (direction or "").upper() != "SHORT"
+                against = (tr > 0 and not want_long) or (tr < 0 and want_long)
+                if against and abs(tr) >= ct_pct:
+                    _record_refusal("counter_trend", t)
+                    try:
+                        from trading.direction import truth_ledger as tl
+                        tl.record(symbol=symbol, market="CRYPTO",
+                                  segment=(segment or "futures"),
+                                  direction=(direction or "LONG").upper(),
+                                  source="counter7cut", taken=False)
+                    except Exception:
+                        pass
+                    return False, "counter_trend", (
+                        f"{symbol} {direction}: fights its {int(_f('X17_TREND_DAYS', 7))}d "
+                        f"trend ({tr:+.1f}%) — counter-trend entries measured −1.48%/trade "
+                        f"vs −0.58% aligned")
         # X16 LIQUIDITY FLOOR (2026-07-18) — the ONE research claim that VALIDATED on our
         # own data. Measured over 1,687 closes/36h, win rate rises MONOTONICALLY with the
         # symbol's 30-day median dollar volume: Q1 .450 / Q2 .464 / Q3 .485 / Q4 .508 /

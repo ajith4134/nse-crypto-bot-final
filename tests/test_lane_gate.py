@@ -24,6 +24,12 @@ def _mkdb(path, rows):
     con.close()
 
 
+# every gate knob that lives in the prod .env — cleared per test so only the guard under
+# test can fire (each test class re-enables exactly the one it exercises)
+_GATE_KNOBS = ("X11_MIN_RANGE_PCT", "X16_MIN_DOLLAR_VOL_M", "X17_COUNTER_TREND_PCT",
+               "X17_NEUTRAL_PCT", "X17_TREND_DAYS", "STOP_REENTRY_COOLDOWN_MIN")
+
+
 class _Iso(unittest.TestCase):
     def setUp(self):
         from trading.execution import lane_gate as lg
@@ -35,6 +41,14 @@ class _Iso(unittest.TestCase):
         os.environ["LANE_GATE_DB"] = self.db
         os.environ.pop("LANE_KILL", None)
         os.environ.pop("FRESH_GATE", None)
+        # The prod ~/.env (pulled in by the config import chain) carries the live gate
+        # knobs — X11/X16/X17 are all ON in production. These tests pin per-guard
+        # behavior, so every gate not under test must start DISABLED or an unrelated
+        # guard fires first and the assertion reads the wrong refusal (seen live:
+        # "illiquid" != "freshness"). Same leak pattern as tests/test_profit_tailgate.py.
+        self._saved_knobs = {}
+        for k in _GATE_KNOBS:
+            self._saved_knobs[k] = os.environ.pop(k, None)
         with lg._lock:                      # cold cache per test
             lg._cache["ts"] = 0.0
             lg._cache["stats"] = {}
@@ -44,6 +58,11 @@ class _Iso(unittest.TestCase):
         self._t.cleanup()
         for k in ("LANE_GATE_DB", "LANE_KILL", "FRESH_GATE", "LANE_KILL_MIN_N"):
             os.environ.pop(k, None)
+        for k in _GATE_KNOBS:               # restore prod values for anything after us
+            os.environ.pop(k, None)
+            v = getattr(self, "_saved_knobs", {}).get(k)
+            if v is not None:
+                os.environ[k] = v
 
 
 class TestKillCriteria(_Iso):
@@ -355,5 +374,64 @@ class TestLiquidityFloor(_Iso):
         os.environ["X16_MIN_DOLLAR_VOL_M"] = "0"
         self.lg._dollar_vol_30d = lambda s: 1.0
         ok, guard, _ = self.lg.check("any", "TINY/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+
+class TestCounterTrendRefusal(_Iso):
+    """X17 (2026-07-18): entries fighting the symbol's 7-day trend are REFUSED (never
+    inverted — CONVENTIONS §16). Flat symbols (|trend| < neutral band) allow both sides."""
+
+    def setUp(self):
+        super().setUp()
+        for k, v in (("STOP_REENTRY_COOLDOWN_MIN", "0"), ("X11_MIN_RANGE_PCT", "0"),
+                     ("X16_MIN_DOLLAR_VOL_M", "0"), ("X17_COUNTER_TREND_PCT", "2.0"),
+                     ("X17_NEUTRAL_PCT", "1.0")):
+            os.environ[k] = v
+        self._orig = self.lg._trend_pct_nd
+
+    def tearDown(self):
+        self.lg._trend_pct_nd = self._orig
+        for k in ("STOP_REENTRY_COOLDOWN_MIN", "X11_MIN_RANGE_PCT", "X16_MIN_DOLLAR_VOL_M",
+                  "X17_COUNTER_TREND_PCT", "X17_NEUTRAL_PCT", "X17_TREND_DAYS"):
+            os.environ.pop(k, None)
+        super().tearDown()
+
+    def test_short_into_uptrend_refused(self):
+        self.lg._trend_pct_nd = lambda s, d=7: +8.0
+        ok, guard, why = self.lg.check("any", "UP/USDT:USDT", "SHORT")
+        self.assertFalse(ok)
+        self.assertEqual(guard, "counter_trend")
+        self.assertIn("trend", why)
+
+    def test_long_into_downtrend_refused(self):
+        self.lg._trend_pct_nd = lambda s, d=7: -8.0
+        ok, guard, _ = self.lg.check("any", "DOWN/USDT:USDT", "LONG")
+        self.assertFalse(ok)
+        self.assertEqual(guard, "counter_trend")
+
+    def test_aligned_entries_allowed(self):
+        self.lg._trend_pct_nd = lambda s, d=7: +8.0
+        ok, guard, _ = self.lg.check("any", "UP/USDT:USDT", "LONG")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+    def test_flat_symbol_allows_both_sides(self):
+        self.lg._trend_pct_nd = lambda s, d=7: +0.4      # inside the neutral band
+        for d in ("LONG", "SHORT"):
+            ok, guard, _ = self.lg.check("any", "FLAT/USDT:USDT", d)
+            self.assertTrue(ok, d)
+            self.assertEqual(guard, "")
+
+    def test_no_data_fails_open(self):
+        self.lg._trend_pct_nd = lambda s, d=7: None
+        ok, guard, _ = self.lg.check("any", "NEW/USDT:USDT", "SHORT")
+        self.assertTrue(ok)
+        self.assertEqual(guard, "")
+
+    def test_zero_disables(self):
+        os.environ["X17_COUNTER_TREND_PCT"] = "0"
+        self.lg._trend_pct_nd = lambda s, d=7: +50.0
+        ok, guard, _ = self.lg.check("any", "UP/USDT:USDT", "SHORT")
         self.assertTrue(ok)
         self.assertEqual(guard, "")

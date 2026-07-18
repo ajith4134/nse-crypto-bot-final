@@ -620,3 +620,29 @@ because illiquid names move further both ways. It should compound with X15, whic
 banks peaks instead of giving them back. Verdict rule (n>=150 closes post-12:24): green
 ratio must rise above the .467 24h baseline AND net/close must not worsen. REVERT:
 X16_MIN_DOLLAR_VOL_M=0 + bounce funnel+live_loop.
+
+### Session 9, X17 (2026-07-18 13:51) — counter-trend refusal (owner "ok ahed and do the x17")
+The SECOND research claim that validated on our own trades. MEASURED over 1,672 closes/36h
+(returns normalized to % of stake): entries ALIGNED with the symbol's own 7-day trend
+returned −0.58%/trade vs −1.48% for entries fighting it — diff +0.91%, SE 0.38, t=2.38,
+and it holds inside 4 of 5 lanes (force_entry +1.41% vs −2.50%; learned_direction −0.67 vs
+−1.13; ctl −0.27 vs −1.78; squeeze flat). 🔑 The 30-DAY version of this same test showed
+NOTHING — horizon is the parameter, not the premise.
+X17: lane_gate._trend_pct_nd (freqtrade daily feathers, 1h cache) + a refusal in check().
+Per CONVENTIONS §16 a counter-trend claim is REFUSED, never inverted. |trend| below
+X17_NEUTRAL_PCT (1.0%) = "no trend" and BOTH sides stay allowed — forcing a side on a flat
+chart would fabricate direction. Counterfactual source "counter7cut"; no data fails OPEN.
+Env: X17_COUNTER_TREND_PCT=2.0 / X17_NEUTRAL_PCT=1.0 / X17_TREND_DAYS=7. REVERT: set 0.
+VERIFIED LIVE pre-ship: LAB (7d −96%) LONG refused / SHORT allowed; KAITO (+7.2%) SHORT
+refused / LONG allowed; BTC (+0.21%, inside the band) neither refused by X17.
+HONEST CAVEAT: both buckets still LOSE — this narrows the bleed, it does not create profit;
+and it will cut ~half of entries (866 of 1,672 were counter-trend), which pulls against X10's
+throughput goal. Verdict rule (n>=150 closes post-13:51): net/close must beat −1.94 AND the
+wrong-from-start share must fall below 23%. REVERT: X17_COUNTER_TREND_PCT=0 + bounce loops.
+TEST-ISOLATION FIX (real bug this caught): the prod .env now carries X11/X16/X17 knobs and
+the config import chain loads them into os.environ, so unrelated lane_gate tests started
+hitting the NEW guards first ("illiquid" != "freshness", 6 failures). _Iso now clears every
+gate knob per test and restores it after — same pattern test_profit_tailgate.py documents.
+35 gate tests green.
+OPS: load average hit 170 and starved the test runs; cpu-solo pause (--min-cpu 25) → tests
+ran in 14s → resume. Load 170 -> 13.
