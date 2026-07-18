@@ -211,12 +211,14 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         "ml_leverage": float(cfg.leverage),    # custom: read by strategies' leverage() (futures)
         # Hard-stop family (X3+X8, 2026-07-17). freqtrade semantics: the static "stoploss" is
         # the WIDEST bound (custom_stoploss can only tighten), so it carries the ml_stop_max
-        # backstop; the per-trade arms live in MlBridgeStrategy.custom_stoploss —
-        # EVEN trade ids = fixed ml_stop_fixed (control, ML_STOPLOSS), ODD ids = vol-scaled
-        # K×ATR14(5m)×lev clamped [ml_stop_min, ml_stop_max]. ML_STOP_AB=0 → fixed for all.
+        # backstop; the per-trade arms live in MlBridgeStrategy.custom_stoploss.
+        # ml_stop_mode: "ab" = per-trade A/B (EVEN ids fixed ml_stop_fixed, ODD ids vol-scaled
+        # K×ATR14(5m)×lev clamped [ml_stop_min, ml_stop_max]); "vol" = vol-scaled for ALL
+        # (X8 verdict 2026-07-18: vol beat fixed n≈190/arm, net −127 vs −339, green .40 vs .29,
+        # stops .33 vs .60); "fixed" = fixed for all (pre-X8 behavior).
         "stoploss": -abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),
         "ml_stop_fixed": abs(float(os.environ.get("ML_STOPLOSS", "-0.03") or 0.03)),
-        "ml_stop_ab": os.environ.get("ML_STOP_AB", "1") in ("1", "true", "yes"),
+        "ml_stop_mode": (os.environ.get("ML_STOP_MODE", "ab") or "ab").strip().lower(),
         "ml_stop_atr_k": float(os.environ.get("ML_STOP_ATR_K", "1.5") or 1.5),
         "ml_stop_min": abs(float(os.environ.get("ML_STOP_MIN", "0.02") or 0.02)),
         "ml_stop_max": abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),

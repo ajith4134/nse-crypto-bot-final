@@ -403,3 +403,55 @@ Hard-stop arms still protect sub-floor trades. 2 new tests (12 green; module-fro
 _MIN_ARM_PROFIT patched via mock, not env). REVERT: TAILGATE_MIN_LOCK_PCT=0 + restarts.
 Verdict rule: post-22:35 tailgate_lock closes must be ≥90% green with avg ≥ +1.0 per
 close (fee-clearing), without total tailgate-exit count collapsing (<25% of prior rate).
+
+## Session 9 (2026-07-18 ~07:00 UTC) — "one day completed" verdict check (runbook run)
+
+Scoreboard: verdict_check.py + live_watch.py + windowed DB queries (cut = 2026-07-17
+22:35, the X8+X9 restart; actual proc start 22:15).
+
+**V1 live-vs-ctl — WIN (provisional):** learned_direction ALL n=407 acc .572
+[.524,.620] vs ctl n=199 acc .503 [.434,.571]. Gap +6.9pp ≥ +3pp with ctl 1 row shy of
+the n≥200 bar (CIs overlap, so the +3pp branch decides). Realized lanes agree: brain
+lane −0.38/trade vs ctl −1.96/trade since epoch. KEEP mission knobs; race continues;
+re-affirm when ctl crosses 200.
+
+**V2 cost gate — VALIDATED:** costcut n=2600 acc .511 [.492,.530] vs accepted .572
+[.524,.620] — CIs NON-overlapping; refused trades genuinely score worse. COST_GATE stays.
+
+**V3 horizon — INSUFFICIENT at trade level** (open assignments all horizon=None — the
+horizon isn't reaching exit_policy assignment; wiring gap to fix). Claims-level is
+directionally consistent: 15m .529 / 1h .605 / 4h .600.
+
+**V4 OPE — PROPOSAL (not auto-applied):** shrink_8 beats live_cfg on BOTH hit (.5588 vs
+.5563) and capture (168.6 vs 145.9); shrink_0 has top capture (217) but worse hit
+(.5334). Proposal for owner: SHRINK_K 96 → 8.
+
+**V5 exit bandit standings** (all arms n≥30 except ratchet_direction n=10): va_trail
+72/136 .53, scale_out 65/123 .53, ratchet .48, early_abort .49, direction .49,
+forecast .47. No verdict yet — leaders are the two trail-style arms.
+
+**X8 — VOL STOP PROMOTED (pre-registered rule met):** trades opened post-cut, n=194
+fixed / n=192 vol: net −338.77 vs −126.91, green .29 vs .40, stop-rate .60 vs .33.
+Vol wins net WITHOUT halving green (it raises it). Shipped: ml_stop_mode config knob
+(ab|vol|fixed), ML_STOP_MODE=vol in .env → ATR stop for ALL trades. Re-check path:
+ML_STOP_MODE=ab restores the parity A/B.
+
+**X9 — REVERTED (pre-registered rule failed):** post-cut tailgate closes n=20: green
+80% (<90% target), avg +2.59 (pass), rate 2.4/h = 6.7% of prior 35.6/h (<25% floor —
+fail). Deeper truth: the pre-X9 tailgate population was NOT sub-fee junk — 285 closes,
+74% green, avg +1.53, net +435/8h (the system's profit engine; only 28/285 hollow).
+The floor suppressed 93% of those exits; stop-outs doubled (95 → 184) as trades that
+would have banked +0.3–0.7% rode to their stops. The BONK/DODOX anecdotes were the
+tail, not the body. TAILGATE_MIN_LOCK_PCT=0 (env), code stays as dormant knob.
+Honest note: system net/h still improved −95.6 → −56.1 across the window, but the
+decomposition credits X8 (stop severity), not X9.
+
+**X7 — KEEP** (BRAIN_LOOP=1): matured-open direction grades stay above the 0/3
+fallback baseline (latest feed 3/4; era ~.56); SHORTs flowing (23/118 post-cut).
+Watch item: live_loop lane realized net −194 post-cut is the worst lane — next
+experiment target after X9 revert takes effect (many of its reds were stop-outs
+under the fixed arm, now removed).
+
+Actions: config_template ml_stop_mode + MlBridgeStrategy mode branch + .env
+(ML_STOP_MODE=vol, TAILGATE_MIN_LOCK_PCT=0); 33 tests green (tailgate+lane_gate);
+freqtrade + crypto funnel + live_loop bounced ~07:03 on regenerated config.

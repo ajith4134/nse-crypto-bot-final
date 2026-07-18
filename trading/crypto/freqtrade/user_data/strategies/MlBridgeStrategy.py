@@ -50,6 +50,9 @@ class MlBridgeStrategy(IStrategy):
     # K×ATR14(5m) in price space, leverage-scaled into freqtrade's profit-ratio basis and
     # clamped to [ml_stop_min, ml_stop_max] of stake. Scoreboards recover the arm from
     # trade_id % 2 — no extra state. Any failure returns None (keep the default stop).
+    # X8 VERDICT (2026-07-18, n≈190/arm): vol beat fixed on net (−127 vs −339), green
+    # (.40 vs .29) and stop-rate (.33 vs .60) → ml_stop_mode "vol" promotes the ATR stop
+    # to ALL trades; "ab" keeps the parity split for re-checks; "fixed" is pre-X8.
     use_custom_stoploss = True
     _atr_cache: dict = {}                 # pair -> (monotonic_ts, atr_pct)
 
@@ -83,7 +86,9 @@ class MlBridgeStrategy(IStrategy):
             # NB: the static `stoploss` attr is freqtrade's WIDEST bound (custom_stoploss can
             # only tighten from it) — it is set to the ml_stop_max backstop in the config, and
             # BOTH arms are enforced here.
-            if not bool(self.config.get("ml_stop_ab", True)) or int(trade.id) % 2 == 0:
+            mode = str(self.config.get("ml_stop_mode",
+                       "ab" if bool(self.config.get("ml_stop_ab", True)) else "fixed")).lower()
+            if mode == "fixed" or (mode != "vol" and int(trade.id) % 2 == 0):
                 return stoploss_from_open(-fixed, current_profit,
                                           is_short=trade.is_short, leverage=lev)
             atr = self._atr_pct(pair)
