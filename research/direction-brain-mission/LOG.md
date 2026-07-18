@@ -527,3 +527,35 @@ opens/h to FALL — that is the mechanism, not a failure; but if opens/h < 15 (d
 or net/close worsens, REVERT: COST_GATE_LAMBDA=1.0 + bounce funnel+live_loop.
 NOTE vs X10: X10 raised throughput for data, X12 cuts weak trades — deliberate opposition;
 X12 owns the entry-quality axis, X10 the candidate-width axis.
+
+### Session 9, X14 (2026-07-18 12:02) — the long-only fallback stands down
+### (owner: "all loss trades' reason is placing the WRONG DIRECTION")
+Owner's claim MEASURED properly this time (my first pass answered the wrong question —
+aggregate win rate instead of WHY the losers lost). Of 691 losing closes in 24h:
+  A) WRONG FROM THE START (never gained +0.5% of stake): 318 = 46%, cost −4,046.5
+  B) direction right FIRST, then reversed: 373 = 54%, cost −3,341.3
+     (median peak +1.53% of stake before turning red; 136 were up ≥2% and STILL closed red)
+So the owner is RIGHT that wrong-direction is the single biggest loss cause — 46%.
+
+ATTRIBUTION of the 318: live_loop 155 (49% of them, −2,318 = 57% of the wrong-direction
+money). Next worst learned_direction 52 (−550). The router's wrong trades split
+141 LONG / 14 SHORT — a 10:1 long skew. Cause: router opened 91% LONG (606) vs 9% SHORT
+(63) in 24h while the brain funnel BESIDE it ran 68% SHORT on the same market and squeeze
+ran 50/50. Router LONGs lose −2.12/trade; router SHORTs −0.49/trade.
+ROOT CAUSE: momentum_decider (the _decide fallback whenever the brain path is absent or
+throws) returns only LONG/EXIT/FLAT — it is STRUCTURALLY incapable of SHORT, so every
+fallback tick fabricates a LONG regardless of the market.
+
+X14: per CONVENTIONS §16 (direction must be EARNED — never fabricate, never invert), the
+fallback no longer OPENS. It still returns EXIT/FLAT so open positions stay managed while
+the brain is down. Suppressed entries record a momentum_longonly_cut counterfactual, so
+the ledger adjudicates whether standing down beat entering. ROUTER_MOMENTUM_ENTRIES=1
+restores the old behavior. Also fixed: `os` was never imported at module level in
+live_loop.py — X13's ROUTER_COST_GATE lookup would have raised into its own except and
+silently failed open. Verified functionally: same rising-price stream returns LONG with
+=1 and FLAT with =0, and the EXIT path still exits. 63 tests green.
+BASELINE (live_loop, 6h pre-X14): n=113, 21% short, green .469, net −330.6 (−2.93/trade).
+Verdict rule (pre-registered, n>=100 router closes post-12:02): net/trade must beat −2.93
+AND the router's wrong-from-start share must fall below 23%. If router volume collapses to
+near zero AND the brain path is the reason (not the market), that is a FINDING not a
+failure — it means the router was living on fabricated longs. REVERT: ROUTER_MOMENTUM_ENTRIES=1.

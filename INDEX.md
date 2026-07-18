@@ -4947,7 +4947,7 @@ _trading/online/controls.py — shared, persisted control surface (O5)._
 _trading/online/live_loop.py — the always-on LIVE trade loop (the missing daemon)._
 - **classes:** BrainDecider, LiveTradeLoop
 - **functions:** `trade_type(market, instrument, product, exchange) -> str`; `momentum_decider(window, band)`; `_xray_on_open(symbol, exchange, segment) -> None`; `_cortex_shadow_nse(market, symbol, window, d, in_position) -> dict`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
-- **imports:** __future__, collections, threading, time, trading.online, trading.online.session, trading.online.state
+- **imports:** __future__, collections, os, threading, time, trading.online, trading.online.session, trading.online.state
 
 ## `trading/online/replay.py`
 _trading/online/replay.py — NSE off-hours candle/tick replay feed (Phase O3)._

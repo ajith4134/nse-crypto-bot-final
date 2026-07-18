@@ -25,6 +25,7 @@ dashboard's Start/Stop/mode/balance controls drive THIS loop live. Thread-based;
 """
 from __future__ import annotations
 
+import os
 import threading
 import time
 from collections import deque
@@ -664,6 +665,26 @@ class LiveTradeLoop:
             except Exception:
                 pass
         d = self._momentum(market, symbol, price, in_position=in_position)
+        # X14 (2026-07-18): the SMA fallback is STRUCTURALLY LONG-ONLY — it cannot return
+        # SHORT at any price. Whenever the brain path is absent or throws, this lane
+        # therefore fabricates a LONG regardless of what the market is doing. MEASURED
+        # over 24h: the router opened 91% LONGs (606) vs 9% SHORTs while the brain funnel
+        # beside it ran 68% SHORT on the same market; its wrong-from-start losses split
+        # 141 LONG / 14 SHORT and cost −2,318 (49% of ALL wrong-direction losses).
+        # CONVENTIONS §16 (direction must be EARNED): a side no evidence chose is not a
+        # claim, so the fallback no longer OPENS. It still manages EXIT/FLAT, so open
+        # positions stay protected when the brain is down. ROUTER_MOMENTUM_ENTRIES=1
+        # restores the old long-only entries.
+        if d.get("action") == "LONG" and not in_position and \
+                os.getenv("ROUTER_MOMENTUM_ENTRIES", "0") not in ("1", "true", "yes", "on"):
+            try:
+                from trading.direction import truth_ledger as _x14tl
+                _x14tl.record(symbol=symbol, market=market.upper(),
+                              segment="futures" if market.upper() == "CRYPTO" else "equity",
+                              direction="LONG", source="momentum_longonly_cut", taken=False)
+            except Exception:
+                pass
+            d = {"action": "FLAT", "size": 0.0, "detail": "X14: long-only fallback stood down"}
         self._apply_decision_memory(symbol, d)
         return self._apply_psychology(market, symbol, d, in_position=in_position)
 
