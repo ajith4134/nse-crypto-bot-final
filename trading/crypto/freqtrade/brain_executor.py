@@ -1889,10 +1889,11 @@ class BrainExecutor:
                                 from trading.crypto.freqtrade import entry_meta as _em
                                 _m0 = _em.lookup(pair, self.segment or "futures",
                                                  t.get("open_date"))
-                                # V3 wiring fix (2026-07-18): records nest the brain block
-                                # under meta.decision_snapshot — the old top-level meta.brain
-                                # read returned None for EVERY trade (V3 unjudgeable).
-                                _meta0 = (_m0 or {}).get("meta") or {}
+                                # V3 wiring fix (2026-07-18): lookup() returns the META dict
+                                # itself (it unwraps best.get("meta") internally) — the old
+                                # extra .get("meta") made this {} for EVERY trade; and the
+                                # brain block nests under decision_snapshot, not top-level.
+                                _meta0 = _m0 or {}
                                 _br0 = ((_meta0.get("decision_snapshot") or {}).get("brain")
                                         or _meta0.get("brain") or {})
                                 _hz = (_br0.get("learned_direction") or {}).get("horizon")
@@ -1901,9 +1902,15 @@ class BrainExecutor:
                             _arm = _xp.assign(tid, regime=_regime,
                                               lane=str(t.get("enter_tag") or ""),
                                               symbol=pair, atr_pct=_atr_pct, horizon=_hz)
+                            print(f"[exit-policy] assigned {_arm} to {tid} ({pair}) "
+                                  f"hz={_hz}", flush=True)
                         else:
                             _arm = _rec.get("arm")
-                except Exception:
+                except Exception as _xe:
+                    # LOUD (2026-07-18): this except ate every assignment failure for hours —
+                    # a silently unassigned trade is indistinguishable from an assigned one.
+                    print(f"[exit-policy] assign FAILED {tid} ({pair}): "
+                          f"{type(_xe).__name__}: {_xe!s:.120}", flush=True)
                     _arm = None
                 if _arm in ("va_trail", "scale_out"):
                     try:
