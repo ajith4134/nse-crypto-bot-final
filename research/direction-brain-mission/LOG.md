@@ -686,3 +686,24 @@ Verdict rule (n>=150 closes post-restart): avg loss must fall below −4.5% of s
 payoff must EXCEED (1−p)/p (actually profitable). GUARD: if the stop-rate climbs above .55
 (X8's fixed-stop failure signature) the clamp is inside the noise band → REVERT.
 REVERT: ML_STOP_MAX=0.08 + engine restart.
+
+### Session 9, X20 (2026-07-18 17:11) — funnel tailgate arm 1.0 -> 3.0 (owner "do x20")
+⚠️ THE ORIGINALLY-PLANNED X20 WAS REFUTED BY ITS OWN DIAGNOSTIC, BEFORE SHIPPING.
+Plan was a minimum-hold / anti-churn rule, motivated by our own finding that sub-15m holds
+are our worst (n=750, −1.06% of stake) vs 45-120m (~−0.00%). Diagnostic first: of 314
+quick (<15m) stop-outs, **216 (69%) NEVER went favorable** — they were wrong from ENTRY,
+not shaken out of good positions. A minimum hold would have FORCED those to stay open and
+deepened the losses. Premise falsified; not shipped. (This is the same discipline that
+caught X15's over-tight arm — measure the mechanism, not just the correlation.)
+WHAT THE DIAGNOSTIC DID FIND: the <15m bucket is bimodal — 39.1% stop_loss at −5.90% AND
+**40.1% tailgate_lock at only +0.81%**. X18 raised the ENGINE ratchet arm to 3.0 but the
+FUNNEL tailgate was still arming at 1.0, so the funnel kept harvesting noise from the other
+side: 418 tailgate exits at +0.81% (<15m) to +1.31% (15-45m) against −5.90% stops. When two
+exits guard the same trade, the LOOSER one defines behavior — fixing one is not enough.
+X20 = TAILGATE_ARM_PROFIT_PCT_CRYPTO 1.0 -> 3.0, matching X18. Verified live: a 2.0% peak no
+longer arms (previously exited ~1.6%); a 4.0% peak locks at 3.2%. Funnel + live_loop bounced
+17:11; engine healthy.
+Verdict rule (n>=150 closes post-17:11): mean tailgate_lock exit must rise above +1.5% of
+stake AND payoff must exceed (1−p)/p. GUARD: if "peaked>=2% then closed red" climbs back
+above 10.2% (the pre-X15 rate), the arms are now too loose → revert to 2.0.
+REVERT: TAILGATE_ARM_PROFIT_PCT_CRYPTO=1.0 + bounce funnel+live_loop.
