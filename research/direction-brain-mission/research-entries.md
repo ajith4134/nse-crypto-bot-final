@@ -112,3 +112,28 @@ horizon grid before rejecting a family.
 REMAINING ~65 claims are not testable on our data: pure theory (no-trade-region math — already
 implemented as X12), mechanism descriptions of how funding works, or results measured at
 daily/weekly rebalance frequencies we do not trade. Not manufacturing tests for those.
+
+## FULL CLAIM CENSUS + round 2 of testing (2026-07-18, owner: "check the remaining claims")
+CORRECTION: the corpus is **178 distinct claims**, not 73 — the earlier count deduplicated on
+too short a prefix. Honest breakdown:
+- 100 testable in principle on our data
+-  46 other-asset (equities/ETF) or daily/weekly-rebalance horizons we do not trade
+-  23 META/source-quality (several are the VERIFIERS debunking blog claims — e.g. the popular
+     "extreme funding = top/bottom" posts carry no thresholds, horizons, or backtests)
+-   9 pure theory with no empirical content (no-trade-region math — already shipped as X12)
+
+### Round 2 results (11 claims tested total: 3 VALIDATED, 8 refuted/null)
+| claim | verdict | our measurement |
+|---|---|---|
+| leverage amplifies cost drag | REFUTED | 1x −0.98% vs 5x −0.91% of stake — essentially identical; leverage is NOT our problem |
+| momentum edge is strongest at SHORTER holds | **REFUTED — INVERTED** | our <15m holds (n=750) are our WORST at −1.06%; 45-120m holds are ~breakeven at −0.00% |
+| BTC 5/50 EMA regime overlay as a prior | **VALIDATED (directional)** | BTC is in BEAR now; our SHORTs .482 green/−0.70% beat LONGs .442/−1.07% |
+
+NOTE on the BTC test: our whole sample sits in ONE regime, so bull-vs-bear cannot be compared
+intraday — only the directional prior within the current regime is measurable. Do not
+generalize it until we have traded through a regime flip.
+
+🔑 NEW LEAD (from our own data, not the papers): **sub-15-minute holds are the drag.** 750
+trades under 15m at −1.06% vs 131 trades at 45-120m at −0.00%. We churn fastest exactly
+where we perform worst. That is the next experiment candidate (minimum-hold / anti-churn),
+and it is OUR finding — the literature claimed the opposite.
