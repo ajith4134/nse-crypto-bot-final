@@ -707,3 +707,25 @@ Verdict rule (n>=150 closes post-17:11): mean tailgate_lock exit must rise above
 stake AND payoff must exceed (1−p)/p. GUARD: if "peaked>=2% then closed red" climbs back
 above 10.2% (the pre-X15 rate), the arms are now too loose → revert to 2.0.
 REVERT: TAILGATE_ARM_PROFIT_PCT_CRYPTO=1.0 + bounce funnel+live_loop.
+
+### Session 9, X21 (2026-07-18 17:26) — momentum-lane parole REFUSED; parole RATE fixed
+Owner: "check the momentum lane record and give it parole if it deserves".
+RECORD: filter:momentum all-time n=303, .472 green, −404. By day: 07-13 −213, 07-14 −88,
+07-16 −245, then 07-17 **+125.2 (n=45, .622 green)** and 07-18 **+34.8 (n=3)** — the turn
+lines up exactly with the 07-17 selection-logic fix (Session 7).
+VERDICT: **parole NOT granted.** A 3-day window still has it at −85 over 180 trades (07-16's
+−245 is inside 3 days); only the last ~2 days are positive, n=48, BELOW the gate's own
+n>=100 bar. Reviving on 48 trades is the small-sample error we refuse everywhere else —
+and I checked this expecting to vindicate the lane, which is exactly when to be strictest.
+ALSO CHECKED (and rejected): shortening LANE_KILL_DAYS 14 -> 3 globally. It would NOT free
+filter:momentum anyway, and it WOULD revive explore_open_all (−1,338 over 933) and
+meanrev_stochrsi (−508 over 250) on thin recent samples. Rejected.
+WHAT IS ACTUALLY BROKEN: the parole RATE. LANE_KILL_PROBATION_H=6 gives ~4 trades/day, so
+rebuilding a 100-trade record takes ~25 DAYS = a life sentence. The code's own comment says
+parole exists because "a killed lane cannot trade, so its record can never improve".
+X21 = LANE_KILL_PROBATION_H 6 -> 1.0: ~24 probation trades/day, a verdict in ~4 days,
+still ~2% of flow. **Kill criteria (n>=100, loss>=25 USDT) UNTOUCHED** — verified live that
+filter:momentum remains killed; only its rate of earning evidence changed.
+Verdict rule: at n>=100 post-parole closes, filter:momentum keeps trading only if its
+PAROLE-ERA record is net-positive; otherwise it stays retired permanently and we stop
+paying for the evidence. REVERT: LANE_KILL_PROBATION_H=6.
