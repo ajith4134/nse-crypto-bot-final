@@ -225,6 +225,12 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # X9: engine-side floor for tailgate-lock enforcement (percent of stake) — locks
         # below round-trip fee drag close red; sub-floor locks are recorded but not fired.
         "ml_tailgate_min_lock": float(os.environ.get("TAILGATE_MIN_LOCK_PCT", "0") or 0.0),
+        # X15: engine-side ratchet, independent of the funnel's lock file (funnel cycles run
+        # 400-655s; 134 trades/24h peaked >=2% of stake and still closed red for -1,225).
+        # Mirrors the funnel's crypto arm/dist so both sides agree.
+        "ml_engine_ratchet": os.environ.get("ML_ENGINE_RATCHET", "1") in ("1", "true", "yes", "on"),
+        "ml_ratchet_arm_pct": float(os.environ.get("TAILGATE_ARM_PROFIT_PCT_CRYPTO", "1.0") or 1.0),
+        "ml_ratchet_dist": float(os.environ.get("TAILGATE_DIST_MAX_CRYPTO", "0.2") or 0.2),
         "bot_name": "mlnetworkbrain-crypto",
         "initial_state": "running",
         # 15s, not 5s: each cycle prices EVERY open trade off the order book (mandatory

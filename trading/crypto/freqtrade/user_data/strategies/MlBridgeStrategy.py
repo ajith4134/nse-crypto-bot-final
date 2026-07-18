@@ -116,6 +116,37 @@ class MlBridgeStrategy(IStrategy):
         Freqtrade's leverage-scaled ratio — the same basis the lock file uses.
         Kill-switch: "mlnb_tailgate_enforce": false in config.json. Never raises.
         """
+        # X15 (2026-07-18): ENGINE-SIDE RATCHET — protection that does not depend on the
+        # funnel's file. MEASURED: 134 trades in 24h peaked at >=2% of stake (median +3.49%,
+        # max +10.42%) and still closed RED, costing -1,225; 56 of them rode from profit all
+        # the way to the hard stop. Root cause: profit_tailgate_locks.json is written ONLY by
+        # the funnel, whose cycles now take 400-655s (the docstring below assumed 2-4 min), so
+        # a fast mover peaks and dies between passes and NO lock ever exists for the engine to
+        # enforce. freqtrade tracks max_rate/min_rate on every iteration, so the ratchet can be
+        # derived here at engine cadence. Uses the same arm/distance semantics as the funnel;
+        # the funnel's file lock still wins when it is HIGHER (it carries the learned distance).
+        # Kill switch: ml_engine_ratchet=false.
+        _eng_lock = 0.0
+        try:
+            if self.config.get("ml_engine_ratchet", True):
+                lev = float(getattr(trade, "leverage", 1.0) or 1.0)
+                op = float(getattr(trade, "open_rate", 0.0) or 0.0)
+                if op > 0:
+                    if trade.is_short:
+                        ext = float(getattr(trade, "min_rate", 0.0) or 0.0)
+                        peak = ((op - ext) / op * lev * 100.0) if ext > 0 else 0.0
+                    else:
+                        ext = float(getattr(trade, "max_rate", 0.0) or 0.0)
+                        peak = ((ext - op) / op * lev * 100.0) if ext > 0 else 0.0
+                    peak = max(peak, current_profit * 100.0)
+                    arm = float(self.config.get("ml_ratchet_arm_pct", 1.0) or 1.0)
+                    dist = float(self.config.get("ml_ratchet_dist", 0.2) or 0.2)
+                    if peak >= arm:
+                        _eng_lock = peak * (1.0 - dist)
+                        if current_profit * 100.0 <= _eng_lock:
+                            return "engine_ratchet"
+        except Exception:
+            pass                                # never block exits
         try:
             if not self.config.get("mlnb_tailgate_enforce", True):
                 return None

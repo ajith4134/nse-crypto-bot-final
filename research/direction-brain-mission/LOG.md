@@ -559,3 +559,39 @@ Verdict rule (pre-registered, n>=100 router closes post-12:02): net/trade must b
 AND the router's wrong-from-start share must fall below 23%. If router volume collapses to
 near zero AND the brain path is the reason (not the market), that is a FINDING not a
 failure — it means the router was living on fabricated longs. REVERT: ROUTER_MOMENTUM_ENTRIES=1.
+
+### Session 9, X15 (2026-07-18 12:15) — ENGINE-SIDE RATCHET (owner: test the research,
+### don't dismiss it; our system is losing without intelligence)
+FIRST tested the research claims ON OUR OWN DATA (owner's standard). BOTH FAILED:
+- "align entries with multi-day (30d) momentum": measured on 1,549 of our closes with 31+
+  daily bars — ALIGNED green .456 / −2.14 per trade vs AGAINST green .505 / −2.24. No edge;
+  alignment was marginally WORSE. NOT adopted.
+- "BTC 21:00-23:00 UTC is the strong window": our hours 21/22/23 ran −1.71/−2.91/−1.79 per
+  trade — not our best. Our only positive hours were 01:00 (+1.89, n=49) and 02:00 (+0.55,
+  n=115), but that is 2 days x 24 buckets = a multiple-comparison trap (cf. the null-harness
+  FDR≈0.30 lesson). NOT adopted, NOT shipped as an hour gate.
+So neither research rule was taken on faith OR dismissed — both were tested and rejected on
+evidence. Findings saved either way (research-entries.md).
+
+The real defect came from OUR data instead: 134 closes in 24h peaked >=2% of stake (median
++3.49%, max +10.42%) and still closed RED for −1,225; 56 rode from profit all the way to the
+hard stop. ROOT CAUSE: profit_tailgate_locks.json is written ONLY by the funnel, whose cycles
+now take 400-655s (custom_exit's docstring assumed 2-4 min) — a fast mover peaks and dies
+between passes, so NO lock exists for the engine to enforce. The engine already sees
+max_rate/min_rate every iteration.
+
+X15: MlBridgeStrategy.custom_exit derives the ratchet ITSELF from trade.max_rate/min_rate
+(leverage-scaled to current_profit's basis), arms at ml_ratchet_arm_pct (1.0% of stake) and
+exits "engine_ratchet" when profit falls to peak x (1 - ml_ratchet_dist 0.2). Runs at engine
+cadence (~15s), independent of the funnel. The funnel's file lock still wins when HIGHER (it
+carries the learned distance). ML_ENGINE_RATCHET=0 reverts.
+COUNTERFACTUAL over all 1,309 closes in 24h: actual −2,534.6 -> X15 +2,259.3 (swing +4,794;
+286 losers rescued, 454 winners capped where the real exit was worse than the lock).
+HONESTY: this is an UPPER BOUND — it assumes fills AT the lock (real fills slip) and
+freqtrade's max_rate may miss intra-candle spikes. Expect materially less live.
+Verdict rule (pre-registered, n>=150 closes post-12:15): net per close must beat the −1.94
+24h baseline AND the ">=2% peak then closed red" count must fall below 5% of closes (was
+134/1309 = 10.2%). REVERT: ML_ENGINE_RATCHET=0 + freqtrade restart.
+OPS: start_all's pgrep guard does NOT start freqtrade — `launch` only WRITES config.json;
+the engine needs `bash trading/crypto/freqtrade/start.sh`. Engine was down ~10 min during
+this deploy; restored 12:15:55, ping 200. Order types confirmed MARKET (entry/exit/stop).
