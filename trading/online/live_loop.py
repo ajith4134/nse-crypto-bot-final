@@ -1365,6 +1365,40 @@ class LiveTradeLoop:
         if uq and uq.get("abstain"):
             return {"ok": False, "abstain": True,
                     "detail": f"UQ abstain: {uq.get('abstain_reason')}"}
+        # X13 (2026-07-18): COST GATE for the ROUTER lane. X12 raised the gate to
+        # lambda×cost but both call sites live in the funnel's learned_direction path —
+        # this lane, the measured biggest bleeder (live_loop −76 per 3h), never cost-checked
+        # at all. Same gate, same counterfactual discipline: refusals record a
+        # live_loop_costcut claim so the ledger adjudicates whether the gate helps.
+        # Crypto only (fees here are the measured 31%-of-losses drag); p_up from the UQ
+        # assessment, else brain confidence; missing probability → no gate (fail-open).
+        if is_crypto and os.getenv("ROUTER_COST_GATE", "1") in ("1", "true", "yes", "on"):
+            _p = (uq or {}).get("p_up")
+            if _p is None:
+                _p = (brain or {}).get("confidence")
+            try:
+                _p = float(_p) if _p is not None else None
+            except (TypeError, ValueError):
+                _p = None
+            if _p is not None:
+                try:
+                    from trading.direction import learned_direction as _rld
+                    _rcg = _rld.cost_gate(_p, symbol=symbol,
+                                          horizon=str((brain or {}).get("horizon") or "1h"))
+                    if not _rcg.get("pass"):
+                        try:                    # counterfactual — the labeler scores it
+                            from trading.direction import truth_ledger as _rtl
+                            _rtl.record(symbol=symbol, market=market.upper(),
+                                        segment=seg or "futures", direction=direction,
+                                        source="live_loop_costcut", confidence=_p,
+                                        taken=False)
+                        except Exception:
+                            pass
+                        return {"ok": False, "abstain": True,
+                                "detail": f"cost-gate: EV {_rcg.get('ev_bps')}bps under "
+                                          f"{_rcg.get('lambda')}x cost {_rcg.get('cost_bps')}bps"}
+                except Exception:
+                    pass                        # fail-open like every other router guard
         # loss cooldown: don't re-enter the SAME symbol in the SAME direction right after
         # a losing close (revenge-loop guard); flipping direction is a new claim and allowed
         try:
