@@ -39,3 +39,53 @@ momentum-family lanes hunt an edge the literature says does not exist at our hor
 while our only green lane (filter:squeeze) is volatility-compression = NOT trend-chasing.
 Finding 4 says the fix is regime conditioning, not a better momentum indicator.
 Finding 3 warns that any intraday signal read as pure-momentum is ~coin-flip.
+
+## RECOVERED from the stopped run (138 agent results preserved in journal.jsonl; 73
+## substantive claims). Owner stopped new agents 2026-07-18 — nothing was lost.
+
+### Directly contradicts what our momentum lanes assume
+- **Crypto momentum is real at MULTI-DAY horizons, not intraday**: top-quintile 30-day
+  returns kept outperforming over the NEXT 7 DAYS (37.8% ann. vs −33.8% bottom,
+  Apr2018-Nov2022, gross). Our lanes trade 15m-4h.
+- **Fee drag erodes even that**: at ~50bp round-trip, top-quintile annualized returns fell
+  30pp in-sample / 12pp out-of-sample — at WEEKLY rebalance. We rebalance ~50x/hour.
+- **Momentum's cross-sectional edge DEGRADES in the liquid large-cap subset** (no decile
+  structure in top-30 Binance perps) while it may work on a broader universe.
+- CTREND (ML trend, price+volume, multi-horizon, 3,000+ coins) DOES survive costs and
+  persists in big liquid coins — but at portfolio-rebalance frequency, not intraday.
+
+### Selectivity / fee drag (validates X12, extends it)
+- Optimal policy under proportional costs has a NO-TRADE REGION of width O(cost^1/3);
+  welfare loss O(cost^2/3). Act only when desired change exceeds a cost-set threshold.
+- Costs are KNOWN and certain; expected returns are UNCERTAIN — so the cost side should
+  dominate marginal decisions when edges are small. (Exactly our regime.)
+- Prefer SLOWLY-DECAYING alphas: equal predictive power but less turnover. A system
+  bleeding on fees should shift to slower signals, not better fast ones.
+- Time-varying-signal strategies (momentum/mean-reversion) suffer AMPLIFIED cost losses
+  vs static portfolios — they can't just trade less without losing the timing.
+
+### Session / time (actionable, crypto-specific)
+- BTC has persistent intraday seasonality: **21:00-23:00 UTC** (after global equity closes)
+  delivers the highest average returns; a hold-only-that-window strategy ~33% annualized.
+- On NYSE-open days most BTC gains accrue OVERNIGHT; US-hours returns modest and volatile.
+  Pattern REVERSES on weekends/holidays → session-aware switching, not always-on.
+
+### Symbol selection (concrete floors)
+- Remove the bottom 20% of contracts by trailing 30-day dollar volume before any signal.
+- Reference universe: top-30 Binance perps by trailing 30-day dollar volume, ex-stables
+  and wrapped tokens.
+- Relative volume: >=2.0x average (10-20d lookback) to concentrate on participation;
+  breakouts at RVOL>=1.5x have better follow-through, >=3.0x stronger, but >10x can be
+  climax/exhaustion. **Use TIME-ADJUSTED RVOL** (vs same time-of-day) — raw RVOL is biased
+  by the U-shaped intraday volume curve.
+
+### Funding / carry (our filter:funding_extreme lane)
+- Funding buckets: +0.01%..+0.05%/8h = bullish crowding; -0.01%..-0.03% = bearish;
+  beyond +/-0.1% = stress. Fixed interest component 0.01%/8h = ~10.95%/yr cost floor.
+- Sustained +0.05%/8h ~= 54.75% annualized cost on longs → crowded longs self-limiting.
+- Carry is driven by TREND-CHASING (past week/month BTC returns → larger basis): elevated
+  funding marks crowded speculative longs, NOT bullish confirmation.
+- Extreme positive carry FORECASTS CRASHES; +10% standardized carry predicts +22% sell
+  liquidations (% of OI) next month. Contrarian direction, quantified.
+- Caveat logged honestly: the popular "extreme funding = top/bottom" blog claims carry NO
+  thresholds, horizons, or backtests — folklore until measured.
