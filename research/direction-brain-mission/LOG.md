@@ -476,3 +476,13 @@ LOOK stage → slower cycles could LOWER opens/h + wedge risk). Baseline: 40.3 o
 (121/3h). Verdict rule (pre-registered): opens/h ≥ +25% (≥50/h) within 3h of 07:43;
 GUARD: post-07:43 cohort green% at n≥100 must not fall >5pp vs the .35 baseline.
 REVERT: TOPN=100 + delete LENS_LANE_MAX_PER_LENS + funnel restart. Funnel bounced 07:43.
+
+### Session 9 follow-on 2 (08:16) — V3 real root cause + loud assignment telemetry
+88dcaf1 was the WRONG level: entry_meta.lookup() returns best.get("meta") already;
+brain_executor's extra .get("meta") reduced every record to {} → horizon None forever
+(LAB 9414: record hz=15m, reader None). Fixed (efe86bf), verified against the real
+lookup, open assignments backfilled (horizon only; arms untouched — re-assigning would
+re-randomize the bandit mid-trade). Assignment except now LOUD. Debug detour lesson: the
+"assignments stopped" scare was budget-squeezed execute stages (budget ok=False cycles),
+not a wedge — grade_fills mtime + numeric-lock ownership (live_loop writes those too)
+misled; the instrumented log settled it in one cycle. Funnel bounced 08:16.
