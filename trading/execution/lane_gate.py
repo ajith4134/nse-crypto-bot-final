@@ -308,7 +308,17 @@ def check(tag: str | None, symbol: str, direction: str,
         # counter-trend claim is REFUSED, never inverted. A |trend| under X17_NEUTRAL_PCT is
         # "no trend" and both sides stay allowed — forcing a side on a flat chart would be
         # fabricating direction. Counterfactual "counter7cut" adjudicates; no data fails OPEN.
-        ct_pct = _f("X17_COUNTER_TREND_PCT", 0.0)
+        # X24: the DIP-REVERSION lane is EXEMPT from the counter-trend refusal. Measured on
+        # 1.45M labelled rows: buying a big hourly drop INSIDE a 7-day downtrend is the single
+        # best signal in the dataset (+0.281% fwd, +0.181% net, n=13,542) — and it is by
+        # construction a counter-trend long, exactly what X17 blocks. X17 was validated
+        # UNCONDITIONALLY (all entries, t=2.38); this edge is CONDITIONAL on a dip having just
+        # happened. Both hold; the conditional one is where the money is, so it gets an
+        # exemption rather than X17 being reverted for everyone.
+        if t.startswith("dip_revert"):
+            ct_pct = 0.0
+        else:
+            ct_pct = _f("X17_COUNTER_TREND_PCT", 0.0)
         if ct_pct > 0 and symbol and direction:
             tr = _trend_pct_nd(symbol, int(_f("X17_TREND_DAYS", 7)))
             if tr is not None and abs(tr) >= _f("X17_NEUTRAL_PCT", 1.0):

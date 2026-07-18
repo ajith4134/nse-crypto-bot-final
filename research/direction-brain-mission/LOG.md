@@ -729,3 +729,33 @@ filter:momentum remains killed; only its rate of earning evidence changed.
 Verdict rule: at n>=100 post-parole closes, filter:momentum keeps trading only if its
 PAROLE-ERA record is net-positive; otherwise it stays retired permanently and we stop
 paying for the evidence. REVERT: LANE_KILL_PROBATION_H=6.
+
+### Session 9, X24 (2026-07-18 18:25) — THE DIP-REVERSION LANE goes live (owner: "build the
+### dip lane and A/B it live")
+First entry rule in this project DERIVED FROM DATA rather than from a story. Source:
+X23-RESULT.md (1.45M labelled rows, 533 symbols, chronological holdout n=550,765).
+ENTRY (each parameter tuned on the holdout, not guessed):
+  ret_1h <= −3.0% (−3%: +0.438% net, n=5,849, 58.1% win | −4%: +0.686% net, n=3,222, 61.0%)
+  AND liquid >= $2.5M/day  AND 7d trend <= 0 (a dip in an UPTREND LOSES: −0.086% net)
+RISK — deliberately DIFFERENT from every other lane, because the measurement demanded it:
+  * 1x leverage (leverage() keyed on enter_tag) so a 2%-of-PRICE stop costs 2% of stake.
+  * stop 2% of PRICE (35.3% hit → +0.444% net). Our standard 4%-of-stake clamp at 5x is
+    0.8% of price and would stop out **62.6%** of these winners before reversion.
+  * NO ratchet, NO tailgate — a 60-MINUTE TIME EXIT. MEASURED: every take-profit level makes
+    it WORSE (hold-1h +0.538% | TP 1.5% +0.167% | TP 3% +0.386% | stop+TP −0.070%).
+    ⇒ the owner's "take some profit every time" is measurably WRONG for this specific edge;
+    the reversion needs room to complete.
+  * EXEMPT from X17 counter-trend refusal (a dip in a downtrend IS a counter-trend long —
+    X17 would veto the best signal in the dataset). X17 stays ON for everyone else: it was
+    validated UNCONDITIONALLY, this edge is CONDITIONAL. Not a revert, an exemption.
+PLUMBING VERIFIED before going live: scan() finds real symbols and filters correctly (all
+liquid, all 7d-down); DRY run confirmed the order path; 35 lane_gate tests green; engine
+restarted with ml_dip_stop_price_pct=2.0, ml_dip_hold_min=60. Scanner running as its own
+process (trading.research.dip_lane), 120s cadence, max 8 concurrent.
+A/B: the lane trades alongside every existing lane on the same market with tag `dip_revert`.
+Verdict rule (pre-registered, n>=100 dip closes): net per trade must be POSITIVE and must
+beat the contemporaneous all-lane average. GUARD: if realized net/trade < −0.5% (i.e. live
+slippage has eaten the thin edge) kill the lane — the backtest assumed fills at bar close and
+these entries are by construction in fast-falling symbols.
+REVERT: kill the dip_lane process (the lane cannot open without it); config keys are inert.
+NOTE the setup is RARE (~1% of samples): 0 candidates at launch is EXPECTED, not a fault.

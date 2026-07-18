@@ -228,6 +228,10 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # X15: engine-side ratchet, independent of the funnel's lock file (funnel cycles run
         # 400-655s; 134 trades/24h peaked >=2% of stake and still closed red for -1,225).
         # Mirrors the funnel's crypto arm/dist so both sides agree.
+        # X24 dip-reversion lane: own stop (% of PRICE) and a TIME exit, because measurement
+        # showed profit-taking destroys this edge and the normal stop pre-empts the reversion.
+        "ml_dip_stop_price_pct": float(os.environ.get("ML_DIP_STOP_PRICE_PCT", "2.0") or 2.0),
+        "ml_dip_hold_min": float(os.environ.get("ML_DIP_HOLD_MIN", "60") or 60),
         "ml_engine_ratchet": os.environ.get("ML_ENGINE_RATCHET", "1") in ("1", "true", "yes", "on"),
         # X18 (2026-07-18): the engine arm is DECOUPLED from the funnel's tailgate arm.
         # Measured under X15's arm=1.0: the ratchet harvested a MEDIAN +0.74% while stops

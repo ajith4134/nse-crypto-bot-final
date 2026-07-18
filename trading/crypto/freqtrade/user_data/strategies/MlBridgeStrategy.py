@@ -37,7 +37,15 @@ class MlBridgeStrategy(IStrategy):
 
     def leverage(self, pair, current_time, current_rate, proposed_leverage,
                  max_leverage, entry_tag, side, **kwargs):
-        """Operator-set leverage from config (futures only); clamp to the exchange max."""
+        """Operator-set leverage from config (futures only); clamp to the exchange max.
+
+        X24: the DIP-REVERSION lane runs at 1x by design. Its edge needs a ~2%-of-PRICE stop
+        to survive (measured: a 0.8% stop halves it, +0.185% vs +0.444% net), and at 5x that
+        would be 10% of stake. At 1x the same price stop costs 2% of stake — the risk the
+        edge was measured under.
+        """
+        if str(entry_tag or "").startswith("dip_revert"):
+            return 1.0
         lev = float(self.config.get("ml_leverage", 1.0) or 1.0)
         return max(1.0, min(lev, max_leverage))
 
@@ -82,6 +90,13 @@ class MlBridgeStrategy(IStrategy):
         try:
             from freqtrade.strategy import stoploss_from_open
             lev = float(getattr(trade, "leverage", 1.0) or 1.0)
+            # X24 dip lane: its own stop, in PRICE terms. Measured optimum ~2% of price
+            # (35% hit-rate, +0.444% net); our normal 4%-of-stake clamp at 5x is 0.8% of
+            # price and would stop out 62.6% of these winners before the reversion lands.
+            if str(getattr(trade, "enter_tag", "") or "").startswith("dip_revert"):
+                dip_stop = abs(float(self.config.get("ml_dip_stop_price_pct", 2.0) or 2.0))
+                return stoploss_from_open(-(dip_stop / 100.0) * lev, current_profit,
+                                          is_short=trade.is_short, leverage=lev)
             fixed = abs(float(self.config.get("ml_stop_fixed", 0.03) or 0.03))
             # NB: the static `stoploss` attr is freqtrade's WIDEST bound (custom_stoploss can
             # only tighten from it) — it is set to the ml_stop_max backstop in the config, and
@@ -126,6 +141,19 @@ class MlBridgeStrategy(IStrategy):
         # derived here at engine cadence. Uses the same arm/distance semantics as the funnel;
         # the funnel's file lock still wins when it is HIGHER (it carries the learned distance).
         # Kill switch: ml_engine_ratchet=false.
+        # X24 DIP LANE: no ratchet, no tailgate — a TIME exit instead. MEASURED: every
+        # take-profit level DESTROYS this edge (hold-full-hour +0.538%; TP at 1.5% -> +0.167%;
+        # TP at 3% -> +0.386%; stop+TP combined -> −0.070%). The reversion needs room to
+        # complete, so the winners must run and the exit is the clock, not a profit target.
+        try:
+            if str(getattr(trade, "enter_tag", "") or "").startswith("dip_revert"):
+                hold_min = float(self.config.get("ml_dip_hold_min", 60) or 60)
+                age = (current_time - trade.open_date_utc).total_seconds() / 60.0
+                if age >= hold_min:
+                    return "dip_time_exit"
+                return None                 # never let the ratchet/tailgate touch this lane
+        except Exception:
+            return None
         _eng_lock = 0.0
         try:
             if self.config.get("ml_engine_ratchet", True):

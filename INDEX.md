@@ -5048,6 +5048,11 @@ _Practice mode — the brain trades HISTORIC data to learn (user mandate_
 ## `trading/research/__init__.py`
 _(no summary)_
 
+## `trading/research/dip_lane.py`
+_X24 — the DIP-REVERSION lane: the only entry rule with measured out-of-sample edge._
+- **functions:** `_mirror() -> dict`; `_seven_day_and_volume(flat_symbol) -> tuple[float | None, float | None]`; `scan() -> list[dict]`; `open_dip_count(client) -> int`; `run_once(client) -> list[dict]`
+- **imports:** __future__, gzip, json, os, pathlib, statistics, time
+
 ## `trading/research/edge_test.py`
 _Honest edge test — does ANY feature carry information about the forward move?_
 - **functions:** `time_split(df, train_frac, embargo_frac)`; `single_feature_ic(df, feature, label) -> dict`; `quantile_spread(df, feature, label, q) -> dict`; `shuffled_control(df, feature, label, seed) -> dict`; `screen(df, features, label) -> pd.DataFrame`
