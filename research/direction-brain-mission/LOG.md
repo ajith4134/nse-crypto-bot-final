@@ -455,3 +455,24 @@ under the fixed arm, now removed).
 Actions: config_template ml_stop_mode + MlBridgeStrategy mode branch + .env
 (ML_STOP_MODE=vol, TAILGATE_MIN_LOCK_PCT=0); 33 tests green (tailgate+lane_gate);
 freqtrade + crypto funnel + live_loop bounced ~07:03 on regenerated config.
+
+### Session 9 follow-on (07:14) — V3 wiring fix
+Root cause of "[V3] OPEN assignments by horizon: {None: 14}": brain_executor's lazy
+exit-arm assignment read meta.brain.learned_direction.horizon but entry_meta nests the
+brain block under meta.decision_snapshot — None for EVERY trade. Fixed (legacy fallback
+kept); fixed reader finds horizon on 53/60 newest real records (rest = non-brain lanes,
+honest Nones). Crypto funnel bounced 07:14. Commit 88dcaf1. V3 becomes judgeable as
+closes accrue (needs ≥30/group). Ops trap hit TWICE today: background wait-loops whose
+command lines contain 'freqtrade trade'/'run_funnel_loop crypto' self-match start_all's
+pgrep guards → services silently not launched. Keep guarded strings OUT of watcher
+command lines.
+
+### Session 9, X10 (2026-07-18 07:43) — throughput for data accrual (owner: "make more
+### trades open for more data for experiment")
+Levers chosen to raise opens/h WITHOUT loosening any validated quality gate (X2/X4/X5/X6
+cooldowns + freshness stay): BINANCE_FILTER_TOPN 100→150 (owner blessed 150 on 07-16) and
+LENS_LANE_MAX_PER_LENS 1→2. LOOK_TOPK deliberately NOT raised (it lengthens the CPU-bound
+LOOK stage → slower cycles could LOWER opens/h + wedge risk). Baseline: 40.3 opens/h
+(121/3h). Verdict rule (pre-registered): opens/h ≥ +25% (≥50/h) within 3h of 07:43;
+GUARD: post-07:43 cohort green% at n≥100 must not fall >5pp vs the .35 baseline.
+REVERT: TOPN=100 + delete LENS_LANE_MAX_PER_LENS + funnel restart. Funnel bounced 07:43.
