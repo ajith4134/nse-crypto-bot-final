@@ -5045,6 +5045,19 @@ _Practice mode — the brain trades HISTORIC data to learn (user mandate_
 - **functions:** `_source(trust_path, explore)`; `replay(df, symbol) -> dict`; `list_runs(limit) -> list`
 - **imports:** __future__, json, numpy, os, time
 
+## `trading/research/__init__.py`
+_(no summary)_
+
+## `trading/research/edge_test.py`
+_Honest edge test — does ANY feature carry information about the forward move?_
+- **functions:** `time_split(df, train_frac, embargo_frac)`; `single_feature_ic(df, feature, label) -> dict`; `quantile_spread(df, feature, label, q) -> dict`; `shuffled_control(df, feature, label, seed) -> dict`; `screen(df, features, label) -> pd.DataFrame`
+- **imports:** __future__, math, pandas
+
+## `trading/research/label_dataset.py`
+_Labelled dataset builder — the foundation for testing whether ANY signal has edge._
+- **functions:** `_symbol_files(timeframe) -> list[Path]`; `_pretty(path) -> str`; `_features_at(c, h, l, v, i, bars_per_hour) -> dict | None`; `build(timeframe, sample_every, horizons, max_symbols, min_dollar_vol) -> pd.DataFrame`; `save(df, name) -> Path`
+- **imports:** __future__, math, pandas, pathlib
+
 ## `trading/risk_overlay.py`
 _Risk-map overlay — CANON-49 (JKA-07..10 spec, made honest)._
 - **classes:** RiskOverlay
