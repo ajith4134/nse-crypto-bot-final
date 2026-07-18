@@ -38,6 +38,16 @@ from trading import state
 # 2026-07-11: /market/stream?streams=... delivers; the others time out. markPrice@arr@1s = 1s cadence.
 _WS_URL = ("wss://fstream.binance.com/market/stream?streams="
            "!markPrice@arr@1s/!ticker@arr/!forceOrder@arr")
+# !bookTicker (2026-07-18) = best bid/ask for the WHOLE universe on ONE stream, and the fix for
+# `no_book`: the 20-level depth feed only covers the ~200 symbols we subscribe per-symbol, so
+# anything outside that set had no book at all — measured 53% of entry decisions defaulting to a
+# market order with reason "no_book" (79% just after a restart), silently excluding half the lane
+# from any maker/taker choice. Futures !ticker@arr does NOT carry bid/ask (spot's does), so this
+# is the only all-market touch feed.
+# It needs its OWN connection: verified 2026-07-18 that !bookTicker delivers ZERO frames on the
+# /market/stream?streams= multiplexed path (while !markPrice on the same socket kept flowing),
+# but 920 frames/12s on /ws/. Same shape of routing quirk as the _WS_URL note above.
+_BBO_URL = "wss://fstream.binance.com/ws/!bookTicker"
 _STALE_AFTER_S = 15.0            # a push field older than this is flagged stale (streams tick ~1–3s)
 _MAX_LIQS = 500
 _HIST_EVERY_S = 15.0            # sample the price history at most this often per symbol
@@ -123,6 +133,7 @@ class BinanceUniverseMirror:
         self._hist_last: dict[str, float] = {}   # symbol -> last-append ts (throttle)
         self._candles: dict[str, dict] = {}      # symbol -> {tf_s -> deque[[bar_ts,o,h,l,c]]}
         self._book: dict[str, dict] = {}         # symbol -> {bids:[[p,q]], asks:[[p,q]], ts} (20-lvl depth)
+        self._bbo: dict[str, dict] = {}          # symbol -> {bid, ask, bid_qty, ask_qty, ts} (ALL symbols)
         self._liqs: deque = deque(maxlen=_MAX_LIQS)   # recent liquidation events (all symbols)
         self._lock = threading.RLock()
         self._thread: threading.Thread | None = None
@@ -134,6 +145,8 @@ class BinanceUniverseMirror:
         self._depth_thread: threading.Thread | None = None
         self._agg_thread: threading.Thread | None = None
         self._agg_connected = False
+        self._bbo_thread: threading.Thread | None = None
+        self._bbo_connected = False
         self._running = False
         self._connected = False
         self._depth_connected = False
@@ -553,6 +566,54 @@ class BinanceUniverseMirror:
                 backoff *= 2
         self._agg_connected = False
 
+    def _run_bbo(self) -> None:
+        try:
+            asyncio.run(self._bbo_stream_loop())
+        except Exception:
+            self._bbo_connected = False
+
+    async def _bbo_stream_loop(self) -> None:
+        """Stream all-market `!bookTicker` → best bid/ask for EVERY perp, in one connection.
+
+        No mover re-pick and no reconnect deadline: unlike depth/aggTrade this is a single
+        all-market stream, so the subscription never goes stale as the universe rotates —
+        which is the whole point. It is what lets touch() answer for symbols outside the
+        ~200-symbol depth set (measured: 53% of entry decisions had no book without it).
+        """
+        try:
+            import websockets
+        except Exception:
+            return
+        backoff = 1.0
+        while self._running:
+            try:
+                async with websockets.connect(_BBO_URL, ping_interval=20, ping_timeout=20,
+                                              open_timeout=15, max_queue=4096) as ws:
+                    self._bbo_connected = True
+                    backoff = 1.0
+                    while self._running:
+                        raw = await asyncio.wait_for(ws.recv(), timeout=60)
+                        try:
+                            d = json.loads(raw)
+                        except Exception:
+                            continue
+                        s = d.get("s")
+                        if not s:
+                            continue
+                        b, a = _f(d.get("b")), _f(d.get("a"))
+                        if b and a and a > b:
+                            with self._lock:
+                                self._bbo[s] = {"bid": b, "ask": a,
+                                                "bid_qty": _f(d.get("B")),
+                                                "ask_qty": _f(d.get("A")),
+                                                "ts": time.time()}
+            except Exception:
+                self._bbo_connected = False
+                self._reconnects += 1
+                await asyncio.sleep(min(backoff, 30.0))
+                backoff *= 2
+        self._bbo_connected = False
+
     # ── candle persistence (owner "fix this" 2026-07-17): restarts used to WIPE the RAM
     # history that OPE labeling, regime classification, 4h ledger resolution and the ATR
     # cost gate all warm up from (three restarts in one morning kept OPE at 0 labeled /
@@ -651,6 +712,12 @@ class BinanceUniverseMirror:
             self._agg_thread = threading.Thread(target=self._run_agg, daemon=True,
                                                 name="binance-mirror-agg")
             self._agg_thread.start()
+        # all-market best bid/ask: own connection, NOT gated on depth_enabled() — this is the
+        # universal touch feed that makes the maker/taker choice possible for every symbol,
+        # including the ones the 200-symbol depth subscription never reaches.
+        self._bbo_thread = threading.Thread(target=self._run_bbo, daemon=True,
+                                            name="binance-mirror-bbo")
+        self._bbo_thread.start()
         if stats_enabled():                      # the only kinds with no WS stream: OI + long/short
             self._stats_thread = threading.Thread(target=self._run_stats, daemon=True,
                                                   name="binance-mirror-stats")
@@ -734,6 +801,46 @@ class BinanceUniverseMirror:
             if v and (time.time() - v["ts"]) <= max_age_s:
                 return {"bids": [list(x) for x in v["bids"]],
                         "asks": [list(x) for x in v["asks"]], "ts": v["ts"]}
+        return None
+
+    def bbo(self, symbol: str, *, max_age_s: float = 30.0) -> dict | None:
+        """Best bid/ask {bid, ask, bid_qty, ask_qty, ts} from the all-market !bookTicker
+        stream, or None if stale/unknown.
+
+        Covers the WHOLE universe, unlike book() which only sees the ~200 symbols on the
+        per-symbol depth subscription. Use this when you need the touch and the spread but
+        not depth — which is exactly what an entry's limit-vs-market choice needs.
+
+        The default window is 30s, NOT the 5s book() uses, and the difference is the point:
+        depth20 pushes on a fixed 500ms cadence, so a 5s-old frame really is stale. But
+        !bookTicker is EVENT-driven — it pushes only when the touch CHANGES, so "no update"
+        means "no change", and the quote is still current. Measured 2026-07-18 on the symbols
+        that were failing: median update gap 5.05–6.64s, i.e. just OVER a 5s window, so a 5s
+        rule rejected nearly every read and left no_book at 67% even with the feed running.
+        """
+        s = symbol.split(":")[0].replace("/", "").upper()
+        with self._lock:
+            v = self._bbo.get(s)
+            if v and (time.time() - v["ts"]) <= max_age_s:
+                return dict(v)
+        return None
+
+    def touch(self, symbol: str, *, max_age_s: float = 5.0,
+              bbo_max_age_s: float = 30.0) -> dict | None:
+        """Best bid/ask from the richest source available: the 20-level depth book if this
+        symbol is subscribed, else the all-market BBO. Returns {bid, ask, src} or None.
+
+        Callers that only need the touch should prefer this over book() — book() is None for
+        any symbol outside the depth subscription, and its docstring's advice to "fall back to
+        REST" put a ~162 ms network round trip in the entry hot path.
+        """
+        b = self.book(symbol, max_age_s=max_age_s)
+        if b and b.get("bids") and b.get("asks"):
+            return {"bid": float(b["bids"][0][0]), "ask": float(b["asks"][0][0]),
+                    "src": "depth20"}
+        v = self.bbo(symbol, max_age_s=bbo_max_age_s)   # own window — see bbo() docstring
+        if v:
+            return {"bid": v["bid"], "ask": v["ask"], "src": "bookTicker"}
         return None
 
     def movers(self, n: int = 30, *, by: str = "quote_volume", min_quote_volume: float = 0.0) -> list[dict]:

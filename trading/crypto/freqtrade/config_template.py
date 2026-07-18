@@ -196,6 +196,14 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # orders with price_side "same".
         "entry_pricing": {"price_side": "other", "use_order_book": True, "order_book_top": 1},
         "exit_pricing": {"price_side": "other", "use_order_book": True, "order_book_top": 1},
+        # Resting orders MUST expire. Without this key Freqtrade never times an unfilled
+        # limit out (interface.py:1734 skips the check when it is None), so exec_choice's
+        # maker orders sat until price eventually crossed them — measured 99.9% eventual
+        # fill, median 27s but p90 634s and a worst case of 34.6 HOURS. An entry that fills
+        # 34 hours after its signal is not that signal's trade. 120s bounds the maker arm to
+        # a policy someone would actually run, and makes "never filled" a real, countable
+        # outcome — which is the cost a maker-vs-taker test has to measure.
+        "unfilledtimeout": {"entry": 120, "exit": 600, "unit": "seconds"},
         "api_server": {
             "enabled": True,
             "listen_ip_address": "127.0.0.1",

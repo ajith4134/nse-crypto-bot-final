@@ -88,10 +88,31 @@ def record(pair: str, segment: str | None, meta: dict) -> None:
         from trading.brain.entry_vector import entry_vector
         snap = meta.get("decision_snapshot")
         if isinstance(snap, dict) and "entry_vector" not in snap:
+            # order_type/price are decided in exec_choice at submit time and were never
+            # passed here, so entry_type silently read "taker" on EVERY crypto entry —
+            # including the ~20% sent as resting limits. Ask the chooser directly.
+            ch = {}
+            try:
+                from trading.execution import exec_choice as _xc
+                ch = _xc.last_choice(pair, str(meta.get("side") or "")) or {}
+            except Exception:
+                ch = {}
+            otype = meta.get("order_type") or ch.get("order_type")
+            # the decision-time mid is the honest "intended" price for a market order;
+            # for a limit it is the resting price we actually asked for.
+            intended = (meta.get("price") or ch.get("price") or ch.get("mid")
+                        or (snap or {}).get("price"))
+            if isinstance(snap, dict):
+                snap.setdefault("intended_entry_price", _f(intended))
+                if otype:
+                    snap.setdefault("entry_order_type", str(otype).upper())
+                if ch.get("spread_bps") is not None:
+                    snap.setdefault("entry_spread_bps", ch.get("spread_bps"))
             ev = entry_vector(pair, market="crypto",
-                              price=_f(meta.get("price") or snap.get("price")),
+                              price=_f(intended),
                               size_usd=_f(meta.get("stake_amount") or meta.get("size_usd")),
-                              entry_type=str(meta.get("order_type") or "taker"))
+                              entry_type=("maker" if str(otype).lower() == "limit"
+                                          else "taker"))
             if ev:
                 snap["entry_vector"] = ev
     except Exception:

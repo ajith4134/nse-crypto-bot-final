@@ -36,6 +36,22 @@ def _nse_open() -> bool:
 
 
 _LAST_STAGES: dict = {}   # per-iteration stage timings (see the loop-period profiler)
+_LAST_WORK_BY: dict = {}  # per-iteration WORK-half breakdown (see _mark below)
+
+
+def _mark(st: dict, by: dict, label: str) -> None:
+    """Stamp time since the previous mark into `by[label]` — the WORK-half profiler.
+
+    The loop already splits TOTAL into work vs sleep_to_bar, and funnel.run_cycle already
+    breaks its verify stage down (verify_by). Between them sat a blind spot: measured
+    2026-07-18, screen+look+verify accounted for only 63s of a 1298s median work stage —
+    95% of the cycle was attributed to nothing. Cutting features against that number would
+    have been guesswork (the first guess, vision, turned out to be 3% of verify, and fusion
+    3.5% of work). This names the rest.
+    """
+    now = time.monotonic()
+    by[label] = round(by.get(label, 0.0) + (now - st.get("_last", now)), 1)
+    st["_last"] = now
 
 
 def main() -> int:
@@ -297,12 +313,17 @@ def main() -> int:
         _now = time.monotonic()
         _period = _now - _iter_t0[0]
         _iter_t0[0] = _now
-        _stage_t = {"_start": _now}
+        _stage_t = {"_start": _now, "_last": _now}
         if cycle > 1:
+            _wb = dict(sorted(_LAST_WORK_BY.items(), key=lambda kv: -kv[1]))
             print(f"[loop-period] cycle={cycle - 1} TOTAL={_period:.1f}s "
                   f"stages={ {k: round(v, 1) for k, v in _LAST_STAGES.items()} } "
                   f"unaccounted={_period - sum(_LAST_STAGES.values()):.1f}s", flush=True)
+            print(f"[loop-work-by] cycle={cycle - 1} {_wb} "
+                  f"unattributed={_LAST_STAGES.get('work', 0.0) - sum(_wb.values()):.1f}s",
+                  flush=True)
         _LAST_STAGES.clear()
+        _LAST_WORK_BY.clear()
         # BROWSER MEMORY CAP (2026-07-17, the VM wedge): restart any Chromium that has grown past
         # BROWSER_MAX_RSS_MB. Done HERE, at the top of the work half, on purpose — the cycle is
         # about to re-open its tabs anyway, so a restart costs nothing, whereas recycling during
@@ -314,6 +335,7 @@ def main() -> int:
                 print(f"[funnel-loop] recycled fat browser(s) {_fat} — RSS over the cap", flush=True)
         except Exception as _e:
             print(f"[funnel-loop] browser recycle error: {_e!r}", flush=True)
+        _mark(_stage_t, _LAST_WORK_BY, "browser_recycle")
         for market, funnel in funnels.items():
             if market == "nse" and not _nse_open():
                 continue
@@ -390,6 +412,7 @@ def main() -> int:
                 _stream_tick()                        # keep tabs streaming between segments
                 try:
                     rep = funnel.run_cycle(segment=seg, allow_live=allow_live)
+                    _mark(_stage_t, _LAST_WORK_BY, f"run_cycle:{market}:{seg}")
                     _stream_tick(force=True)          # pump right after the CPU-heavy scan
                     ex = rep["stages"].get("execute", {})
                     print(f"[funnel:{market}:{seg}] {time.strftime('%H:%M:%S')} "
@@ -542,6 +565,7 @@ def main() -> int:
             except Exception as e:
                 print(f"[study:{market}] error: {e!r}", flush=True)
             _stream_tick(force=True)                  # pump + snapshot after the study block
+        _mark(_stage_t, _LAST_WORK_BY, "study")
         try:                                          # W8: one morning briefing per IST day
             from trading.brain import briefing
             if briefing.due():
@@ -550,6 +574,7 @@ def main() -> int:
                       f"({len(b.get('sections') or {})} sections)", flush=True)
         except Exception as e:
             print(f"[briefing] error: {e!r}", flush=True)
+        _mark(_stage_t, _LAST_WORK_BY, "briefing")
         try:                                          # feed the OFF-THREAD learner its symbols
             _lead = funnels.get("crypto") or funnels.get("nse")
             _learn_ctx["symbols"] = (list(((_lead.last if _lead else {}).get("stages", {})
@@ -572,6 +597,7 @@ def main() -> int:
                       f"pages={_cgr.get('pages')} err={_cgr.get('errors')}", flush=True)
             except Exception as _e:
                 print(f"[coingecko] error: {_e!r}", flush=True)
+            _mark(_stage_t, _LAST_WORK_BY, "coingecko")
         try:                                          # D1 Truth Ledger (Pillar 27): resolve due
             from trading.direction import truth_ledger    # claims each cycle — cheap (15s budget),
             tr = truth_ledger.tick(budget_s=15)           # stays inline so labels stay fresh
@@ -581,6 +607,7 @@ def main() -> int:
                       flush=True)
         except Exception as e:
             print(f"[direction-truth] error: {e!r}", flush=True)
+        _mark(_stage_t, _LAST_WORK_BY, "truth_ledger")
         # saver C: sleep to the next bar close — but poll every ~2s so that when the operator
         # opens a Live-Browser login we hand over the shared Chromium profile promptly (one
         # process per profile) instead of colliding for a whole cycle. Release runs here, on the

@@ -311,7 +311,8 @@ def map_trade(ft: dict, *, broker_ctx: bool = True, bulk: bool = False) -> Close
         quantity=amount,
         entry_price=open_rate,
         exit_price=close_rate,
-        entry_order_type="MARKET", exit_order_type="MARKET",
+        entry_order_type=_leg_order_type(ft, entry=True),
+        exit_order_type=_leg_order_type(ft, entry=False),
         # P&L context — journal recomputes gross from prices + crypto charges; we carry the
         # crypto-specific funding so the charge model is honest, plus Freqtrade's realized net.
         funding_pnl=_f(ft.get("funding_fees")),
@@ -483,6 +484,38 @@ def _tailgate_open_cols(ft: dict) -> dict:
                 "tailgate_distance_pct": round(dec.get("distance_pct", 0) * 100, 1)}
     except Exception:
         return {"tailgate_locked_profit_pct": None}
+
+
+def _leg_order_type(ft: dict, *, entry: bool) -> str:
+    """The REAL order type of a trade's entry/exit leg, from Freqtrade's own order rows.
+
+    Was hardcoded "MARKET" for both legs. That silently mislabelled every limit entry
+    exec_choice sends (348 of 1,748 decisions over 2026-07-17/18 were limit-at-touch), so
+    the journal asserted MARKET on orders that rested passively — and any maker-vs-taker
+    study reading the journal would have compared MARKET against MARKET and found nothing.
+    Freqtrade also silently converts a limit to market when it crosses the spread by >1%
+    (exchange.py:1188), which only these rows can reveal.
+
+    Falls back to "MARKET" only when the payload carries no orders (older client builds).
+    """
+    try:
+        short = bool(ft.get("is_short"))
+        want = ("sell" if short else "buy") if entry else ("buy" if short else "sell")
+        orders = [o for o in (ft.get("orders") or [])
+                  if isinstance(o, dict) and float(o.get("filled") or 0) > 0]
+        # ft_is_entry is Freqtrade's own authoritative flag — it stays correct under DCA
+        # and partial fills, where side alone does not. Fall back to side if absent.
+        hits = [o for o in orders if bool(o.get("ft_is_entry")) is entry] or \
+               [o for o in orders if (o.get("ft_order_side") or "").lower() == want]
+        if hits:
+            # entry = the first fill that opened it; exit = the last one that closed it
+            o = hits[0] if entry else hits[-1]
+            ot = str(o.get("order_type") or o.get("type") or "").strip().upper()
+            if ot:
+                return ot
+    except Exception:
+        pass
+    return "MARKET"
 
 
 def closed_view(client=None, net_budget: int = 8) -> list[dict]:

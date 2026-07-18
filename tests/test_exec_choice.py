@@ -16,16 +16,35 @@ class _Base(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self._p = mock.patch.object(state, "STATE_DIR", Path(self._tmp.name))
         self._p.start()
+        # Pin the A/B off: EXEC_AB lives in .env (loaded at import), and when it is on the
+        # randomized arm REPLACES the policy — so these policy assertions would depend on a
+        # coin flip. Tests that exercise the randomizer set it themselves.
+        self._ab = mock.patch.dict(os.environ, {"EXEC_AB": "0"})
+        self._ab.start()
 
     def tearDown(self):
+        self._ab.stop()
         self._p.stop()
         self._tmp.cleanup()
 
     def _mirror(self, bid, ask, closes=None):
         m = mock.Mock()
         m.book.return_value = {"bids": [[bid, 5]], "asks": [[ask, 5]], "ts": time.time()}
+        # exec_choice reads the touch, not the depth ladder: touch() falls back to the
+        # all-market bookTicker BBO when a symbol is outside the depth subscription, which
+        # is what stopped 53% of entries returning "no_book". A bare Mock would return a
+        # truthy Mock here and float() it into error_fallback, so stub it explicitly.
+        m.touch.return_value = {"bid": bid, "ask": ask, "src": "depth20"}
         rows = [[0, c, c, c, c] for c in (closes or [100, 100, 100, 100])]
         m.candles.return_value = rows
+        return m
+
+    def _mirror_no_book(self):
+        """Mirror with neither depth nor BBO — the only case that may still go market blind."""
+        m = mock.Mock()
+        m.book.return_value = None
+        m.touch.return_value = None
+        m.candles.return_value = []
         return m
 
 
@@ -66,13 +85,30 @@ class TestChoose(_Base):
 
     def test_no_book_falls_back_to_market(self):
         from trading.execution import exec_choice as xc
-        m = mock.Mock()
-        m.book.return_value = None
         with mock.patch("trading.broker_sense.binance_stream.get_mirror",
-                        return_value=m):
+                        return_value=self._mirror_no_book()):
             ch = xc.choose("AKEUSDT", "long")
         self.assertEqual(ch["order_type"], "market")
         self.assertEqual(ch["reason"], "no_book")
+
+    def test_bbo_fallback_when_depth_is_cold(self):
+        """A symbol outside the 20-level depth subscription must STILL get a real choice.
+
+        This is the regression that mattered: book() alone was None for ~53% of entries, so
+        they silently went to market with reason "no_book" and could never be a maker order.
+        touch() answers from the all-market bookTicker BBO instead.
+        """
+        from trading.execution import exec_choice as xc
+        m = mock.Mock()
+        m.book.return_value = None                       # not in the depth subscription
+        m.touch.return_value = {"bid": 100.0, "ask": 100.2, "src": "bookTicker"}
+        m.candles.return_value = [[0, c, c, c, c] for c in (100, 100, 100, 100)]
+        with mock.patch("trading.broker_sense.binance_stream.get_mirror", return_value=m):
+            ch = xc.choose("FOLKSUSDT", "long")
+        self.assertEqual(ch["order_type"], "limit")      # 20 bps spread is worth joining
+        self.assertEqual(ch["price"], 100.0)             # join the bid
+        self.assertEqual(ch["book_src"], "bookTicker")
+        self.assertNotEqual(ch["reason"], "no_book")
 
     def test_disabled(self):
         from trading.execution import exec_choice as xc
