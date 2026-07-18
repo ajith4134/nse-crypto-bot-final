@@ -665,3 +665,24 @@ under 5%. REVERT: ML_RATCHET_ARM_PCT=1.0 + engine restart.
 LESSON (recorded): a protective exit tuned too tight is not conservative — it is a
 guaranteed-loss machine, because it caps the right tail while the left tail stays open.
 Always check payoff ratio vs (1−p)/p after ANY exit change, not just win rate.
+
+### Session 9, X19 (2026-07-18 ~16:0x) — tighten the vol-stop clamp 8% -> 4%
+### (owner "continue with as you recommended x19")
+THE remaining structural gap, quantified over 347 closes/8h: avg WIN +1.86% of stake vs avg
+LOSS −5.47% → break-even needs a 74.6% win rate; we run 58-65%. So the direction work
+(win rate 46.7% -> 65%) could never turn profit on its own. Loss anatomy: stop_loss = 66 of
+102 losses, avg −6.36% of stake, −800 net; 33% of losses worse than −6%; worst −23.4%.
+Meanwhile the ratchet caps wins near +2%. Shape = "winners locked at +2, losers run to 8".
+MAE REPLAY (each trade re-exited at the clamp if its adverse excursion breached it) is
+MONOTONE — tighter is better at EVERY level: 3.0%:−301 / 4.0%:−405 / 5.0%:−478 /
+6.0%:−541 / 8.0%:−671, vs ACTUAL −902. (The replay is optimistic across the board —
+it fills at the clamp with no slippage — so read the ORDERING, not the levels.)
+X19 = ML_STOP_MAX 0.08 -> 0.04. Deliberately NOT 3% despite the replay favoring it: X8
+MEASURED a fixed −3% stop producing a .60 stop-rate vs .33 for vol-scaled, i.e. 3% sits
+inside the noise band for these perps. 4% halves the tail while preserving the [2%,4%]
+vol-scaling range X8 validated. Engine restarted; config verified stoploss=-0.04,
+ml_stop_max=0.04, arm=3.0, stake=200.
+Verdict rule (n>=150 closes post-restart): avg loss must fall below −4.5% of stake AND
+payoff must EXCEED (1−p)/p (actually profitable). GUARD: if the stop-rate climbs above .55
+(X8's fixed-stop failure signature) the clamp is inside the noise band → REVERT.
+REVERT: ML_STOP_MAX=0.08 + engine restart.
