@@ -501,14 +501,20 @@ def cost_gate(p_up: float, *, symbol: str, horizon: str = "1h",
     try:
         cost = float(cost_bps) if cost_bps is not None else \
             2.0 * _f("FEE_BPS", 5.0) + _f("SLIP_BPS", 2.0)
+        # X12 (2026-07-18): edge must clear LAMBDA× cost, not merely 1× — an EV barely
+        # above cost is inside the estimate's own error bar, so those trades pay real fees
+        # for imagined edge (measured: fees = 31% of our losses at ~50 trades/h). Research
+        # lead (arXiv 2606.00060v1, UNVERIFIED — hence an experiment): lambda=2.0 on hourly
+        # BTC futures cut trades 10,619→251 and flipped −64%→+65% annualized. 1.0 = old.
+        lam = _f("COST_GATE_LAMBDA", 1.0)
         atr = _atr_pct(symbol)
         if atr is None:
             return {"pass": True, "reason": "no_atr", "cost_bps": cost}
         emove_bps = atr * 1e4 * (_HBARS.get(horizon, 12) ** 0.5)
         ev_bps = abs(2.0 * float(p_up) - 1.0) * emove_bps - cost
-        return {"pass": ev_bps > 0.0, "reason": "ev",
+        return {"pass": ev_bps > (lam - 1.0) * cost, "reason": "ev",
                 "ev_bps": round(ev_bps, 2), "emove_bps": round(emove_bps, 2),
-                "cost_bps": round(cost, 2)}
+                "cost_bps": round(cost, 2), "lambda": lam}
     except Exception:
         return {"pass": True, "reason": "error_fail_open"}
 

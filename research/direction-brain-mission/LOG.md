@@ -500,3 +500,30 @@ i.e. filter:squeeze entries. Verdict rule: deadcut claims must score WORSE than 
 contemporaneous entries at n≥100; if squeeze-tagged deadcuts score WELL, refine to a
 squeeze exemption instead of full revert. REVERT: X11_MIN_RANGE_PCT=0 + bounce
 funnel+live_loop. Both bounced 08:21.
+
+### Session 9, X12 (2026-07-18 11:44) — cost-gate lambda (research-driven; owner: research
+### then experiment on picking/direction/filters)
+Research: research/direction-brain-mission/research-entries.md (workflow wf_5d8279d1-443,
+partial — verification hit a session limit; resumed as w0hyaoje6). VERIFIED findings that
+matter: (1) intraday BTC trend-following had NO edge 2011-2019 even pre-fees, exhaustive
+1-1000h MA scan (arXiv 2009.12155); (2) walk-forward optimal trend lookbacks were 6-40
+DAYS, far above our 15m-4h; (3) BTC intraday predictability is real but contains BOTH
+momentum AND reversal; (4) it is REGIME-DEPENDENT (jumps/liquidity/events). Together these
+explain the measured bleed: our momentum-family lanes (live_loop −76/3h, learned_direction
+−72/3h) hunt a documented non-edge at our horizon, while the only green lane
+(filter:squeeze) is volatility-compression, not trend-chasing.
+
+X12 (first experiment from it): cost_gate required EV > 1x round-trip cost — an edge inside
+its own error bar. Now EV must clear COST_GATE_LAMBDA x cost (2.0; 1.0 = old). Measured
+motivation: fees = 31% of losses (255 closes/6h paid 137 in fees, 0.54/trade). Research
+lead (UNVERIFIED, arXiv 2606.00060v1): lambda=2.0 on hourly BTC futures cut trades
+10,619→251 and flipped −64%→+65% annualized — a lead, hence an EXPERIMENT not a belief.
+Verified live pre-ship (ATR 0.4%, cost 12bps): p_up .55 passes at lambda 1.0, REFUSED at
+2.0; p_up .60/.70 still pass. 20 tests green. Baseline (2h pre-X12): 54.0 opens/h, 122
+closes, green .52, net −386.9 (−3.17/close).
+Verdict rule (pre-registered, n>=100 closes post-11:44): net per close must IMPROVE vs
+−3.17 AND costcut-refused claims must keep scoring worse than accepted (V2 rule). Expect
+opens/h to FALL — that is the mechanism, not a failure; but if opens/h < 15 (data starved)
+or net/close worsens, REVERT: COST_GATE_LAMBDA=1.0 + bounce funnel+live_loop.
+NOTE vs X10: X10 raised throughput for data, X12 cuts weak trades — deliberate opposition;
+X12 owns the entry-quality axis, X10 the candidate-width axis.
