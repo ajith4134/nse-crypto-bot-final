@@ -646,3 +646,22 @@ gate knob per test and restores it after — same pattern test_profit_tailgate.p
 35 gate tests green.
 OPS: load average hit 170 and starved the test runs; cpu-solo pause (--min-cpu 25) → tests
 ran in 14s → resume. Load 170 -> 13.
+
+### Session 9, X18 (2026-07-18 ~15:0x) — RAISE the engine-ratchet arm (self-correction on X15)
+X15 fixed give-backs but created the opposite defect, caught by per-batch grading:
+MEASURED (52 closes since 12:15): wins n=34 avg +2.30, losses n=18 avg −5.26 → win rate
+.654 but payoff 0.44 against 0.53 needed = STILL LOSING. Ratchet exits (n=45) had median
++0.74% (p25 +0.55%, p75 +1.12%) and **89% of them had peaked below 3%** — arming at 1.0%
+of stake meant a trade that ticked to +1.1% locked at +0.88% and exited. X15 converted
+"peak then red" into "harvest noise": reliable tiny wins that cannot pay for −5.26 stops.
+KEY: the give-backs X15 exists to prevent had a MEDIAN PEAK of 3.49%, so an arm at 3.0
+still protects them — this raises the bar without reopening the original hole.
+X18: `ml_ratchet_arm_pct` DECOUPLED from TAILGATE_ARM_PROFIT_PCT_CRYPTO (they shared a knob,
+so tuning the engine would have moved the funnel too) via ML_RATCHET_ARM_PCT / ML_RATCHET_DIST,
+set to 3.0. Engine restarted; config verified arm=3.0, stake=200.
+Verdict rule (n>=100 closes post-restart): payoff ratio must EXCEED (1−p)/p (i.e. actually
+profitable, not merely less negative) AND the "peaked>=2% then closed red" share must stay
+under 5%. REVERT: ML_RATCHET_ARM_PCT=1.0 + engine restart.
+LESSON (recorded): a protective exit tuned too tight is not conservative — it is a
+guaranteed-loss machine, because it caps the right tail while the left tail stays open.
+Always check payoff ratio vs (1−p)/p after ANY exit change, not just win rate.

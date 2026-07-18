@@ -229,8 +229,17 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # 400-655s; 134 trades/24h peaked >=2% of stake and still closed red for -1,225).
         # Mirrors the funnel's crypto arm/dist so both sides agree.
         "ml_engine_ratchet": os.environ.get("ML_ENGINE_RATCHET", "1") in ("1", "true", "yes", "on"),
-        "ml_ratchet_arm_pct": float(os.environ.get("TAILGATE_ARM_PROFIT_PCT_CRYPTO", "1.0") or 1.0),
-        "ml_ratchet_dist": float(os.environ.get("TAILGATE_DIST_MAX_CRYPTO", "0.2") or 0.2),
+        # X18 (2026-07-18): the engine arm is DECOUPLED from the funnel's tailgate arm.
+        # Measured under X15's arm=1.0: the ratchet harvested a MEDIAN +0.74% while stops
+        # took −5.26 (payoff 0.44 vs 0.53 needed = still losing), and 89% of its exits had
+        # peaked below 3% — it was snipping trades before they could become winners. The
+        # give-backs it was built to stop had a median peak of 3.49%, so a 3.0 arm still
+        # protects those while no longer harvesting noise. Falls back to the funnel value.
+        "ml_ratchet_arm_pct": float(os.environ.get("ML_RATCHET_ARM_PCT")
+                                    or os.environ.get("TAILGATE_ARM_PROFIT_PCT_CRYPTO", "1.0")
+                                    or 1.0),
+        "ml_ratchet_dist": float(os.environ.get("ML_RATCHET_DIST")
+                                 or os.environ.get("TAILGATE_DIST_MAX_CRYPTO", "0.2") or 0.2),
         "bot_name": "mlnetworkbrain-crypto",
         "initial_state": "running",
         # 15s, not 5s: each cycle prices EVERY open trade off the order book (mandatory
