@@ -1,0 +1,83 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/942d80a4-7b35-4169-8c95-010778620cd2/3a99d946-VIDEO20260711145746.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/942d80a4-7b35-4169-8c95-010778620cd2/3a99d946-VIDEO20260711145746.mp4",
+  "duration_s": 134.18,
+  "n_frames": 14,
+  "frames": [
+    {
+      "file": "f_0000_000.jpg",
+      "t": 0.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0010_001.jpg",
+      "t": 10.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0020_002.jpg",
+      "t": 20.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0030_003.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0040_004.jpg",
+      "t": 40.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0050_005.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_006.jpg",
+      "t": 60.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0110_007.jpg",
+      "t": 70.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0120_008.jpg",
+      "t": 80.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0130_009.jpg",
+      "t": 90.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0140_010.jpg",
+      "t": 100.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0150_011.jpg",
+      "t": 110.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0200_012.jpg",
+      "t": 120.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0210_013.jpg",
+      "t": 130.0,
+      "kind": "periodic"
+    }
+  ],
+  "transcript": {
+    "segments": 0,
+    "language": "jw"
+  },
+  "out_dir": "/home/karan18190164/research/video/brain-slow-nav"
+}

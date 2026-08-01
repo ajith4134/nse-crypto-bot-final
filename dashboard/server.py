@@ -1169,6 +1169,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/trading/practice":                   # body → dashboard/routes/trading_ext.py (Wave0-⑤ G2)
             from dashboard.routes import trading_ext
             return trading_ext.handle_practice(self)
+        if path == "/api/trading/practice_notebook":          # brain's rough/calculating paper (state-file read-only)
+            from dashboard.routes import trading_ext
+            return trading_ext.handle_practice_notebook(self)
         if path == "/api/network/system":                     # body → dashboard/routes/network_ext.py (Wave0-⑤ G3)
             from dashboard.routes import network_ext
             return network_ext.handle_network_system(self)

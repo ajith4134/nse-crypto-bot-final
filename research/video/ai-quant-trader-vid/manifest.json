@@ -1,0 +1,53 @@
+{
+  "source": "/home/karan18190164/.claude/uploads/2697fea0-ece6-4717-b69e-9d7899096eab/cddb76f6-I_CODED_A_SELF_LEARNING_AI_QUANT_TRADER_It_downloads_and_learns_all_of_the_top_research_papers_a.mp4",
+  "video_file": "/home/karan18190164/.claude/uploads/2697fea0-ece6-4717-b69e-9d7899096eab/cddb76f6-I_CODED_A_SELF_LEARNING_AI_QUANT_TRADER_It_downloads_and_learns_all_of_the_top_research_papers_a.mp4",
+  "duration_s": 77.74,
+  "n_frames": 8,
+  "frames": [
+    {
+      "file": "f_0004_000.jpg",
+      "t": 4.0,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0010_001.jpg",
+      "t": 10.53,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0020_005.jpg",
+      "t": 20.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0030_006.jpg",
+      "t": 30.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0036_002.jpg",
+      "t": 36.57,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0050_007.jpg",
+      "t": 50.0,
+      "kind": "periodic"
+    },
+    {
+      "file": "f_0100_003.jpg",
+      "t": 60.27,
+      "kind": "scene"
+    },
+    {
+      "file": "f_0109_004.jpg",
+      "t": 69.2,
+      "kind": "scene"
+    }
+  ],
+  "transcript": {
+    "segments": 20,
+    "language": "en"
+  },
+  "out_dir": "/home/karan18190164/research/video/ai-quant-trader-vid"
+}

@@ -1,0 +1,57 @@
+[
+  {
+    "source": "network graph state",
+    "api": "/api/state",
+    "disk": "state.json",
+    "note": "phase-1 node graph",
+    "api_metric": 22,
+    "demo_flag": false,
+    "disk_metric": 22,
+    "verdict": "consistent",
+    "detail": "api 22 == disk 22"
+  },
+  {
+    "source": "routing / DGMG",
+    "api": "/api/state/routing",
+    "disk": "phase3.json",
+    "note": "run_phase3 output",
+    "api_metric": 0,
+    "demo_flag": false,
+    "disk_metric": 0,
+    "verdict": "consistent",
+    "detail": "api 0 == disk 0"
+  },
+  {
+    "source": "CORTEX network",
+    "api": "/api/network/state",
+    "disk": "network_state.json",
+    "note": "run_network output",
+    "api_metric": 13,
+    "demo_flag": false,
+    "disk_metric": 13,
+    "verdict": "consistent",
+    "detail": "api 13 == disk 13"
+  },
+  {
+    "source": "knowledge graph",
+    "api": "/api/knowledge",
+    "disk": "knowledge_state.json",
+    "note": "knowledge_state",
+    "api_metric": 58,
+    "demo_flag": false,
+    "disk_metric": 58,
+    "verdict": "consistent",
+    "detail": "api 58 == disk 58"
+  },
+  {
+    "source": "closed trades",
+    "api": "/api/trading/closedtrades",
+    "disk": "trading/state/journal.json",
+    "note": "trade journal (STATE_DIR)",
+    "api_metric": 2071,
+    "demo_flag": false,
+    "disk_metric": 2071,
+    "verdict": "consistent",
+    "detail": "api 2071 == disk 2071"
+  }
+]

@@ -23,6 +23,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import time
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -140,7 +141,29 @@ def restart_bot() -> dict:
     with open(log, "a") as lf:
         subprocess.Popen(["bash", start_sh], cwd=PROJECT_ROOT, start_new_session=True,
                          stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
-    return {"restarted": True, "log": log}
+    # AUTO-START (2026-07-22): the relaunched FUTURES worker comes back state=stopped (spot
+    # auto-runs), so every restart silently halted trading until a manual POST /start —
+    # observed 3x in one evening ("trader is not running" forceenter rejects). Detached
+    # helper waits for the API then starts every enabled segment's trader. Best-effort.
+    starter = (
+        "import time, requests\n"
+        "from trading.crypto.config import crypto_config as c\n"
+        "auth = (c.ft_username, c.ft_password)\n"
+        "base = c.ft_host.rstrip('/') + '/api/v1'\n"
+        "for _ in range(40):\n"
+        "    try:\n"
+        "        requests.get(base + '/ping', timeout=3); break\n"
+        "    except Exception: time.sleep(3)\n"
+        "for seg in ('futures', 'spot', 'options', 'prediction'):\n"
+        "    try:\n"
+        "        requests.post(base + '/start', timeout=10, auth=auth,\n"
+        "                      headers={'X-Freqtrade-Segment': seg})\n"
+        "    except Exception: pass\n"
+    )
+    subprocess.Popen([sys.executable, "-c", starter], cwd=PROJECT_ROOT,
+                     start_new_session=True, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+    return {"restarted": True, "log": log, "auto_start": "all segments"}
 
 
 def switch(*, mode: str | None = None, segment: str | None = None,

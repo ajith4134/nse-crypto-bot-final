@@ -91,7 +91,7 @@ def _segments_block(cfg: CryptoConfig) -> dict:
                 "exchange": {"name": "deribit", "key": "", "secret": "",
                              "pair_whitelist": [], "pair_blacklist": []},
                 "stake_currency": "USDC",   # Deribit linear options quote/settle in USDC
-                "stake_amount": 200,
+                "stake_amount": 50,   # 2026-07-21 owner: max 50 per trade (was 200)
                 "pairlists": [{"method": "AllMarketsPairList", "number_assets": 100}],
                 # Illiquid strikes can have EMPTY order books — price options off the
                 # ticker (bid/ask/last) instead of the book so entries never 500.
@@ -109,7 +109,7 @@ def _segments_block(cfg: CryptoConfig) -> dict:
                 "exchange": {"name": "predictionpaper", "key": "", "secret": "",
                              "pair_whitelist": [], "pair_blacklist": []},
                 "stake_currency": "USDC",   # Polymarket outcomes priced 0..1 USDC
-                "stake_amount": 100,
+                "stake_amount": 50,   # 2026-07-21 owner: max 50 per trade (was 100)
                 "pairlists": [{"method": "AllMarketsPairList", "number_assets": 50}],
                 "ml_leverage": 1.0,
                 **_seg_max_open("prediction"),
@@ -179,7 +179,14 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
             # 1000 → 250 (2026-07-12): 1000 assets meant candle+volume fetches for the whole
             # Binance USDT board every refresh — a top 418 contributor. 250 still covers every
             # liquid perp the brain would trade; with the rate limiter above, load stays safe.
-            {"method": "VolumePairList", "number_assets": 250, "sort_key": "quoteVolume",
+            # 250 → 500 (2026-07-21, owner "trade ALL 600+ symbols not top 80"): Binance has
+            # ~450 USDT perps, so 500 makes the WHOLE perp board tradeable. Safe to re-raise now
+            # because the Practice Notebook confirmation gate cuts how many trades actually open
+            # (fewer concurrent positions → fewer downstream order-book calls than the 2026-07-12
+            # incident). Universe-wide PRACTICE runs off the in-RAM candle store (zero REST), so
+            # the brain studies all symbols regardless of this cap. Watch logs for 418; drop back
+            # to 300 if the ban recurs.
+            {"method": "VolumePairList", "number_assets": 500, "sort_key": "quoteVolume",
              "refresh_period": 1800},
             {"method": "VolatilityFilter", "lookback_days": 10, "min_volatility": 0.02,
              "max_volatility": 1.0, "refresh_period": 86400},
@@ -224,9 +231,17 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # K×ATR14(5m)×lev clamped [ml_stop_min, ml_stop_max]); "vol" = vol-scaled for ALL
         # (X8 verdict 2026-07-18: vol beat fixed n≈190/arm, net −127 vs −339, green .40 vs .29,
         # stops .33 vs .60); "fixed" = fixed for all (pre-X8 behavior).
-        "stoploss": -abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),
+        # mode "price" (owner 2026-07-22 "tighten the stoploss to 1%"): custom_stoploss uses
+        # ML_STOP_PRICE_PCT % of PRICE × leverage — the static bound below widens itself so the
+        # price stop is never pre-empted (custom_stoploss can only TIGHTEN from the static).
+        "stoploss": -max(abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),
+                         (abs(float(os.environ.get("ML_STOP_PRICE_PCT", "1.0") or 1.0)) / 100.0)
+                         * float(cfg.leverage) * 1.25
+                         if (os.environ.get("ML_STOP_MODE", "") or "").strip().lower() == "price"
+                         else 0.0),
         "ml_stop_fixed": abs(float(os.environ.get("ML_STOPLOSS", "-0.03") or 0.03)),
         "ml_stop_mode": (os.environ.get("ML_STOP_MODE", "ab") or "ab").strip().lower(),
+        "ml_stop_price_pct": abs(float(os.environ.get("ML_STOP_PRICE_PCT", "1.0") or 1.0)),
         "ml_stop_atr_k": float(os.environ.get("ML_STOP_ATR_K", "1.5") or 1.5),
         "ml_stop_min": abs(float(os.environ.get("ML_STOP_MIN", "0.02") or 0.02)),
         "ml_stop_max": abs(float(os.environ.get("ML_STOP_MAX", "0.08") or 0.08)),
@@ -240,6 +255,31 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # showed profit-taking destroys this edge and the normal stop pre-empts the reversion.
         "ml_dip_stop_price_pct": float(os.environ.get("ML_DIP_STOP_PRICE_PCT", "2.0") or 2.0),
         "ml_dip_hold_min": float(os.environ.get("ML_DIP_HOLD_MIN", "60") or 60),
+        # spike_fade SHORT lane (2026-07-22, owner "huge sudden profit symbols placing short"):
+        # measured WITH-stop on the X23 holdout — 3% price stop keeps +0.09..0.13%/trade, a 2%
+        # stop makes it ~breakeven. Same 1x + clock-exit family as the dip lane.
+        "ml_spike_stop_price_pct": float(os.environ.get("ML_SPIKE_STOP_PRICE_PCT", "3.0") or 3.0),
+        "ml_spike_hold_min": float(os.environ.get("ML_SPIKE_HOLD_MIN", "60") or 60),
+        # wm_ window-movers lane (owner 2026-07-22): 4 timeframe categories, top movers both
+        # ways, direction by bandit; 1% price stop at 1x, fixed 60m label horizon.
+        "ml_wm_stop_price_pct": float(os.environ.get("ML_WM_STOP_PRICE_PCT", "1.0") or 1.0),
+        "ml_wm_hold_min": float(os.environ.get("ML_WM_HOLD_MIN", "60") or 60),
+        # MOM+VOL entry gate (owner 2026-07-22: "only momentum and volatile stocks to open").
+        # Hard cross-path gate in MlBridgeStrategy.confirm_trade_entry (bot + REST /forceenter):
+        # a pair opens only if it's MOVING — |move| over ANY of the last 5m/15m/30m/1h windows
+        # beats that window's threshold (owner 2026-07-22: any-timeframe momentum) — AND
+        # VOLATILE (5m ATR14% ≥ min_atr); 24h ticker change/range is the no-local-candles
+        # fallback; unmeasurable = deny. mode "either" relaxes AND→OR; ML_MOMVOL_GATE=0 disables.
+        "ml_momvol_gate": os.environ.get("ML_MOMVOL_GATE", "1") in ("1", "true", "yes", "on"),
+        "ml_momvol_mode": (os.environ.get("ML_MOMVOL_MODE", "both") or "both").strip().lower(),
+        # "minutes:min_pct,..." — shorter window, smaller bar (a 0.3% pop in 5m ≈ momentum)
+        "ml_momvol_windows": (os.environ.get("ML_MOMVOL_WINDOWS",
+                                             "5:0.3,15:0.45,30:0.6,60:0.8")
+                              or "5:0.3,15:0.45,30:0.6,60:0.8").strip(),
+        "ml_momvol_min_atr_pct": float(os.environ.get("ML_MOMVOL_MIN_ATR", "0.20") or 0.20),
+        "ml_momvol_min_mom_24h_pct": float(os.environ.get("ML_MOMVOL_MIN_MOM_24H", "5.0") or 5.0),
+        "ml_momvol_min_range_24h_pct": float(os.environ.get("ML_MOMVOL_MIN_RANGE_24H", "6.0")
+                                             or 6.0),
         "ml_engine_ratchet": os.environ.get("ML_ENGINE_RATCHET", "1") in ("1", "true", "yes", "on"),
         # X18 (2026-07-18): the engine arm is DECOUPLED from the funnel's tailgate arm.
         # Measured under X15's arm=1.0: the ratchet harvested a MEDIAN +0.74% while stops
@@ -258,7 +298,9 @@ def build_config(cfg: CryptoConfig | None = None, *, freqai: bool = False) -> di
         # on Binance futures) and open trades are uncapped — 5s cycles at ~60 trades is
         # what tripped Binance's -1003 IP ban. 15s keeps exits responsive (stops are %
         # -based, not tick-critical) at 1/3 the request volume.
-        "internals": {"process_throttle_secs": 15},
+        "internals": {"process_throttle_secs": 10},   # 2026-07-21 owner: 15→10 for faster open-
+        # trade price refresh. Kept ≥10 (not lower) because order-book exit pricing × many open
+        # trades is what caused the 2026-07-03 418 IP ban; watch logs for 418 and revert to 15 if it recurs.
         "strategy": STRATEGY,
         # Multi-segment fork (vendor/freqtrade): ONE engine process runs one bot per enabled
         # segment behind the one API port/URL. Segment set comes from CRYPTO_SEGMENTS in .env

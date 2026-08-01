@@ -250,6 +250,16 @@ def main() -> int:
             except Exception:
                 pass
             km.subscribe_symbols(syms)
+            # INDEX SPOT STREAMS (owner 2026-07-23): also stream the option-index underlyings
+            # on their spot exchanges (NSE_INDEX / BSE_INDEX) so LOOK has in-RAM index candles
+            # for direction votes — the funnel now seeds NIFTY/BANKNIFTY/…/SENSEX into the
+            # options segment (see funnel.py index_seed).
+            try:
+                from trading.screener.options import INDEX_EXCHANGES, index_underlyings
+                for u in index_underlyings():
+                    km.subscribe_symbols([u], exchange=INDEX_EXCHANGES[u][0])
+            except Exception:
+                pass
             # ALSO stream the F&O contracts already held (exec_adapter only covers ones it places
             # from now on) — otherwise their MTM stays on OpenAlgo's REST-quote fallback, which
             # rate-limited Zerodha and hung positionbook. Runs before start() so they ride the

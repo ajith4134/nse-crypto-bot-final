@@ -373,11 +373,26 @@ def maybe_run() -> dict | None:
         stale = (not rep.exists()) or (time.time() - rep.stat().st_mtime > every)
         if stale and (out["label"].get("labeled", 0) or rep.exists() is False
                       or _labeled_path().exists()):
-            subprocess.Popen(
+            # SPAWN GUARD (2026-07-22): evaluate() now runs 40+ min on the grown labeled set,
+            # during which the report stays stale — without this guard every funnel/loop cycle
+            # spawned ANOTHER subprocess (observed: 64 concurrent evaluates eating ~7 cores).
+            pidfile = Path(state.STATE_DIR) / "ope_eval.pid"
+            try:
+                old = int(pidfile.read_text().strip())
+                os.kill(old, 0)                       # raises if not running
+                out["evaluate"] = f"already running (pid {old})"
+                return out
+            except (OSError, ValueError):
+                pass                                  # no live evaluator → spawn one
+            proc = subprocess.Popen(
                 ["nice", "-n", "10", sys.executable, "-m", "trading.direction.ope",
                  "--evaluate"],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 start_new_session=True)
+            try:
+                pidfile.write_text(str(proc.pid))
+            except OSError:
+                pass
             out["evaluate"] = "spawned"
     except Exception as e:
         out["evaluate_error"] = repr(e)

@@ -39,6 +39,12 @@ _SYMBOLS = {"CRYPTO": "BTC/USDT", "NSE": "RELIANCE"}
 _EXCHANGE = {"CRYPTO": "binance", "NSE": "NSE"}
 
 
+def _intraday_only() -> bool:
+    """Owner directive (2026-07-21): NSE_INTRADAY_ONLY=1 forces EVERY NSE trade to be
+    intraday — MIS product, squared off by market close, never carried overnight."""
+    return (os.environ.get("NSE_INTRADAY_ONLY", "") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def trade_type(market: str, instrument: str = "", product: str = "", exchange: str = "") -> str:
     """Human-readable trade class: Crypto Spot/Futures · Options · Futures · NSE Intraday/
     Delivery · Commodities — derived from market + instrument + product + exchange."""
@@ -355,6 +361,11 @@ class LiveTradeLoop:
                     "min_open_by_segment": {},    # PER-SEGMENT overrides {segment: floor} (beats default)
                     "min_total_open": 0,          # global floor: fill to ≥ this many open trades total
                     "min_capital_per_trade": 0.0, # each trade deploys at least this much capital
+                    "max_capital_per_trade": 0.0, # 0 = off; >0 = HARD CEILING on margin/cash a
+                    #   single trade may commit (owner risk cap: no one trade eats the wallet)
+                    "max_concurrent_open": 0,     # 0 = unlimited; >0 = SERIALIZE: max this many
+                    #   open trades PER MARKET at once. New entries wait until an open trade
+                    #   closes (tailgate / target / stop) and frees its capital (owner 2026-07-22)
                     # brain handoff: manual sliders drive trading NOW; the brain auto-takes over
                     # once the journal has ≥ this many CLOSED trades to learn from.
                     "brain_handoff_trades": 30,
@@ -587,7 +598,16 @@ class LiveTradeLoop:
             eng = self._crypto_engine_client()
             self._ft_reach = bool(eng and eng.ping().connected)
             self._ft_reach_tick = self.ticks
-            self._ft_open_pairs = set(eng.open_pairs()) if self._ft_reach else set()
+            self._ft_open_pairs = set()
+            self._ft_open_tags = {}
+            if self._ft_reach:
+                try:
+                    for t in (eng.status() or []):
+                        if isinstance(t, dict) and t.get("pair"):
+                            self._ft_open_pairs.add(t["pair"])
+                            self._ft_open_tags[t["pair"]] = str(t.get("enter_tag") or "")
+                except Exception:
+                    self._ft_open_pairs = set(eng.open_pairs())
         return self._ft_reach
 
     def flush_market(self, market: str) -> int:
@@ -645,6 +665,13 @@ class LiveTradeLoop:
                 open_pairs.add(symbol)
                 return {"forceenter": symbol, "side": side, "ok": True, "tag": _tag}
             if do_exit and symbol in open_pairs:
+                # MEASURED-LANE PROTECTION (2026-07-22): dip_revert/spike_fade trades exit on
+                # their own clock/stop (X24: every early profit-take DESTROYS the edge; a live
+                # dip trade was force-exited at 11m today, before the reversion could land).
+                # The loop must never close a trade whose exit rules live in the strategy.
+                _tag = str(getattr(self, "_ft_open_tags", {}).get(symbol) or "")
+                if _tag.startswith(("dip_revert", "spike_fade", "wm_")):
+                    return {"skipped": f"protected lane {_tag}", "pair": symbol}
                 eng.close_pair(symbol)
                 open_pairs.discard(symbol)
                 return {"forceexit": symbol, "ok": True}
@@ -804,6 +831,8 @@ class LiveTradeLoop:
         carries. Drives the at-close square-off (research: online-nse-offhours-paper-trading)."""
         if market.upper() == "CRYPTO":
             return True
+        if _intraday_only():                          # owner: all NSE trades are intraday
+            return False
         return (segment or "").lower() != "intraday"
 
     # map a trade segment → the charges.py NSE segment key (eq_intraday/eq_delivery/fut/opt).
@@ -886,6 +915,16 @@ class LiveTradeLoop:
         screened candidates until that floor is filled (operator's two-tier request)."""
         if not seg:
             return False
+        # HARD CEILING on concurrent open trades PER MARKET (owner 2026-07-22): serialize —
+        # no new entry while this market already holds `max_concurrent_open` trades. New
+        # orders wait until an open trade closes (profit-tailgate / target / stop) and frees
+        # its capital. Checked FIRST so it beats every floor below. 0 = unlimited.
+        maxc = int(self.cfg.get("max_concurrent_open", 0) or 0)
+        if maxc > 0:
+            mkt_open = sum(1 for ot in self._open.values()
+                           if ot.get("market") == market.upper())
+            if mkt_open >= maxc:
+                return False
         # GLOBAL floor: keep opening best-ranked screened candidates until the total number
         # of open trades reaches min_total_open (across all markets/segments).
         if len(self._open) < int(self.cfg.get("min_total_open", 0) or 0):
@@ -913,21 +952,36 @@ class LiveTradeLoop:
         return {"ok": True, "closed": len(closed), "trades": closed}
 
     def _square_off_intraday(self, when=None) -> list[dict]:
-        """Force-flat NSE INTRADAY (MIS) positions once the market is closed — they cannot
-        be carried overnight. Overnight-allowed trade types (delivery/mtf/fno/commodities)
-        and crypto (24/7) are left to hold. Closes at the last known mark."""
+        """Force-flat NSE INTRADAY positions — they cannot be carried overnight. A position is
+        squared off as soon as EITHER the exchange's auto-squareoff deadline is reached
+        (≈15:14 IST, one minute before the broker's 15:15 hard cut — see trading/squareoff.py)
+        OR the market has closed. Overnight-allowed types (delivery/mtf/fno/commodities, unless
+        NSE_INTRADAY_ONLY) and crypto (24/7) are left to hold. Closes at the last known mark."""
+        try:
+            from trading.squareoff import is_squareoff_due
+        except Exception:
+            is_squareoff_due = None
         done = []
         for key, ot in list(self._open.items()):
             market = ot.get("market", "")
             if market == "CRYPTO" or ot.get("holds_overnight", True):
                 continue
+            seg = (ot.get("segment") or "").lower()
+            exch = ot.get("exchange") or self._OA_EXCHANGE.get(seg, "NSE")
             sess = self._session_for(market, ot.get("segment"))
-            if sess.is_open(when):
-                continue                                 # market open → normal exit handling
+            due = False
+            if is_squareoff_due is not None:
+                try:
+                    due = is_squareoff_due(exch, when)
+                except Exception:
+                    due = False
+            if sess.is_open(when) and not due:
+                continue                                 # market open AND before deadline → hold
             mark = self._marks.get(market, {}).get(ot["symbol"], ot["entry_price"])
             res = self._close_trade(market, ot["symbol"], mark, "REPLAY")
             if isinstance(res, dict) and res.get("ok"):
-                res["exit_reason"] = "market-close square-off (intraday)"
+                res["exit_reason"] = ("auto-squareoff deadline (intraday)" if due
+                                      else "market-close square-off (intraday)")
                 done.append({"symbol": ot["symbol"], "market": market, **res})
         return done
 
@@ -958,7 +1012,7 @@ class LiveTradeLoop:
         max_position_pct / kelly_fraction), rebuild the sizer, and persist."""
         _str_keys = ("sizing_method", "trail_mode", "exit_mode", "option_mode")
         _int_keys = ("top_n_per_segment", "min_open_per_segment", "min_total_open",
-                     "brain_handoff_trades")
+                     "brain_handoff_trades", "max_concurrent_open")
         _bool_keys = ("enter_all", "brain_unlimited")
         for k, v in kw.items():
             if k in self.cfg and v is not None:
@@ -1317,9 +1371,12 @@ class LiveTradeLoop:
         if m == "CRYPTO":
             return {"spot": ("SPOT", "SPOT"), "futures": ("PERP", "PERP"),
                     "options": ("OPT", "OPT")}.get(s, ("SPOT", "SPOT"))
-        return {"intraday": ("EQ", "MIS"), "mtf": ("EQ", "MTF"), "delivery": ("EQ", "CNC"),
-                "futures": ("FUT", "NRML"), "fno": ("FUT", "NRML"), "commodities": ("FUT", "NRML"),
-                "options": ("OPT", "NRML")}.get(s, ("EQ", "MIS"))
+        instr, prod = {"intraday": ("EQ", "MIS"), "mtf": ("EQ", "MTF"), "delivery": ("EQ", "CNC"),
+                       "futures": ("FUT", "NRML"), "fno": ("FUT", "NRML"), "commodities": ("FUT", "NRML"),
+                       "options": ("OPT", "NRML")}.get(s, ("EQ", "MIS"))
+        if _intraday_only() and prod == "NRML":       # carry → intraday product (options/F&O)
+            prod = "MIS"
+        return (instr, prod)
 
     # FALLBACK lot sizes for lot-based NSE segments (tunable via cfg['lot_size_by_segment']),
     # used only when OpenAlgo's real per-symbol lotsize is unavailable. Real lots vary per
@@ -1380,6 +1437,18 @@ class LiveTradeLoop:
     def _open_trade(self, market, symbol, direction, price, size, mode, *, atr=None, brain=None) -> dict:
         is_crypto = market.upper() == "CRYPTO"
         seg = self._segment_of(market, symbol)
+        # SERIALIZE gate (owner 2026-07-22): no new entry while this market already holds
+        # `max_concurrent_open` trades — enforced HERE so EVERY entry path (brain, basket,
+        # manual) obeys it, not just the operator basket. New orders wait until an open
+        # trade closes (profit-tailgate / target / stop) and frees its capital. 0 = off.
+        _maxc = int(self.cfg.get("max_concurrent_open", 0) or 0)
+        if _maxc > 0:
+            _mkt_open = sum(1 for _ot in self._open.values()
+                            if _ot.get("market") == market.upper())
+            if _mkt_open >= _maxc:
+                return {"ok": False, "detail":
+                        f"serialize: {market.upper()} already has {_mkt_open}/{_maxc} open — "
+                        f"waiting for capital to free"}
         # Pillar 17: the calibrated abstention gate is the FIRST check before any
         # capital math — an abstention is a first-class decision, logged by TradeUQ.
         uq = self._assess_uq(market, symbol, direction, brain)
@@ -1483,6 +1552,12 @@ class LiveTradeLoop:
                     pass
             if cash > 0 and price * size > cash * leverage:
                 size = (cash * leverage) / price               # ≤ affordable margin
+            # MAX CAPITAL per trade (interpreted as max MARGIN, mirror of the min floor) →
+            # HARD ceiling so no single trade can commit more than this much cash. Owner risk
+            # cap (2026-07-22): with a 5-lakh wallet + 50k cap → ≥10 positions, no whale trade.
+            max_cap = float(self.cfg.get("max_capital_per_trade", 0.0) or 0.0)
+            if max_cap > 0 and price * size > max_cap * leverage:
+                size = (max_cap * leverage) / price            # ≤ max margin
         # LOT SIZING: F&O / options / commodities trade in whole lots; equity in whole shares;
         # crypto stays fractional. num_lots × lot_size = the order quantity.
         lot = self._lot_size_of(market, seg, symbol)

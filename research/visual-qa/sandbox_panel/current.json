@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:8000/",
+  "http_status": 200,
+  "landed": true,
+  "console_errors": [],
+  "page_errors": [],
+  "body_len": 74974,
+  "wall_ms": 4438,
+  "perf": {
+    "domContentLoaded": 105,
+    "loadEvent": 107,
+    "firstContentfulPaint": 256,
+    "resourceCount": 8,
+    "transferBytes": 242889,
+    "rootChildren": 1
+  },
+  "label": "current",
+  "stamp": "20260706-133739"
+}

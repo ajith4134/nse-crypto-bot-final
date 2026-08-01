@@ -315,7 +315,11 @@ def check(tag: str | None, symbol: str, direction: str,
         # UNCONDITIONALLY (all entries, t=2.38); this edge is CONDITIONAL on a dip having just
         # happened. Both hold; the conditional one is where the money is, so it gets an
         # exemption rather than X17 being reverted for everyone.
-        if t.startswith("dip_revert"):
+        # spike_fade (2026-07-22): same exemption class — pocket B (spike in a 7d UPtrend,
+        # SHORT) is a counter-trend fade measured CONDITIONALLY (+0.087%/trade with-stop).
+        # wm_ (owner's window-movers direction experiment): the bandit MUST be free to try
+        # both sides or its labels are censored — exempt from the counter-trend refusal.
+        if t.startswith(("dip_revert", "spike_fade", "wm_")):
             ct_pct = 0.0
         else:
             ct_pct = _f("X17_COUNTER_TREND_PCT", 0.0)

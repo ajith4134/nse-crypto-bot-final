@@ -469,6 +469,8 @@ def handle_online_control(h):
                 lot_size_by_segment=data.get("lot_size_by_segment"),
                 min_total_open=data.get("min_total_open"),
                 min_capital_per_trade=data.get("min_capital_per_trade"),
+                max_capital_per_trade=data.get("max_capital_per_trade"),
+                max_concurrent_open=data.get("max_concurrent_open"),
                 brain_handoff_trades=data.get("brain_handoff_trades"),
                 brain_unlimited=data.get("brain_unlimited"),
                 screen_min_pct=data.get("screen_min_pct"),

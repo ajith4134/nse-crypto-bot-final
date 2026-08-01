@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:8000/hub",
+  "http_status": 200,
+  "landed": true,
+  "console_errors": [],
+  "page_errors": [],
+  "body_len": 16981,
+  "wall_ms": 4256,
+  "perf": {
+    "domContentLoaded": 74,
+    "loadEvent": 74,
+    "firstContentfulPaint": 96,
+    "resourceCount": 0,
+    "transferBytes": 3946,
+    "rootChildren": 4
+  },
+  "label": "current",
+  "stamp": "20260705-065004"
+}

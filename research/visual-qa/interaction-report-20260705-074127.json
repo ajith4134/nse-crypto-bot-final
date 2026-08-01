@@ -1,0 +1,3059 @@
+{
+  "main_brain": {
+    "url": "http://localhost:8000/",
+    "n_controls": 5,
+    "counts": {
+      "ok": 3,
+      "dead": 1,
+      "error": 0,
+      "skipped": 1
+    },
+    "controls": [
+      {
+        "i": 0,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u27f3 Refresh",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 1,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u26a1 Think",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "POST localhost:8000/api/agui \u2192 200",
+          "GET localhost:8000/api/network/system \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 2,
+        "tag": "textarea",
+        "type": "",
+        "role": "",
+        "label": "Message the brain\u2026 (Enter to send \u00b7 Shift+Enter for newline",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "value set (controlled input)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 4,
+        "tag": "span",
+        "type": "",
+        "role": "",
+        "label": "\ud83e\udde0 Brain",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s) \u00b7 re-render",
+        "requests": [
+          "GET localhost:8000/api/brain/mind/events \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 5,
+        "tag": "span",
+        "type": "",
+        "role": "",
+        "label": "\ud83d\udcc8 Trading",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no effect; interaction raised (TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"[)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      }
+    ]
+  },
+  "main_trading": {
+    "url": "http://localhost:8000/",
+    "n_controls": 145,
+    "counts": {
+      "ok": 134,
+      "dead": 2,
+      "error": 0,
+      "skipped": 9
+    },
+    "controls": [
+      {
+        "i": 0,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\ud83e\uddea NSE Auto Trading (OpenAlgo)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no request / no DOM change",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": null
+      },
+      {
+        "i": 1,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u2197 Open Crypto Window",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 2,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "Search coin",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/closedtrades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 3,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Futures \u2014 live (Freqtrade, Binance)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "11 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/experience/status \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 4,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Spot \u2014 paper (one engine, Binance)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s)",
+        "requests": [
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 5,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Options \u2014 paper (one engine, Deribit)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "3 request(s)",
+        "requests": [
+          "POST localhost:8000/api/trading/online/control \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 6,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Prediction \u2014 paper (one engine, Polymarket)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "13 request(s)",
+        "requests": [
+          "POST localhost:8000/api/trading/online/control \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/experience/status \u2192 200",
+          "GET localhost:8000/api/trading/patterns/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 7,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Select all 4 segments",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "POST localhost:8000/api/trading/online/control \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 8,
+        "tag": "input",
+        "type": "number",
+        "role": "",
+        "label": "7",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "request sent (trading/crypto/markets)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 9,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Set",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "11 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 10,
+        "tag": "input",
+        "type": "number",
+        "role": "",
+        "label": "7",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "value set (controlled input)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 11,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Set",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "25 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/experience/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 12,
+        "tag": "input",
+        "type": "number",
+        "role": "",
+        "label": "7",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "4 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/candles \u2192 200",
+          "GET localhost:8000/api/trading/online/loop \u2192 200",
+          "GET localhost:8000/api/trading/execution/status \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 13,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Set",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "6 request(s)",
+        "requests": [
+          "POST localhost:8000/api/trading/crypto/params \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 14,
+        "tag": "input",
+        "type": "number",
+        "role": "",
+        "label": "7",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "request sent (trading/crypto/trades)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 15,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Set",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 16,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u2192 Futures",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "confirm dialog (wired, dismissed)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 17,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u2192 LIVE \ud83d\udcb5",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "confirm dialog (wired, dismissed)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 18,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ETH/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "19 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 19,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "BTC/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200",
+          "GET localhost:8000/api/trading/news/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 20,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "LAB/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 21,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SOL/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 22,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "XRP/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 23,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "HYPE/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 24,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "HMSTR/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 25,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ZEC/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "11 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 26,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ADA/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/candles \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/watchlist \u2192 200",
+          "GET localhost:8000/api/trading/online/loop \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 27,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "VANRY/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 28,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "TLM/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "14 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/closedtrades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 29,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "DOGE/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "9 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 30,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "BNB/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 31,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "VELVET/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 32,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "WLD/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 33,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "1000PEPE/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/brain/evolve \u2192 200",
+          "GET localhost:8000/api/trading/candles \u2192 200",
+          "GET localhost:8000/api/trading/gui/status \u2192 200",
+          "GET localhost:8000/api/trading/opentrades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 34,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "NEAR/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "4 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 35,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SLX/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 36,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SUI/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "6 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 37,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "RPL/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "13 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 38,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "MAGMA/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 39,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "XLM/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "20 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 40,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SYN/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 41,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "O/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "request sent (trading/orderbook)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 42,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "XAU/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "13 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 43,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "BCH/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 44,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "XAG/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 45,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "OGN/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "4 request(s)",
+        "requests": [
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 46,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "EPIC/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "21 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/experience/status \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/patterns/status \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 47,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ENA/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "3 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/loop \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 48,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "RE/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 49,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "MU/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/network/state \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 50,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "LINK/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "26 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 51,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "MIRA/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 52,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "AVAX/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 53,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u5e01\u5b89\u4eba\u751f/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "14 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 54,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "TAO/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "16 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/loop \u2192 200",
+          "GET localhost:8000/api/trading/watchlist \u2192 200",
+          "GET localhost:8000/api/trading/brain/predict \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 55,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ARX/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "5 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 56,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "XPL/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "6 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 57,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SPCX/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 58,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "TRUMP/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 59,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "AAVE/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 60,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SOXL/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "17 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 61,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ETHFI/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 62,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SKHYNIX/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 63,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "TAC/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/experience/status \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 64,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "1000BONK/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 65,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "LTC/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "4 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 66,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ONDO/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 67,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "MSTR/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "28 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/brain/ops \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 68,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SNDK/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/closedtrades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 69,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "HEI/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 70,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ALLO/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "10 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 71,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "HOT/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/patterns/status \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 72,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "BIRB/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 73,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "BAS/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "3 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 74,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "DOGS/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "10 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/tickers \u2192 200",
+          "GET localhost:8000/api/trading/brain/discovery \u2192 200",
+          "GET localhost:8000/api/trading/candles \u2192 200",
+          "GET localhost:8000/api/brain/evolve \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 75,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "ARPA/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 76,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "VVV/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "request sent (trading/orderbook)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 77,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "CL/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 78,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "GWEI/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 79,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "HBAR/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 80,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "PUMP/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "24 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 81,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "SKYAI/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/context \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 82,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "LIT/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/closedtrades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 83,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "DOT/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 84,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "BEAT/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 85,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "1000SHIB/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "4 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 86,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "GRAM/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "13 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 87,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "UNI/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 88,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "FIL/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 89,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "M/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 90,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "H/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "9 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 91,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "FET/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/experience/status \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 92,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "TRX/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 93,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "CAP/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "16 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 94,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "XMR/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 95,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "JTO/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "5 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/closedtrades \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 96,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "PLAY/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "17 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 97,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "PENGU/USDT",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 98,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Permanently delete ALL closed trades (journal + Freqtrade) s",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "destructive \u2014 not clicked"
+      },
+      {
+        "i": 99,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "filter all cells\u2026",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "value set (controlled input)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 100,
+        "tag": "input",
+        "type": "checkbox",
+        "role": "",
+        "label": "on",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/network/state \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 101,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Columns \u25be",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "33 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 102,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Export CSV",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "download (closed_trades_2026-07-05-07-39-56.csv)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 103,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u2716 Close All",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "destructive \u2014 not clicked"
+      },
+      {
+        "i": 104,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "filter all cells\u2026",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 105,
+        "tag": "input",
+        "type": "checkbox",
+        "role": "",
+        "label": "on",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "5 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 106,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Columns \u25be",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "11 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/experience/status \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 107,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Export CSV",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "download (closed_trades_2026-07-05-07-40-01.csv)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/trading/psychology \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 108,
+        "tag": "select",
+        "type": "",
+        "role": "",
+        "label": "AARTIIND ABCAPITAL ABFRL ADANIENT ADANIGAS ADANIPORTS AJANTP",
+        "disabled": false,
+        "visible": true,
+        "action": "select",
+        "effect": "no request / no DOM change",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": null
+      },
+      {
+        "i": 109,
+        "tag": "input",
+        "type": "number",
+        "role": "",
+        "label": "1200",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "14 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/brain/ops \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 110,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u25b6 Practice",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 111,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "OOS Leaderboard",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/loop \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/watchlist \u2192 200",
+          "GET localhost:8000/api/trading/candles \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 112,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Data-Gated Families",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/closedtrades \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/patterns/status \u2192 200",
+          "GET localhost:8000/api/trading/experience/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 113,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Coverage",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM -44",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 114,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "all",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "10 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 115,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "crypto_futures 52",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM -112",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 116,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "crypto_options 4",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM -35",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 117,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "crypto_spot 10",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "13 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 118,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "mcx_commodities 5",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "12 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 119,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "nse_cash 5",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 120,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "nse_futures 46",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "3 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/psychology \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 121,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "nse_intraday 5",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM -13",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 122,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "nse_options 52",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "17 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 123,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "teach the brain a topic (e.g. stochastic calculus)",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "value set (controlled input)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 124,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Learn",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 125,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "add to the continuous-learning queue",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 126,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "continuous learning: the brain picks a topic every interval ",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 127,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "note name",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 128,
+        "tag": "textarea",
+        "type": "",
+        "role": "",
+        "label": "the fact / lesson to remember",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 129,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "remember",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "19 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200",
+          "GET localhost:8000/api/brain/ops \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 130,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "e.g. bitcoin funding leverage",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "13 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/experience/status \u2192 200",
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "POST localhost:8000/api/trading/brain/ultra/remember \u2192 200",
+          "GET localhost:8000/api/trading/selfeval/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 131,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "recall",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "2 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/brain/ultra \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 132,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Discover \u25b8",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 133,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "symbol",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "value set (controlled input)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 134,
+        "tag": "select",
+        "type": "",
+        "role": "",
+        "label": "LONG SHORT",
+        "disabled": false,
+        "visible": true,
+        "action": "select",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/closedtrades \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 135,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Run debate",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 136,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "recall: symbol or free text (e.g. BTC short funding)\u2026",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 137,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Recall",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "17 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/brain/decisions \u2192 200",
+          "GET localhost:8000/api/brain/learning \u2192 200",
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/practice \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 138,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\ud83d\udc41 Observe",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "request sent (trading/gui/action)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 139,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\ud83d\udd2c Deep See (DOM+OCR)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "13 request(s) \u00b7 re-render",
+        "requests": [
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/brain/ops \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 140,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u25b7 Step (dry)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "21 request(s) \u00b7 re-render",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/trades \u2192 200",
+          "GET localhost:8000/api/trading/evolution/status \u2192 200",
+          "GET localhost:8000/api/trading/strategy/status \u2192 200",
+          "GET localhost:8000/api/trading/experience/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 141,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\ud83c\udfcb Practice \u00d72",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 142,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\ud83d\udd2c Experiment",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "32 request(s) \u00b7 re-render",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/foundry \u2192 200",
+          "GET localhost:8000/api/brain/ops \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 143,
+        "tag": "span",
+        "type": "",
+        "role": "",
+        "label": "\ud83e\udde0 Brain",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "6 request(s) \u00b7 re-render",
+        "requests": [
+          "GET localhost:8000/api/trading/closedtrades \u2192 200",
+          "GET localhost:8000/api/trading/context \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/brain/hypotheses \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 144,
+        "tag": "span",
+        "type": "",
+        "role": "",
+        "label": "\ud83d\udcc8 Trading",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "18 request(s) \u00b7 re-render",
+        "requests": [
+          "GET localhost:8000/api/trading/crypto/markets \u2192 200",
+          "GET localhost:8000/api/trading/venues \u2192 200",
+          "GET localhost:8000/api/llm/telemetry \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      }
+    ]
+  },
+  "crypto_window": {
+    "url": "http://localhost:8000/?win=crypto",
+    "n_controls": 9,
+    "counts": {
+      "ok": 7,
+      "dead": 0,
+      "error": 0,
+      "skipped": 2
+    },
+    "controls": [
+      {
+        "i": 0,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\ud83d\uded1 PANIC (halt all)",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "destructive \u2014 not clicked"
+      },
+      {
+        "i": 1,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u25b6 Start trading",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 2,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u23f9 Stop trading",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "1 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/closedtrades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 3,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Switch to LIVE \ud83d\udcb5",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "confirm dialog (wired, dismissed)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 4,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u2192 Futures (short)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "confirm dialog (wired, dismissed)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200",
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/crypto/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 5,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "filter all cells\u2026",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "value set (controlled input)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 6,
+        "tag": "input",
+        "type": "checkbox",
+        "role": "",
+        "label": "on",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM +110",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 7,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Columns \u25be",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM +274",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 8,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Export CSV",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "download (closed_trades_2026-07-05-07-40-55.csv)",
+        "requests": [
+          "GET localhost:8000/api/trading/orderbook \u2192 200",
+          "GET localhost:8000/api/trading/candles \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200",
+          "GET localhost:8000/api/trading/crypto/status \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      }
+    ]
+  },
+  "frequi": {
+    "url": "http://localhost:8100/frequi/",
+    "n_controls": 4,
+    "counts": {
+      "ok": 1,
+      "dead": 2,
+      "error": 0,
+      "skipped": 1
+    },
+    "controls": [
+      {
+        "i": 0,
+        "tag": "button",
+        "type": "button",
+        "role": "",
+        "label": "Toggle Night Mode",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no request / no DOM change",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": null
+      },
+      {
+        "i": 1,
+        "tag": "button",
+        "type": "button",
+        "role": "checkbox",
+        "label": ":BUTTON",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no request / no DOM change",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": null
+      },
+      {
+        "i": 2,
+        "tag": "button",
+        "type": "button",
+        "role": "",
+        "label": "Auto Refresh all bots now",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 3,
+        "tag": "button",
+        "type": "button",
+        "role": "",
+        "label": "Login",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM +49",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      }
+    ]
+  },
+  "openalgo": {
+    "url": "http://localhost:5000/",
+    "n_controls": 7,
+    "counts": {
+      "ok": 1,
+      "dead": 6,
+      "error": 0,
+      "skipped": 0
+    },
+    "controls": [
+      {
+        "i": 1,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Home",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no request / no DOM change",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": null
+      },
+      {
+        "i": 2,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "FAQ",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "6 request(s)",
+        "requests": [
+          "GET localhost:5000/assets/Faq-G2XUjl_B.js \u2192 200",
+          "GET localhost:5000/assets/accordion-BZ2bfOXF.js \u2192 200",
+          "GET localhost:5000/assets/chevron-down-huJRLilg.js \u2192 200",
+          "GET localhost:5000/assets/dist-BUdXN3mR.js \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 3,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Community",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no effect; interaction raised (TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"[)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 4,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Roadmap",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no effect; interaction raised (TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"[)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 5,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Docs",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no effect; interaction raised (TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"[)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 6,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Download",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no effect; interaction raised (TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"[)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      },
+      {
+        "i": 7,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Switch to dark mode",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no effect; interaction raised (TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"[)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": "TimeoutError: Locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"["
+      }
+    ]
+  }
+}

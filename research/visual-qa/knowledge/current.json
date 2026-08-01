@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:8000/knowledge",
+  "http_status": 200,
+  "landed": true,
+  "console_errors": [],
+  "page_errors": [],
+  "body_len": 40795,
+  "wall_ms": 4294,
+  "perf": {
+    "domContentLoaded": 122,
+    "loadEvent": 122,
+    "firstContentfulPaint": 132,
+    "resourceCount": 2,
+    "transferBytes": 81778,
+    "rootChildren": 3
+  },
+  "label": "current",
+  "stamp": "20260705-065012"
+}

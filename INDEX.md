@@ -195,6 +195,29 @@ _PostToolUse hook on the Skill tool — the "read learnings first" half of the s
 - **functions:** `main() -> int`
 - **imports:** json, pathlib, sys
 
+## `.claude/plugins/marketplaces/claude-plugins-official/plugins/claude-security/hooks/banner_notice.py`
+_Show the Claude Security banner as a display-only systemMessage._
+- **functions:** `plugin_version() -> str`; `box_line(text) -> str`; `bottom_border(version) -> str`; `banner() -> str`; `emit(message) -> None`; `main() -> int`
+- **imports:** contextlib, json, os, sys, typing
+
+## `.claude/plugins/marketplaces/claude-plugins-official/plugins/claude-security/scripts/patch_artifacts.py`
+_Render the suggested-fix products from a patch run directory._
+- **classes:** Claim, DiffStat, Unit, PatchError
+- **functions:** `die(message) -> NoReturn`; `die_usage(message) -> NoReturn`; `field(value, what) -> str`; `line_field(value, what) -> str`; `field_list(value, what) -> list[str]`; `build_claims(raw, unit_id, status) -> dict[str, Claim]`; `build_unit(raw, index) -> Unit`; `load_units(patch_dir) -> list[Unit]`; `read_diff(patch_dir, unit_id, required) -> bytes | None`; `atomic_write_bytes(path, data) -> None`; `display_name(name) -> str | None`; `section_stat(lines) -> DiffStat`; `numstat(diff) -> list[DiffStat]`; `git_toplevel(scan_root) -> str | None`; `apply_check(top, patch_path) -> str`; `diffstat_lines(stats) -> list[str]`; `header_comment(unit, base, report_ref) -> str`; `note_written(unit, stats, check, report_ref) -> str`; `note_declined(unit, stats) -> str`; `index_markdown(units, base, report_dir_name, report_ref) -> str`; `jsonl(units, base, stats_by_id, checks) -> str`; `clear_stale_products(patches_dir, produced) -> list[str]`; `ensure_gitignore(report_dir) -> str`; `contained_relpath(target, root) -> str | None`; `report_path_from_root(report_dir, top, fallback) -> str`; `resolve_report_dir(patches_dir) -> tuple[str, str]`; `run(patch_dir, patches_dir, scan_root, base) -> int`; `refuse_reason(path) -> str | None`; `clear_readonly(func, path, exc_info) -> None`; `remove_workspace(path) -> None`; `remove_workspaces_in(patch_dir) -> tuple[list[str], list[str]]`; `remove_patch_run(patch_dir) -> tuple[list[str], list[str]]`; `main(argv) -> int`
+- **imports:** __future__, argparse, contextlib, json, os, pathlib, re, render_report, shlex, shutil, stat, subprocess, sys, tempfile, typing
+
+## `.claude/plugins/marketplaces/claude-plugins-official/plugins/claude-security/scripts/render_report.py`
+_Render a scan's machine-readable artifacts from its run directory._
+- **classes:** Panel, VerificationSummary, RenderError
+- **functions:** `as_map(value) -> JsonMap | None`; `die(message) -> NoReturn`; `read_json(run_dir, name, required) -> object`; `normalize_category(raw) -> str`; `confidence_value(raw) -> str`; `panel_complete(record) -> Panel | None`; `vote_confidence_ceiling(rounds) -> str | None`; `build_finding(raw, index, rounds_by_id) -> Finding`; `read_coverage(run_dir) -> tuple[JsonMap | None, str]`; `coverage_text(value, cap) -> str | None`; `skipped_components(raw) -> list[dict[str, object]] | None`; `coverage_enum(value, allowed) -> str | None`; `run_shape(coverage, source, effort) -> dict[str, object]`; `verification_summary(findings, votes, votes_present) -> VerificationSummary`; `revision_tag(revision) -> str`; `atomic_write(path, text) -> None`; `jsonl_line(finding) -> str`; `render(run_dir, products_dir) -> tuple[list[Finding], VerificationSummary, str]`; `remove_run_dir(run_dir, products_dir) -> str`; `main(argv) -> int`
+- **imports:** __future__, collections.abc, contextlib, datetime, json, os, re, shutil, sys, tempfile, typing
+
+## `.claude/plugins/marketplaces/claude-plugins-official/plugins/claude-security/scripts/write_scan_meta.py`
+_Write scan-meta.json for a run: the record of what was scanned._
+- **classes:** Revision, Options, MetaError
+- **functions:** `_opt_str(value) -> str | None`; `git(cwd) -> str | None`; `top_level_dirs(scan_root) -> list[str] | None`; `worktree_dirty(scan_root) -> bool | None`; `capture_revision(scan_root, opts) -> Revision`; `parse_options(argv) -> Options`; `main(argv) -> int`
+- **imports:** __future__, argparse, json, os, render_report, subprocess, sys, typing
+
 ## `.claude/plugins/marketplaces/claude-plugins-official/plugins/hookify/core/__init__.py`
 _(no summary)_
 
@@ -948,7 +971,7 @@ _Extracted POST HTTP routes (dashboard/server.py split — Wave0-⑤ Group 4)._
 
 ## `dashboard/routes/trading_ext.py`
 _Extracted trading HTTP routes (dashboard/server.py split — Wave0-⑤ Group 2)._
-- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `_evo_demo_build()`; `handle_upgrades_status(h)`; `handle_direction_xray(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `_filter_preset_of(d) -> str`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_mirror_stream(h)`; `handle_direction_truth(h)`; `handle_postmortem(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_binance_edge(h)`; `handle_handoff(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
+- **functions:** `_srv(h)`; `handle_practice(h)`; `handle_practice_notebook(h)`; `handle_venues(h)`; `handle_brain_discovery(h)`; `handle_status(h)`; `handle_crypto_status(h)`; `handle_crypto_markets(h)`; `handle_crypto_ingest(h)`; `handle_execution_status(h)`; `handle_options_status(h)`; `handle_journal_status(h)`; `handle_alerts_status(h)`; `handle_strategy_status(h)`; `handle_foundry(h)`; `handle_credentials(h)`; `handle_strategy_library(h)`; `_evo_demo_build()`; `handle_upgrades_status(h)`; `handle_direction_xray(h)`; `handle_evolution_status(h)`; `handle_experience_status(h)`; `handle_selfeval_status(h)`; `handle_crypto_trades(h)`; `handle_crypto_predictions(h)`; `handle_patterns_status(h)`; `handle_news_status(h)`; `handle_skills_status(h)`; `_filter_preset_of(d) -> str`; `handle_brain_status(h)`; `handle_advintel_status(h)`; `handle_tickers(h)`; `handle_candles(h)`; `handle_forecast(h)`; `handle_orderbook(h)`; `handle_scorecard(h)`; `_tg_cells(locked, dist)`; `handle_opentrades(h)`; `handle_brain_predict(h)`; `handle_psychology(h)`; `handle_brain_ultra(h)`; `handle_brain_metacognition(h)`; `handle_brain_debate(h)`; `handle_brain_decisions(h)`; `handle_gui_status(h)`; `handle_closedtrades(h)`; `handle_confidence(h)`; `handle_dreams(h)`; `handle_gate_tuning(h)`; `handle_mirror_stream(h)`; `handle_direction_truth(h)`; `handle_postmortem(h)`; `handle_learning_curve(h)`; `handle_context(h)`; `handle_pnl_demos(h)`; `handle_watchlist(h)`; `handle_online_loop(h)`; `handle_onchain(h)`; `handle_online_status(h)`; `_bs_funnel(market)`; `handle_broker_sense(h)`; `handle_app_school(h)`; `handle_memory_search(h)`; `handle_connectivity(h)`; `handle_sandbox(h)`; `handle_trade_columns(h)`; `handle_segments(h)`; `_segments_snapshot() -> dict`; `handle_broker_features(h)`; `handle_broker_sources(h)`; `handle_remote_login(h)`; `handle_mirror(h)`; `handle_binance_edge(h)`; `handle_handoff(h)`; `handle_mirror_frame(h)`; `handle_live_browser_frame(h)`; `handle_live_browser(h)`; `handle_ocular(h)`
 - **imports:** json, os, sys, time
 
 ## `dashboard/server.py`
@@ -2757,6 +2780,11 @@ _tests/test_postmortem.py — Trade Post-Mortem & Excursion Engine (trading/brai
 - **functions:** `_trade(symbol, direction, regime, preset, net_pnl)`
 - **imports:** json, numpy, pathlib, tempfile, trading, trading.brain, unittest
 
+## `tests/test_practice_notebook.py`
+_Tests for the Practice Notebook (rough book → double-confirm gate → answer sheet)._
+- **classes:** PracticeNotebookTest
+- **imports:** os, pathlib, tempfile, time, trading, unittest
+
 ## `tests/test_profit_tailgate.py`
 _Tests for profit tailgating (trading/execution/profit_tailgate) — the ratcheting profit lock._
 - **classes:** _Iso, TestRatchet, TestCryptoSweepOverrides, TestMinLockFloor
@@ -3541,6 +3569,17 @@ _trading/brain/postmortem.py — Trade Post-Mortem & Excursion Engine._
 - **functions:** `_enabled() -> bool`; `feedback_enabled() -> bool`; `_market_of(trade) -> str`; `_num(v)`; `_snap(trade) -> dict`; `trade_features(trade) -> dict`; `_win_of(trade) -> bool | None`; `_ohlc(symbol, segment)`; `_parse_dt(s) -> float | None`; `excursion(trade) -> dict`; `_replay_excursion(symbol, segment, direction, entry, entry_ts, exit_ts) -> dict`; `_build_frame(trades, market)`; `_selector_predicates(sg) -> list`; `_cover_from_preds(df, preds)`; `_rule_text(preds) -> str`; `_discover(df, base_rate, target_win) -> list`; `_commonality(df, base_rate) -> list`; `mine_patterns(market) -> dict`; `patterns(market) -> dict`; `_match(features, preds) -> bool`; `explain_trade(trade) -> dict`; `pattern_signal(features, market, regime) -> dict`; `entry_offset(symbol, regime, market) -> dict`; `build_excursion_aggregates(market, limit) -> dict`; `backfill(limit) -> dict`; `status(market) -> dict`
 - **imports:** __future__, datetime, json, math, os, pathlib, time, trading
 
+## `trading/brain/practice_gate.py`
+_Lightweight cross-process gate for the Practice Notebook._
+- **functions:** `_env_b(name, default) -> bool`; `key(symbol, side) -> str`; `side_to_dir(side) -> int`; `gate_confirmed(symbol, side) -> bool`; `gate_request(symbol, side, p_up, source) -> None`; `gate_decision(symbol, side, p_up) -> bool`
+- **imports:** __future__, os, time, trading
+
+## `trading/brain/practice_notebook.py`
+_Practice Notebook — the brain's rough / calculating paper._
+- **classes:** PracticeNotebook
+- **functions:** `_env_f(name, default) -> float`; `_env_i(name, default) -> int`; `_env_b(name, default) -> bool`; `_now() -> float`; `_snap_path() -> Path`; `_load_snapshot() -> dict`; `_to_flat(symbol) -> str`; `_to_ccxt(flat) -> str | None`; `_snap_candles(symbol, timeframe) -> list | None`; `_closes_highs_lows(rows) -> tuple[np.ndarray, np.ndarray, np.ndarray]`; `atr_pct(rows, n) -> float`; `_mom_p_up(rows, lookback) -> float | None`; `_local_regime(p_up) -> str`; `cheap_direction(symbol) -> dict | None`; `_mirror_price(symbol) -> float | None`; `get_notebook() -> PracticeNotebook`
+- **imports:** __future__, gzip, json, math, numpy, os, pathlib, time, trading, trading.brain.practice_gate, typing
+
 ## `trading/brain/psych_deeplob.py`
 _DeepLOB price-direction prediction from recorded depth snapshots (CPU)._
 - **functions:** `_snapshot_vec(row) -> list[float] | None`; `load_series(path) -> np.ndarray`; `make_samples(series) -> tuple[np.ndarray, np.ndarray]`; `_model()`; `train(epochs, lr, batch) -> dict`; `predict_prob_up(ring) -> float | None`
@@ -3580,6 +3619,11 @@ _trading/brain/rl_exit.py — Phase-T8 deferred A3: RL exit policy (tabular Q-le
 _trading/brain/rnd.py — the AUTONOMOUS R&D DRIVE: the brain invents its own new_
 - **functions:** `_load() -> dict`; `_save(d) -> None`; `_interval() -> float`; `_pick_topic(d) -> tuple[str, str]`; `_invent_from(topic, summary) -> dict`; `run_once() -> dict`; `maybe_run() -> dict | None`; `status() -> dict`
 - **imports:** __future__, json, os, random, re, time, trading.brain
+
+## `trading/brain/run_practice_notebook.py`
+_Runner for the Practice Notebook._
+- **functions:** `_acquire_singleton() -> bool`; `main() -> None`
+- **imports:** __future__, atexit, fcntl, os, time, trading, trading.brain.practice_notebook
 
 ## `trading/brain/school.py`
 _trading/brain/school.py — the School: dual-track curriculum L0→L6 with real exams_
@@ -3857,6 +3901,7 @@ _trading/broker_sense/endpoint_discovery.py — surface UNMAPPED web-app data en
 ## `trading/broker_sense/exec_adapter.py`
 _trading/broker_sense/exec_adapter.py — APIs are used ONLY here (owner's step 8)._
 - **classes:** ExecAdapter
+- **functions:** `_nse_intraday_only() -> bool`
 - **imports:** __future__, os, trading.broker_sense.brokers
 
 ## `trading/broker_sense/fast_candles.py`
@@ -4140,7 +4185,7 @@ _trading/crypto/freqtrade/config_template.py — build a Freqtrade config from O
 ## `trading/crypto/freqtrade/control.py`
 _trading/crypto/freqtrade/control.py — guarded paper↔live & spot↔futures switch (Phase F)._
 - **functions:** `_cfg()`; `_config_json() -> dict`; `_bot_running() -> bool`; `status() -> dict`; `_set_env_keys(updates) -> None`; `_wait_port_free(host, port, timeout) -> bool`; `restart_bot() -> dict`; `switch() -> dict`; `set_params() -> dict`; `set_segments_enabled(segments) -> dict`; `main(argv) -> int`
-- **imports:** __future__, dataclasses, json, os, re, socket, subprocess, time
+- **imports:** __future__, dataclasses, json, os, re, socket, subprocess, sys, time
 
 ## `trading/crypto/freqtrade/entry_meta.py`
 _Sidecar store for per-entry brain metadata (trader psychology + decision snapshot)._
@@ -4209,7 +4254,7 @@ _FreqAIDirection — FreqAI directional ML strategy (Wave: crypto ML strategies 
 ## `trading/crypto/freqtrade/user_data/strategies/MlBridgeStrategy.py`
 _MlBridgeStrategy — minimal placeholder Freqtrade strategy (T-split B)._
 - **classes:** MlBridgeStrategy
-- **imports:** __future__, freqtrade.strategy, pandas
+- **imports:** __future__, freqtrade.strategy, pandas, sys
 
 ## `trading/crypto/freqtrade/user_data/strategies/MlBridgeStrategySpot.py`
 _MlBridgeStrategySpot — the SPOT-segment variant of MlBridgeStrategy._
@@ -4975,7 +5020,7 @@ _trading/online/controls.py — shared, persisted control surface (O5)._
 ## `trading/online/live_loop.py`
 _trading/online/live_loop.py — the always-on LIVE trade loop (the missing daemon)._
 - **classes:** BrainDecider, LiveTradeLoop
-- **functions:** `trade_type(market, instrument, product, exchange) -> str`; `momentum_decider(window, band)`; `_xray_on_open(symbol, exchange, segment) -> None`; `_cortex_shadow_nse(market, symbol, window, d, in_position) -> dict`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
+- **functions:** `_intraday_only() -> bool`; `trade_type(market, instrument, product, exchange) -> str`; `momentum_decider(window, band)`; `_xray_on_open(symbol, exchange, segment) -> None`; `_cortex_shadow_nse(market, symbol, window, d, in_position) -> dict`; `_brain_decider()`; `get_loop() -> LiveTradeLoop`; `start_loop() -> LiveTradeLoop`
 - **imports:** __future__, collections, os, threading, time, trading.online, trading.online.session, trading.online.state
 
 ## `trading/online/replay.py`
@@ -5079,7 +5124,7 @@ _(no summary)_
 
 ## `trading/research/dip_lane.py`
 _X24 — the DIP-REVERSION lane: the only entry rule with measured out-of-sample edge._
-- **functions:** `_mirror() -> dict`; `_seven_day_and_volume(flat_symbol) -> tuple[float | None, float | None]`; `scan() -> list[dict]`; `open_dip_count(client) -> int`; `run_once(client) -> list[dict]`
+- **functions:** `_mirror() -> dict`; `_seven_day_and_volume(flat_symbol) -> tuple[float | None, float | None]`; `scan() -> list[dict]`; `scan_spikes() -> list[dict]`; `scan_window_movers() -> list[dict]`; `_wm_bandit_pick(cell) -> str`; `wm_grade_closed() -> int`; `run_window_movers_once(client) -> list[dict]`; `_open_tag_count(client, prefix) -> int`; `open_dip_count(client) -> int`; `run_once(client) -> list[dict]`; `run_spikes_once(client) -> list[dict]`
 - **imports:** __future__, gzip, json, os, pathlib, statistics, time
 
 ## `trading/research/edge_test.py`
@@ -5147,7 +5192,7 @@ _trading/screener/filters.py — standalone, composable screener filter algorith
 
 ## `trading/screener/options.py`
 _trading/screener/options.py — single-leg NSE option (CE/PE) candidate generation._
-- **functions:** `atm_strike(ltp, strikes) -> Optional[float]`; `_strike_step(strikes) -> float`; `nearest_expiry(expiries) -> Optional[str]`; `pick_contracts(rows, ltp, mode, otm_depth, chain_cap) -> list[dict]`; `_norm_rows(raw) -> list[dict]`; `_broker()`; `_spot_exch(underlying) -> str`; `_opt_exch(underlying) -> str`; `_ui_ltp(underlying) -> float`; `_ui_option_chain_fresh(underlying) -> bool`; `_ltp(client, underlying) -> float`; `_search_options(client, underlying, exchange) -> list[dict]`; `screen_nse_options(source) -> list[dict]`
+- **functions:** `index_underlyings() -> list[str]`; `atm_strike(ltp, strikes) -> Optional[float]`; `_strike_step(strikes) -> float`; `nearest_expiry(expiries) -> Optional[str]`; `pick_contracts(rows, ltp, mode, otm_depth, chain_cap) -> list[dict]`; `_norm_rows(raw) -> list[dict]`; `_broker()`; `_spot_exch(underlying) -> str`; `_opt_exch(underlying) -> str`; `_ui_ltp(underlying) -> float`; `_ui_option_chain_fresh(underlying) -> bool`; `_ltp(client, underlying) -> float`; `_search_options(client, underlying, exchange) -> list[dict]`; `screen_nse_options(source) -> list[dict]`
 - **imports:** __future__, typing
 
 ## `trading/screener/prediction.py`

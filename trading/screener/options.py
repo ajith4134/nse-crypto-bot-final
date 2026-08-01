@@ -38,6 +38,18 @@ _INDEX_SET = {u.upper() for u in INDEX_UNDERLYINGS}
 _MODES = ("atm", "ladder", "chain")
 
 
+def index_underlyings() -> list[str]:
+    """Index option underlyings to screen, filtered by the ALLOWED option exchanges.
+    `NSE_OPT_INDEX_EXCHANGES` (default 'NFO,BFO' = every index) → set to 'NFO' to trade
+    NSE index options ONLY and drop the BSE (BFO) SENSEX/BANKEX contracts. Owner directive
+    2026-07-21 (options-only NSE focus). Falls back to the full set if misconfigured empty."""
+    import os
+    allowed = {e.strip().upper() for e in
+               (os.environ.get("NSE_OPT_INDEX_EXCHANGES", "NFO,BFO") or "NFO,BFO").split(",")
+               if e.strip()}
+    return [u for u in INDEX_UNDERLYINGS if INDEX_EXCHANGES[u][1] in allowed] or list(INDEX_UNDERLYINGS)
+
+
 # ── pure helpers (unit-tested, no I/O) ───────────────────────────────────────
 def atm_strike(ltp: float, strikes: Iterable[float]) -> Optional[float]:
     """Nearest LISTED strike to the underlying LTP (robust to per-underlying steps)."""
@@ -210,7 +222,7 @@ def screen_nse_options(source: Any, *, limit: int = 5, filters: dict | None = No
     # F&O STOCK underlyings. nselib active_underlying is IP-blocked, so stock names come
     # from the reliable liquid F&O universe (trading/screener/universe.py). This is what
     # makes BankNifty/FinNifty/Sensex options open too, not just NIFTY (2026-07-07 fix).
-    underlyings: list[str] = list(INDEX_UNDERLYINGS)          # every index, NSE + BSE
+    underlyings: list[str] = index_underlyings()             # indices allowed by NSE_OPT_INDEX_EXCHANGES
     try:
         au = source.active_underlying() or [] if source is not None else []
         au.sort(key=lambda r: float(r.get("optVolume") or r.get("totVolume") or 0), reverse=True)

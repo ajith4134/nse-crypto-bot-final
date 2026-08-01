@@ -1855,6 +1855,13 @@ class BrainExecutor:
                 pair = t.get("pair")
                 if not pair:
                     continue
+                # MEASURED-LANE PROTECTION (2026-07-22): dip_revert/spike_fade exits are
+                # OWNED BY THE STRATEGY (price stop + 60m clock; X24: every early
+                # profit-take destroys the edge). This pass force-exited two spike_fade
+                # winners mid-hour tonight (exit-policy arms) — skip these lanes entirely.
+                if str(t.get("enter_tag") or "").startswith(("dip_revert", "spike_fade",
+                                                             "wm_")):
+                    continue
                 prof = t.get("profit_ratio")
                 profit_pct = float(prof) * 100.0 if prof is not None else None
                 # peak% from Freqtrade's tracked max_rate vs open_rate (direction-aware).

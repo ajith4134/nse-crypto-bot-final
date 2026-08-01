@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:8000/",
+  "http_status": 200,
+  "landed": true,
+  "clicked": true,
+  "console_errors": [],
+  "page_errors": [],
+  "body_len": 9057603,
+  "wall_ms": 15193,
+  "perf": {
+    "loadEvent": 459,
+    "firstContentfulPaint": 548,
+    "transferBytes": 886985,
+    "resourceCount": 133,
+    "rootChildren": 81919,
+    "panels": 0
+  },
+  "stamp": "20260704-212620"
+}

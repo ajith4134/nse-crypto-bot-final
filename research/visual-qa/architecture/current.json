@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:8000/architecture",
+  "http_status": 200,
+  "landed": true,
+  "console_errors": [],
+  "page_errors": [],
+  "body_len": 6894,
+  "wall_ms": 4201,
+  "perf": {
+    "domContentLoaded": 72,
+    "loadEvent": 72,
+    "firstContentfulPaint": 88,
+    "resourceCount": 0,
+    "transferBytes": 2601,
+    "rootChildren": 2
+  },
+  "label": "current",
+  "stamp": "20260705-065008"
+}

@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:8100/frequi/",
+  "http_status": 200,
+  "landed": true,
+  "console_errors": [],
+  "page_errors": [],
+  "body_len": 29160,
+  "wall_ms": 5599,
+  "perf": {
+    "domContentLoaded": 1130,
+    "loadEvent": 1276,
+    "firstContentfulPaint": 1468,
+    "resourceCount": 15,
+    "transferBytes": 1356652,
+    "rootChildren": 3
+  },
+  "label": "current",
+  "stamp": "20260721-091751"
+}

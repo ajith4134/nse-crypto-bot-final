@@ -381,6 +381,20 @@ def collect(symbol: str, *, market: str = "CRYPTO", segment: str = "futures",
         except Exception:
             pass
 
+    # 3c) NOTEBOOK universe read (2026-07-21) — the Practice Notebook's fast vol-scaled momentum
+    #     direction read, the SAME signal it grades across ALL ~880 symbols every cycle. This lens
+    #     therefore carries a track record measured on the whole universe (not just traded picks),
+    #     closing the loop the owner asked for: universe practice → truth ledger → brain weight.
+    #     Earns weight via the truth ledger like every other lens. Kill: BRAIN_SRC_NOTEBOOK=0.
+    if _flag("BRAIN_SRC_NOTEBOOK"):
+        try:
+            from trading.brain.practice_notebook import cheap_direction as _cd
+            _c = _cd(symbol)
+            if _c and _c.get("p_up") is not None and abs(_c["p_up"] - 0.5) > 1e-6:
+                _emit("notebook_scan", _c["p_up"])
+        except Exception:
+            pass
+
     # 4) River online learner — drift-aware P(up) from the live feature dict (cheap, O(1));
     #    bootstrapped from the journal so it is trained from process start
     if _flag("BRAIN_SRC_RIVER") and features:

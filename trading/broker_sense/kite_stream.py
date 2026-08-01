@@ -397,10 +397,14 @@ class KiteZerodhaMirror:
             print(f"[nse-mirror] backfill skipped (no OpenAlgo client): {e!r}", flush=True)
             return 0
         with self._lock:
-            # NSE equity underlyings only: F&O contracts are streamed for live MTM, not charted —
+            # UNDERLYINGS only: F&O contracts are streamed for live MTM, not charted —
             # the funnel's direction reads candles off the UNDERLYING, and seeding history for every
             # traded contract would burn hundreds of REST calls for candles nothing reads.
-            symbols = sorted(s for s in self._want if self._exch.get(s, "NSE") == "NSE")
+            # Index spots (NSE_INDEX/BSE_INDEX) ARE underlyings and MUST seed too (2026-07-23:
+            # NSE-only left NIFTY/…/SENSEX with zero bars → neutral vote all day — the exact
+            # 2026-07-16 cold-mirror failure, replayed for indices).
+            _SEED_EXCH = ("NSE", "NSE_INDEX", "BSE_INDEX")
+            symbols = sorted(s for s in self._want if self._exch.get(s, "NSE") in _SEED_EXCH)
         today = datetime.date.today()
         end = today.isoformat()
         # per-TF window: enough to fill _CANDLE_MAXLEN, never the whole history (see the map)
@@ -416,7 +420,7 @@ class KiteZerodhaMirror:
                 if not iv:
                     continue
                 try:
-                    resp = oa.history(sym, exchange="NSE", interval=iv,
+                    resp = oa.history(sym, exchange=self._exch.get(sym, "NSE"), interval=iv,
                                       start_date=starts[tf], end_date=end)
                     rows = (resp or {}).get("data") or []
                     bars = []

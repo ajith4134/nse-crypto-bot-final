@@ -19,6 +19,12 @@ import os
 from trading.broker_sense.brokers import EXEC_REAL, assert_can_execute, real_broker
 
 
+def _nse_intraday_only() -> bool:
+    """Owner directive 2026-07-21: NSE_INTRADAY_ONLY=1 forces every NSE trade to MIS
+    (intraday, auto square-off). Same semantics as live_loop._intraday_only."""
+    return (os.environ.get("NSE_INTRADAY_ONLY", "") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 class ExecAdapter:
     """The single execution door for the Broker-Sense funnel."""
 
@@ -67,6 +73,8 @@ class ExecAdapter:
         if route is None:                                    # prediction / unknown
             return None
         exch, product, instrument = route
+        if _nse_intraday_only() and product == "NRML":       # owner 2026-07-21: ALL NSE trades
+            product = "MIS"                                  # intraday (mirrors live_loop:1377)
         if instrument == "EQ":                               # equity: whole shares, symbol as-is
             return (base, exch, product, max(1, int(lots)), act)
         # F&O: resolve the near-month FUT contract (reuse the exact-base resolver) + size in LOTS
@@ -115,7 +123,38 @@ class ExecAdapter:
         row = min(near, key=lambda r: abs(float(r["strike"]) - target))
         tradesym = row["symbol"]
         lot = self._nse_lot(tradesym, exch) or self._DEFAULT_LOT.get("options", 1)
-        return (tradesym, exch, "NRML", max(1, int(lots)) * lot, "BUY")   # always BUY the option
+        # Owner 2026-07-21 (NSE_INTRADAY_ONLY): every NSE trade is intraday — MIS product so the
+        # sandbox/broker auto-squares-off at close. Pre-existing gap fixed 2026-07-23: this
+        # adapter placed NRML (carry) while live_loop:1377 already converted; funnel orders
+        # silently held overnight. NRML only when the flag is explicitly off.
+        prod = "MIS" if _nse_intraday_only() else "NRML"
+        return (tradesym, exch, prod, max(1, int(lots)) * lot, "BUY")   # always BUY the option
+
+    def square_off_nse_if_due(self) -> dict | None:
+        """Flatten ALL OpenAlgo positions at the intraday deadline (≈15:14 IST) or after close,
+        when NSE_INTRADAY_ONLY is on. This is the funnel lane's ONLY exit path (found
+        2026-07-23): entries piled up all day with nothing closing them — 27 positions (incl.
+        legacy NRML carry, which the sandbox never auto-squares) consumed the whole wallet and
+        blocked every new entry. Uses OpenAlgo's closeposition (closes every position under our
+        strategy tag). Returns a summary dict when it acted, None otherwise. Never raises."""
+        if not _nse_intraday_only():
+            return None
+        try:
+            from trading.squareoff import is_squareoff_due
+            if not is_squareoff_due("NFO"):
+                return None
+            cli = self._nse_cli()
+            sdk = cli._client()
+            pb = sdk.positionbook()
+            pos = (pb.get("data") or []) if isinstance(pb, dict) else []
+            n_open = sum(1 for p in pos if float(p.get("quantity") or 0) != 0)
+            if not n_open:
+                return None
+            r = sdk.closeposition(strategy=getattr(cli, "strategy", None) or "MLNetworkBrain")
+            ok = isinstance(r, dict) and r.get("status") in ("success", "ok")
+            return {"closed": n_open, "ok": bool(ok)}
+        except Exception:
+            return None
 
     @staticmethod
     def _stream_position(tradesym: str, exchange: str) -> None:

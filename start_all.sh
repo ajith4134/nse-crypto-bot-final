@@ -13,6 +13,11 @@ bash srv/openalgo/start_local.sh
 
 echo "[2/7] Freqtrade (crypto engine)  :8080  — ACTIVE (owner graduated from the sandbox 2026-07-06)."
 echo "      Set CRYPTO_ENGINE=sandbox to fall back to the fast paper-learning sandbox."
+# SHORTS ENABLED (owner 2026-07-22: "huge sudden profit symbols placing short"): the earlier
+# LONG-only opening order is superseded — confirmed SHORTs (spike_fade lane) may now open.
+# Must be exported BEFORE the freqtrade launch below (practice_gate reads it in-engine) and
+# also covers the notebook runner further down.
+export NOTEBOOK_LONG_ONLY="${NOTEBOOK_LONG_ONLY:-0}"
 if [ "${CRYPTO_ENGINE:-freqtrade}" = "freqtrade" ] && ! pgrep -f "freqtrade trade" >/dev/null; then
   .venv/bin/python -m trading.crypto.freqtrade.launch   # regenerates config.json + start.sh
   setsid bash trading/crypto/freqtrade/start.sh >logs/freqtrade.log 2>&1 </dev/null &
@@ -178,6 +183,31 @@ pgrep -f "trading.online.run_live_loop" >/dev/null || \
   BRAIN_EXPLORE_OPEN_ALL="$BRAIN_EXPLORE_OPEN_ALL" BRAIN_EXPLORE_GRADUATE_N="$BRAIN_EXPLORE_GRADUATE_N" \
   setsid .venv/bin/python -m trading.online.run_live_loop >>logs/live_loop.log 2>&1 </dev/null &
 
+# PRACTICE NOTEBOOK (2026-07-21 owner): the brain's rough/calculating paper. Its own process —
+# ticks pending confirmations (~20s), drains Freqtrade gate-requests, and PRACTISES a cheap real
+# direction on the WHOLE ~500-symbol universe every ~60s (predict + grade, opens nothing). The
+# confirmation gate that blocks un-confirmed entries lives in MlBridgeStrategy.confirm_trade_entry
+# + funnel propose(); this daemon is what advances/grades them. Kill-switch: NOTEBOOK_ENABLED=0.
+# Flag falls back to ~/.env (owner turned the feature OFF 2026-07-22; cron relaunches must
+# agree with .env, not with cron's empty environment).
+NB_ON="${NOTEBOOK_ENABLED:-$(grep -oP '^NOTEBOOK_ENABLED=\K.*' .env 2>/dev/null | tail -1 || echo 1)}"
+if [ "${NB_ON:-1}" != "0" ]; then
+  pgrep -f "trading.brain.run_practice_notebook" >/dev/null || \
+    setsid nice -n 5 .venv/bin/python -m trading.brain.run_practice_notebook \
+      >>logs/practice_notebook.log 2>&1 </dev/null &
+fi
+
+# DIP-REVERSION lane (X24, 2026-07-21 owner "implement all three"): the ONLY entry rule with
+# measured out-of-sample edge (+0.438%/trade net at -3% dips, n=5,849; research/direction-brain-
+# mission/X23-RESULT.md). Buys big hourly drops in liquid 7d-downtrend coins at 1x with a ~2%
+# price stop + time exit (rules keyed on the dip_revert enter_tag in MlBridgeStrategy). These
+# LONGs still pass through the Practice Notebook gate. Kill-switch: DIP_LANE=0.
+if [ "${DIP_LANE:-1}" != "0" ]; then
+  pgrep -f "trading.research.dip_lane" >/dev/null || \
+    setsid nice -n 5 .venv/bin/python -m trading.research.dip_lane \
+      >>logs/dip_lane.log 2>&1 </dev/null &
+fi
+
 # Micro-policy distillation (invent-beyond #4): nightly full-tournament teacher run → per-coin
 # winner table + LightGBM student, so the funnel's selective decide() answers in ~ms. nice-10,
 # its own process — never inside a funnel cycle. Kill-switch: MICRO_POLICY=0 (the executor
@@ -269,6 +299,16 @@ export PUBLIC_HOST="${EXT_IP:+${EXT_IP}.sslip.io}"
 PUBLIC_URL="${PUBLIC_HOST:+https://${PUBLIC_HOST}}"
 echo "$PUBLIC_URL" > public_link.txt
 echo "redir * ${PUBLIC_URL}{uri} temporary" > gateway/redirect.caddy
+# Sync OpenAlgo's broker OAuth host to the live ephemeral IP too. Caddy/redirect above
+# already track $PUBLIC_HOST, but OpenAlgo reads REDIRECT_URL/HOST_SERVER from its own .env
+# at boot; a stop/start that reassigns the IP used to leave these two stale, so Zerodha's
+# callback bounced the browser to an IP we no longer own (ERR_CONNECTION_TIMED_OUT).
+# NOTE: the Zerodha Kite Connect app's registered redirect URL is ALSO IP-bound and lives on
+# Zerodha's console (not syncable from here) — reserve a STATIC external IP to end this churn.
+if [[ -n "$PUBLIC_HOST" && -f srv/openalgo/.env ]]; then
+  sed -i -E "s|^(REDIRECT_URL[[:space:]]*=[[:space:]]*').*(/zerodha/callback')|\1https://${PUBLIC_HOST}\2|" srv/openalgo/.env
+  sed -i -E "s|^(HOST_SERVER[[:space:]]*=[[:space:]]*').*(')|\1https://${PUBLIC_HOST}\2|" srv/openalgo/.env
+fi
 pkill -x caddy 2>/dev/null; sleep 1
 setsid "$HOME/.local/bin/caddy" run --config gateway/Caddyfile >logs/caddy.log 2>&1 </dev/null &
 echo; echo "== Health =="

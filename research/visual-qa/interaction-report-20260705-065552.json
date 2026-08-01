@@ -1,0 +1,35 @@
+{
+  "main_brain": {
+    "url": "http://localhost:8000/",
+    "n_controls": 0,
+    "counts": {
+      "ok": 0,
+      "dead": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "controls": []
+  },
+  "main_trading": {
+    "url": "http://localhost:8000/",
+    "n_controls": 0,
+    "counts": {
+      "ok": 0,
+      "dead": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "controls": []
+  },
+  "crypto_window": {
+    "url": "http://localhost:8000/?win=crypto",
+    "n_controls": 0,
+    "counts": {
+      "ok": 0,
+      "dead": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "controls": []
+  }
+}

@@ -82,12 +82,18 @@ class TestOptionsCycleHonesty(unittest.TestCase):
 
 class TestOptionBookGuard(unittest.TestCase):
     def _guard(self, bids, asks, env=None):
+        # 2026-07-23: the guard reads Binance's own eapi book via binance_options.option_book
+        # since the 2026-07-13 rewrite (ccxt.deribit returned empty books for Binance symbols).
+        # The old ccxt mock was dead — the real network call ran and failed the tight-book case.
         from trading.crypto.freqtrade.brain_executor import BrainExecutor
         ex = BrainExecutor.__new__(BrainExecutor)
-        fake_ccxt = mock.Mock()
-        fake_ccxt.deribit.return_value.fetch_order_book.return_value = {
-            "bids": bids, "asks": asks}
-        with mock.patch.dict("sys.modules", {"ccxt": fake_ccxt}), \
+        bid = float(bids[0][0]) if bids else 0.0
+        ask = float(asks[0][0]) if asks else 0.0
+        bk = (bid, ask) if (bids or asks) else None
+        with mock.patch("trading.broker_sense.binance_options.option_book",
+                        return_value=bk), \
+             mock.patch.object(BrainExecutor, "_to_binance_option",
+                               return_value="ETH-260710-1600-C"), \
              mock.patch.dict("os.environ", env or {}, clear=False):
             return ex._option_book_ok("ETH/USDC:USDC-260710-1600-C")
 

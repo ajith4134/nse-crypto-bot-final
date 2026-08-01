@@ -14,6 +14,7 @@ import PostmortemPanel from './PostmortemPanel.jsx'
 import ClosedTradesTable from './ClosedTradesTable.jsx'
 import PnlStrip from './PnlStrip.jsx'
 import PracticePanel from './PracticePanel.jsx'
+import PracticeNotebookPanel from './PracticeNotebookPanel.jsx'
 import TradeDrilldown from './TradeDrilldown.jsx'
 import ConfidenceHeatmap from './ConfidenceHeatmap.jsx'
 import ContextPanel from './ContextPanel.jsx'
@@ -150,6 +151,10 @@ export default function TradingDashboard() {
 
       <Card title="🔬 Trade Post-Mortem & Excursion — why trades win vs lose + ideal entry" hint="subgroup discovery over every closed trade's entry context: the patterns winners share vs losers · plus MFE/MAE peak timing and how much better the entry could have been per symbol · feeds size + entry back into the funnel when FEEDBACK LIVE">
         <PostmortemPanel />
+      </Card>
+
+      <Card title="📓 Practice Notebook — the brain's rough / calculating paper" hint="every pick waits on the rough page until price double-confirms the predicted direction, THEN opens (answer sheet) · went-the-other-way picks go to the mistakes book with the diagnosed cause and the wrong lens loses trust · practises + grades on all ~500 symbols">
+        <PracticeNotebookPanel />
       </Card>
 
       <Card title="Open Trades — unified (paper loop + Freqtrade + OpenAlgo)" hint={`${(openT.rows || []).length} live · ${(openT.columns || []).length} cols · Trade Type column shows the engine`}

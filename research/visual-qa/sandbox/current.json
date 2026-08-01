@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:8000/?win=crypto",
+  "http_status": 200,
+  "landed": true,
+  "console_errors": [],
+  "page_errors": [],
+  "body_len": 6373987,
+  "wall_ms": 6785,
+  "perf": {
+    "domContentLoaded": 437,
+    "loadEvent": 440,
+    "firstContentfulPaint": 576,
+    "resourceCount": 21,
+    "transferBytes": 740392,
+    "rootChildren": 1
+  },
+  "label": "current",
+  "stamp": "20260706-133606"
+}

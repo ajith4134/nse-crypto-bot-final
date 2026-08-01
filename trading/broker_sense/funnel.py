@@ -237,6 +237,22 @@ class BrokerSenseFunnel:
                     rows = liq
             except Exception:
                 pass
+            # INDEX OPTIONS (owner 2026-07-23): NIFTY/BANKNIFTY/…/SENSEX can never surface
+            # from the equity movers screen and is_liquid() rightly drops them, so the options
+            # segment always seeds the allowed index underlyings (NSE_OPT_INDEX_EXCHANGES)
+            # here. They earn their direction in LOOK exactly like any stock (Kite-mirror
+            # index candles → _vote; honest abstain on no data) and ExecAdapter's
+            # _route_nse_option already maps them to their NFO/BFO contracts.
+            if (segment or "").startswith("opt"):
+                try:
+                    from trading.screener.options import index_underlyings
+                    have = {r.get("symbol") for r in rows}
+                    for u in index_underlyings():
+                        if u not in have:
+                            rows.append({"symbol": u, "change": 0.0,
+                                         "lane": "index_seed", "preset": "index"})
+                except Exception:
+                    pass
         rep["stages"]["screen"] = {"preset": preset, "surfaced": len(rows), "fused": fused_n}
         _ts_screen_end = time.monotonic()     # PERF: SCREEN stage boundary (screen = this - t0)
 
@@ -312,6 +328,18 @@ class BrokerSenseFunnel:
                 print(f"[funnel:{self.market}] inception order failed, "
                       f"using heat order: {type(_ie).__name__}: {_ie!s:.80}", flush=True)
         new_hot = [s for s in hot if s not in open_syms][: _cap]
+        # INDEX UNDERLYINGS RIDE FREE (2026-07-23): the seeded indices carry change=0.0, so
+        # heat-ranking trimmed exactly them out of every shortlist (screened=47 → shortlist=40,
+        # 0 index direction claims in 90 min). Like open positions they append on TOP of the
+        # cap — 7 fixed symbols, negligible LOOK cost, and index options are an owner ask.
+        if self.market == "nse" and (segment or "").startswith("opt"):
+            try:
+                from trading.screener.options import index_underlyings
+                for u in index_underlyings():
+                    if u in by_sym and u not in new_hot and u not in open_syms:
+                        new_hot.append(u)
+            except Exception:
+                pass
         picks = [by_sym.get(s, {"symbol": s, "lane": "tradingview"})
                  for s in new_hot]
         picks += [by_sym.get(s, {"symbol": s, "lane": "open-position"})
@@ -582,6 +610,28 @@ class BrokerSenseFunnel:
         _ts_exec_start = time.monotonic()
         if self.market == "crypto":
             ex = self.executor(segment)
+            # PRACTICE NOTEBOOK (2026-07-21 owner): register each candidate's brain-picked
+            # direction + p_up on the rough book so the double-confirm clock starts NOW and
+            # abstention (conf < NOTEBOOK_ABSTAIN_BELOW) is applied where p_up is known. Opening
+            # is gated downstream by MlBridgeStrategy.confirm_trade_entry — this only starts the
+            # confirmation, it does not itself open or filter. Fully guarded.
+            try:
+                from trading.brain.practice_notebook import get_notebook
+                _nb = get_notebook()
+                if _nb.enabled and _nb.gate_all:
+                    _n_prop = 0
+                    for _s in tradeable:
+                        _asig = app_signals.get(_s) or {}
+                        _fz = _asig.get("indicator_fusion") or {}
+                        _vote_sig = _asig.get("vote") or {}
+                        _dir = _fz.get("direction") or _vote_sig.get("direction")
+                        _pup = _fz.get("p_up", _vote_sig.get("p_up"))
+                        if _dir in ("long", "short"):
+                            _nb.propose(_s, _dir, p_up=_pup, source="funnel")
+                            _n_prop += 1
+                    rep["stages"]["notebook"] = {"proposed": _n_prop}
+            except Exception as _e:
+                rep["stages"]["notebook_error"] = f"{type(_e).__name__}: {_e}"[:100]
             ex._symbols = sorted(set(tradeable) | open_syms)   # shortlist-only universe
             ex.extra_signals = app_signals                     # → decision_snapshot.app_signals
             # Unlimited mode: the executor gets a FRESH wall-clock budget measured from NOW (not
@@ -604,6 +654,28 @@ class BrokerSenseFunnel:
         else:
             traded = 0
             placed = []
+            # INTRADAY SQUARE-OFF (2026-07-23): this lane had NO exit path — positions piled up
+            # (incl. NRML carry the sandbox never auto-squares), ate the whole wallet and blocked
+            # every new entry. Enforce the owner's all-intraday directive here: at ≈15:14 IST
+            # flatten everything via OpenAlgo closeposition. Runs before entries so a due
+            # deadline never opens fresh positions in the same breath it should be flattening.
+            try:
+                _sq = self.exec.square_off_nse_if_due()
+                if _sq:
+                    rep["stages"]["square_off"] = _sq
+                    print(f"[funnel:nse] intraday square-off: closed={_sq.get('closed')} "
+                          f"ok={_sq.get('ok')}", flush=True)
+            except Exception as _sqe:
+                rep["stages"]["square_off_error"] = f"{type(_sqe).__name__}: {_sqe}"[:100]
+            # No fresh entries at/after the deadline — flatten-then-reopen would defeat it.
+            try:
+                from trading.squareoff import is_squareoff_due as _sq_due
+                if os.environ.get("NSE_INTRADAY_ONLY", "") in ("1", "true", "yes", "on") \
+                        and _sq_due("NFO"):
+                    tradeable = []
+                    rep["stages"]["entries_blocked"] = "squareoff_deadline"
+            except Exception:
+                pass
             for s in tradeable:
                 d, p = directions[s]
                 if d == "neutral":

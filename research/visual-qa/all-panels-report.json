@@ -1,0 +1,163 @@
+{
+  "main_brain": {
+    "url": "http://localhost:8000/",
+    "http_status": 200,
+    "landed": true,
+    "clicked": false,
+    "console_errors": [],
+    "page_errors": [],
+    "body_len": 58118,
+    "wall_ms": 4704,
+    "perf": {
+      "loadEvent": 743,
+      "firstContentfulPaint": 1124,
+      "transferBytes": 223836,
+      "resourceCount": 8,
+      "rootChildren": 482,
+      "panels": 6
+    },
+    "stamp": "20260704-212605"
+  },
+  "main_trading": {
+    "url": "http://localhost:8000/",
+    "http_status": 200,
+    "landed": true,
+    "clicked": true,
+    "console_errors": [],
+    "page_errors": [],
+    "body_len": 9057603,
+    "wall_ms": 15193,
+    "perf": {
+      "loadEvent": 459,
+      "firstContentfulPaint": 548,
+      "transferBytes": 886985,
+      "resourceCount": 133,
+      "rootChildren": 81919,
+      "panels": 0
+    },
+    "stamp": "20260704-212620"
+  },
+  "crypto_window": {
+    "url": "http://localhost:8000/?win=crypto",
+    "http_status": 200,
+    "landed": true,
+    "clicked": false,
+    "console_errors": [],
+    "page_errors": [],
+    "body_len": 6261458,
+    "wall_ms": 5882,
+    "perf": {
+      "loadEvent": 430,
+      "firstContentfulPaint": 496,
+      "transferBytes": 705640,
+      "resourceCount": 21,
+      "rootChildren": 56659,
+      "panels": 0
+    },
+    "stamp": "20260704-212626"
+  },
+  "hub": {
+    "url": "http://localhost:8000/hub",
+    "http_status": 200,
+    "landed": true,
+    "clicked": false,
+    "console_errors": [],
+    "page_errors": [],
+    "body_len": 16983,
+    "wall_ms": 3714,
+    "perf": {
+      "loadEvent": 22,
+      "firstContentfulPaint": 64,
+      "transferBytes": 0,
+      "resourceCount": 0,
+      "rootChildren": 218,
+      "panels": 4
+    },
+    "stamp": "20260704-212629"
+  },
+  "architecture": {
+    "url": "http://localhost:8000/architecture",
+    "http_status": 200,
+    "landed": true,
+    "clicked": false,
+    "console_errors": [],
+    "page_errors": [],
+    "body_len": 6894,
+    "wall_ms": 3649,
+    "perf": {
+      "loadEvent": 12,
+      "firstContentfulPaint": 48,
+      "transferBytes": 0,
+      "resourceCount": 0,
+      "rootChildren": 82,
+      "panels": 0
+    },
+    "stamp": "20260704-212633"
+  },
+  "knowledge": {
+    "url": "http://localhost:8000/knowledge",
+    "http_status": 200,
+    "landed": true,
+    "clicked": false,
+    "console_errors": [],
+    "page_errors": [],
+    "body_len": 40726,
+    "wall_ms": 3729,
+    "perf": {
+      "loadEvent": 73,
+      "firstContentfulPaint": 84,
+      "transferBytes": 80085,
+      "resourceCount": 2,
+      "rootChildren": 373,
+      "panels": 0
+    },
+    "stamp": "20260704-212637"
+  },
+  "openalgo": {
+    "url": "http://localhost:8000/auto-trading",
+    "http_status": 404,
+    "landed": false,
+    "clicked": false,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "page_errors": [],
+    "body_len": 160,
+    "wall_ms": 3623,
+    "perf": {
+      "loadEvent": 23,
+      "firstContentfulPaint": 36,
+      "transferBytes": 0,
+      "resourceCount": 0,
+      "rootChildren": 1,
+      "panels": 0
+    },
+    "stamp": "20260704-212641"
+  },
+  "frequi": {
+    "url": "http://localhost:8080/",
+    "http_status": 200,
+    "landed": false,
+    "clicked": false,
+    "console_errors": [
+      "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of \"text/html\". Strict MIME type checking is enforced for module scripts per HTML spec.",
+      "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of \"text/html\". Strict MIME type checking is enforced for module scripts per HTML spec.",
+      "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of \"text/html\". Strict MIME type checking is enforced for module scripts per HTML spec.",
+      "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of \"text/html\". Strict MIME type checking is enforced for module scripts per HTML spec.",
+      "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of \"text/html\". Strict MIME type checking is enforced for module scripts per HTML spec.",
+      "Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of \"text/html\". Strict MIME type checking is enforced for module scripts per HTML spec."
+    ],
+    "page_errors": [],
+    "body_len": 2534,
+    "wall_ms": 4069,
+    "perf": {
+      "loadEvent": 459,
+      "firstContentfulPaint": 0,
+      "transferBytes": 20951,
+      "resourceCount": 8,
+      "rootChildren": 2,
+      "panels": 0
+    },
+    "stamp": "20260704-212645"
+  }
+}

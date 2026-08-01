@@ -1,0 +1,151 @@
+{
+  "crypto_window": {
+    "url": "http://localhost:8000/?win=crypto",
+    "n_controls": 9,
+    "counts": {
+      "ok": 5,
+      "dead": 2,
+      "error": 0,
+      "skipped": 2
+    },
+    "controls": [
+      {
+        "i": 0,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\ud83d\uded1 PANIC (halt all)",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "destructive \u2014 not clicked"
+      },
+      {
+        "i": 1,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u25b6 Start trading",
+        "disabled": false,
+        "visible": true,
+        "verdict": "skipped",
+        "effect": "heavy job \u2014 not clicked"
+      },
+      {
+        "i": 2,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u23f9 Stop trading",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "6 request(s)",
+        "requests": [
+          "POST localhost:8000/api/trading/online/control \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 3,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Switch to LIVE \ud83d\udcb5",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no request / no DOM change",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": null
+      },
+      {
+        "i": 4,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "\u2192 Futures (short)",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "no request / no DOM change",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "dead",
+        "detail": null
+      },
+      {
+        "i": 5,
+        "tag": "input",
+        "type": "",
+        "role": "",
+        "label": "filter all cells\u2026",
+        "disabled": false,
+        "visible": true,
+        "action": "type",
+        "effect": "value set (controlled input)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 6,
+        "tag": "input",
+        "type": "checkbox",
+        "role": "",
+        "label": "on",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "7 request(s)",
+        "requests": [
+          "GET localhost:8000/api/trading/online/status \u2192 200",
+          "GET localhost:8000/api/trading/tickers \u2192 200",
+          "GET localhost:8000/api/trading/online/loop \u2192 200",
+          "GET localhost:8000/api/trading/opentrades \u2192 200"
+        ],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 7,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Columns \u25be",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "DOM +274",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      },
+      {
+        "i": 8,
+        "tag": "button",
+        "type": "",
+        "role": "",
+        "label": "Export CSV",
+        "disabled": false,
+        "visible": true,
+        "action": "click",
+        "effect": "download (closed_trades_2026-07-05-07-24-39.csv)",
+        "requests": [],
+        "errors_new": 0,
+        "verdict": "ok",
+        "detail": null
+      }
+    ]
+  }
+}

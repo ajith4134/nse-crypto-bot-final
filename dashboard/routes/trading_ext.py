@@ -35,6 +35,64 @@ def handle_practice(h):
     return h._send(200, body, "application/json")
 
 
+def handle_practice_notebook(h):
+    """GET /api/trading/practice_notebook — the brain's rough/calculating paper.
+
+    STATE-FILE-READ-ONLY (hard rule): reads only the notebook's JSON state files that the
+    run_practice_notebook daemon writes — never imports the WS mirror or a brain lens in this
+    request thread. Returns rough page (pending), answer sheet, mistakes book, and report card.
+    """
+    try:
+        from trading import state
+        rough = state.load_json("practice_notebook_rough.json", {}) or {}
+        answers = state.load_json("practice_notebook_answers.json", []) or []
+        mistakes = state.load_json("practice_notebook_mistakes.json", []) or []
+        report = state.load_json("practice_notebook_report.json", {}) or {}
+        practice = state.load_json("practice_notebook_practice.json", {}) or {}
+        confirmed = state.load_json("practice_notebook_confirmed.json", {}) or {}
+        now = time.time()
+        agg = practice.get("agg", {}) or {}
+        reg = {k: (round(v["correct"] / v["n"], 4) if v.get("n") else None)
+               for k, v in (practice.get("regime_agg", {}) or {}).items()}
+        opened = int(report.get("confirmed", 0))
+        rejected = int(report.get("rejected", 0))
+        body = json.dumps({
+            "enabled": os.environ.get("NOTEBOOK_ENABLED", "1") not in ("0", "false"),
+            "long_only": os.environ.get("NOTEBOOK_LONG_ONLY", "1") not in ("0", "false"),
+            "confirmations_required": int(float(os.environ.get("NOTEBOOK_CONFIRMATIONS_REQUIRED", "2"))),
+            "abstain_below": float(os.environ.get("NOTEBOOK_ABSTAIN_BELOW", "0.52")),
+            # rough page: live pending attempts being watched
+            "rough": [
+                {"symbol": a.get("symbol"), "side": a.get("side"), "p_up": a.get("p_up"),
+                 "confirms": a.get("confirms", 0), "regime": a.get("regime"),
+                 "age_s": round(now - a.get("created_ts", now), 1)}
+                for a in rough.values() if a.get("status") == "pending"
+            ],
+            "answer_sheet": list(reversed(answers[-40:])),     # newest first
+            "mistakes": list(reversed(mistakes[-40:])),
+            "report": {
+                "practice_n": int(agg.get("n", 0)),
+                "practice_direction_hit_rate": (round(agg["correct"] / agg["n"], 4)
+                                                if agg.get("n") else None),
+                "per_regime": reg,
+                "universe": practice.get("universe"),
+                "opened": opened, "rejected": rejected,
+                "confirm_rate": (round(opened / (opened + rejected), 4)
+                                 if (opened + rejected) else None),
+                "abstained": int(report.get("abstained", 0)),
+                "reject_causes": report.get("reject_causes", {}),
+                "confirmed_live": sum(1 for r in confirmed.values()
+                                      if r.get("status") == "confirmed" and now <= r.get("expires", 0)),
+                "updated_ts": practice.get("updated_ts") or report.get("updated_ts"),
+            },
+        }, default=str).encode()
+    except Exception as e:
+        body = json.dumps({"note": f"practice_notebook unavailable: {e}",
+                           "rough": [], "answer_sheet": [], "mistakes": [],
+                           "report": {}}).encode()
+    return h._send(200, body, "application/json")
+
+
 def handle_venues(h):
     """GET /api/trading/venues — multi-venue market-DATA pool telemetry (ban-proofing): per-venue
     calls/errors/budget/ban-cooldown across binance/bybit/okx/kucoin. Read-only."""

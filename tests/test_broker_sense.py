@@ -240,11 +240,14 @@ class TestExecAdapter(_IsolatedState):
         return cli
 
     def test_nse_futures_routes_to_nfo_near_month_contract(self):
-        """Segment=futures → near-month FUT on NFO, product NRML, quantity in whole lots."""
+        """Segment=futures → near-month FUT on NFO, product NRML (carry, flag off),
+        quantity in whole lots. Pins NSE_INTRADAY_ONLY=0 — the live .env sets 1 and
+        config.settings loads it into os.environ, which flips NRML→MIS."""
         from trading.broker_sense.exec_adapter import ExecAdapter
         cli = self._fno_cli()
-        r = ExecAdapter(nse_client=cli).place(market="nse", symbol="RELIANCE", action="BUY",
-                                              segment="futures", quantity=2)
+        with mock.patch.dict(os.environ, {"NSE_INTRADAY_ONLY": "0"}):
+            r = ExecAdapter(nse_client=cli).place(market="nse", symbol="RELIANCE", action="BUY",
+                                                  segment="futures", quantity=2)
         self.assertTrue(r["placed"])
         kw = cli.place_order.call_args.kwargs
         self.assertEqual(kw["symbol"], "RELIANCE28JUL26FUT")   # resolved contract, not the underlying
@@ -252,6 +255,17 @@ class TestExecAdapter(_IsolatedState):
         self.assertEqual(kw["product"], "NRML")
         self.assertEqual(kw["quantity"], 1000)                 # 2 lots × 500
         self.assertEqual(r["traded_symbol"], "RELIANCE28JUL26FUT")
+
+    def test_nse_intraday_only_forces_mis_product(self):
+        """Owner 2026-07-21: NSE_INTRADAY_ONLY=1 → every NSE F&O order is MIS (intraday),
+        never NRML carry. Regression for the funnel gap fixed 2026-07-23 (ExecAdapter placed
+        NRML while live_loop already converted)."""
+        from trading.broker_sense.exec_adapter import ExecAdapter
+        cli = self._fno_cli()
+        with mock.patch.dict(os.environ, {"NSE_INTRADAY_ONLY": "1"}):
+            ExecAdapter(nse_client=cli).place(market="nse", symbol="RELIANCE", action="BUY",
+                                              segment="futures", quantity=1)
+        self.assertEqual(cli.place_order.call_args.kwargs["product"], "MIS")
 
     def test_nse_equity_still_routes_whole_shares_to_nse(self):
         from trading.broker_sense.exec_adapter import ExecAdapter
